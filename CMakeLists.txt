@@ -1,0 +1,29 @@
+﻿# CMakeList.txt : CMake project for pebbling-pdr, include source and define
+# project specific logic here.
+#
+cmake_minimum_required (VERSION 3.8)
+project ("pebbling-pdr")
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(fmt CONFIG REQUIRED)
+find_package(Z3 CONFIG REQUIRED)
+
+file(GLOB SOURCES "src/*.cpp")
+file(GLOB MODEL_SOURCES "src/model/*.cpp")
+
+file(GLOB MODEL_HEADERS "inc/model/*.h")
+file(GLOB AUX_HEADERS "inc/auxialiary/*.h")
+
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${MODEL_HEADERS} ${AUX_HEADERS})
+
+target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model)
+
+target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
+target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
+
+# make benchmarks availible in out/build
+add_custom_command(TARGET pebbling-pdr PRE_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/benchmark/iscas85/bench $<TARGET_FILE_DIR:pebbling-pdr>/benchmark/iscas85/bench)
