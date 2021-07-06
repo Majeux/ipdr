@@ -52,7 +52,7 @@ int main()
 
 	PDRModel model(ctx);
 
-	model.load_model(G);
+	model.load_model(G, max_pebbles);
 
 	return 0;
 }

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "dag.h"
+#include "exp-cache.h"
 
 using std::unique_ptr;
 using std::shared_ptr;
@@ -25,19 +26,12 @@ class PDRModel
 		PDRModel(shared_ptr<context> c);
 
 		void load_model(const Graph& G, int max_pebbles);
-
-		const expr& not(const expr& lit);
-		const expr& next(const expr& lit);
-		const expr& not_next(const expr& lit);
 	
 	private:
 		shared_ptr<context> ctx;
 
-		shared_ptr<unordered_map<unsigned, size_t>> literal_index;
-		shared_ptr<expr_vector> literals;
-		shared_ptr<expr_vector> literals_p;
-		shared_ptr<expr_vector> not_literals;
-		shared_ptr<expr_vector> not_literals_p;
+		ExpressionCache literals;
+		ExpressionCache property;
 
 		expr_vector initial;
 		expr_vector transition; //vector of clauses (cnf)
