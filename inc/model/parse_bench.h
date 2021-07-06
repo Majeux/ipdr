@@ -161,7 +161,7 @@ Graph parse_file(string filename)
         if (line == "" || line[0] == '#')
             continue;
 
-        LineResult result = new LineResult(false);
+        LineResult result(false);
 
         while (state != _END)
         {

@@ -54,7 +54,7 @@ class ExpressionCache
 		//expose vectors for enumeration
 		const expr_vector& currents() const { return current; }
 		const expr_vector& nexts() const { return next; }
-		const int size() const { return current.size(); }
+		int size() const { return current.size(); }
 		
 
 		void add_literal(const string& name)
