@@ -23,7 +23,7 @@ target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model)
 target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
 
-# make benchmarks availible in out/build
+# make benchmarks available in out/build
 add_custom_command(TARGET pebbling-pdr PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${CMAKE_SOURCE_DIR}/benchmark/iscas85/bench $<TARGET_FILE_DIR:pebbling-pdr>/benchmark/iscas85/bench)

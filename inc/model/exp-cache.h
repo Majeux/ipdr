@@ -4,6 +4,7 @@
 #include <z3++.h>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include "string-extensions.h"
 
@@ -23,8 +24,8 @@ class ExpressionCache
 
 		expr_vector literals;
 		expr_vector literals_p;
-		expr_vector not_literals;
-		expr_vector not_literals_p;
+		expr_vector neg_literals;
+		expr_vector neg_literals_p;
 
 	public:
 		ExpressionCache(shared_ptr<context> c) :
@@ -32,8 +33,8 @@ class ExpressionCache
 			ctx(c),
 			literals(*c),
 			literals_p(*c),
-			not_literals(*c),
-			not_literals_p(*c)
+			neg_literals(*c),
+			neg_literals_p(*c)
 		{ }
 
 		int indexof(const expr& e) const { return literal_index.at(e.id()); }
@@ -47,12 +48,12 @@ class ExpressionCache
 		expr operator()(int i) const { return literals[i]; }
 
 		//negated current state expressions
-		expr not(const expr& e) const
+		expr neg(const expr& e) const
 		{
 			int i = literal_index.at(e.id());
-			return not_literals[i];
+			return neg_literals[i];
 		}
-		expr not(int i) const { return not_literals[i]; }
+		expr neg(int i) const { return neg_literals[i]; }
 
 		//next state expressions
 		expr p(const expr& e) const
@@ -63,18 +64,18 @@ class ExpressionCache
 		expr p(int i) const { return literals_p[i]; }
 
 		//negated next state expressions
-		expr notp(const expr& e) const
+		expr negp(const expr& e) const
 		{
 			int i = literal_index.at(e.id());
-			return not_literals_p[i];
+			return neg_literals_p[i];
 		}
-		expr notp(int i) const { return not_literals_p[i]; }
+		expr negp(int i) const { return neg_literals_p[i]; }
 
 		//expose vectors for enumeration
 		const expr_vector& lits() const { return literals; }
-		const expr_vector& nots() const { return not_literals; }
+		const expr_vector& negs() const { return neg_literals; }
 		const expr_vector& ps() const { return literals_p; }
-		const expr_vector& not_ps() const { return not_literals_p; }
+		const expr_vector& neg_ps() const { return neg_literals_p; }
 		const int size() const { return literals.size(); }
 		
 
@@ -85,13 +86,13 @@ class ExpressionCache
 
 			expr lit = ctx->bool_const(name.c_str());
 			expr lit_p = ctx->bool_const((name + ".p").c_str());
-			expr not_lit = !lit;
-			expr not_lit_p = !lit_p;
+			expr neg_lit = !lit;
+			expr neg_lit_p = !lit_p;
 
 			literals.push_back(move(lit));
 			literals_p.push_back(move(lit_p));
-			not_literals.push_back(move(not_lit));
-			not_literals_p.push_back(move(not_lit_p));
+			neg_literals.push_back(move(neg_lit));
+			neg_literals_p.push_back(move(neg_lit_p));
 
 			literal_index.insert(std::make_pair(lit.id(), literals.size() - 1));
 		}
@@ -104,10 +105,10 @@ class ExpressionCache
 
 		void print() const
 		{
-			std::cout << "Lits:          " << join(literals) << std::endl;
-			std::cout << "Next Lits:     " << join(literals_p) << std::endl;
-			std::cout << "Not Lits:      " << join(not_literals) << std::endl;
-			std::cout << "Not Next Lits: " << join(not_literals_p) << std::endl;
+			std::cout << "Lits:          " << stringext::join(literals) << std::endl;
+			std::cout << "Next Lits:     " << stringext::join(literals_p) << std::endl;
+			std::cout << "Not Lits:      " << stringext::join(neg_literals) << std::endl;
+			std::cout << "Not Next Lits: " << stringext::join(neg_literals_p) << std::endl;
 		}
 };
 

@@ -1,12 +1,13 @@
 #ifndef PARSE_BENCH
 #define PARSE_BENCH
 
+#include <cassert>
 #include <string>
 #include <vector>
-#include <fmt/format.h>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <fmt/format.h>
 
 #include "model/dag.h"
 #include "auxiliary/string-extensions.h"
@@ -60,7 +61,7 @@ vector<string> parse_any_operator(string operands)
     assert(operands_begin < end_bracket);
 
     size_t n_chars = end_bracket - operands_begin;
-    return split(operands.substr(operands_begin, n_chars), ',');
+    return stringext::split(operands.substr(operands_begin, n_chars), ',');
 }
 
 vector<string> parse_operator(const string& line, string op)
@@ -93,7 +94,7 @@ LineResult parse_line(const string& line, BenchState state)
                 return  LineResult(false);
 
             new_node = line.substr(0, sep);
-            trim(new_node);
+			stringext::trim(new_node);
             nodes = parse_any_operator(line);
             break;
         default:
@@ -154,7 +155,7 @@ Graph parse_file(string filename)
     string line;
     while (std::getline(file, line)) 
     {
-        trim(line);
+		stringext::trim(line);
 
         // ignore empty lines and comments
         if (line == "" || line[0] == '#')

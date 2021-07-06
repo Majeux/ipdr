@@ -37,6 +37,7 @@
 #cmake
 out
 CMakeSettings.json
+build
 
 #z3
 .z3-trace

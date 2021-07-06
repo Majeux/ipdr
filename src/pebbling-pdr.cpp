@@ -26,7 +26,9 @@ void test()
 
 	test_solver.add(vars[0] & vars[1]);
 
-	check_result result = test_solver.check(1, &(!vars[0]));
+	expr e = !vars[0];
+
+	check_result result = test_solver.check(1, &e);
 
 	if (result == sat)
 		cout << "SAT" << endl;
