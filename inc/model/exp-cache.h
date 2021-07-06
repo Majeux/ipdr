@@ -22,19 +22,15 @@ class ExpressionCache
 		shared_ptr<context> ctx;
 		std::unordered_map<unsigned, int> literal_index;
 
-		expr_vector literals;
-		expr_vector literals_p;
-		expr_vector neg_literals;
-		expr_vector neg_literals_p;
+		expr_vector current;
+		expr_vector next;
 
 	public:
 		ExpressionCache(shared_ptr<context> c) :
 			encodes(Encoding::UNKNOWN),
 			ctx(c),
-			literals(*c),
-			literals_p(*c),
-			neg_literals(*c),
-			neg_literals_p(*c)
+			current(*c),
+			next(*c)
 		{ }
 
 		int indexof(const expr& e) const { return literal_index.at(e.id()); }
@@ -43,40 +39,22 @@ class ExpressionCache
 		expr operator()(const expr& e) const
 		{
 			int i = literal_index.at(e.id());
-			return literals[i];
+			return current[i];
 		}
-		expr operator()(int i) const { return literals[i]; }
-
-		//negated current state expressions
-		expr neg(const expr& e) const
-		{
-			int i = literal_index.at(e.id());
-			return neg_literals[i];
-		}
-		expr neg(int i) const { return neg_literals[i]; }
+		expr operator()(int i) const { return current[i]; }
 
 		//next state expressions
 		expr p(const expr& e) const
 		{
 			int i = literal_index.at(e.id());
-			return literals_p[i];
+			return next[i];
 		}
-		expr p(int i) const { return literals_p[i]; }
-
-		//negated next state expressions
-		expr negp(const expr& e) const
-		{
-			int i = literal_index.at(e.id());
-			return neg_literals_p[i];
-		}
-		expr negp(int i) const { return neg_literals_p[i]; }
+		expr p(int i) const { return next[i]; }
 
 		//expose vectors for enumeration
-		const expr_vector& lits() const { return literals; }
-		const expr_vector& negs() const { return neg_literals; }
-		const expr_vector& ps() const { return literals_p; }
-		const expr_vector& neg_ps() const { return neg_literals_p; }
-		const int size() const { return literals.size(); }
+		const expr_vector& currents() const { return current; }
+		const expr_vector& nexts() const { return next; }
+		const int size() const { return current.size(); }
 		
 
 		void add_literal(const string& name)
@@ -86,29 +64,27 @@ class ExpressionCache
 
 			expr lit = ctx->bool_const(name.c_str());
 			expr lit_p = ctx->bool_const((name + ".p").c_str());
-			expr neg_lit = !lit;
-			expr neg_lit_p = !lit_p;
 
-			literals.push_back(move(lit));
-			literals_p.push_back(move(lit_p));
-			neg_literals.push_back(move(neg_lit));
-			neg_literals_p.push_back(move(neg_lit_p));
+			current.push_back(move(lit));
+			next.push_back(move(lit_p));
 
-			literal_index.insert(std::make_pair(lit.id(), literals.size() - 1));
+			literal_index.insert(std::make_pair(lit.id(), current.size() - 1));
 		}
 
-		void add_expression(const expr& e, const ExpressionCache& cache)
+		void add_expression(expr e, const ExpressionCache& cache)
 		{
 			assert(cache.encodes == Encoding::LITERALS);
 			encodes = Encoding::EXPRESSIONS;
+
+			current.push_back(e);
+			expr e_next = e.substitute(cache.currents(), cache.nexts());
+			next.push_back(e_next);
 		}
 
 		void print() const
 		{
-			std::cout << "Lits:          " << stringext::join(literals) << std::endl;
-			std::cout << "Next Lits:     " << stringext::join(literals_p) << std::endl;
-			std::cout << "Not Lits:      " << stringext::join(neg_literals) << std::endl;
-			std::cout << "Not Next Lits: " << stringext::join(neg_literals_p) << std::endl;
+			std::cout << "Lits:      " << stringext::join(current) << std::endl;
+			std::cout << "Next Lits: " << stringext::join(next) << std::endl;
 		}
 };
 

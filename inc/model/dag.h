@@ -94,6 +94,8 @@ class Graph
             stream << "}" << std::endl;
             return stream;
         }
+
+		bool is_output(const string& name) const { return output.find(name) != output.end(); }
 };
 
 #endif

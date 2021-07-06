@@ -1,11 +1,12 @@
 #include "pdr-model.h"
 
-using std::move;
+using z3::expr;
 
 PDRModel::PDRModel(shared_ptr<context> c) : 
 	ctx(c), 
 	literals(c),
 	property(c),
+	not_property(c),
 	initial(*c),
 	transition(*c), 
 	cardinality(*c)
@@ -23,23 +24,38 @@ void PDRModel::load_pebble_transition(const Graph& G, int max_pebbles)
 			expr child_node = ctx->bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
 
-			transition.push_back(    literals(i) | literals.negp(i) | literals(child_i));
-			transition.push_back(literals.neg(i) |    literals.p(i) | literals(child_i));
-			transition.push_back(    literals(i) | literals.negp(i) | literals.p(child_i));
-			transition.push_back(literals.neg(i) |    literals.p(i) | literals.p(child_i));
+			transition.push_back(  literals(i) | !literals.p(i) | literals(child_i));
+			transition.push_back( !literals(i) |  literals.p(i) | literals(child_i));
+			transition.push_back(  literals(i) | !literals.p(i) | literals.p(child_i));
+			transition.push_back( !literals(i) |  literals.p(i) | literals.p(child_i));
 		}
 	}
 
-	cardinality.push_back(z3::atmost(literals.lits(), max_pebbles));
-	cardinality.push_back(z3::atmost(literals.ps(), max_pebbles));
-
-	std::cout << transition << std::endl;
-	std::cout << cardinality << std::endl;
+	cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
+	cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
 }
 
-void PDRModel::load_property()
+void PDRModel::load_property(const Graph& G)
 {
+	//final nodes are pebbled and others are not
+	for (const expr& e : literals.currents())
+	{
+		if (G.is_output(e.to_string()))
+			not_property.add_expression(e, literals);
+		else
+			not_property.add_expression(!e, literals);
+	}
 
+	//final nodes are unpebbled and others are
+	expr_vector disjunction(*ctx);
+	for (const expr& e : literals.currents())
+	{
+		if (G.is_output(e.to_string()))
+			disjunction.push_back(!e);
+		else
+			disjunction.push_back(e);
+	}
+	property.add_expression(z3::mk_or(disjunction), literals);
 }
 
 void PDRModel::load_model(const Graph& G, int max_pebbles) 
@@ -49,11 +65,16 @@ void PDRModel::load_model(const Graph& G, int max_pebbles)
 	for (string node : G.nodes)
 		literals.add_literal(node);
 
-	for (const expr& e : literals.negs())
-		initial.push_back(e);
+	for (const expr& e : literals.currents())
+		initial.push_back(!e);
 
 	literals.print();
 
 	load_pebble_transition(G, max_pebbles);
-	load_property();
+	std::cout << transition << std::endl;
+
+	load_property(G);
+	std::cout << "property: " << std::endl; property.print();
+	std::cout << "not_property: " << std::endl; not_property.print();
+
 }

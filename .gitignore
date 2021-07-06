@@ -38,6 +38,7 @@
 out
 CMakeSettings.json
 build
+.cache
 
 #z3
 .z3-trace
