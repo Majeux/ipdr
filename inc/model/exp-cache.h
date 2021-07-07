@@ -52,6 +52,16 @@ class ExpressionCache
 			return next[i];
 		}
 		expr p(int i) const { return next[i]; }
+		
+		//converts a vector of literals into a vector of literals in the next state
+		//assumes vec is a vector of consts in current
+		expr_vector p(const expr_vector& vec) const
+		{
+			expr_vector vec_next(*ctx);
+			for (const expr& e : vec)
+				vec_next.push_back(next[e.id()]);
+			return vec_next;
+		}
 
 		//expose vectors for enumeration
 		const expr_vector& currents() const { return current; }

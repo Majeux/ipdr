@@ -37,11 +37,13 @@ class PDR
 		bool init();
 		bool iterate();
 		bool block(std::priority_queue<Obligation> obligations, unsigned level);
-		void remove_state(expr_vector& smaller_cti, int level);
+		void remove_state(expr_vector& cube, int level);
 		bool propagate(unsigned level);
 
 		int highest_inductive_frame(const expr_vector& cube, int min, int max);
 		expr_vector generalize(const expr_vector& cube, int level);
+		expr_vector MIC(const expr_vector& cube, int level) const;
+		bool down(vector<expr>& cube, int level) const;
 
 	public:
 		PDR(shared_ptr<context> c, const PDRModel& m);
