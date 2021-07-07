@@ -5,11 +5,9 @@
 #include <algorithm>
 #include <vector>
 #include <sstream>
-#include <fmt/format.h>
 
 using std::vector;
 using std::string;
-using fmt::format;
 
 namespace stringext 
 {

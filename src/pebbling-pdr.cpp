@@ -5,6 +5,7 @@
 #include "pdr-model.h"
 #include "parse_bench.h"
 #include "dag.h"
+#include "pdr.h"
 
 using namespace std;
 using namespace z3;
@@ -53,8 +54,12 @@ int main()
 	shared_ptr<z3::context> ctx(new z3::context(settings));
 
 	PDRModel model(ctx);
-
 	model.load_model(G, max_pebbles);
+
+	if (pdr::init(model))
+		cout << "Survived Initiation" << endl;
+	else
+		cout << "Nope" << endl;
 
 	return 0;
 }

@@ -12,6 +12,10 @@ PDRModel::PDRModel(shared_ptr<context> c) :
 	cardinality(*c)
 { }
 
+const expr_vector& PDRModel::get_transition() const { return transition; }
+const expr_vector& PDRModel::get_initial() const { return initial; }
+const expr_vector& PDRModel::get_cardinality() const { return cardinality; }
+
 void PDRModel::load_pebble_transition(const Graph& G, int max_pebbles)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
@@ -45,6 +49,7 @@ void PDRModel::load_property(const Graph& G)
 		else
 			not_property.add_expression(!e, literals);
 	}
+	not_property.finish();
 
 	//final nodes are unpebbled and others are
 	expr_vector disjunction(*ctx);
@@ -56,6 +61,7 @@ void PDRModel::load_property(const Graph& G)
 			disjunction.push_back(e);
 	}
 	property.add_expression(z3::mk_or(disjunction), literals);
+	property.finish();
 }
 
 void PDRModel::load_model(const Graph& G, int max_pebbles) 
@@ -64,6 +70,7 @@ void PDRModel::load_model(const Graph& G, int max_pebbles)
 
 	for (string node : G.nodes)
 		literals.add_literal(node);
+	literals.finish();
 
 	for (const expr& e : literals.currents())
 		initial.push_back(!e);

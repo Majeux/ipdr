@@ -20,17 +20,18 @@ struct Clause
 class PDRModel
 {
 	public:
-		PDRModel(shared_ptr<context> c);
-
-		void load_model(const Graph& G, int max_pebbles);
-	
-	private:
 		shared_ptr<context> ctx;
-
 		ExpressionCache literals;
 		ExpressionCache property;
 		ExpressionCache not_property;
 
+		PDRModel(shared_ptr<context> c);
+		void load_model(const Graph& G, int max_pebbles);
+		const expr_vector& get_transition() const;
+		const expr_vector& get_initial() const;
+		const expr_vector& get_cardinality() const;
+
+	private:
 		expr_vector initial;
 		expr_vector transition; //vector of clauses (cnf)
 		expr_vector cardinality; //cardinality constraint for current and next state

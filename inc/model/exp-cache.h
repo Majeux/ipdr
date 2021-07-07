@@ -2,6 +2,7 @@
 #define EXP_CACHE
 
 #include <z3++.h>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,6 +19,7 @@ using z3::expr_vector;
 class ExpressionCache
 {
 	private:
+		bool finished = false; //add no new expressions after finish() has been called
 		enum class Encoding {UNKNOWN, LITERALS, EXPRESSIONS} encodes;
 		shared_ptr<context> ctx;
 		std::unordered_map<unsigned, int> literal_index;
@@ -59,6 +61,7 @@ class ExpressionCache
 
 		void add_literal(const string& name)
 		{
+			assert(!finished);
 			if (encodes != Encoding::EXPRESSIONS)
 				encodes = Encoding::LITERALS;
 
@@ -73,6 +76,7 @@ class ExpressionCache
 
 		void add_expression(expr e, const ExpressionCache& cache)
 		{
+			assert(!finished);
 			assert(cache.encodes == Encoding::LITERALS);
 			encodes = Encoding::EXPRESSIONS;
 
@@ -80,6 +84,8 @@ class ExpressionCache
 			expr e_next = e.substitute(cache.currents(), cache.nexts());
 			next.push_back(e_next);
 		}
+
+		void finish() { finished = true; }
 
 		void print() const
 		{
