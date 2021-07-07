@@ -56,10 +56,7 @@ int main()
 	PDRModel model(ctx);
 	model.load_model(G, max_pebbles);
 
-	if (pdr::init(model))
-		cout << "Survived Initiation" << endl;
-	else
-		cout << "Nope" << endl;
-
+	PDR algorithm(ctx, model);
+	algorithm.run();
 	return 0;
 }
