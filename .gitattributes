@@ -2,4 +2,4 @@
 * text=auto
 
 # exclude benchmark files from git language
-benchmark/* linguist-vendored
+*.v linguist-vendored
