@@ -20,7 +20,9 @@ struct Obligation
 	int level;
 	expr_vector cube;
 
-	bool operator<(const Obligation& o) { return this->level < o.level; }
+	Obligation(int k, const expr_vector& e) : level(k), cube(e) { }
+
+	bool operator<(const Obligation& o) const { return this->level < o.level; }
 };
 
 class PDR 
@@ -34,16 +36,17 @@ class PDR
 
 		Frame* make_frame(int level);
 		void print_model(const z3::model& m);
+		//main loops
 		bool init();
 		bool iterate();
 		bool block(std::priority_queue<Obligation> obligations, unsigned level);
 		void remove_state(expr_vector& cube, int level);
 		bool propagate(unsigned level);
-
+		//generalization
 		int highest_inductive_frame(const expr_vector& cube, int min, int max);
 		expr_vector generalize(const expr_vector& cube, int level);
-		expr_vector MIC(const expr_vector& cube, int level) const;
-		bool down(vector<expr>& cube, int level) const;
+		expr_vector MIC(const expr_vector& cube, int level);
+		bool down(vector<expr>& cube, int level);
 
 	public:
 		PDR(shared_ptr<context> c, const PDRModel& m);

@@ -1,6 +1,7 @@
+#include <cstddef>
+#include <z3++.h>
 #include <algorithm>
 #include <vector>
-#include <z3++.h>
 
 #include "pdr.h"
 
@@ -56,10 +57,10 @@ expr_vector PDR::generalize(const expr_vector& state, int level)
 	return state;
 }
 
-expr_vector PDR::MIC(const expr_vector& state, int level) const
+expr_vector PDR::MIC(const expr_vector& state, int level) 
 {
 	unsigned size = state.size();
-	std::vector<expr> cube = convert(state);
+	std::vector<expr> cube = convert(state); //use std::vector for sorting and intersection
 	
 	std::sort(cube.begin(), cube.end(), 
 			[](const expr& l, const expr& r) { return l.id() < r.id(); });
@@ -80,7 +81,35 @@ expr_vector PDR::MIC(const expr_vector& state, int level) const
 }
 
 //state is sorted
-bool PDR::down(vector<expr>& state, int level) const
+bool PDR::down(vector<expr>& state, int level)
 {
+	while (true)
+	{
+		expr * const raw_state = state.data();
+		if (init_solver.check(state.size(), raw_state) == z3::sat)
+			return false;
+
+		expr state_clause = z3::mk_or(convert(state));
+		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) == z3::unsat )
+			return true;
+
+		//TODO check if hash_set is faster
+		vector<expr> cti_current; 
+		frames[level]->sat_cube(cti_current,
+				[this](const expr& e) { return model.literals.is_current(e); },
+				[&cti_current](size_t n) { cti_current.reserve(n); });
+
+		std::sort(cti_current.begin(), cti_current.end(), 
+			[](const expr& l, const expr& r) { return l.id() < r.id(); });
+
+		vector<expr> inter; inter.reserve(state.size());
+		//inter := state AND cti_current
+		std::set_intersection( 
+				state.begin(), state.end(),
+				cti_current.begin(), cti_current.end(),
+				std::back_inserter(inter));
+		state = move(inter);
+
+	}
 	return false;
 }

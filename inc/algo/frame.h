@@ -7,6 +7,7 @@
 #include <vector>
 
 using std::shared_ptr;
+using std::vector;
 using z3::context;
 using z3::solver;
 using z3::expr;
@@ -52,7 +53,7 @@ class Frame
 		}
 		bool SAT(const expr_vector& next) 
 		{ 
-			if (consecution_solver.check(next))
+			if (consecution_solver.check(next) == z3::sat)
 			{
 				if(!model_used)
 					std::cerr << "PDR::WARNING: last SAT model unused and discarded" << std::endl;
@@ -69,16 +70,42 @@ class Frame
 		}
 		bool UNSAT(const expr_vector& next) { return !SAT(next); }
 			
-		//extracts a cube representing a satisfying assignment to the last SAT call to the solver.
-		expr_vector sat_cube()
+		// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
+		// all literals (that satisfy p) are stored in v
+		template <typename Vec>
+		void sat_cube(Vec& v)
 		{
 			model_used = true;
 			z3::model m = consecution_solver.get_model();
-			expr_vector cube(*ctx);
 			for (unsigned i = 0; i < m.num_consts(); i++)
-				cube.push_back(m.get_const_interp(m.get_const_decl(i)));
+				v.push_back(m.get_const_interp(m.get_const_decl(i)));
+		}
 
-			return cube;
+		template <typename Vec, typename UnaryPredicate>
+		void sat_cube(Vec& v, UnaryPredicate p)
+		{
+			model_used = true;
+			z3::model m = consecution_solver.get_model();
+			for (unsigned i = 0; i < m.num_consts(); i++)
+			{
+				expr e = m.get_const_interp(m.get_const_decl(i));
+				if (p(e) == true) 
+					v.push_back(e);
+			}
+		}
+
+		template <typename Vec, typename UnaryPredicate, typename VecReserve>
+		void sat_cube(Vec& v, UnaryPredicate p, VecReserve reserve)
+		{
+			model_used = true;
+			z3::model m = consecution_solver.get_model();
+			reserve(m.num_consts());
+			for (unsigned i = 0; i < m.num_consts(); i++)
+			{
+				expr e = m.get_const_interp(m.get_const_decl(i));
+				if (p(e) == true) 
+					v.push_back(e);
+			}
 		}
 };
 

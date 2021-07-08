@@ -1,7 +1,8 @@
+#include <z3++.h>
+#include <fmt/format.h>
 #include <iostream>
 #include <cassert>
-#include <fmt/format.h>
-#include <z3++.h>
+#include <algorithm>
 #include <queue>
 
 #include "pdr.h"
@@ -58,7 +59,7 @@ void PDR::run()
 bool PDR::init() 
 {
 
-	if ( init_solver.check(model.not_property.currents()) )
+	if ( init_solver.check(model.not_property.currents()) == z3::sat )
 	{
 		std::cout << "I =/> P" << std::endl;
 		z3::model counter = init_solver.get_model();
@@ -100,7 +101,9 @@ bool PDR::iterate()
 			{
 				// F_i & T /=> F_i+1' (= P')
 				// strengthen F_i
-				expr_vector cti = frames[k]->sat_cube();
+				expr_vector cti_current(*ctx);
+				frames[k]->sat_cube(cti_current,
+						[this](const expr& e) { return model.literals.is_current(e); });
 
 				// s.Log("Counter");
 				std::priority_queue<Obligation> obligations;
@@ -108,16 +111,16 @@ bool PDR::iterate()
 				// s is not in F_k-1 (or it would have been found previously)
 				// F_k-2 & T & !s => !s'
 				// only need to to search k-1 ... k
-				int n = highest_inductive_frame(cti, k - 1, k);
+				int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
 				assert(n >= 0);
 
 				// F_n & T & !s => !s
 				// F_n & T => F_n+1
-				expr_vector smaller_cti = generalize(cti, n);
+				expr_vector smaller_cti = generalize(cti_current, n);
 				remove_state(smaller_cti, n + 1);
 
-				if (n + 1 <= k)
-					obligations.emplace(n+1, cti);
+				if (static_cast<unsigned>(n + 1) <= k)
+					obligations.emplace(n+1, cti_current);
 
 				// IC3Trace.LogFunction("Block -- " + k);
 				

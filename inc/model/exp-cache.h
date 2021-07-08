@@ -1,6 +1,7 @@
 #ifndef EXP_CACHE
 #define EXP_CACHE
 
+#include <vector>
 #include <z3++.h>
 #include <cassert>
 #include <memory>
@@ -23,6 +24,7 @@ class ExpressionCache
 		enum class Encoding {UNKNOWN, LITERALS, EXPRESSIONS} encodes;
 		shared_ptr<context> ctx;
 		std::unordered_map<unsigned, int> literal_index;
+		std::unordered_map<unsigned, int> literal_index_p;
 
 		expr_vector current;
 		expr_vector next;
@@ -36,22 +38,44 @@ class ExpressionCache
 		{ }
 
 		int indexof(const expr& e) const { return literal_index.at(e.id()); }
+		bool is_current(const expr& e) const 
+		{
+			if(e.is_not())
+				return literal_index.find(e.arg(0).id()) != literal_index.end();
+			assert(e.is_const());
+			return literal_index.find(e.id()) != literal_index.end();
+		}
+
+		bool is_next(const expr& e) const 
+		{
+			if(e.is_not())
+				return literal_index_p.find(e.arg(0).id()) != literal_index.end();
+			assert(e.is_const());
+			return literal_index_p.find(e.id()) != literal_index.end();
+		}
 
 		//current state expressions
 		expr operator()(const expr& e) const
 		{
-			int i = literal_index.at(e.id());
-			return current[i];
+			int index = literal_index.at(e.id());
+			return current[index];
 		}
-		expr operator()(int i) const { return current[i]; }
+		expr operator()(int index) const { return current[index]; }
 
 		//next state expressions
 		expr p(const expr& e) const
 		{
-			int i = literal_index.at(e.id());
-			return next[i];
+			if (e.is_not())
+			{
+				int index = literal_index.at(e.arg(0).id());
+				return !next[index];
+			}
+			assert(e.is_const());
+
+			int index = literal_index.at(e.id());
+			return next[index];
 		}
-		expr p(int i) const { return next[i]; }
+		expr p(int index) const { return next[index]; }
 		
 		//converts a vector of literals into a vector of literals in the next state
 		//assumes vec is a vector of consts in current
@@ -59,7 +83,14 @@ class ExpressionCache
 		{
 			expr_vector vec_next(*ctx);
 			for (const expr& e : vec)
-				vec_next.push_back(next[e.id()]);
+				vec_next.push_back(p(e));
+			return vec_next;
+		}
+		expr_vector p(const std::vector<expr>& vec) const
+		{
+			expr_vector vec_next(*ctx);
+			for (const expr& e : vec)
+				vec_next.push_back(p(e));
 			return vec_next;
 		}
 
@@ -82,6 +113,7 @@ class ExpressionCache
 			next.push_back(move(lit_p));
 
 			literal_index.insert(std::make_pair(lit.id(), current.size() - 1));
+			literal_index_p.insert(std::make_pair(lit_p.id(), current.size() - 1));
 		}
 
 		void add_expression(expr e, const ExpressionCache& cache)
