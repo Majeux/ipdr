@@ -145,3 +145,18 @@ bool PDR::iterate()
 		cout << "###############" << endl;
 	}
 }
+
+bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
+{
+	return false;
+}
+
+void PDR::remove_state(expr_vector& cube, int level)
+{
+
+}
+
+bool PDR::propagate(unsigned level)
+{
+	return false;
+}

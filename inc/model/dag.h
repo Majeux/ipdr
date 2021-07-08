@@ -9,12 +9,13 @@
 #include <fmt/format.h>
 #include <cassert>
 
-#include "auxiliary/string-extensions.h"
+#include "string-ext.h"
 
 using std::set;
 using std::map;
 using std::vector;
 using std::string;
+using str::extensions::join;
 
 struct Edge
 {
@@ -87,10 +88,10 @@ class Graph
         friend std::ostream& operator<<(std::ostream& stream, Graph const& g) {
             stream << "DAG {";
             stream << std::endl;
-            stream << "\tinput { " << stringext::join(g.input) << " }" << std::endl;
-            stream << "\toutput { " << stringext::join(g.output) << " }" << std::endl;
-            stream << "\tnodes { " << stringext::join(g.nodes) << " }" << std::endl;
-            stream << "\tinput { " << stringext::join(g.edges) << " }" << std::endl;
+            stream << "\tinput { " << join(g.input) << " }" << std::endl;
+            stream << "\toutput { " << join(g.output) << " }" << std::endl;
+            stream << "\tnodes { " << join(g.nodes) << " }" << std::endl;
+            stream << "\tinput { " << join(g.edges) << " }" << std::endl;
             stream << "}" << std::endl;
             return stream;
         }

@@ -13,13 +13,14 @@ find_package(Z3 CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
+file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 
 file(GLOB MODEL_HEADERS "inc/model/*.h")
-file(GLOB AUX_HEADERS "inc/auxialiary/*.h")
+file(GLOB AUX_HEADERS "inc/auxiliary/*.h")
 file(GLOB ALGO_HEADERS "inc/algo/*.h")
 
-add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES} ${MODEL_HEADERS} ${AUX_HEADERS} ${ALGO_HEADERS})
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${AUX_SOURCES} ${ALGO_SOURCES})#  ${MODEL_HEADERS} ${AUX_HEADERS} ${ALGO_HEADERS})
 
 target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo)
 

@@ -8,7 +8,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "string-extensions.h"
+#include "string-ext.h"
 
 using std::shared_ptr;
 using std::string;
@@ -16,6 +16,7 @@ using std::move;
 using z3::context;
 using z3::expr;
 using z3::expr_vector;
+using str::extensions::join;
 
 class ExpressionCache
 {
@@ -131,8 +132,8 @@ class ExpressionCache
 
 		void print() const
 		{
-			std::cout << "Lits:      " << stringext::join(current) << std::endl;
-			std::cout << "Next Lits: " << stringext::join(next) << std::endl;
+			std::cout << "Lits:      " << join(current) << std::endl;
+			std::cout << "Next Lits: " << join(next) << std::endl;
 		}
 };
 

@@ -4,32 +4,11 @@
 #include <vector>
 
 #include "pdr.h"
+#include "z3-ext.h"
 
 using z3::expr_vector;
-
-expr_vector negate(const expr_vector& cube) 
-{
-	expr_vector negated(cube.ctx());
-	for (const expr& e : cube)
-		negated.push_back(!e);
-	return negated;
-}
-
-expr_vector convert(vector<expr> vec) 
-{
-	expr_vector convert(vec[0].ctx());
-	for (const expr& e : vec)
-		convert.push_back(move(e));
-	return convert;
-}
-
-vector<expr> convert(const expr_vector& vec) 
-{
-	vector<expr> convert; convert.reserve(vec.size());
-	for (const expr& e : vec)
-		convert.push_back(e);
-	return convert;
-}
+using Z3extensions::negate;
+using Z3extensions::convert;
 
 int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 {
@@ -57,18 +36,17 @@ expr_vector PDR::generalize(const expr_vector& state, int level)
 	return state;
 }
 
+
 expr_vector PDR::MIC(const expr_vector& state, int level) 
 {
-	unsigned size = state.size();
 	std::vector<expr> cube = convert(state); //use std::vector for sorting and intersection
 	
-	std::sort(cube.begin(), cube.end(), 
-			[](const expr& l, const expr& r) { return l.id() < r.id(); });
+	std::sort(cube.begin(), cube.end(), Z3extensions::expr_less);
 
-	for (unsigned i = 0; i < size;) 
+	for (unsigned i = 0; i < cube.size();) 
 	{
 		std::vector<expr> new_cube(cube.begin(), cube.begin()+i);
-		new_cube.reserve(size);
+		new_cube.reserve(cube.size());
 		new_cube.insert(new_cube.end(), cube.begin()+i, cube.end());
 
 		if (down(new_cube, level)) //current literal was dropped, i now points to the next
@@ -92,24 +70,20 @@ bool PDR::down(vector<expr>& state, int level)
 		expr state_clause = z3::mk_or(convert(state));
 		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) == z3::unsat )
 			return true;
+		
+		auto is_current_in_state = [this, &state](const expr& e)
+		{
+			return model.literals.is_current(e) 
+				&& std::binary_search(state.begin(), state.end(), e, Z3extensions::expr_less);
+		};
 
-		//TODO check if hash_set is faster
-		vector<expr> cti_current; 
-		frames[level]->sat_cube(cti_current,
-				[this](const expr& e) { return model.literals.is_current(e); },
-				[&cti_current](size_t n) { cti_current.reserve(n); });
+		//intersect the current states from the model with state
+		vector<expr> cti_intersect; 
+		frames[level]->sat_cube(cti_intersect,
+				is_current_in_state,
+				[&cti_intersect](size_t n) { cti_intersect.reserve(n); });
 
-		std::sort(cti_current.begin(), cti_current.end(), 
-			[](const expr& l, const expr& r) { return l.id() < r.id(); });
-
-		vector<expr> inter; inter.reserve(state.size());
-		//inter := state AND cti_current
-		std::set_intersection( 
-				state.begin(), state.end(),
-				cti_current.begin(), cti_current.end(),
-				std::back_inserter(inter));
-		state = move(inter);
-
+		state = move(cti_intersect);
 	}
 	return false;
 }
