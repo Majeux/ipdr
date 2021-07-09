@@ -17,10 +17,10 @@ using z3::solver;
 
 struct Obligation
 {
-	int level;
+	unsigned level;
 	expr_vector cube;
 
-	Obligation(int k, const expr_vector& e) : level(k), cube(e) { }
+	Obligation(unsigned k, const expr_vector& e) : level(k), cube(e) { }
 
 	bool operator<(const Obligation& o) const { return this->level < o.level; }
 };

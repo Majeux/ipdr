@@ -1,15 +1,20 @@
+#include <iterator>
 #include <z3++.h>
 #include <fmt/format.h>
 #include <iostream>
 #include <cassert>
 #include <algorithm>
 #include <queue>
+#include <set>
 
 #include "pdr.h"
+#include "z3-ext.h"
 
 using std::cout;
 using std::endl;
+using std::set;
 using fmt::format;
+using Z3extensions::negate;
 
 PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
 {
@@ -148,15 +153,111 @@ bool PDR::iterate()
 
 bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 {
-	return false;
+	while (obligations.size() > 0)
+	{
+		auto &[n, state] = obligations.top();
+		assert(n <= level);
+		expr state_clause = z3::mk_or(negate(state));
+
+		if ( frames[level]->SAT(state_clause, model.literals.p(state)) )
+		{	//predecessor found
+			expr_vector pred(*ctx);
+			frames[level]->sat_cube(pred,
+						[this](const expr& e) { return model.literals.atom_is_current(e); });
+
+			int m = highest_inductive_frame(pred, n-1, level);
+			// m in [n-1, level]
+			if (m >= 0)
+			{
+				expr_vector smaller_pred = generalize(pred, m);
+				remove_state(smaller_pred, m + 1);
+
+				if (static_cast<unsigned>(m+1) <= level)
+				{
+					obligations.emplace(m+1, pred);
+				}
+			}
+			else //intersects with I
+			{ 
+				return false;
+			}
+		}
+		else 
+		{	//finish state
+			int m = highest_inductive_frame(state, n + 1, level);
+        	// m in [n-1, level]
+			assert(static_cast<unsigned>(m+1) > n);
+
+			if (m >= 0)
+			{
+				expr_vector smaller_state = generalize(state, m);
+				remove_state(smaller_state, m + 1);
+				obligations.pop();
+
+				if (static_cast<unsigned>(m+1) <= level)
+				{
+					obligations.emplace(m+1, state);
+				}
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 void PDR::remove_state(expr_vector& cube, int level)
 {
+	level = std::min(static_cast<size_t>(level), frames.size()-1);
 
+	for (int i = 1; i <= level; i++)
+	{
+		frames[i]->block_cube(cube);
+
+	}
 }
 
 bool PDR::propagate(unsigned level)
 {
+	assert(level + 1 == frames.size()-1);
+	//extracts arguments of e as an expr_vector
+	auto extract = [this] (const expr& e) 
+	{
+		expr_vector result(*ctx);
+		int size = e.num_args();
+		for (int i = 0; i < size; i++)
+			result.push_back(e.arg(i));
+		return result;
+	};
+
+	for (unsigned i = 1; i <= level; i++)
+	{   //TODO: check in of exclusief
+		vector<expr> diff = (*frames[i]) - (*frames[i+1]);
+
+		for (const expr& c : diff)
+		{
+			expr_vector cube = extract(c);
+			expr_vector cube_next = model.literals.p(cube);
+
+			if (frames[i]->UNSAT(cube_next))
+			{
+				frames[i]->block_cube(cube);
+					// trace.AddedClauses++;
+				// else
+				// {
+					// IC3Trace.LogLine("Clause is subsumed in frame " + i, "Propagate" );
+					// trace.Subsumed++;
+				// }
+			}
+		}
+
+		if (diff.size() == 0 || (*frames[i]) == (*frames[i + 1]))
+		{
+			cout << "Frame[" << i << "] == Frame[" << (i + 1) << "]" << endl;
+			return true;
+		}
+	}
 	return false;
 }

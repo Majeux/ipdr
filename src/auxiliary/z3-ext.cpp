@@ -6,8 +6,6 @@ using z3::expr_vector;
 
 namespace Z3extensions
 {
-	//z3::expr comparator
-	bool expr_less(const expr& l, const expr& r) { return l.id() < r.id(); };
 
 	expr_vector negate(const expr_vector& cube) 
 	{

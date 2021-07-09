@@ -7,6 +7,7 @@
 #include "z3-ext.h"
 
 using z3::expr_vector;
+using Z3extensions::expr_less;
 using Z3extensions::negate;
 using Z3extensions::convert;
 
@@ -42,7 +43,7 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 {
 	std::vector<expr> cube = convert(state); //use std::vector for sorting and intersection
 	
-	std::sort(cube.begin(), cube.end(), Z3extensions::expr_less);
+	std::sort(cube.begin(), cube.end(), expr_less());
 
 	for (unsigned i = 0; i < cube.size();) 
 	{
@@ -75,7 +76,7 @@ bool PDR::down(vector<expr>& state, int level)
 		auto is_current_in_state = [this, &state](const expr& e)
 		{
 			return model.literals.literal_is_current(e) 
-				&& std::binary_search(state.begin(), state.end(), e, Z3extensions::expr_less);
+				&& std::binary_search(state.begin(), state.end(), e, expr_less());
 		};
 
 		//intersect the current states from the model with state

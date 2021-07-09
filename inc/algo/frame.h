@@ -4,9 +4,11 @@
 #include <stdexcept>
 #include <z3++.h>
 #include <memory>
-#include <unordered_set>
+#include <set>
 #include <vector>
 #include <stdexcept>
+
+#include "z3-ext.h"
 
 using std::shared_ptr;
 using std::vector;
@@ -14,6 +16,8 @@ using z3::context;
 using z3::solver;
 using z3::expr;
 using z3::expr_vector;
+using Z3extensions::expr_less;
+using Z3extensions::negate;
 
 class Frame
 {
@@ -22,7 +26,7 @@ class Frame
 		shared_ptr<context> ctx;
 		solver consecution_solver;
 
-		std::unordered_set<int> added_clauses; //the arguments of the clause are sorted by mic, use id to search
+		std::set<expr, expr_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 		bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
 
@@ -34,12 +38,12 @@ class Frame
 				consecution_solver.add(v);
 		}
 		
-		bool blocked(const expr& clause) const { return added_clauses.find(clause.id()) != added_clauses.end(); }
+		bool blocked(const expr& cube) const { return blocked_cubes.find(cube) != blocked_cubes.end(); }
 
 		bool block_cube(const expr_vector& cube)
 		{
-			expr clause = z3::mk_or(cube);
-			bool inserted = added_clauses.insert(clause.id()).second;
+			expr clause = z3::mk_or(negate(cube));
+			bool inserted = blocked_cubes.insert(z3::mk_and(cube)).second;
 
 			if (!inserted) //TODO possibly check some subsumption here
 				return false;
@@ -116,6 +120,18 @@ class Frame
 				if (p(e) == true) 
 					v.push_back(e);
 			}
+		}
+
+		bool operator==(const Frame& f) const { return blocked_cubes == f.blocked_cubes; }
+
+		std::vector<expr> operator-(const Frame& f) const
+		{
+			std::vector<expr> out;
+			std::set_difference(
+					blocked_cubes.begin(), blocked_cubes.end(),
+					f.blocked_cubes.begin(), f.blocked_cubes.end(),
+					std::back_inserter(out));
+			return out;
 		}
 };
 
