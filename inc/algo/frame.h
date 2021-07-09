@@ -1,10 +1,12 @@
 #ifndef FRAME
 #define FRAME
 
+#include <stdexcept>
 #include <z3++.h>
 #include <memory>
 #include <unordered_set>
 #include <vector>
+#include <stdexcept>
 
 using std::shared_ptr;
 using std::vector;
@@ -71,7 +73,6 @@ class Frame
 		bool UNSAT(const expr_vector& next) { return !SAT(next); }
 			
 		// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
-		// all literals (that satisfy p) are stored in v
 		template <typename Vec>
 		void sat_cube(Vec& v)
 		{
@@ -81,16 +82,25 @@ class Frame
 				v.push_back(m.get_const_interp(m.get_const_decl(i)));
 		}
 
+		// all atoms (that satisfy p) are stored in v
 		template <typename Vec, typename UnaryPredicate>
 		void sat_cube(Vec& v, UnaryPredicate p)
 		{
 			model_used = true;
 			z3::model m = consecution_solver.get_model();
-			for (unsigned i = 0; i < m.num_consts(); i++)
+			for (unsigned i = 0; i < m.size(); i++)
 			{
-				expr e = m.get_const_interp(m.get_const_decl(i));
-				if (p(e) == true) 
-					v.push_back(e);
+				z3::func_decl f = m[i];
+				expr b_value = m.get_const_interp(f);
+				expr literal(*ctx);
+				if (b_value.is_true())
+					 literal = f();
+				else if (b_value.is_false())
+					 literal = !f();
+				else throw std::runtime_error("model contains non-constant");
+				
+				if (p(f()) == true) 
+					v.push_back(literal);
 			}
 		}
 

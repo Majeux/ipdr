@@ -39,12 +39,18 @@ class ExpressionCache
 		{ }
 
 		int indexof(const expr& e) const { return literal_index.at(e.id()); }
-		bool is_current(const expr& e) const 
+		//checks if e is an atom in current. fails if e is not an atom (const)
+		bool atom_is_current(const expr& e) const 
+		{
+			assert(e.is_const());
+			return literal_index.find(e.id()) != literal_index.end();
+		}
+		//checks if e is a literal in current. fails if e is not a literal (atom/!atom)
+		bool literal_is_current(const expr& e) const 
 		{
 			if(e.is_not())
 				return literal_index.find(e.arg(0).id()) != literal_index.end();
-			assert(e.is_const());
-			return literal_index.find(e.id()) != literal_index.end();
+			return atom_is_current(e);
 		}
 
 		bool is_next(const expr& e) const 

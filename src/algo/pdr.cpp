@@ -24,7 +24,7 @@ Frame* PDR::make_frame(int level)
 	if (level == 0)
 		return new Frame(0, model.ctx, { model.get_initial(), model.get_transition(), model.get_cardinality() });
 
-	return new Frame(level, ctx, { model.get_transition(), model.get_cardinality() });
+	return new Frame(level, ctx, { model.property.currents(), model.get_transition(), model.get_cardinality() });
 }
 
 void PDR::print_model(const z3::model& m)
@@ -103,9 +103,9 @@ bool PDR::iterate()
 				// strengthen F_i
 				expr_vector cti_current(*ctx);
 				frames[k]->sat_cube(cti_current,
-						[this](const expr& e) { return model.literals.is_current(e); });
+						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
-				// s.Log("Counter");
+				// cout << "cti: " <<  cti_current << endl;
 				std::priority_queue<Obligation> obligations;
 
 				// s is not in F_k-1 (or it would have been found previously)

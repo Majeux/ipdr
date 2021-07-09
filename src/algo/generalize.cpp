@@ -31,6 +31,7 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 
 expr_vector PDR::generalize(const expr_vector& state, int level)
 {
+	return state;
 	expr_vector smaller_cube = MIC(state, level);
 
 	return state;
@@ -73,7 +74,7 @@ bool PDR::down(vector<expr>& state, int level)
 		
 		auto is_current_in_state = [this, &state](const expr& e)
 		{
-			return model.literals.is_current(e) 
+			return model.literals.literal_is_current(e) 
 				&& std::binary_search(state.begin(), state.end(), e, Z3extensions::expr_less);
 		};
 
