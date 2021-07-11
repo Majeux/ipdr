@@ -64,9 +64,10 @@ void PDRModel::load_property(const Graph& G)
 	property.finish();
 }
 
-void PDRModel::load_model(const Graph& G, int max_pebbles) 
+void PDRModel::load_model(const std::string& model_name, const Graph& G, int max_pebbles) 
 {
-	std::cout << "load graph model" << std::endl;
+	name = model_name;
+	std::cout << "load graph model " << name << std::endl;
 
 	for (string node : G.nodes)
 		literals.add_literal(node);

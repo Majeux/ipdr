@@ -122,9 +122,9 @@ class Frame
 			}
 		}
 
-		bool operator==(const Frame& f) const { return blocked_cubes == f.blocked_cubes; }
+		bool equals(const Frame& f) const { return blocked_cubes == f.blocked_cubes; }
 
-		std::vector<expr> operator-(const Frame& f) const
+		std::vector<expr> diff(const Frame& f) const
 		{
 			std::vector<expr> out;
 			std::set_difference(

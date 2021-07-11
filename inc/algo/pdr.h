@@ -2,9 +2,11 @@
 #define PDR_ALG
 
 #include <queue>
+#include <spdlog/logger.h>
 #include <z3++.h>
 #include <memory>
 #include <vector>
+#include <spdlog/spdlog.h>
 
 #include "frame.h"
 #include "pdr-model.h"
@@ -30,6 +32,9 @@ class PDR
 	private:
 		shared_ptr<context> ctx;
 		const PDRModel& model;
+
+		shared_ptr<spdlog::logger> log;
+		unsigned log_indent = 0;
 
 		vector<unique_ptr<Frame>> frames;
 		solver init_solver;

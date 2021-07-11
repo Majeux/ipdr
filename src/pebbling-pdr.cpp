@@ -41,7 +41,8 @@ void test()
 
 int main()
 {
-	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / "c17.bench";
+	std::string model_name = "c17";
+	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
 	Graph G = parse_file(file.string());
 	int max_pebbles = 4;
@@ -54,7 +55,7 @@ int main()
 	shared_ptr<z3::context> ctx(new z3::context(settings));
 
 	PDRModel model(ctx);
-	model.load_model(G, max_pebbles);
+	model.load_model(model_name, G, max_pebbles);
 
 	PDR algorithm(ctx, model);
 	algorithm.run();

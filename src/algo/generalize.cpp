@@ -32,7 +32,6 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 
 expr_vector PDR::generalize(const expr_vector& state, int level)
 {
-	return state;
 	expr_vector smaller_cube = MIC(state, level);
 
 	return state;
@@ -63,6 +62,12 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 //state is sorted
 bool PDR::down(vector<expr>& state, int level)
 {
+	auto is_current_in_state = [this, &state](const expr& e)
+	{
+		return model.literals.literal_is_current(e) 
+			&& std::binary_search(state.begin(), state.end(), e, expr_less());
+	};
+
 	while (true)
 	{
 		expr * const raw_state = state.data();
@@ -70,15 +75,9 @@ bool PDR::down(vector<expr>& state, int level)
 			return false;
 
 		expr state_clause = z3::mk_or(convert(state));
-		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) == z3::unsat )
+		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) )
 			return true;
 		
-		auto is_current_in_state = [this, &state](const expr& e)
-		{
-			return model.literals.literal_is_current(e) 
-				&& std::binary_search(state.begin(), state.end(), e, expr_less());
-		};
-
 		//intersect the current states from the model with state
 		vector<expr> cti_intersect; 
 		frames[level]->sat_cube(cti_intersect,
