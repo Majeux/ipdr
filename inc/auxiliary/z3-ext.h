@@ -18,10 +18,18 @@ namespace Z3extensions
 		bool operator() (const z3::expr& l, const z3::expr& r) const { return l.id() < r.id(); };
 	};
 
-	inline expr_vector negate(const expr_vector& cube) 
+	inline expr_vector negate(const expr_vector& lits) 
 	{
-		expr_vector negated(cube.ctx());
-		for (const expr& e : cube)
+		expr_vector negated(lits.ctx());
+		for (const expr& e : lits)
+			negated.push_back(!e);
+		return negated;
+	}
+
+	inline expr_vector negate(const vector<expr>& lits) 
+	{
+		expr_vector negated(lits[0].ctx());
+		for (const expr& e : lits)
 			negated.push_back(!e);
 		return negated;
 	}

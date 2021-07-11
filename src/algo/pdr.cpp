@@ -198,6 +198,11 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 	{
 		auto &[n, state] = obligations.top();
 		assert(n <= level);
+		log->trace("{}| top obligations", TAB);
+		log_indent++;
+		log->trace("{}| [{}]", TAB, join(state));
+		log_indent--;
+
 		expr state_clause = z3::mk_or(negate(state));
 
 		if ( frames[level]->SAT(state_clause, model.literals.p(state)) )
@@ -205,6 +210,11 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 			expr_vector pred(*ctx);
 			frames[level]->sat_cube(pred,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
+
+			log->trace("{}| predecessor found", TAB);
+			log_indent++;
+			log->trace("{}| [{}]", TAB, join(pred));
+			log_indent--;
 
 			int m = highest_inductive_frame(pred, n-1, level);
 			// m in [n-1, level]
@@ -226,6 +236,10 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 		}
 		else 
 		{	//finish state
+			log->trace("{}| finishing state", TAB);
+			log_indent++;
+			log->trace("{}| [{}]", TAB, join(state));
+			log_indent--;
 			int m = highest_inductive_frame(state, n + 1, level);
         	// m in [n-1, level]
 			assert(static_cast<unsigned>(m+1) > n);

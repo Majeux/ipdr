@@ -65,12 +65,15 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 
 		if (down(new_cube, level)) //current literal was dropped, i now points to the next
 		{
+			log_indent--;
 			cube = std::move(new_cube);
-			log->trace("{}| reduced cube: [{}]", TAB, join(cube));
+			// log->trace("{}| reduced cube: [{}]", TAB, join(cube));
 		}
 		else 
+		{
 			i++;
-		log_indent--;
+			log_indent--;
+		}
 	}
 
 	return convert(cube); //revert to expr_vector for efficiency in z3
@@ -91,7 +94,7 @@ bool PDR::down(vector<expr>& state, int level)
 		if (init_solver.check(state.size(), raw_state) == z3::sat)
 			return false;
 
-		expr state_clause = z3::mk_or(convert(state));
+		expr state_clause = z3::mk_or(negate(state));
 		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) )
 			return true;
 		
@@ -103,7 +106,7 @@ bool PDR::down(vector<expr>& state, int level)
 
 		state = move(cti_intersect);
 
-		log->trace("{}| down-reduction: [{}]", TAB, join(state));
+		// log->trace("{}| down-reduction: [{}]", TAB, join(state));
 	}
 	return false;
 }
