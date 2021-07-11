@@ -28,10 +28,10 @@ void PDRModel::load_pebble_transition(const Graph& G, int max_pebbles)
 			expr child_node = ctx->bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
 
-			transition.push_back(  literals(i) | !literals.p(i) | literals(child_i));
-			transition.push_back( !literals(i) |  literals.p(i) | literals(child_i));
-			transition.push_back(  literals(i) | !literals.p(i) | literals.p(child_i));
-			transition.push_back( !literals(i) |  literals.p(i) | literals.p(child_i));
+			transition.push_back(  literals(i) || !literals.p(i) || literals(child_i));
+			transition.push_back( !literals(i) ||  literals.p(i) || literals(child_i));
+			transition.push_back(  literals(i) || !literals.p(i) || literals.p(child_i));
+			transition.push_back( !literals(i) ||  literals.p(i) || literals.p(child_i));
 		}
 	}
 

@@ -130,7 +130,7 @@ class Frame
 			std::set_difference(
 					blocked_cubes.begin(), blocked_cubes.end(),
 					f.blocked_cubes.begin(), f.blocked_cubes.end(),
-					std::back_inserter(out));
+					std::back_inserter(out), expr_less());
 			return out;
 		}
 };

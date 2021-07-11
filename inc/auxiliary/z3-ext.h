@@ -3,6 +3,12 @@
 
 #include <z3++.h>
 #include <vector>
+#include <sstream>
+
+using std::vector;
+using std::string;
+using z3::expr;
+using z3::expr_vector;
 
 namespace Z3extensions
 {
@@ -12,8 +18,28 @@ namespace Z3extensions
 		bool operator() (const z3::expr& l, const z3::expr& r) const { return l.id() < r.id(); };
 	};
 
-	z3::expr_vector negate(const z3::expr_vector& cube);
-	z3::expr_vector convert(std::vector<z3::expr> vec);
-	std::vector<z3::expr> convert(const z3::expr_vector& vec);
+	inline expr_vector negate(const expr_vector& cube) 
+	{
+		expr_vector negated(cube.ctx());
+		for (const expr& e : cube)
+			negated.push_back(!e);
+		return negated;
+	}
+
+	inline expr_vector convert(vector<expr> vec) 
+	{
+		expr_vector converted(vec[0].ctx());
+		for (const expr& e : vec)
+			converted.push_back(std::move(e));
+		return converted;
+	}
+
+	inline vector<expr> convert(const expr_vector& vec) 
+	{
+		vector<expr> converted; converted.reserve(vec.size());
+		for (const expr& e : vec)
+			converted.push_back(e);
+		return converted;
+	}
 }
 #endif //Z3_EXT

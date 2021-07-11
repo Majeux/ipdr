@@ -5,11 +5,13 @@
 
 #include "pdr.h"
 #include "z3-ext.h"
+#include "string-ext.h"
 
 using z3::expr_vector;
 using Z3extensions::expr_less;
 using Z3extensions::negate;
 using Z3extensions::convert;
+using str::extensions::join;
 
 int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 {
@@ -20,21 +22,30 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 	if (min <= 0 && frames[0]->SAT(clause, cube_p))
 		return -1; //intersects with D[0]
 
+	int highest = max;
 	for (int i = std::max(1, min); i <= max; i++)
 	{
 		//cube was inductive up to this iteration
 		if (frames[i]->SAT(clause, cube_p))
-			return i - 1; //previous was greatest inductive frame
+		{
+			highest = i - 1; //previous was greatest inductive frame
+			break;
+		}
 	}
 
-	return max;
+	log->trace("{}| highest inductive frame is {}", TAB, highest);
+	return highest;
 }
 
 expr_vector PDR::generalize(const expr_vector& state, int level)
 {
+	log->trace("{}| generalize", TAB);
+	log_indent++;
 	expr_vector smaller_cube = MIC(state, level);
+	log_indent--;
 
-	return state;
+	log->trace("{}| final reduced cube = [{}]", TAB, join(smaller_cube));
+	return smaller_cube;
 }
 
 
@@ -47,13 +58,19 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 	for (unsigned i = 0; i < cube.size();) 
 	{
 		std::vector<expr> new_cube(cube.begin(), cube.begin()+i);
-		new_cube.reserve(cube.size());
-		new_cube.insert(new_cube.end(), cube.begin()+i, cube.end());
+		new_cube.reserve(cube.size()-1);
+		new_cube.insert(new_cube.end(), cube.begin()+i+1, cube.end());
+
+		log_indent++;
 
 		if (down(new_cube, level)) //current literal was dropped, i now points to the next
+		{
 			cube = std::move(new_cube);
+			log->trace("{}| reduced cube: [{}]", TAB, join(cube));
+		}
 		else 
 			i++;
+		log_indent--;
 	}
 
 	return convert(cube); //revert to expr_vector for efficiency in z3
@@ -85,6 +102,8 @@ bool PDR::down(vector<expr>& state, int level)
 				[&cti_intersect](size_t n) { cti_intersect.reserve(n); });
 
 		state = move(cti_intersect);
+
+		log->trace("{}| down-reduction: [{}]", TAB, join(state));
 	}
 	return false;
 }

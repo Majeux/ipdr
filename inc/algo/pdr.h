@@ -17,6 +17,10 @@ using std::shared_ptr;
 using z3::context;
 using z3::solver;
 
+#define RUN_SEP "\n####################"
+#define SEP "--------------------"
+#define TAB std::string(log_indent, '\t')
+
 struct Obligation
 {
 	unsigned level;

@@ -19,17 +19,13 @@ using std::cout;
 using std::endl;
 using Z3extensions::negate;
 
-#define RUN_SEP "####################\n####################"
-#define SEP "--------------------"
-#define TAB std::string(log_indent, '\t')
-
 PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
 {
 	init_solver.add(m.get_initial());
 	std::string log_file = m.name + ".log";
 	log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
 	log->set_level(spdlog::level::trace);
-	log->flush_on(spdlog::level::debug);
+	log->flush_on(spdlog::level::trace);
 }
 
 Frame* PDR::make_frame(int level)
@@ -137,7 +133,6 @@ bool PDR::iterate()
 		{
 			if (frames[k]->SAT(model.not_property.nexts()))
 			{
-				cout << "CTI" << endl;
 				// F_i & T /=> F_i+1' (= P')
 				// strengthen F_i
 				log->trace("{}| cti found", TAB);
@@ -147,25 +142,19 @@ bool PDR::iterate()
 				frames[k]->sat_cube(cti_current,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
-				log->trace("{}| {}", TAB, cti_current);	
+				log->trace("{}| [{}]", TAB, join(cti_current));	
 				log_indent--;
-				// cout << "cti: " <<  cti_current << endl;
-				std::priority_queue<Obligation> obligations;
 
+				std::priority_queue<Obligation> obligations;
 				// s is not in F_k-1 (or it would have been found previously)
 				// F_k-2 & T & !s => !s'
 				// only need to to search k-1 ... k
 				int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
 				assert(n >= 0);
-				log->trace("{}| highest inductive frame is {}", TAB, n);
 
 				// F_n & T & !s => !s
 				// F_n & T => F_n+1
-				log->trace("{}| generalize", TAB);
-				log_indent++;
 				expr_vector smaller_cti = generalize(cti_current, n);
-				log->trace("{}| remove smaller_cti = {}", TAB, smaller_cti);
-				log_indent--;
 
 				remove_state(smaller_cti, n + 1);
 
@@ -226,6 +215,7 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 
 				if (static_cast<unsigned>(m+1) <= level)
 				{
+					log->trace("{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred));
 					obligations.emplace(m+1, pred);
 				}
 			}
@@ -248,6 +238,7 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 
 				if (static_cast<unsigned>(m+1) <= level)
 				{
+					log->trace("{}| push state to higher to level {}: [{}]", TAB, m+1, join(state));
 					obligations.emplace(m+1, state);
 				}
 			}
@@ -263,12 +254,15 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 void PDR::remove_state(expr_vector& cube, int level)
 {
 	level = std::min(static_cast<size_t>(level), frames.size()-1);
+	log->trace("{}| removing cube from level [1..{}]: [{}]", TAB, level, join(cube));
+	log_indent++;
 
 	for (int i = 1; i <= level; i++)
 	{
 		frames[i]->block_cube(cube);
 
 	}
+	log_indent--;
 }
 
 bool PDR::propagate(unsigned level)
