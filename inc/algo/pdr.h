@@ -17,9 +17,12 @@ using std::shared_ptr;
 using z3::context;
 using z3::solver;
 
-#define RUN_SEP "\n####################"
 #define SEP "--------------------"
+#define SEP2 "===================="
+#define SEP3 "####################"
 #define TAB std::string(log_indent, '\t')
+#define MIN_ORDERING(T) T, std::vector<T>, std::greater<T> //type arguments for ascending priority queue
+
 
 struct Obligation
 {
@@ -28,7 +31,8 @@ struct Obligation
 
 	Obligation(unsigned k, const expr_vector& e) : level(k), cube(e) { }
 
-	bool operator<(const Obligation& o) const { return this->level < o.level; }
+	// bool operator<(const Obligation& o) const { return this->level < o.level; }
+	bool operator>(const Obligation& o) const { return this->level > o.level; }
 };
 
 class PDR 
@@ -48,7 +52,7 @@ class PDR
 		//main loops
 		bool init();
 		bool iterate();
-		bool block(std::priority_queue<Obligation> obligations, unsigned level);
+		bool block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsigned level);
 		void remove_state(expr_vector& cube, int level);
 		bool propagate(unsigned level);
 		//generalization

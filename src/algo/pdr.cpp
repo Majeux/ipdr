@@ -1,4 +1,6 @@
+#include <functional>
 #include <iterator>
+#include <memory>
 #include <spdlog/common.h>
 #include <z3++.h>
 #include <fmt/format.h>
@@ -8,8 +10,6 @@
 #include <queue>
 #include <set>
 #include <string>
-#include <ctime>
-#include <chrono>
 #include <spdlog/sinks/basic_file_sink.h>
 
 #include "pdr.h"
@@ -25,7 +25,7 @@ PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solv
 	std::string log_file = m.name + ".log";
 	log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
 	log->set_level(spdlog::level::trace);
-	log->flush_on(spdlog::level::trace);
+	// log->flush_on(spdlog::level::trace);
 }
 
 Frame* PDR::make_frame(int level)
@@ -53,9 +53,8 @@ void PDR::run()
 {
 	bool failed = false;
 	cout << endl << "PDR start:" << endl;
-	std::time_t time_now(0);
-	log->info(RUN_SEP);
-	log->info("NEW RUN ", std::ctime(&time_now));
+	log->info("");
+	log->info("NEW RUN\n");
 	log->info("PDR start");
 	
 	log->info("Start initiation");
@@ -117,7 +116,7 @@ bool PDR::init()
 
 bool PDR::iterate()
 {
-	cout << SEP << endl;
+	cout << SEP3 << endl;
 	cout << "Start iteration" << endl;
 	frames.emplace_back(make_frame(1));
 
@@ -126,6 +125,8 @@ bool PDR::iterate()
 	for (unsigned k = 1; ; k++)
 	{
 		cout << "iterate frame "<< k << endl;
+		log->trace("");
+		log->trace(SEP3);
 		log->trace("{}| frame {}", TAB, k);
 		assert(k == frames.size() - 1);
 
@@ -145,7 +146,7 @@ bool PDR::iterate()
 				log->trace("{}| [{}]", TAB, join(cti_current));	
 				log_indent--;
 
-				std::priority_queue<Obligation> obligations;
+				std::priority_queue<MIN_ORDERING(Obligation)> obligations;
 				// s is not in F_k-1 (or it would have been found previously)
 				// F_k-2 & T & !s => !s'
 				// only need to to search k-1 ... k
@@ -173,7 +174,7 @@ bool PDR::iterate()
 					return false;
 				}
 				log_indent--;
-				log->trace("");
+				log->trace(SEP2);
 				cout << endl;
 			}
 			else // no more counter examples
@@ -189,15 +190,21 @@ bool PDR::iterate()
 
 		log_indent--;
 		cout << "###############" << endl;
+		log->trace(SEP3); 
+		for (const unique_ptr<Frame>& f : frames)
+			log->trace("{}", (*f).solver_str());
+		log->trace(SEP3);
 	}
 }
 
-bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
+bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsigned level)
 {
 	while (obligations.size() > 0)
 	{
+		size_t start_size = obligations.size();
 		auto &[n, state] = obligations.top();
 		assert(n <= level);
+		log->trace(SEP);
 		log->trace("{}| top obligations", TAB);
 		log_indent++;
 		log->trace("{}| [{}]", TAB, join(state));
@@ -205,10 +212,10 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 
 		expr state_clause = z3::mk_or(negate(state));
 
-		if ( frames[level]->SAT(state_clause, model.literals.p(state)) )
+		if ( frames[n]->SAT(state_clause, model.literals.p(state)) )
 		{	//predecessor found
 			expr_vector pred(*ctx);
-			frames[level]->sat_cube(pred,
+			frames[n]->sat_cube(pred,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
 			log->trace("{}| predecessor found", TAB);
@@ -227,7 +234,10 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 				{
 					log->trace("{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred));
 					obligations.emplace(m+1, pred);
+					assert(start_size+1 == obligations.size());
 				}
+				else
+					assert(start_size == obligations.size());
 			}
 			else //intersects with I
 			{ 
@@ -254,7 +264,10 @@ bool PDR::block(std::priority_queue<Obligation> obligations, unsigned level)
 				{
 					log->trace("{}| push state to higher to level {}: [{}]", TAB, m+1, join(state));
 					obligations.emplace(m+1, state);
+					assert(start_size == obligations.size());
 				}
+				else
+					assert(start_size-1 == obligations.size());
 			}
 			else
 			{

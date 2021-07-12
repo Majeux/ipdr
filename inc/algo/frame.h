@@ -2,11 +2,16 @@
 #define FRAME
 
 #include <stdexcept>
-#include <z3++.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <string>
 #include <memory>
 #include <set>
 #include <vector>
 #include <stdexcept>
+#include <numeric>
+#include <z3++.h>
+#include <fmt/format.h>
 
 #include "z3-ext.h"
 
@@ -29,6 +34,7 @@ class Frame
 		std::set<expr, expr_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 		bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
+		int cubes_start = 0;
 
 	public:
 		Frame(int k, shared_ptr<context> c, const std::vector<expr_vector>& assertions) : level(k), ctx(c), consecution_solver(*c)
@@ -36,6 +42,9 @@ class Frame
 			consecution_solver.set("sat.cardinality.solver", true);
 			for (const expr_vector& v : assertions)
 				consecution_solver.add(v);
+
+			cubes_start = std::accumulate(assertions.begin(), assertions.end(), 
+					0, [](int agg, const expr_vector& v) { return agg + v.size(); });
 		}
 		
 		bool blocked(const expr& cube) const { return blocked_cubes.find(cube) != blocked_cubes.end(); }
@@ -132,6 +141,28 @@ class Frame
 					f.blocked_cubes.begin(), f.blocked_cubes.end(),
 					std::back_inserter(out), expr_less());
 			return out;
+		}
+
+		std::string solver_str() const
+		{
+			std::string str(fmt::format("solver level {}\n", level));
+
+			auto it = consecution_solver.assertions().begin();
+			for (int i = 0; i < cubes_start; i++) it++;
+
+			for (; it != consecution_solver.assertions().end(); it++)
+				str += fmt::format("- {}\n", (*it).to_string());
+
+			return str;
+		}
+
+		std::string blocked_str() const
+		{
+			std::string str(fmt::format("blocked cubes level {}\n", level));
+			for (const expr& e : blocked_cubes)
+				str += fmt::format("- {}\n", e.to_string());
+
+			return str;
 		}
 };
 
