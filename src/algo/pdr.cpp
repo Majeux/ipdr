@@ -9,21 +9,26 @@
 #include <fmt/format.h>
 #include <spdlog/common.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <z3++.h>
 
 #include "pdr.h"
 #include "z3-ext.h"
 
 using std::cout;
 using std::endl;
+using std::make_shared;
 using Z3extensions::negate;
 using fmt::format;
 
-PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
+PDR::PDR(shared_ptr<context> c, const PDRModel& m, bool do_log) : ctx(c), model(m), init_solver(*c)
 {
 	init_solver.add(m.get_initial());
 	std::string log_file = m.name + ".log";
 	log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
-	log->set_level(spdlog::level::trace);
+	if (do_log)
+		log->set_level(spdlog::level::trace);
+	else
+		log->set_level(spdlog::level::off);
 	// log->flush_on(spdlog::level::trace);
 }
 
@@ -48,7 +53,7 @@ void PDR::print_model(const z3::model& m)
 	cout << "}" << endl;
 }
 
-void PDR::run()
+ bool PDR::run()
 {
 	bool failed = false;
 	cout << endl << "PDR start:" << endl;
@@ -65,7 +70,7 @@ void PDR::run()
 	{
 		cout << "Failed initiation" << endl;
 		log->trace("Failed initiation");
-		return;
+		return false;
 	}
 	cout << "Survived initiation" << endl;
 	log->info("Survived initiation");
@@ -79,12 +84,12 @@ void PDR::run()
 	{
 		cout << "Failed iteration" << endl;
 		log->trace("Failed iteration");
+		return false;
 	}
-	else 
-	{
-		cout << "Property verified" << endl;
-		log->info("Property verified");
-	}
+
+	cout << "Property verified" << endl;
+	log->info("Property verified");
+	return true;
 }
 
 // returns true if the model survives initiation
@@ -97,6 +102,7 @@ bool PDR::init()
 		z3::model counter = init_solver.get_model();
 		print_model(counter);
 		//TODO TRACE	
+		bad = std::make_shared<State>(model.get_initial());
 		return false;
 	}
 
@@ -109,6 +115,10 @@ bool PDR::init()
 		z3::model counter = init_solver.get_model();
 		print_model(counter);
 		//TODO TRACE	
+		bad = std::make_shared<State>(expr_vector(*ctx));
+		frames[0]->sat_cube(bad->cube,
+				[this](const expr& e) { return model.literals.atom_is_current(e); });
+
 		return false;
 	}
 
@@ -161,7 +171,7 @@ bool PDR::iterate()
 				remove_state(smaller_cti, n + 1);
 
 				if (static_cast<unsigned>(n + 1) <= k)
-					obligations.emplace(n+1, cti_current);
+					obligations.emplace(n+1, std::move(cti_current));
 
 				log->trace("{}| block", TAB);
 				log_indent++;
@@ -208,32 +218,32 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 		log->trace(SEP);
 		log->trace("{}| top obligations", TAB);
 		log_indent++;
-		log->trace("{}| [{}]", TAB, join(state));
+		log->trace("{}| [{}]", TAB, join(state->cube));
 		log_indent--;
 
-		expr state_clause = z3::mk_or(negate(state));
+		expr state_clause = z3::mk_or(negate(state->cube));
 
-		if ( frames[n]->SAT(state_clause, model.literals.p(state)) )
+		if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
 		{	//predecessor found
-			expr_vector pred(*ctx);
-			frames[n]->sat_cube(pred,
+			shared_ptr<State> pred = make_shared<State>(expr_vector(*ctx), state);
+			frames[n]->sat_cube(pred->cube,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
 			log->trace("{}| predecessor found", TAB);
 			log_indent++;
-			log->trace("{}| [{}]", TAB, join(pred));
+			log->trace("{}| [{}]", TAB, join(pred->cube));
 			log_indent--;
 
-			int m = highest_inductive_frame(pred, n-1, level);
+			int m = highest_inductive_frame(pred->cube, n-1, level);
 			// m in [n-1, level]
 			if (m >= 0)
 			{
-				expr_vector smaller_pred = generalize(pred, m);
+				expr_vector smaller_pred = generalize(pred->cube, m);
 				remove_state(smaller_pred, m + 1);
 
 				if (static_cast<unsigned>(m+1) <= level)
 				{
-					log->trace("{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred));
+					log->trace("{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred->cube));
 					obligations.emplace(m+1, pred);
 					assert(start_size+1 == obligations.size());
 				}
@@ -242,6 +252,7 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 			}
 			else //intersects with I
 			{ 
+				bad = pred;
 				return false;
 			}
 		}
@@ -249,21 +260,21 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 		{	//finish state
 			log->trace("{}| finishing state", TAB);
 			log_indent++;
-			log->trace("{}| [{}]", TAB, join(state));
+			log->trace("{}| [{}]", TAB, join(state->cube));
 			log_indent--;
-			int m = highest_inductive_frame(state, n + 1, level);
+			int m = highest_inductive_frame(state->cube, n + 1, level);
         	// m in [n-1, level]
 			assert(static_cast<unsigned>(m+1) > n);
 
 			if (m >= 0)
 			{
-				expr_vector smaller_state = generalize(state, m);
+				expr_vector smaller_state = generalize(state->cube, m);
 				remove_state(smaller_state, m + 1);
 				obligations.pop();
 
 				if (static_cast<unsigned>(m+1) <= level)
 				{
-					log->trace("{}| push state to higher to level {}: [{}]", TAB, m+1, join(state));
+					log->trace("{}| push state to higher to level {}: [{}]", TAB, m+1, join(state->cube));
 					obligations.emplace(m+1, state);
 					assert(start_size == obligations.size());
 				}
@@ -272,6 +283,7 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 			}
 			else
 			{
+				bad = state;
 				return false;
 			}
 		}
@@ -361,5 +373,16 @@ void PDR::show_results(std::ostream& out) const
 
 void PDR::show_trace(std::ostream& out) const
 {
+	out << format("{} |\t [ {} ]", 0, join(model.get_initial())) << endl;
 
+	int i = 1;
+	shared_ptr<State> current = bad;
+	while (current)
+	{
+		out << format("{} |\t [ {} ]", i, join(current->cube)) << endl; 
+		current = current->prev;
+		i++;
+	}
+
+	out << format("{} |\t [ {} ]", i, join(model.not_property.currents())) << endl;
 }

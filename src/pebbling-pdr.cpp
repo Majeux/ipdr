@@ -1,6 +1,7 @@
 ﻿#include <z3++.h>
 #include <filesystem>
 #include <memory>
+#include <string>
 
 #include "pdr-model.h"
 #include "parse_bench.h"
@@ -39,8 +40,14 @@ void test()
 		cout << "UNKNOWN" << endl;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+	bool log = true;
+	if (argc > 1)
+		if (std::string("-nolog").compare(argv[1]))
+			log = false;
+			
+
 	std::string model_name = "c17";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
@@ -57,7 +64,7 @@ int main()
 	PDRModel model(ctx);
 	model.load_model(model_name, G, max_pebbles);
 
-	PDR algorithm(ctx, model);
+	PDR algorithm(ctx, model, log);
 	algorithm.run();
 	algorithm.show_results();
 

@@ -24,13 +24,28 @@ using z3::solver;
 #define TAB std::string(log_indent, '\t')
 #define MIN_ORDERING(T) T, std::vector<T>, std::greater<T> //type arguments for ascending priority queue
 
+struct State 
+{
+	expr_vector cube;
+	shared_ptr<State> prev; //store predecessor for trace
+
+	State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) { }
+	State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) { }
+	//move constructors
+	State(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<State>()) { }
+	State(expr_vector&& e, shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
+};
 
 struct Obligation
 {
 	unsigned level;
-	expr_vector cube;
+	shared_ptr<State> state;
 
-	Obligation(unsigned k, const expr_vector& e) : level(k), cube(e) { }
+	Obligation(unsigned k, expr_vector&& cube) : 
+		level(k), 
+		state( std::make_shared<State>(std::move(cube)) ) { }
+
+	Obligation(unsigned k, const shared_ptr<State>& s) : level(k), state(s) { }
 
 	// bool operator<(const Obligation& o) const { return this->level < o.level; }
 	bool operator>(const Obligation& o) const { return this->level > o.level; }
@@ -47,6 +62,8 @@ class PDR
 
 		vector<unique_ptr<Frame>> frames;
 		solver init_solver;
+
+		shared_ptr<State> bad;
 
 		Frame* make_frame(int level);
 		void print_model(const z3::model& m);
@@ -65,8 +82,8 @@ class PDR
 		void show_trace(std::ostream& out) const;
 
 	public:
-		PDR(shared_ptr<context> c, const PDRModel& m);
-		void run();
+		PDR(shared_ptr<context> c, const PDRModel& m, bool log);
+		bool run();
 		void show_results(std::ostream& out = std::cout) const;
 };
 
