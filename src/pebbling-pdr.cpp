@@ -59,5 +59,7 @@ int main()
 
 	PDR algorithm(ctx, model);
 	algorithm.run();
+	algorithm.show_results();
+
 	return 0;
 }

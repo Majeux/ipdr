@@ -22,6 +22,7 @@ class PDRModel
 {
 	public:
 		std::string name;
+		int max_pebbles;
 		shared_ptr<context> ctx;
 		ExpressionCache literals;
 		ExpressionCache property;
@@ -38,7 +39,7 @@ class PDRModel
 		expr_vector transition; //vector of clauses (cnf)
 		expr_vector cardinality; //cardinality constraint for current and next state
 
-		void load_pebble_transition(const Graph& G, int max_pebbles);
+		void load_pebble_transition(const Graph& G);
 		void load_property(const Graph& G);
 };
 

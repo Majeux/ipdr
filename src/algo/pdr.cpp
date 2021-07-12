@@ -1,15 +1,13 @@
+#include <fmt/core.h>
 #include <functional>
 #include <iterator>
-#include <memory>
-#include <spdlog/common.h>
-#include <z3++.h>
-#include <fmt/format.h>
-#include <iostream>
 #include <cassert>
 #include <algorithm>
-#include <queue>
+#include <memory>
 #include <set>
 #include <string>
+#include <fmt/format.h>
+#include <spdlog/common.h>
 #include <spdlog/sinks/basic_file_sink.h>
 
 #include "pdr.h"
@@ -18,6 +16,7 @@
 using std::cout;
 using std::endl;
 using Z3extensions::negate;
+using fmt::format;
 
 PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
 {
@@ -80,10 +79,12 @@ void PDR::run()
 	{
 		cout << "Failed iteration" << endl;
 		log->trace("Failed iteration");
-		return;
 	}
-	cout << "Property verified" << endl;
-	log->info("Property verified");
+	else 
+	{
+		cout << "Property verified" << endl;
+		log->info("Property verified");
+	}
 }
 
 // returns true if the model survives initiation
@@ -334,4 +335,31 @@ bool PDR::propagate(unsigned level)
 		}
 	}
 	return false;
+}
+
+void PDR::show_results(std::ostream& out) const
+{
+	out << format("Results pebbling strategy with {} pebbles for {}", model.max_pebbles, model.name) << endl;
+	out << SEP2 << endl;
+
+	out << "Bad state reached:" << endl;
+	out << format("[ {} ]", join(model.not_property.currents(), " & ")) << endl << endl;
+
+	out << "Reached from:" << endl;
+	show_trace(out);
+	out << SEP2 << endl;
+
+	out << "Frames" << endl;
+	for (const unique_ptr<Frame>& f : frames)
+			out << format("{}", (*f).blocked_str()) << endl;
+
+	out << SEP << endl;
+	out << "Solvers" << endl;
+	for (const unique_ptr<Frame>& f : frames)
+			out << format("{}", (*f).solver_str()) << endl;
+}
+
+void PDR::show_trace(std::ostream& out) const
+{
+
 }

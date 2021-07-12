@@ -16,7 +16,7 @@ const expr_vector& PDRModel::get_transition() const { return transition; }
 const expr_vector& PDRModel::get_initial() const { return initial; }
 const expr_vector& PDRModel::get_cardinality() const { return cardinality; }
 
-void PDRModel::load_pebble_transition(const Graph& G, int max_pebbles)
+void PDRModel::load_pebble_transition(const Graph& G)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
 	{
@@ -64,9 +64,10 @@ void PDRModel::load_property(const Graph& G)
 	property.finish();
 }
 
-void PDRModel::load_model(const std::string& model_name, const Graph& G, int max_pebbles) 
+void PDRModel::load_model(const std::string& model_name, const Graph& G, int pebbles) 
 {
 	name = model_name;
+	max_pebbles = pebbles;
 	std::cout << "load graph model " << name << std::endl;
 
 	for (string node : G.nodes)
@@ -78,7 +79,7 @@ void PDRModel::load_model(const std::string& model_name, const Graph& G, int max
 
 	literals.print();
 
-	load_pebble_transition(G, max_pebbles);
+	load_pebble_transition(G);
 	std::cout << transition << std::endl;
 
 	load_property(G);

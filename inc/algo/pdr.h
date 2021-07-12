@@ -1,11 +1,12 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
+#include <ostream>
 #include <queue>
-#include <spdlog/logger.h>
-#include <z3++.h>
 #include <memory>
 #include <vector>
+#include <z3++.h>
+#include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
 
 #include "frame.h"
@@ -60,10 +61,13 @@ class PDR
 		expr_vector generalize(const expr_vector& cube, int level);
 		expr_vector MIC(const expr_vector& cube, int level);
 		bool down(vector<expr>& cube, int level);
+		//results
+		void show_trace(std::ostream& out) const;
 
 	public:
 		PDR(shared_ptr<context> c, const PDRModel& m);
 		void run();
+		void show_results(std::ostream& out = std::cout) const;
 };
 
 #endif //PDR_ALG
