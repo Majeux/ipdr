@@ -6,7 +6,7 @@ project ("pebbling-pdr")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -O3")
 
 find_package(fmt CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)

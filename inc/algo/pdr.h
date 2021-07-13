@@ -8,6 +8,7 @@
 #include <z3++.h>
 #include <spdlog/logger.h>
 #include <spdlog/spdlog.h>
+#include <spdlog/stopwatch.h>
 
 #include "frame.h"
 #include "pdr-model.h"
@@ -59,6 +60,8 @@ class PDR
 
 		shared_ptr<spdlog::logger> log;
 		unsigned log_indent = 0;
+		spdlog::stopwatch timer;
+		spdlog::stopwatch sub_timer;
 
 		vector<unique_ptr<Frame>> frames;
 		solver init_solver;
@@ -80,6 +83,7 @@ class PDR
 		bool down(vector<expr>& cube, int level);
 		//results
 		void show_trace(std::ostream& out) const;
+		bool finish(bool);
 
 	public:
 		PDR(shared_ptr<context> c, const PDRModel& m, bool log);

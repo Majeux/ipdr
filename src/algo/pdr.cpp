@@ -55,6 +55,7 @@ void PDR::print_model(const z3::model& m)
 
  bool PDR::run()
 {
+	timer.reset();
 	bool failed = false;
 	cout << endl << "PDR start:" << endl;
 	log->info("");
@@ -70,7 +71,7 @@ void PDR::print_model(const z3::model& m)
 	{
 		cout << "Failed initiation" << endl;
 		log->trace("Failed initiation");
-		return false;
+		return finish(false);
 	}
 	cout << "Survived initiation" << endl;
 	log->info("Survived initiation");
@@ -84,12 +85,21 @@ void PDR::print_model(const z3::model& m)
 	{
 		cout << "Failed iteration" << endl;
 		log->trace("Failed iteration");
-		return false;
+		return finish(false);
 	}
 
 	cout << "Property verified" << endl;
 	log->info("Property verified");
-	return true;
+	return finish(true);
+}
+
+bool PDR::finish(bool result) 
+{
+	cout << format("Total elapsed time {}", timer) << endl;
+	log->info("Total elapsed time {}", timer);
+	log_indent = 0;
+
+	return result;
 }
 
 // returns true if the model survives initiation
@@ -112,9 +122,6 @@ bool PDR::init()
 	if ( frames[0]->SAT(model.not_property.nexts()) )
 	{
 		std::cout << "I & T =/> P'" << std::endl;
-		z3::model counter = init_solver.get_model();
-		print_model(counter);
-		//TODO TRACE	
 		bad = std::make_shared<State>(expr_vector(*ctx));
 		frames[0]->sat_cube(bad->cube,
 				[this](const expr& e) { return model.literals.atom_is_current(e); });
@@ -177,13 +184,7 @@ bool PDR::iterate()
 				log_indent++;
 				
 				if (not block(obligations, k)) 
-				{
-					// trace.bad_state = NextFromModel(cti);
-					// trace.to_bad = StateFromModel(cti);
-					// trace.badI = counter;
-					// trace.Frames = Frames;
 					return false;
-				}
 				log_indent--;
 				log->trace(SEP2);
 				cout << endl;
@@ -212,6 +213,7 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 {
 	while (obligations.size() > 0)
 	{
+		sub_timer.reset();
 		size_t start_size = obligations.size();
 		auto &[n, state] = obligations.top();
 		assert(n <= level);
@@ -287,6 +289,8 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 				return false;
 			}
 		}
+		log->trace("Obligation elapsed {}", sub_timer);
+		cout << format("Obligation elapsed {}", sub_timer) << endl;
 	}
 	return true;
 }
@@ -308,6 +312,7 @@ void PDR::remove_state(expr_vector& cube, int level)
 bool PDR::propagate(unsigned level)
 {
 	assert(level + 1 == frames.size()-1);
+	sub_timer.reset();
 	cout << "propagate level " << level << endl;
 	//extracts arguments of e as an expr_vector
 	auto extract = [this] (const expr& e) 
@@ -338,6 +343,8 @@ bool PDR::propagate(unsigned level)
 					// trace.Subsumed++;
 				// }
 			}
+			else 
+				frames[i]->discard_model();
 		}
 
 		if (diff.size() == 0 || frames[i]->equals(*frames[i + 1]))
@@ -346,6 +353,8 @@ bool PDR::propagate(unsigned level)
 			return true;
 		}
 	}
+	log->trace("Propagation elapsed {}", sub_timer);
+	cout << format("Propagation elapsed {}", sub_timer) << endl;
 	return false;
 }
 

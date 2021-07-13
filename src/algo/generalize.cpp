@@ -20,7 +20,10 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 
 	// if SAT(F_0 & !s & T & s') aka F_0 & !s & T /=> !s'
 	if (min <= 0 && frames[0]->SAT(clause, cube_p))
+	{
+		frames[0]->discard_model();
 		return -1; //intersects with D[0]
+	}
 
 	int highest = max;
 	for (int i = std::max(1, min); i <= max; i++)
@@ -28,6 +31,7 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 		//cube was inductive up to this iteration
 		if (frames[i]->SAT(clause, cube_p))
 		{
+			frames[i]->discard_model();
 			highest = i - 1; //previous was greatest inductive frame
 			break;
 		}

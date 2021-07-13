@@ -117,6 +117,9 @@ class Frame
 			}
 		}
 
+		//does nothing bet asserts that you do not need to use the last model
+		void discard_model() { model_used = true; }
+
 		template <typename Vec, typename UnaryPredicate, typename VecReserve>
 		void sat_cube(Vec& v, UnaryPredicate p, VecReserve reserve)
 		{
@@ -146,11 +149,12 @@ class Frame
 		std::string solver_str() const
 		{
 			std::string str(fmt::format("solver level {}\n", level));
+			const expr_vector& asserts = consecution_solver.assertions();
+			
+			auto it = asserts.begin();
+			for (int i = 0; i < cubes_start && it != asserts.end(); i++) it++;
 
-			auto it = consecution_solver.assertions().begin();
-			for (int i = 0; i < cubes_start; i++) it++;
-
-			for (; it != consecution_solver.assertions().end(); it++)
+			for (; it != asserts.end(); it++)
 				str += fmt::format("- {}\n", (*it).to_string());
 
 			return str;
