@@ -168,7 +168,8 @@ bool PDR::iterate()
 				// s is not in F_k-1 (or it would have been found previously)
 				// F_k-2 & T & !s => !s'
 				// only need to to search k-1 ... k
-				int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
+				expr_vector core(*ctx);
+				int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
 				assert(n >= 0);
 
 				// F_n & T & !s => !s

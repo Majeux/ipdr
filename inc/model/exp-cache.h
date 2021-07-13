@@ -53,7 +53,7 @@ class ExpressionCache
 			return atom_is_current(e);
 		}
 
-		bool is_next(const expr& e) const 
+		bool literal_is_next(const expr& e) const 
 		{
 			if(e.is_not())
 				return literal_index_p.find(e.arg(0).id()) != literal_index.end();
@@ -61,13 +61,28 @@ class ExpressionCache
 			return literal_index_p.find(e.id()) != literal_index.end();
 		}
 
-		//current state expressions
+		//converts a literal in the next state to a literal in the current state
 		expr operator()(const expr& e) const
 		{
-			int index = literal_index.at(e.id());
+			int index;
+			if(e.is_not())
+			{
+				index = literal_index_p.at(e.arg(0).id());
+				return !current[index];
+			}
+			assert(e.is_const());
+			index = literal_index_p.at(e.id());
 			return current[index];
 		}
 		expr operator()(int index) const { return current[index]; }
+
+		expr_vector operator()(const expr_vector& vec) const
+		{
+			expr_vector vec_now(*ctx);
+			for (const expr& e : vec)
+				vec_now.push_back(operator()(e));
+			return vec_now;
+		}
 
 		//next state expressions
 		expr p(const expr& e) const

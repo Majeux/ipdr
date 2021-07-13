@@ -117,6 +117,7 @@ class Frame
 			}
 		}
 
+		expr_vector unsat_core() const { return consecution_solver.unsat_core(); }
 		//does nothing bet asserts that you do not need to use the last model
 		void discard_model() { model_used = true; }
 

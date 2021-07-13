@@ -78,6 +78,7 @@ class PDR
 		bool propagate(unsigned level);
 		//generalization
 		int highest_inductive_frame(const expr_vector& cube, int min, int max);
+		int highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core);
 		expr_vector generalize(const expr_vector& cube, int level);
 		expr_vector MIC(const expr_vector& cube, int level);
 		bool down(vector<expr>& cube, int level);

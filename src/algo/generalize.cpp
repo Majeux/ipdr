@@ -28,7 +28,7 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 	int highest = max;
 	for (int i = std::max(1, min); i <= max; i++)
 	{
-		//cube was inductive up to this iteration
+		//clause was inductive up to this iteration
 		if (frames[i]->SAT(clause, cube_p))
 		{
 			frames[i]->discard_model();
@@ -39,6 +39,27 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 
 	log->trace("{}| highest inductive frame is {}", TAB, highest);
 	return highest;
+}
+
+int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core)
+{
+	int result = highest_inductive_frame(cube, min, max);
+	if (result >= 0)
+	{
+		// F_result & !cube & T & cube' == UNSAT
+		// F_result & !cube & T & core' == UNSAT
+		core = model.literals(frames[result]->unsat_core());
+		// if I => !core, the subclause survives initiation and is inductive
+		if (init_solver.check(core) == z3::sat) //I /=> !core
+			core = cube; // core is not inductive, use original
+	}
+	log->trace("{}| reduced cube", TAB); 
+	log_indent++;
+	log->trace("{}| [ {} ]", TAB, join(cube));
+	log->trace("{}| [ {} ]", TAB, join(core));
+	log_indent--;
+
+	return result;
 }
 
 expr_vector PDR::generalize(const expr_vector& state, int level)

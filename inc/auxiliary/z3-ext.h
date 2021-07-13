@@ -18,11 +18,13 @@ namespace Z3extensions
 		bool operator() (const z3::expr& l, const z3::expr& r) const { return l.id() < r.id(); };
 	};
 
+	inline expr minus(const expr& e) { return e.is_not() ? e.arg(0) : !e; }
+
 	inline expr_vector negate(const expr_vector& lits) 
 	{
 		expr_vector negated(lits.ctx());
 		for (const expr& e : lits)
-			negated.push_back(!e);
+			negated.push_back(minus(e));
 		return negated;
 	}
 
@@ -30,7 +32,7 @@ namespace Z3extensions
 	{
 		expr_vector negated(lits[0].ctx());
 		for (const expr& e : lits)
-			negated.push_back(!e);
+			negated.push_back(minus(e));
 		return negated;
 	}
 
