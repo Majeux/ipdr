@@ -37,9 +37,11 @@ class Frame
 		int cubes_start = 0;
 
 	public:
-		Frame(int k, shared_ptr<context> c, const std::vector<expr_vector>& assertions) : level(k), ctx(c), consecution_solver(*c)
+		Frame(int k, shared_ptr<context> c, const std::vector<expr_vector>& assertions) : level(k), ctx(c), consecution_solver(*c/*, "QF_FD"*/)
 		{
 			consecution_solver.set("sat.cardinality.solver", true);
+			consecution_solver.set("cardinality.solver", true);
+			// consecution_solver.set("lookahead_simplify", true);
 			for (const expr_vector& v : assertions)
 				consecution_solver.add(v);
 
@@ -118,6 +120,20 @@ class Frame
 		}
 
 		expr_vector unsat_core() const { return consecution_solver.unsat_core(); }
+		template <typename UnaryPredicate, typename Transform>
+		expr_vector unsat_core(UnaryPredicate p, Transform t) const 
+		{ 
+			expr_vector full_core = consecution_solver.unsat_core(); 
+			if (full_core.size() == 0)
+				return full_core;
+
+			expr_vector core(full_core[0].ctx());
+			for (const expr& e : full_core)
+				if (p(e))
+					core.push_back(t(e));
+			return core;
+		}
+		
 		//does nothing bet asserts that you do not need to use the last model
 		void discard_model() { model_used = true; }
 

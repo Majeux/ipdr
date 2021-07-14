@@ -1,5 +1,7 @@
 #ifndef PDR_ALG
 #define PDR_ALG
+// #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 
 #include <ostream>
 #include <queue>
@@ -62,11 +64,12 @@ class PDR
 		unsigned log_indent = 0;
 		spdlog::stopwatch timer;
 		spdlog::stopwatch sub_timer;
+		shared_ptr<State> bad;
 
 		vector<unique_ptr<Frame>> frames;
 		solver init_solver;
 
-		shared_ptr<State> bad;
+		const unsigned mic_retries = 3; //if mic fails to reduce a clause c this many times, take c
 
 		Frame* make_frame(int level);
 		void print_model(const z3::model& m);

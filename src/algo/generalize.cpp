@@ -37,7 +37,7 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 		}
 	}
 
-	log->trace("{}| highest inductive frame is {}", TAB, highest);
+	SPDLOG_LOGGER_TRACE(log, "{}| highest inductive frame is {}", TAB, highest);
 	return highest;
 }
 
@@ -48,15 +48,18 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max, expr
 	{
 		// F_result & !cube & T & cube' == UNSAT
 		// F_result & !cube & T & core' == UNSAT
-		core = model.literals(frames[result]->unsat_core());
+		core = frames[result]->unsat_core(
+				[this](const expr& e) { return model.literals.literal_is_p(e); },
+				[this](const expr& e) { return model.literals(e); });
+		// std::cout << "core: " << join(core) << std::endl;
 		// if I => !core, the subclause survives initiation and is inductive
 		if (init_solver.check(core) == z3::sat) //I /=> !core
 			core = cube; // core is not inductive, use original
 	}
-	log->trace("{}| reduced cube", TAB); 
+	SPDLOG_LOGGER_TRACE(log, "{}| used substituted cube for core: {} -> {}", TAB, cube.size(), core.size()); 
 	log_indent++;
-	log->trace("{}| [ {} ]", TAB, join(cube));
-	log->trace("{}| [ {} ]", TAB, join(core));
+	// SPDLOG_LOGGER_TRACE(log, "{}| [ {} ]", TAB, join(cube));
+	// SPDLOG_LOGGER_TRACE(log, "{}| [ {} ]", TAB, join(core));
 	log_indent--;
 
 	return result;
@@ -64,12 +67,13 @@ int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max, expr
 
 expr_vector PDR::generalize(const expr_vector& state, int level)
 {
-	log->trace("{}| generalize", TAB);
+	SPDLOG_LOGGER_TRACE(log, "{}| generalize", TAB);
 	log_indent++;
 	expr_vector smaller_cube = MIC(state, level);
 	log_indent--;
 
-	log->trace("{}| final reduced cube = [{}]", TAB, join(smaller_cube));
+	SPDLOG_LOGGER_TRACE(log, "{}| generalized cube: {} -> {}", TAB, state.size(), smaller_cube.size());
+	// SPDLOG_LOGGER_TRACE(log, "{}| final reduced cube = [{}]", TAB, join(smaller_cube));
 	return smaller_cube;
 }
 
@@ -80,7 +84,8 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 	
 	std::sort(cube.begin(), cube.end(), expr_less());
 
-	for (unsigned i = 0; i < cube.size();) 
+	unsigned attempts = 0;
+	for (unsigned i = 0; i < cube.size() && attempts < mic_retries;) 
 	{
 		std::vector<expr> new_cube(cube.begin(), cube.begin()+i);
 		new_cube.reserve(cube.size()-1);
@@ -92,11 +97,13 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 		{
 			log_indent--;
 			cube = std::move(new_cube);
-			// log->trace("{}| reduced cube: [{}]", TAB, join(cube));
+			attempts = 0;
+			// SPDLOG_LOGGER_TRACE(log, "{}| reduced cube: [{}]", TAB, join(cube));
 		}
 		else 
 		{
 			i++;
+			attempts++;
 			log_indent--;
 		}
 	}
@@ -131,7 +138,7 @@ bool PDR::down(vector<expr>& state, int level)
 
 		state = move(cti_intersect);
 
-		// log->trace("{}| down-reduction: [{}]", TAB, join(state));
+		// SPDLOG_LOGGER_TRACE(log, "{}| down-reduction: [{}]", TAB, join(state));
 	}
 	return false;
 }

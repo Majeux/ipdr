@@ -45,7 +45,7 @@ class ExpressionCache
 			assert(e.is_const());
 			return literal_index.find(e.id()) != literal_index.end();
 		}
-		//checks if e is a literal in current. fails if e is not a literal (atom/!atom)
+		//returns true if e is a literal in current. else false
 		bool literal_is_current(const expr& e) const 
 		{
 			if(e.is_not())
@@ -53,12 +53,13 @@ class ExpressionCache
 			return atom_is_current(e);
 		}
 
-		bool literal_is_next(const expr& e) const 
+		bool literal_is_p(const expr& e) const 
 		{
 			if(e.is_not())
 				return literal_index_p.find(e.arg(0).id()) != literal_index.end();
-			assert(e.is_const());
-			return literal_index_p.find(e.id()) != literal_index.end();
+			if (e.is_const())
+				return literal_index_p.find(e.id()) != literal_index.end();
+			return false;
 		}
 
 		//converts a literal in the next state to a literal in the current state

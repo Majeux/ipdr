@@ -1,4 +1,5 @@
-﻿#include <z3++.h>
+﻿#include <fstream>
+#include <z3++.h>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -46,13 +47,12 @@ int main(int argc, char *argv[])
 	if (argc > 1)
 		if (std::string("-nolog").compare(argv[1]))
 			log = false;
-			
 
-	std::string model_name = "c17";
+	std::string model_name = "c432";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
 	Graph G = parse_file(file.string());
-	int max_pebbles = 4;
+	int max_pebbles = 60;
 
 	cout << "Graph" << endl << G;
 
@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 	settings.set("unsat_core", true);
 	settings.set("model", true);
 	shared_ptr<z3::context> ctx(new z3::context(settings));
+	
 
 	PDRModel model(ctx);
 	model.load_model(model_name, G, max_pebbles);
