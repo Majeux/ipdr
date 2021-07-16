@@ -1,11 +1,11 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
-#ifdef DO_LOG
+#ifdef LOG
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
 #else 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
-#endif //DO_LOG
+#endif //LOG
 
 #include <ostream>
 #include <queue>
@@ -62,8 +62,8 @@ struct Obligation
 class PDR 
 {
 	private:
-		shared_ptr<context> ctx;
-		const PDRModel& model;
+		context& ctx;
+		PDRModel& model;
 
 		shared_ptr<spdlog::logger> log;
 		unsigned log_indent = 0;
@@ -98,7 +98,7 @@ class PDR
 	public:
 		Statistics stats;
 
-		PDR(shared_ptr<context> c, const PDRModel& m);
+		PDR(PDRModel& m);
 		bool run();
 		void show_results(std::ostream& out = std::cout) const;
 };

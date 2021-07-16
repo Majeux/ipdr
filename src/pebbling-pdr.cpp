@@ -11,7 +11,6 @@
 
 using namespace std;
 using namespace z3;
-using std::shared_ptr;
 
 void test() 
 {
@@ -43,24 +42,22 @@ void test()
 
 int main()
 {
-	std::string model_name = "c17";
+	std::string model_name = "c432";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
 	Graph G = parse_file(file.string());
-	int max_pebbles = 4;
+	int max_pebbles = 60;
 
 	cout << "Graph" << endl << G;
 
 	config settings;
 	settings.set("unsat_core", true);
 	settings.set("model", true);
-	shared_ptr<z3::context> ctx(new z3::context(settings));
-	
 
-	PDRModel model(ctx);
+	PDRModel model(settings);
 	model.load_model(model_name, G, max_pebbles);
 
-	PDR algorithm(ctx, model);
+	PDR algorithm(model);
 	algorithm.run();
 	algorithm.show_results();
 	cout << endl << algorithm.stats << endl;

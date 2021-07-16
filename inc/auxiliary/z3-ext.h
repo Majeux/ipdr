@@ -10,7 +10,7 @@ using std::string;
 using z3::expr;
 using z3::expr_vector;
 
-namespace Z3extensions
+namespace z3ext
 {
 	//z3::expr comparator
 	struct expr_less 

@@ -8,14 +8,10 @@
 #include "string-ext.h"
 
 using z3::expr_vector;
-using Z3extensions::expr_less;
-using Z3extensions::negate;
-using Z3extensions::convert;
-using str::extensions::join;
 
 int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 {
-	expr clause = z3::mk_or(negate(cube)); //negate cube via demorgan
+	expr clause = z3::mk_or(z3ext::negate(cube)); //negate cube via demorgan
 	expr_vector cube_p = model.literals.p(cube);
 
 	// if SAT(F_0 & !s & T & s') aka F_0 & !s & T /=> !s'
@@ -80,9 +76,9 @@ expr_vector PDR::generalize(const expr_vector& state, int level)
 
 expr_vector PDR::MIC(const expr_vector& state, int level) 
 {
-	std::vector<expr> cube = convert(state); //use std::vector for sorting and intersection
+	std::vector<expr> cube = z3ext::convert(state); //use std::vector for sorting and intersection
 	
-	std::sort(cube.begin(), cube.end(), expr_less());
+	std::sort(cube.begin(), cube.end(), z3ext::expr_less());
 
 	unsigned attempts = 0;
 	for (unsigned i = 0; i < cube.size() && attempts < mic_retries;) 
@@ -108,7 +104,7 @@ expr_vector PDR::MIC(const expr_vector& state, int level)
 		}
 	}
 
-	return convert(cube); //revert to expr_vector for efficiency in z3
+	return z3ext::convert(cube); //revert to expr_vector for efficiency in z3
 }
 
 //state is sorted
@@ -117,7 +113,7 @@ bool PDR::down(vector<expr>& state, int level)
 	auto is_current_in_state = [this, &state](const expr& e)
 	{
 		return model.literals.literal_is_current(e) 
-			&& std::binary_search(state.begin(), state.end(), e, expr_less());
+			&& std::binary_search(state.begin(), state.end(), e, z3ext::expr_less());
 	};
 
 	while (true)
@@ -126,7 +122,7 @@ bool PDR::down(vector<expr>& state, int level)
 		if (init_solver.check(state.size(), raw_state) == z3::sat)
 			return false;
 
-		expr state_clause = z3::mk_or(negate(state));
+		expr state_clause = z3::mk_or(z3ext::negate(state));
 		if( frames[level]->UNSAT(state_clause, model.literals.p(state)) )
 			return true;
 		

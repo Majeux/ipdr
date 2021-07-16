@@ -1,7 +1,11 @@
+#ifndef STAT
+#define STAT
+
 #include <cassert>
 #include <cstddef>
 #include <fmt/core.h>
 #include <ostream>
+#include <sstream>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -99,6 +103,13 @@ class Statistics
 			subsumed_cubes[frame]++;
 		}
 
+		std::string to_string() const 
+		{
+			std::stringstream ss;
+			ss << *this << endl;
+			return ss.str();
+		}
+
 		friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
 		{
 			string frame_line("# - frame {level:<3} {name:<10}: {state:<20}");
@@ -140,3 +151,5 @@ class Statistics
 			return out << "######################" << endl;
 		}
 };
+
+#endif //STAT

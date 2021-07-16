@@ -2,42 +2,37 @@
 #define FRAME
 
 #include <stdexcept>
-#include <fmt/core.h>
-#include <fmt/format.h>
 #include <string>
 #include <memory>
 #include <set>
 #include <vector>
-#include <stdexcept>
-#include <numeric>
 #include <z3++.h>
 #include <fmt/format.h>
+#include <fmt/core.h>
 
 #include "z3-ext.h"
+#include "stats.h"
 
-using std::shared_ptr;
 using std::vector;
 using z3::context;
 using z3::solver;
 using z3::expr;
 using z3::expr_vector;
-using Z3extensions::expr_less;
-using Z3extensions::negate;
 
 class Frame
 {
 	private:
 		int level;
-		shared_ptr<context> ctx;
+		Statistics& stats;
 		solver consecution_solver;
 
-		std::set<expr, expr_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+		std::set<expr, z3ext::expr_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 		bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
 		int cubes_start = 0;
 
 	public:
-		Frame(int k, shared_ptr<context> c, const std::vector<expr_vector>& assertions);
+		Frame(int k, context& c, Statistics& s, const std::vector<expr_vector>& assertions);
 		
 		bool blocked(const expr& cube) const;
 		bool block_cube(const expr_vector& cube);

@@ -16,7 +16,7 @@ void Frame::sat_cube(Vec& v, UnaryPredicate p)
 	{
 		z3::func_decl f = m[i];
 		expr b_value = m.get_const_interp(f);
-		expr literal(*ctx);
+		expr literal(consecution_solver.ctx());
 		if (b_value.is_true())
 			 literal = f();
 		else if (b_value.is_false())

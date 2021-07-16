@@ -9,7 +9,6 @@
 #include "dag.h"
 #include "exp-cache.h"
 
-using std::shared_ptr;
 using z3::context;
 using z3::expr_vector;
 
@@ -23,12 +22,13 @@ class PDRModel
 	public:
 		std::string name;
 		int max_pebbles;
-		shared_ptr<context> ctx;
+		context ctx;
 		ExpressionCache literals;
 		ExpressionCache property;
 		ExpressionCache not_property;
 
-		PDRModel(shared_ptr<context> c);
+		PDRModel();
+		PDRModel(z3::config& settings);
 		void load_model(const std::string& model_name, const Graph& G, int max_pebbles);
 		const expr_vector& get_transition() const;
 		const expr_vector& get_initial() const;

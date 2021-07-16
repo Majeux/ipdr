@@ -1,7 +1,10 @@
+#include <numeric>
+#include <chrono>
+
 #include "frame.h"
 
-Frame::Frame(int k, shared_ptr<context> c, const std::vector<expr_vector>& assertions) 
-	: level(k), ctx(c), consecution_solver(*c/*, "QF_FD"*/)
+Frame::Frame(int k, context& c, Statistics& s, const std::vector<expr_vector>& assertions) 
+	: level(k), stats(s), consecution_solver(c/*, "QF_FD"*/)
 {
 	consecution_solver.set("sat.cardinality.solver", true);
 	consecution_solver.set("cardinality.solver", true);
@@ -20,7 +23,7 @@ bool Frame::blocked(const expr& cube) const
 
 bool Frame::block_cube(const expr_vector& cube)
 {
-	expr clause = z3::mk_or(negate(cube));
+	expr clause = z3::mk_or(z3ext::negate(cube));
 	bool inserted = blocked_cubes.insert(z3::mk_and(cube)).second;
 
 	if (!inserted) //TODO possibly check some subsumption here
@@ -38,14 +41,23 @@ bool Frame::SAT(const expr& current, expr_vector next)
 
 bool Frame::SAT(const expr_vector& next) 
 { 
+	using std::chrono::steady_clock; 
+	auto start = steady_clock::now();
+	bool result;
+
 	if (consecution_solver.check(next) == z3::sat)
 	{
 		if(!model_used)
 			std::cerr << "PDR::WARNING: last SAT model unused and discarded" << std::endl;
 		model_used = false;
-		return true;
+		result = true;
 	}
-	return false;
+	else
+		result = false;
+
+	std::chrono::duration<double> diff(steady_clock::now() - start);
+	stats.solver_call(level, diff.count());
+	return result;
 }
 
 bool Frame::UNSAT(const expr& current, expr_vector next) 
@@ -75,7 +87,7 @@ std::vector<expr> Frame::diff(const Frame& f) const
 	std::set_difference(
 			blocked_cubes.begin(), blocked_cubes.end(),
 			f.blocked_cubes.begin(), f.blocked_cubes.end(),
-			std::back_inserter(out), expr_less());
+			std::back_inserter(out), z3ext::expr_less());
 	return out;
 }
 

@@ -4,13 +4,11 @@
 #include <vector>
 #include <z3++.h>
 #include <cassert>
-#include <memory>
 #include <string>
 #include <unordered_map>
 
 #include "string-ext.h"
 
-using std::shared_ptr;
 using std::string;
 using std::move;
 using z3::context;
@@ -23,7 +21,7 @@ class ExpressionCache
 	private:
 		bool finished = false; //add no new expressions after finish() has been called
 		enum class Encoding {UNKNOWN, LITERALS, EXPRESSIONS} encodes;
-		shared_ptr<context> ctx;
+		context& ctx;
 		std::unordered_map<unsigned, int> literal_index;
 		std::unordered_map<unsigned, int> literal_index_p;
 
@@ -31,11 +29,11 @@ class ExpressionCache
 		expr_vector next;
 
 	public:
-		ExpressionCache(shared_ptr<context> c) :
+		ExpressionCache(context& c) :
 			encodes(Encoding::UNKNOWN),
 			ctx(c),
-			current(*c),
-			next(*c)
+			current(c),
+			next(c)
 		{ }
 
 		int indexof(const expr& e) const { return literal_index.at(e.id()); }
@@ -79,7 +77,7 @@ class ExpressionCache
 
 		expr_vector operator()(const expr_vector& vec) const
 		{
-			expr_vector vec_now(*ctx);
+			expr_vector vec_now(ctx);
 			for (const expr& e : vec)
 				vec_now.push_back(operator()(e));
 			return vec_now;
@@ -104,14 +102,14 @@ class ExpressionCache
 		//assumes vec is a vector of consts in current
 		expr_vector p(const expr_vector& vec) const
 		{
-			expr_vector vec_next(*ctx);
+			expr_vector vec_next(ctx);
 			for (const expr& e : vec)
 				vec_next.push_back(p(e));
 			return vec_next;
 		}
 		expr_vector p(const std::vector<expr>& vec) const
 		{
-			expr_vector vec_next(*ctx);
+			expr_vector vec_next(ctx);
 			for (const expr& e : vec)
 				vec_next.push_back(p(e));
 			return vec_next;
@@ -129,8 +127,8 @@ class ExpressionCache
 			if (encodes != Encoding::EXPRESSIONS)
 				encodes = Encoding::LITERALS;
 
-			expr lit = ctx->bool_const(name.c_str());
-			expr lit_p = ctx->bool_const((name + ".p").c_str());
+			expr lit = ctx.bool_const(name.c_str());
+			expr lit_p = ctx.bool_const((name + ".p").c_str());
 
 			current.push_back(move(lit));
 			next.push_back(move(lit_p));

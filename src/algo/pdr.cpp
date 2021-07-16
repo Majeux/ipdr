@@ -1,15 +1,13 @@
-#include <fmt/core.h>
 #include <functional>
 #include <iterator>
 #include <cassert>
 #include <algorithm>
-#include <memory>
 #include <set>
+#include <spdlog/common.h>
 #include <string>
 #include <fmt/format.h>
-#include <spdlog/common.h>
+#include <fmt/core.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <z3++.h>
 #include <fstream>
 
 #include "pdr.h"
@@ -18,10 +16,9 @@
 using std::cout;
 using std::endl;
 using std::make_shared;
-using Z3extensions::negate;
 using fmt::format;
 
-PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
+PDR::PDR(PDRModel& m) : ctx(m.ctx), model(m), init_solver(ctx)
 {
 	init_solver.add(m.get_initial());
 	// std::ofstream params_file("z3params/ctx.params");
@@ -29,7 +26,8 @@ PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solv
 
 	std::string log_file = m.name + ".log";
 	log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
-	// log->flush_on(spdlog::level::trace);
+	log->set_level(spdlog::level::trace);
+	// spdlog::flush_every(std::chrono::seconds(20));
 }
 
 Frame* PDR::make_frame(int level)
@@ -38,9 +36,9 @@ Frame* PDR::make_frame(int level)
 	SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
 
 	if (level == 0)
-		return new Frame(0, model.ctx, { model.get_initial(), model.get_transition(), model.get_cardinality() });
+		return new Frame(0, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
 
-	return new Frame(level, ctx, { model.property.currents(), model.get_transition(), model.get_cardinality() });
+	return new Frame(level, ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
 }
 
 void PDR::print_model(const z3::model& m)
@@ -122,7 +120,7 @@ bool PDR::init()
 	if ( frames[0]->SAT(model.not_property.nexts()) )
 	{
 		std::cout << "I & T =/> P'" << std::endl;
-		bad = std::make_shared<State>(expr_vector(*ctx));
+		bad = std::make_shared<State>(expr_vector(ctx));
 		frames[0]->sat_cube(bad->cube,
 				[this](const expr& e) { return model.literals.atom_is_current(e); });
 
@@ -155,9 +153,10 @@ bool PDR::iterate()
 				// F_i & T /=> F_i+1' (= P')
 				// strengthen F_i
 				SPDLOG_LOGGER_TRACE(log, "{}| cti found", TAB);
+				cout << "new cti" << endl;
 				log_indent++;
 				
-				expr_vector cti_current(*ctx);
+				expr_vector cti_current(ctx);
 				frames[k]->sat_cube(cti_current,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
@@ -168,7 +167,7 @@ bool PDR::iterate()
 				// s is not in F_k-1 (or it would have been found previously)
 				// F_k-2 & T & !s => !s'
 				// only need to to search k-1 ... k
-				expr_vector core(*ctx);
+				expr_vector core(ctx);
 				int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
 				// int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
 				assert(n >= 0);
@@ -207,15 +206,14 @@ bool PDR::iterate()
 		cout << "###############" << endl;
 		SPDLOG_LOGGER_TRACE(log, SEP3); 
 		for (const unique_ptr<Frame>& f : frames)
-		{
 			SPDLOG_LOGGER_TRACE(log, "{}", (*f).solver_str());
-		}
 		SPDLOG_LOGGER_TRACE(log, SEP3);
 	}
 }
 
 bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsigned level)
 {
+	unsigned period = 0;
 	while (obligations.size() > 0)
 	{
 		sub_timer.reset();
@@ -230,11 +228,11 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 		SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
 		log_indent--;
 
-		expr state_clause = z3::mk_or(negate(state->cube));
+		expr state_clause = z3::mk_or(z3ext::negate(state->cube));
 
 		if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
 		{	//predecessor found
-			shared_ptr<State> pred = make_shared<State>(expr_vector(*ctx), state);
+			shared_ptr<State> pred = make_shared<State>(expr_vector(ctx), state);
 			frames[n]->sat_cube(pred->cube,
 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
@@ -243,7 +241,7 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(pred->cube));
 			log_indent--;
 
-			expr_vector core(*ctx);
+			expr_vector core(ctx);
 			int m = highest_inductive_frame(pred->cube, n-1, level, core);
 			// int m = highest_inductive_frame(pred->cube, n-1, level);
 			// m in [n-1, level]
@@ -277,7 +275,7 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
 			log_indent--;
 
-			expr_vector core(*ctx);
+			expr_vector core(ctx);
 			int m = highest_inductive_frame(state->cube, n + 1, level, core);
 			// int m = highest_inductive_frame(state->cube, n + 1, level);
         	// m in [n-1, level]
@@ -311,6 +309,15 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 		SPDLOG_LOGGER_TRACE(log, "Obligation {} elapsed {}", branch, elapsed);
 		cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
 		elapsed = -1.0;
+
+		if (period >= 100)
+		{
+			period = 0;
+			cout << "Stats written" << endl;
+			SPDLOG_LOGGER_DEBUG(log, stats.to_string());
+			log->flush();
+		}
+		else period++;
 	}
 	return true;
 }
@@ -337,7 +344,7 @@ bool PDR::propagate(unsigned level)
 	//extracts arguments of e as an expr_vector
 	auto extract = [this] (const expr& e) 
 	{
-		expr_vector result(*ctx);
+		expr_vector result(ctx);
 		int size = e.num_args();
 		for (int i = 0; i < size; i++)
 			result.push_back(e.arg(i));

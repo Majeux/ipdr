@@ -1,15 +1,26 @@
 #include "pdr-model.h"
+#include <z3++.h>
 
 using z3::expr;
 
-PDRModel::PDRModel(shared_ptr<context> c) : 
-	ctx(c), 
-	literals(c),
-	property(c),
-	not_property(c),
-	initial(*c),
-	transition(*c), 
-	cardinality(*c)
+PDRModel::PDRModel() : 
+	ctx(), 
+	literals(ctx),
+	property(ctx),
+	not_property(ctx),
+	initial(ctx),
+	transition(ctx), 
+	cardinality(ctx)
+{ }
+
+PDRModel::PDRModel(z3::config& settings) : 
+	ctx(settings), 
+	literals(ctx),
+	property(ctx),
+	not_property(ctx),
+	initial(ctx),
+	transition(ctx), 
+	cardinality(ctx)
 { }
 
 const expr_vector& PDRModel::get_transition() const { return transition; }
@@ -25,7 +36,7 @@ void PDRModel::load_pebble_transition(const Graph& G)
 		//or unpebble if all children are pebbled now and next
 		for (const string& child : G.children.at(name))
 		{
-			expr child_node = ctx->bool_const(child.c_str());
+			expr child_node = ctx.bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
 
 			transition.push_back(  literals(i) || !literals.p(i) || literals(child_i));
@@ -52,7 +63,7 @@ void PDRModel::load_property(const Graph& G)
 	not_property.finish();
 
 	//final nodes are unpebbled and others are
-	expr_vector disjunction(*ctx);
+	expr_vector disjunction(ctx);
 	for (const expr& e : literals.currents())
 	{
 		if (G.is_output(e.to_string()))
