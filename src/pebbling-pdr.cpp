@@ -41,18 +41,13 @@ void test()
 		cout << "UNKNOWN" << endl;
 }
 
-int main(int argc, char *argv[])
+int main()
 {
-	bool log = true;
-	if (argc > 1)
-		if (std::string("-nolog").compare(argv[1]))
-			log = false;
-
-	std::string model_name = "c432";
+	std::string model_name = "c17";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
 	Graph G = parse_file(file.string());
-	int max_pebbles = 60;
+	int max_pebbles = 4;
 
 	cout << "Graph" << endl << G;
 
@@ -65,9 +60,10 @@ int main(int argc, char *argv[])
 	PDRModel model(ctx);
 	model.load_model(model_name, G, max_pebbles);
 
-	PDR algorithm(ctx, model, log);
+	PDR algorithm(ctx, model);
 	algorithm.run();
 	algorithm.show_results();
+	cout << endl << algorithm.stats << endl;
 
 	return 0;
 }

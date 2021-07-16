@@ -1,6 +1,8 @@
 ﻿# CMakeList.txt : CMake project for pebbling-pdr, include source and define
 # project specific logic here.
 #
+OPTION(DO_LOG "Produce logs in logs/ folder" OFF) # Enabled by default
+
 cmake_minimum_required (VERSION 3.8)
 project ("pebbling-pdr")
 
@@ -16,13 +18,21 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 
-file(GLOB MODEL_HEADERS "inc/model/*.h")
-file(GLOB AUX_HEADERS "inc/auxiliary/*.h")
-file(GLOB ALGO_HEADERS "inc/algo/*.h")
+# file(GLOB MODEL_HEADERS "inc/model/*.h")
+# file(GLOB AUX_HEADERS "inc/auxiliary/*.h")
+# file(GLOB ALGO_HEADERS "inc/algo/*.h")
+# file(GLOB ALGO_HEADERS "inc/testing/*.h")
 
 add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES})#  ${MODEL_HEADERS} ${AUX_HEADERS} ${ALGO_HEADERS})
 
-target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo)
+if (DO_LOG)
+	target_compile_definitions(pebbling-pdr PRIVATE LOG)
+	message("! logging turned on")
+else ()
+	message("! logging turned off")
+endif (DO_LOG)
+
+target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/testing)
 
 target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)

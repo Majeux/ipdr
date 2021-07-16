@@ -1,7 +1,11 @@
 #ifndef PDR_ALG
 #define PDR_ALG
-// #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
+
+#ifdef DO_LOG
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+#else 
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_OFF
+#endif //DO_LOG
 
 #include <ostream>
 #include <queue>
@@ -14,6 +18,7 @@
 
 #include "frame.h"
 #include "pdr-model.h"
+#include "stats.h"
 
 using std::vector;
 using std::unique_ptr;
@@ -64,6 +69,7 @@ class PDR
 		unsigned log_indent = 0;
 		spdlog::stopwatch timer;
 		spdlog::stopwatch sub_timer;
+
 		shared_ptr<State> bad;
 
 		vector<unique_ptr<Frame>> frames;
@@ -90,7 +96,9 @@ class PDR
 		bool finish(bool);
 
 	public:
-		PDR(shared_ptr<context> c, const PDRModel& m, bool log);
+		Statistics stats;
+
+		PDR(shared_ptr<context> c, const PDRModel& m);
 		bool run();
 		void show_results(std::ostream& out = std::cout) const;
 };

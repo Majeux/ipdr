@@ -21,7 +21,7 @@ using std::make_shared;
 using Z3extensions::negate;
 using fmt::format;
 
-PDR::PDR(shared_ptr<context> c, const PDRModel& m, bool do_log) : ctx(c), model(m), init_solver(*c)
+PDR::PDR(shared_ptr<context> c, const PDRModel& m) : ctx(c), model(m), init_solver(*c)
 {
 	init_solver.add(m.get_initial());
 	// std::ofstream params_file("z3params/ctx.params");
@@ -29,16 +29,6 @@ PDR::PDR(shared_ptr<context> c, const PDRModel& m, bool do_log) : ctx(c), model(
 
 	std::string log_file = m.name + ".log";
 	log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
-	if (do_log)
-	{
-		cout << "logging on" << endl;
-		log->set_level(spdlog::level::trace);
-	}
-	else
-	{
-		cout << "logging off" << endl;
-		log->set_level(spdlog::level::off);
-	}
 	// log->flush_on(spdlog::level::trace);
 }
 
@@ -68,11 +58,11 @@ void PDR::print_model(const z3::model& m)
 	timer.reset();
 	bool failed = false;
 	cout << endl << "PDR start:" << endl;
-	log->info("");
-	log->info("NEW RUN\n");
-	log->info("PDR start");
+	SPDLOG_LOGGER_INFO(log, "");
+	SPDLOG_LOGGER_INFO(log, "NEW RUN\n");
+	SPDLOG_LOGGER_INFO(log, "PDR start");
 	
-	log->info("Start initiation");
+	SPDLOG_LOGGER_INFO(log, "Start initiation");
 	log_indent++;
 	failed = !init();
 	log_indent--;
@@ -84,9 +74,9 @@ void PDR::print_model(const z3::model& m)
 		return finish(false);
 	}
 	cout << "Survived initiation" << endl;
-	log->info("Survived initiation");
+	SPDLOG_LOGGER_INFO(log, "Survived initiation");
 
-	log->info("Start iteration");
+	SPDLOG_LOGGER_INFO(log, "Start iteration");
 	log_indent++;
 	failed = !iterate();
 	log_indent--;
@@ -99,14 +89,14 @@ void PDR::print_model(const z3::model& m)
 	}
 
 	cout << "Property verified" << endl;
-	log->info("Property verified");
+	SPDLOG_LOGGER_INFO(log, "Property verified");
 	return finish(true);
 }
 
 bool PDR::finish(bool result) 
 {
 	cout << format("Total elapsed time {}", timer) << endl;
-	log->info("Total elapsed time {}", timer);
+	SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", timer);
 	log_indent = 0;
 
 	return result;
@@ -229,6 +219,8 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 	while (obligations.size() > 0)
 	{
 		sub_timer.reset();
+		double elapsed; string branch;
+
 		size_t start_size = obligations.size();
 		auto &[n, state] = obligations.top();
 		assert(n <= level);
@@ -275,8 +267,8 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 				bad = pred;
 				return false;
 			}
-			SPDLOG_LOGGER_TRACE(log, "Obligation (pred)   elapsed {}", sub_timer);
-			cout << format("Obligation (pred)   elapsed {}", sub_timer) << endl;
+			elapsed = sub_timer.elapsed().count();
+			branch = "(pred)  ";
 		}
 		else 
 		{	//finish state
@@ -312,9 +304,13 @@ bool PDR::block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsig
 				bad = state;
 				return false;
 			}
-			SPDLOG_LOGGER_TRACE(log, "Obligation (finish) elapsed {}", sub_timer);
-			cout << format("Obligation (finish) elapsed {}", sub_timer) << endl;
+			elapsed = sub_timer.elapsed().count();
+			branch = "(finish)";
 		}
+		stats.obligation_done(level, elapsed);
+		SPDLOG_LOGGER_TRACE(log, "Obligation {} elapsed {}", branch, elapsed);
+		cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
+		elapsed = -1.0;
 	}
 	return true;
 }
