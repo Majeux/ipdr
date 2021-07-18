@@ -42,11 +42,11 @@ void test()
 
 int main()
 {
-	std::string model_name = "c432";
+	std::string model_name = "c17";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
-	Graph G = parse_file(file.string());
-	int max_pebbles = 60;
+	dag::Graph G = parse_file(file.string());
+	int max_pebbles = 4;
 
 	cout << "Graph" << endl << G;
 
@@ -57,7 +57,7 @@ int main()
 	PDRModel model(settings);
 	model.load_model(model_name, G, max_pebbles);
 
-	PDR algorithm(model);
+	pdr::PDR algorithm(model);
 	algorithm.run();
 	algorithm.show_results();
 	cout << endl << algorithm.stats << endl;

@@ -113,7 +113,7 @@ LineResult parse_line(const string& line, BenchState state)
     return LineResult(true, nodes, new_node);
 }
 
-void add_to_graph(Graph& G, const LineResult& result, BenchState state)
+void add_to_graph(dag::Graph& G, const LineResult& result, BenchState state)
 {
     assert(result.success);
 
@@ -144,12 +144,12 @@ void add_to_graph(Graph& G, const LineResult& result, BenchState state)
 }
 
 
-Graph parse_file(string filename)
+dag::Graph parse_file(string filename)
 {
     assert(filename.substr(filename.find_last_of('.')) == ".bench");
     std::cout << "file: " <<  filename << std::endl;
     lineNo = 0;
-    Graph G;
+	dag::Graph G;
     BenchState state = IN;
 
     std::ifstream file(filename);

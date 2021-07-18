@@ -34,6 +34,8 @@ class Statistics
 		unsigned total_subsumed_cubes = 0;
 		vector<unsigned> subsumed_cubes;
 
+		unsigned blocked_ignored = 0;
+
 		void solver_call(size_t frame)
 		{
 			total_solver_calls++;
@@ -120,8 +122,7 @@ class Statistics
 
 			out << "# Solver" << endl
 				<< "# - total time:  " << s.total_solver_time << endl
-				<< "# - total calls: " << s.total_solver_calls << endl
-				<< "#" << endl;
+				<< "# - total calls: " << s.total_solver_calls << endl;
 			for (size_t i = 0; i < s.solver_time.size(); i++)
 				out << format(frame_line_avg, 
 						arg("level", i), arg("name", "time"), arg("state", s.solver_time[i]), 
@@ -129,11 +130,11 @@ class Statistics
 			for (size_t i = 0; i < s.solver_calls.size(); i++)
 				out << format(frame_line, 
 						arg("level", i), arg("name", "calls"), arg("state", s.solver_calls[i])) << endl;
+			out << "#" << endl;
 			
 			out << "# Obligations" << endl
 				<< "# - total time:    " << s.total_obligations_time << endl
-				<< "# - total handled: " << s.total_obligations_handled << endl
-				<< "#" << endl;
+				<< "# - total handled: " << s.total_obligations_handled << endl;
 			for (size_t i = 0; i < s.obligations_time.size(); i++)
 				out << format(frame_line_avg, 
 						arg("level", i), arg("name", "time"), arg("state", s.obligations_time[i]),
@@ -141,12 +142,17 @@ class Statistics
 			for (size_t i = 0; i < s.obligations_handled.size(); i++)
 				out << format(frame_line, 
 						arg("level", i), arg("name", "handled"), arg("state", s.obligations_handled[i])) << endl;
+			out << "#" << endl;
 			
-			out << "# Subsumed" << endl
+			out << "# Subsumed clauses" << endl
 				<< "# - total: " << s.total_subsumed_cubes << endl;
 			for (size_t i = 0; i < s.subsumed_cubes.size(); i++)
 				out << format(frame_line, 
 						arg("level", i), arg("name", "cubes"), arg("state", s.subsumed_cubes[i])) << endl;
+			out << "#" << endl;
+
+			out << "# Blocked clauses ignored" << endl
+				<< "# - total: " << s.blocked_ignored << endl;
 
 			return out << "######################" << endl;
 		}

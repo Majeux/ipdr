@@ -27,7 +27,7 @@ const expr_vector& PDRModel::get_transition() const { return transition; }
 const expr_vector& PDRModel::get_initial() const { return initial; }
 const expr_vector& PDRModel::get_cardinality() const { return cardinality; }
 
-void PDRModel::load_pebble_transition(const Graph& G)
+void PDRModel::load_pebble_transition(const dag::Graph& G)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
 	{
@@ -50,7 +50,7 @@ void PDRModel::load_pebble_transition(const Graph& G)
 	cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
 }
 
-void PDRModel::load_property(const Graph& G)
+void PDRModel::load_property(const dag::Graph& G)
 {
 	//final nodes are pebbled and others are not
 	for (const expr& e : literals.currents())
@@ -75,7 +75,7 @@ void PDRModel::load_property(const Graph& G)
 	property.finish();
 }
 
-void PDRModel::load_model(const std::string& model_name, const Graph& G, int pebbles) 
+void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, int pebbles) 
 {
 	name = model_name;
 	max_pebbles = pebbles;

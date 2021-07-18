@@ -1,6 +1,10 @@
 #ifndef FRAME
 #define FRAME
 
+#include "z3-ext.h"
+#include "stats.h"
+#include "logging.h"
+
 #include <stdexcept>
 #include <string>
 #include <memory>
@@ -8,74 +12,76 @@
 #include <vector>
 #include <z3++.h>
 #include <fmt/format.h>
-#include <fmt/core.h>
 
-#include "z3-ext.h"
-#include "stats.h"
-
-using std::vector;
-using z3::context;
-using z3::solver;
-using z3::expr;
-using z3::expr_vector;
-
-class Frame
+namespace pdr 
 {
-	private:
-		int level;
-		Statistics& stats;
-		solver consecution_solver;
+	using std::vector;
+	using std::shared_ptr;
+	using z3::context;
+	using z3::solver;
+	using z3::expr;
+	using z3::expr_vector;
 
-		std::set<expr, z3ext::expr_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+	class Frame
+	{
+		private:
+			int level;
+			Statistics& stats;
+			solver consecution_solver;
+			shared_ptr<spdlog::logger> log;
 
-		bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
-		int cubes_start = 0;
+			std::set<expr, z3ext::expr_less> added_clauses; //the arguments of the clause are sorted by mic, use id to search
 
-	public:
-		Frame(int k, context& c, Statistics& s, const std::vector<expr_vector>& assertions);
-		
-		bool blocked(const expr& cube) const;
-		bool block_cube(const expr_vector& cube);
+			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
+			int cubes_start = 0;
 
-		//solver interface
-		//////////////////
-		bool SAT(const expr& current, expr_vector next);
-		bool SAT(const expr_vector& next);
-		bool UNSAT(const expr& current, expr_vector next);
-		bool UNSAT(const expr_vector& next);
+		public:
+			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l);
+			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
+			
+			bool added(const expr_vector& new_clause) const;
+			bool blocked(const expr_vector& cube) const;
+			bool block_cube(const expr_vector& cube);
 
-		//asserts that you do not need to use the last model
-		void discard_model(); 
+			//solver interface
+			//////////////////
+			bool SAT(const expr& current, expr_vector next);
+			bool SAT(const expr_vector& next);
+			bool UNSAT(const expr& current, expr_vector next);
+			bool UNSAT(const expr_vector& next);
 
-		// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
-		// template Vec: vector-like container to store the cube in. must support .push_back(z3::expr);
-		// template UnaryPredicate: function expr->bool to filter atoms from the cube. accepts 1 expr, returns bool
-		// tempalte VecReserve: vector.reserve() function (or other preprocessing). executed before pushing
-		template <typename Vec>	
-		void sat_cube(Vec& v);
-		template <typename Vec, typename UnaryPredicate> 
-		void sat_cube(Vec& v, UnaryPredicate p);
-		template <typename Vec, typename UnaryPredicate, typename VecReserve>
+			//asserts that you do not need to use the last model
+			void discard_model(); 
 
-		void sat_cube(Vec& v, UnaryPredicate p, VecReserve reserve);
-		// function extract the unsat_core from the solver
-		// template UnaryPredicate: function expr->bool to filter literals from the core
-		// template Transform: function expr->expr. each literal is replaced by result before pushing
-		expr_vector unsat_core() const;
-		template <typename UnaryPredicate, typename Transform> 
-		expr_vector unsat_core(UnaryPredicate p, Transform t) const;
-		//////////////////////
-		//end solver interface
+			// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
+			// template Vec: vector-like container to store the cube in. must support .push_back(z3::expr);
+			// template UnaryPredicate: function expr->bool to filter atoms from the cube. accepts 1 expr, returns bool
+			// tempalte VecReserve: vector.reserve() function (or other preprocessing). executed before pushing
+			template <typename Vec>	
+			void sat_cube(Vec& v);
+			template <typename Vec, typename UnaryPredicate> 
+			void sat_cube(Vec& v, UnaryPredicate p);
+			template <typename Vec, typename UnaryPredicate, typename VecReserve>
 
-		//Frame comparisons
-		bool equals(const Frame& f) const;
-		std::vector<expr> diff(const Frame& f) const;
+			void sat_cube(Vec& v, UnaryPredicate p, VecReserve reserve);
+			// function extract the unsat_core from the solver
+			// template UnaryPredicate: function expr->bool to filter literals from the core
+			// template Transform: function expr->expr. each literal is replaced by result before pushing
+			expr_vector unsat_core() const;
+			template <typename UnaryPredicate, typename Transform> 
+			expr_vector unsat_core(UnaryPredicate p, Transform t) const;
+			//////////////////////
+			//end solver interface
 
-		//string representations
-		std::string solver_str() const;
-		std::string blocked_str() const;
-};
+			//Frame comparisons
+			bool equals(const Frame& f) const;
+			std::vector<expr> diff(const Frame& f) const;
+
+			//string representations
+			std::string solver_str() const;
+			std::string blocked_str() const;
+	};
 
 #include "frame-temp.h"
-
+}
 #endif //FRAME

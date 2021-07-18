@@ -4,6 +4,7 @@
 #include <vector>
 #include <z3++.h>
 #include <cassert>
+#include <memory>
 #include <string>
 #include <unordered_map>
 

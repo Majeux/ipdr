@@ -1,16 +1,18 @@
 #ifndef STRING_EXT
 #define STRING_EXT
 
+#include <z3++.h>
+#include <iterator>
 #include <string>
 #include <vector>
 #include <sstream>
 #include <algorithm>
 
-using std::vector;
-using std::string;
-
 namespace str::extensions  
 {
+	using std::vector;
+	using std::string;
+
 	// trim from start (in place)
 	inline void ltrim(string& s) 
 	{
@@ -59,7 +61,6 @@ namespace str::extensions
 		}
 		return ss.str();
 	}
-
 
 	inline vector<string> split(const string s, const char delimiter)
 	{
