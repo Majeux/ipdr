@@ -28,47 +28,38 @@ namespace pdr
 		: Frame(k, c, s, assertions, shared_ptr<spdlog::logger>()) 
 	{ }
 
-	//vector represents literals of a clause
-	bool Frame::added(const expr_vector& new_clause) const 
+	bool Frame::blocked(const expr_vector& cube) const 
 	{ 
 		if (log)
 		{
 			SPDLOG_LOGGER_TRACE(log, "FRAME || check if");
-			SPDLOG_LOGGER_TRACE(log, "      || [ {} ]", join_expr_vec(new_clause));
-			vector<expr> sorted_clause = z3ext::convert(new_clause);
-			std::sort(sorted_clause.begin(), sorted_clause.end(), z3ext::expr_less());
-			SPDLOG_LOGGER_TRACE(log, "      || [ {} ]", join_expr_vec(sorted_clause));
-			SPDLOG_LOGGER_TRACE(log, "      || is subsumed by");
+			SPDLOG_LOGGER_TRACE(log, "      || [ {} ]", join_expr_vec(cube));
+			SPDLOG_LOGGER_TRACE(log, "      || is subsumed in frame {} by", level);
 		}
 
-		for (const expr& added_clause : added_clauses)
+		for (const expr_vector& blocked_cube : blocked_cubes)
 		{
-			expr_vector added_clause_vec = z3ext::args(added_clause);
 			if (log)
-				SPDLOG_LOGGER_TRACE(log, "      || [ {} ] ???", join_expr_vec(added_clause_vec));
-			if (z3ext::subsumes(added_clause_vec, new_clause))
+				SPDLOG_LOGGER_TRACE(log, "      || [ {} ] ???", join_expr_vec(blocked_cube));
+			if (z3ext::subsumes(blocked_cube, cube))
 			{
 				if (log)
 					SPDLOG_LOGGER_TRACE(log, "      || YES");
 				return true; //equal or stronger clause found
 			}
 		}
-		return false;
+		return false;	
 	}
 
-	bool Frame::blocked(const expr_vector& cube) const 
-	{ 
-		return added(z3ext::negate(cube));
-	}
-
+	//cube is sorted by id()
 	bool Frame::block_cube(const expr_vector& cube)
 	{
-		expr clause = z3::mk_or(z3ext::negate(cube));
-		bool inserted = added_clauses.insert(clause).second;
+		bool inserted = blocked_cubes.insert(cube).second;
 
 		if (!inserted) //TODO possibly check some subsumption here
 			return false;
 
+		expr clause = z3::mk_or(z3ext::negate(cube));
 		consecution_solver.add(clause);
 		return true;
 	}
@@ -118,16 +109,16 @@ namespace pdr
 
 	bool Frame::equals(const Frame& f) const
 	{ 
-		return added_clauses == f.added_clauses;
+		return blocked_cubes == f.blocked_cubes;
 	}
 
-	std::vector<expr> Frame::diff(const Frame& f) const
+	std::vector<expr_vector> Frame::diff(const Frame& f) const
 	{
-		std::vector<expr> out;
+		std::vector<expr_vector> out;
 		std::set_difference(
-				added_clauses.begin(), added_clauses.end(),
-				f.added_clauses.begin(), f.added_clauses.end(),
-				std::back_inserter(out), z3ext::expr_less());
+				blocked_cubes.begin(), blocked_cubes.end(),
+				f.blocked_cubes.begin(), f.blocked_cubes.end(),
+				std::back_inserter(out), z3ext::expr_vector_less());
 		return out;
 	}
 
@@ -148,8 +139,8 @@ namespace pdr
 	std::string Frame::blocked_str() const
 	{
 		std::string str(fmt::format("blocked cubes level {}\n", level));
-		for (const expr& e : added_clauses)
-			str += fmt::format("- {}\n", e.to_string());
+		for (const expr_vector& e : blocked_cubes)
+			str += fmt::format("- {}\n", join_expr_vec(e, " & "));
 
 		return str;
 	}

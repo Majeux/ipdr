@@ -19,6 +19,22 @@ namespace z3ext
 		bool operator() (const z3::expr& l, const z3::expr& r) const { return l.id() < r.id(); };
 	};
 
+	struct expr_vector_less 
+	{
+		bool operator() (const expr_vector& l, const expr_vector& r) const 
+		{ 
+			auto l_it = l.begin(); auto r_it = r.begin();
+
+			for (; l_it != l.end() && r_it != r.end(); l_it++, r_it++)
+			{
+				if ((*l_it).id() < (*r_it).id()) return true;
+				if ((*l_it).id() > (*r_it).id()) return false;
+			}
+			//all elements equal to a point
+			return l.size() < r.size();
+		}
+	};
+
 	inline expr minus(const expr& e) { return e.is_not() ? e.arg(0) : !e; }
 
 	// returns true if l c= r
@@ -29,8 +45,8 @@ namespace z3ext
 			return false;
 
 		return std::includes(
-				l.begin(), l.end(),
 				r.begin(), r.end(),
+				l.begin(), l.end(),
 				expr_less());
 	}
 
@@ -106,6 +122,12 @@ namespace z3ext
 		return ss.str();
 	}
 
+	inline void sort(expr_vector& v)
+	{	
+		vector<expr> std_vec = convert(v);
+		std::sort(std_vec.begin(), std_vec.end(), expr_less());
+		v = convert(std_vec);
+	}
 
 }
 #endif //Z3_EXT

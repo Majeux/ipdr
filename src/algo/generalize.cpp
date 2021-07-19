@@ -78,8 +78,8 @@ namespace pdr
 	{
 		std::vector<expr> cube = z3ext::convert(state); //use std::vector for sorting and intersection
 		
-		std::sort(cube.begin(), cube.end(), z3ext::expr_less());
-		// assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
+		// std::sort(cube.begin(), cube.end(), z3ext::expr_less());
+		assert(std::is_sorted(cube.begin(), cube.end(), z3ext::expr_less()));
 		unsigned attempts = 0;
 		for (unsigned i = 0; i < cube.size() && attempts < mic_retries;) 
 		{
@@ -110,7 +110,7 @@ namespace pdr
 	//state is sorted
 	bool PDR::down(vector<expr>& state, int level)
 	{
-		// assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
+		assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
 		auto is_current_in_state = [this, &state](const expr& e)
 		{
 			return model.literals.literal_is_current(e) 
@@ -128,10 +128,7 @@ namespace pdr
 				return true;
 			
 			//intersect the current states from the model with state
-			vector<expr> cti_intersect; 
-			frames[level]->sat_cube(cti_intersect,
-					is_current_in_state,
-					[&cti_intersect](size_t n) { cti_intersect.reserve(n); });
+			vector<expr> cti_intersect = frames[level]->sat_cube_vector(is_current_in_state);
 
 			state = move(cti_intersect);
 

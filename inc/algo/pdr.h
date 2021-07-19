@@ -5,6 +5,7 @@
 #include "pdr-model.h"
 #include "stats.h"
 #include "logging.h"
+#include "z3-ext.h"
 
 #include <ostream>
 #include <queue>
@@ -43,15 +44,23 @@ namespace pdr
 	{
 		unsigned level;
 		shared_ptr<State> state;
+		unsigned depth;
 
-		Obligation(unsigned k, expr_vector&& cube) : 
-			level(k), 
-			state( std::make_shared<State>(std::move(cube)) ) { }
+		Obligation(unsigned k, expr_vector&& cube, unsigned d) : 
+			level(k), state( std::make_shared<State>(std::move(cube)) ), depth(d) { }
 
-		Obligation(unsigned k, const shared_ptr<State>& s) : level(k), state(s) { }
+		Obligation(unsigned k, const shared_ptr<State>& s, unsigned d) : level(k), state(s), depth(d) { }
 
 		// bool operator<(const Obligation& o) const { return this->level < o.level; }
-		bool operator>(const Obligation& o) const { return this->level > o.level; }
+		bool operator<(const Obligation& o) const 
+		{ 
+			if (this->level < o.level) return true;
+			if (this->level > o.level) return false;
+			if (this->depth < o.depth) return true;
+			if (this->depth > o.depth) return false;
+
+			return z3ext::expr_vector_less()(this->state->cube, o.state->cube); 
+		}
 	};
 
 	class PDR 
@@ -77,7 +86,7 @@ namespace pdr
 			//main loops
 			bool init();
 			bool iterate();
-			bool block(std::priority_queue<MIN_ORDERING(Obligation)> obligations, unsigned level);
+			bool block(expr_vector& counter, unsigned o_level, unsigned level);
 			void remove_state(expr_vector& cube, int level);
 			bool propagate(unsigned level);
 			//generalization

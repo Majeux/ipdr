@@ -5,6 +5,7 @@
 #include "stats.h"
 #include "logging.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <memory>
@@ -30,7 +31,7 @@ namespace pdr
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
 
-			std::set<expr, z3ext::expr_less> added_clauses; //the arguments of the clause are sorted by mic, use id to search
+			std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
 			int cubes_start = 0;
@@ -39,7 +40,6 @@ namespace pdr
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l);
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
 			
-			bool added(const expr_vector& new_clause) const;
 			bool blocked(const expr_vector& cube) const;
 			bool block_cube(const expr_vector& cube);
 
@@ -54,17 +54,13 @@ namespace pdr
 			void discard_model(); 
 
 			// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
-			// template Vec: vector-like container to store the cube in. must support .push_back(z3::expr);
+			// the resulting vector or expr_vector is in sorted order
 			// template UnaryPredicate: function expr->bool to filter atoms from the cube. accepts 1 expr, returns bool
-			// tempalte VecReserve: vector.reserve() function (or other preprocessing). executed before pushing
-			template <typename Vec>	
-			void sat_cube(Vec& v);
-			template <typename Vec, typename UnaryPredicate> 
-			void sat_cube(Vec& v, UnaryPredicate p);
-			template <typename Vec, typename UnaryPredicate, typename VecReserve>
+			template <typename UnaryPredicate> expr_vector sat_cube(UnaryPredicate p);
+			template <typename UnaryPredicate> vector<expr> sat_cube_vector(UnaryPredicate p);
 
-			void sat_cube(Vec& v, UnaryPredicate p, VecReserve reserve);
 			// function extract the unsat_core from the solver
+			// the resulting vector or expr_vector is in sorted order
 			// template UnaryPredicate: function expr->bool to filter literals from the core
 			// template Transform: function expr->expr. each literal is replaced by result before pushing
 			expr_vector unsat_core() const;
@@ -75,13 +71,61 @@ namespace pdr
 
 			//Frame comparisons
 			bool equals(const Frame& f) const;
-			std::vector<expr> diff(const Frame& f) const;
+			std::vector<expr_vector> diff(const Frame& f) const;
 
 			//string representations
 			std::string solver_str() const;
 			std::string blocked_str() const;
 	};
 
-#include "frame-temp.h"
+	template <typename UnaryPredicate> 
+	expr_vector Frame::sat_cube(UnaryPredicate p)
+	{
+		vector<expr> std_vec = sat_cube_vector(p);
+		expr_vector v(std_vec[0].ctx());
+		for (const expr& e : std_vec)
+			v.push_back(e);
+		return v;
+	}
+
+	template <typename UnaryPredicate> 
+	vector<expr> Frame::sat_cube_vector(UnaryPredicate p)
+	{
+		model_used = true;
+		z3::model m = consecution_solver.get_model();
+		vector<expr> v; v.reserve(m.num_consts());
+		for (unsigned i = 0; i < m.size(); i++)
+		{
+			z3::func_decl f = m[i];
+			expr b_value = m.get_const_interp(f);
+			expr literal(consecution_solver.ctx());
+			if (b_value.is_true())
+				 literal = f();
+			else if (b_value.is_false())
+				 literal = !f();
+			else throw std::runtime_error("model contains non-constant");
+			
+			if (p(f()) == true) 
+				v.push_back(literal);
+		}
+		std::sort(v.begin(), v.end(), z3ext::expr_less());
+		return v;
+	}
+
+	template <typename UnaryPredicate, typename Transform> 
+	expr_vector Frame::unsat_core(UnaryPredicate p, Transform t) const 
+	{ 
+		expr_vector full_core = consecution_solver.unsat_core(); 
+		if (full_core.size() == 0)
+			return full_core;
+
+		vector<expr> core; core.reserve(full_core.size());
+		for (const expr& e : full_core)
+			if (p(e))
+				core.push_back(t(e));
+		std::sort(core.begin(), core.end(), z3ext::expr_less());
+		return z3ext::convert(core);
+	}
 }
+		
 #endif //FRAME
