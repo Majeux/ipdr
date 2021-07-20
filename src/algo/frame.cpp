@@ -30,34 +30,33 @@ namespace pdr
 
 	bool Frame::blocked(const expr_vector& cube) const 
 	{ 
-		if (log)
-		{
-			SPDLOG_LOGGER_TRACE(log, "FRAME || check if");
-			SPDLOG_LOGGER_TRACE(log, "      || [ {} ]", join_expr_vec(cube));
-			SPDLOG_LOGGER_TRACE(log, "      || is subsumed in frame {} by", level);
-		}
-
 		for (const expr_vector& blocked_cube : blocked_cubes)
 		{
-			if (log)
-				SPDLOG_LOGGER_TRACE(log, "      || [ {} ] ???", join_expr_vec(blocked_cube));
 			if (z3ext::subsumes(blocked_cube, cube))
 			{
-				if (log)
-					SPDLOG_LOGGER_TRACE(log, "      || YES");
 				return true; //equal or stronger clause found
 			}
 		}
 		return false;	
 	}
+	
+	void Frame::remove_subsumed(const expr_vector& cube)
+	{
+		auto new_end = std::remove_if(blocked_cubes.begin(), blocked_cubes.end(),
+				[&cube](const expr_vector& blocked) { return z3ext::subsumes(cube, blocked); });
+		blocked_cubes.erase(new_end, blocked_cubes.end());
+	}
 
 	//cube is sorted by id()
+	//block cube unless it, or a stronger version, is already blocked
 	bool Frame::block_cube(const expr_vector& cube)
 	{
-		bool inserted = blocked_cubes.insert(cube).second;
-
-		if (!inserted) //TODO possibly check some subsumption here
+		if (blocked(cube)) //do not add if an equal or stronger version is already blocked
 			return false;
+
+		remove_subsumed(cube); //remove all blocked cubes that are weaker than cube
+
+		blocked_cubes.push_back(cube);
 
 		expr clause = z3::mk_or(z3ext::negate(cube));
 		consecution_solver.add(clause);

@@ -86,7 +86,9 @@ namespace pdr
 			//main loops
 			bool init();
 			bool iterate();
+			bool iterate_short();
 			bool block(expr_vector& counter, unsigned o_level, unsigned level);
+			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
 			void remove_state(expr_vector& cube, int level);
 			bool propagate(unsigned level);
 			//generalization

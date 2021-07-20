@@ -40,6 +40,8 @@ class PDRModel
 		expr_vector cardinality; //cardinality constraint for current and next state
 
 		void load_pebble_transition(const dag::Graph& G);
+		void load_pebble_transition_raw1(const dag::Graph& G);
+		void load_pebble_transition_raw2(const dag::Graph& G);
 		void load_property(const dag::Graph& G);
 };
 

@@ -31,7 +31,8 @@ namespace pdr
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
 
-			std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			// std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
 			int cubes_start = 0;
@@ -40,6 +41,7 @@ namespace pdr
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l);
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
 			
+			void remove_subsumed(const expr_vector& cube);
 			bool blocked(const expr_vector& cube) const;
 			bool block_cube(const expr_vector& cube);
 

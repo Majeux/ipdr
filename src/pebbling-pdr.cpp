@@ -42,11 +42,11 @@ void test()
 
 int main()
 {
-	std::string model_name = "c17";
+	std::string model_name = "c432";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 
 	dag::Graph G = parse_file(file.string());
-	int max_pebbles = 4;
+	int max_pebbles = 60;
 
 	cout << "Graph" << endl << G;
 
