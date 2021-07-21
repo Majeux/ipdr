@@ -96,13 +96,13 @@ class Statistics
 			return obligations_time[frame] / obligations_handled[frame];
 		}
 
-		void subsumed(size_t frame)
+		void subsumed(size_t frame, unsigned amount = 1)
 		{
-			total_subsumed_cubes++;
+			total_subsumed_cubes += amount;
 			while (subsumed_cubes.size() <= frame)
 				subsumed_cubes.push_back(0);
 
-			subsumed_cubes[frame]++;
+			subsumed_cubes[frame] += amount;
 		}
 
 		std::string to_string() const 

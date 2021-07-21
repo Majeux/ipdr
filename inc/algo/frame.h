@@ -28,6 +28,7 @@ namespace pdr
 		private:
 			int level;
 			Statistics& stats;
+			vector<expr_vector> base_assertions;
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
 
@@ -35,13 +36,17 @@ namespace pdr
 			std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
+			bool core_available = false;
 			int cubes_start = 0;
 
+			void init_solver();
 		public:
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l);
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
 			
-			void remove_subsumed(const expr_vector& cube);
+			void reset_solver();
+
+			unsigned remove_subsumed(const expr_vector& cube);
 			bool blocked(const expr_vector& cube) const;
 			bool block_cube(const expr_vector& cube);
 
@@ -61,13 +66,14 @@ namespace pdr
 			template <typename UnaryPredicate> expr_vector sat_cube(UnaryPredicate p);
 			template <typename UnaryPredicate> vector<expr> sat_cube_vector(UnaryPredicate p);
 
-			// function extract the unsat_core from the solver
+			// function extract the unsat_core from the solver, a subset of the assumptions
 			// the resulting vector or expr_vector is in sorted order
+			// assumes a core is only extracted once
 			// template UnaryPredicate: function expr->bool to filter literals from the core
 			// template Transform: function expr->expr. each literal is replaced by result before pushing
-			expr_vector unsat_core() const;
+			expr_vector unsat_core();
 			template <typename UnaryPredicate, typename Transform> 
-			expr_vector unsat_core(UnaryPredicate p, Transform t) const;
+			expr_vector unsat_core(UnaryPredicate p, Transform t);
 			//////////////////////
 			//end solver interface
 
@@ -115,9 +121,10 @@ namespace pdr
 	}
 
 	template <typename UnaryPredicate, typename Transform> 
-	expr_vector Frame::unsat_core(UnaryPredicate p, Transform t) const 
+	expr_vector Frame::unsat_core(UnaryPredicate p, Transform t) 
 	{ 
-		expr_vector full_core = consecution_solver.unsat_core(); 
+		expr_vector full_core = unsat_core(); 
+
 		if (full_core.size() == 0)
 			return full_core;
 

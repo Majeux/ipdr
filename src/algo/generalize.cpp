@@ -9,6 +9,7 @@
 
 namespace pdr 
 {
+	//!s is inductive up until min-1. !s is included up until min
 	int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max)
 	{
 		expr clause = z3::mk_or(z3ext::negate(cube)); //negate cube via demorgan
@@ -40,18 +41,20 @@ namespace pdr
 	int PDR::highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core)
 	{
 		int result = highest_inductive_frame(cube, min, max);
-		if (result >= 0)
+		if (result >= 0 && result >= min) //if unsat result occurs
 		{
 			// F_result & !cube & T & cube' == UNSAT
 			// F_result & !cube & T & core' == UNSAT
 			core = frames[result]->unsat_core(
-					[this](const expr& e) { return model.literals.literal_is_p(e); },
-					[this](const expr& e) { return model.literals(e); });
+					[this](const expr& e) { return model.literals.literal_is_p(e); }, //select next
+					[this](const expr& e) { return model.literals(e); }); //transform to current
 			// std::cout << "core: " << join(core) << std::endl;
 			// if I => !core, the subclause survives initiation and is inductive
 			if (init_solver.check(core) == z3::sat) //I /=> !core
 				core = cube; // core is not inductive, use original
 		}
+		else core = cube; //no core produced
+
 		SPDLOG_LOGGER_TRACE(log, "{}| used substituted cube for core: {} -> {}", TAB, cube.size(), core.size()); 
 		log_indent++;
 		// SPDLOG_LOGGER_TRACE(log, "{}| [ {} ]", TAB, join(cube));

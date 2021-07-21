@@ -91,7 +91,7 @@ namespace z3ext
 	}
 
 	template<typename ExprVector>
-	inline string join_expr_vec(const ExprVector& c, const string delimiter = ", ")
+	inline string join_expr_vec(const ExprVector& c, bool align = true, const string delimiter = ", ")
 	{   
 		//only join containers that can stream into stringstream
 		if (c.size() == 0)
@@ -117,7 +117,9 @@ namespace z3ext
 			if (!first)
 				ss << delimiter;
 			first = false;
-			ss << string(largest-s.length(), ' ') + s;
+			if (align)
+				ss << string(largest-s.length(), ' ');
+			ss << s;
 		}
 		return ss.str();
 	}

@@ -7,6 +7,8 @@
 #include <cassert>
 #include <algorithm>
 #include <set>
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <fmt/format.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -25,6 +27,7 @@ namespace pdr
 		log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
 		log->set_level(spdlog::level::trace);
 		// spdlog::flush_every(std::chrono::seconds(20));
+		spdlog::flush_on(spdlog::level::trace);
 	}
 
 	Frame* PDR::make_frame(int level)
@@ -246,6 +249,7 @@ namespace pdr
 			SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, k, k+1);
 			log_indent++;
 
+			assert(frames.size() == k+1);
 			frames.emplace_back(make_frame(k+1));
 			if (propagate(k))
 				return true;
@@ -266,6 +270,7 @@ namespace pdr
 		if ((n + 1) <= level)
 			obligations.emplace(n+1, std::move(cti), 0);
 
+		// forall (n, state) in obligations: !state->cube is inductive relative to F[i-1]
 		while (obligations.size() > 0)
 		{
 			sub_timer.reset();
@@ -283,6 +288,7 @@ namespace pdr
 
 			expr state_clause = z3::mk_or(z3ext::negate(state->cube));
 
+			SPDLOG_LOGGER_TRACE(log, "SAT | assertions:\n {}", frames[n]->solver_str());
 			if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
 			{	//predecessor found
 				expr_vector pred_cube = frames[n]->sat_cube(
@@ -295,6 +301,8 @@ namespace pdr
 				log_indent--;
 
 				expr_vector core(ctx);
+				// state is inductive relative to F[n-2]
+				// else there would be an F[k-1] state t preceding state, making state an F[k-1] state
 				int m = highest_inductive_frame(pred->cube, n-1, level, core);
 				// int m = highest_inductive_frame(pred->cube, n-1, level);
 				// m in [n-1, level]
@@ -326,6 +334,7 @@ namespace pdr
 				log_indent--;
 
 				expr_vector core(ctx);
+				// !state is now inductive relative to n
 				int m = highest_inductive_frame(state->cube, n + 1, level, core);
 				// int m = highest_inductive_frame(state->cube, n + 1, level);
 				// m in [n-1, level]
@@ -422,6 +431,7 @@ namespace pdr
 				log_indent++;
 				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
 				log_indent--;
+				
 
 				expr_vector smaller_state = generalize(frames[n]->unsat_core(), n);
 				expr_vector core(ctx);
@@ -466,7 +476,14 @@ namespace pdr
 
 		for (int i = 1; i <= level; i++)
 		{
-			frames[i]->block_cube(cube);
+			if (frames[i]->block_cube(cube))
+			{
+				SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
+			}
+			else 
+			{
+				SPDLOG_LOGGER_TRACE(log, "{}| alreadt in {}", TAB, i);
+			}
 
 		}
 		log_indent--;
@@ -505,6 +522,8 @@ namespace pdr
 				cout << "Frame[" << i << "] == Frame[" << (i + 1) << "]" << endl;
 				return true;
 			}
+			
+			frames[i+1]->reset_solver();
 		}
 		SPDLOG_LOGGER_TRACE(log, "Propagation elapsed {}", sub_timer);
 		cout << format("Propagation elapsed {}", sub_timer) << endl;

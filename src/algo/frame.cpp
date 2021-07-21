@@ -1,4 +1,5 @@
 #include "frame.h"
+#include "z3-ext.h"
 
 #include <algorithm>
 #include <memory>
@@ -12,16 +13,9 @@ namespace pdr
 	using z3ext::join_expr_vec;
 
 	Frame::Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l) 
-		: level(k), stats(s), consecution_solver(c/*, "QF_FD"*/), log(l)
+		: level(k), stats(s), base_assertions(assertions), consecution_solver(c/*, "QF_FD"*/), log(l)
 	{
-		consecution_solver.set("sat.cardinality.solver", true);
-		consecution_solver.set("cardinality.solver", true);
-		// consecution_solver.set("lookahead_simplify", true);
-		for (const expr_vector& v : assertions)
-			consecution_solver.add(v);
-
-		cubes_start = std::accumulate(assertions.begin(), assertions.end(), 
-				0, [](int agg, const expr_vector& v) { return agg + v.size(); });
+		init_solver();
 	}
 
 	Frame::Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions) 
@@ -40,11 +34,32 @@ namespace pdr
 		return false;	
 	}
 	
-	void Frame::remove_subsumed(const expr_vector& cube)
+	void Frame::init_solver()
 	{
+		consecution_solver.set("sat.cardinality.solver", true);
+		consecution_solver.set("cardinality.solver", true);
+		// consecution_solver.set("lookahead_simplify", true);
+		for (const expr_vector& v : base_assertions)
+			consecution_solver.add(v);
+
+		cubes_start = std::accumulate(base_assertions.begin(), base_assertions.end(), 
+				0, [](int agg, const expr_vector& v) { return agg + v.size(); });
+	}
+
+	void Frame::reset_solver()
+	{
+		consecution_solver.reset();
+		
+		init_solver();
+	}
+
+	unsigned Frame::remove_subsumed(const expr_vector& cube)
+	{
+		unsigned before = blocked_cubes.size();
 		auto new_end = std::remove_if(blocked_cubes.begin(), blocked_cubes.end(),
 				[&cube](const expr_vector& blocked) { return z3ext::subsumes(cube, blocked); });
 		blocked_cubes.erase(new_end, blocked_cubes.end());
+		return before - blocked_cubes.size();
 	}
 
 	//cube is sorted by id()
@@ -52,9 +67,13 @@ namespace pdr
 	bool Frame::block_cube(const expr_vector& cube)
 	{
 		if (blocked(cube)) //do not add if an equal or stronger version is already blocked
+		{
+			stats.blocked_ignored++;
 			return false;
+		}
 
-		remove_subsumed(cube); //remove all blocked cubes that are weaker than cube
+		unsigned n_removed = remove_subsumed(cube); //remove all blocked cubes that are weaker than cube
+		stats.subsumed(level, n_removed);
 
 		blocked_cubes.push_back(cube);
 
@@ -69,13 +88,19 @@ namespace pdr
 		return SAT(next);
 	}
 
-	bool Frame::SAT(const expr_vector& next) 
+	bool Frame::SAT(const expr_vector& assumptions) 
 	{ 
+		
 		using std::chrono::steady_clock; 
 		auto start = steady_clock::now();
 		bool result;
 
-		if (consecution_solver.check(next) == z3::sat)
+		// if (log)
+		// {
+		// 	SPDLOG_LOGGER_TRACE(log, "SAT | assertions:\n {}", solver_str());
+		// 	SPDLOG_LOGGER_TRACE(log, "SAT | assumptions:\n {}", z3ext::join_expr_vec(assumptions, false));
+		// }
+		if (consecution_solver.check(assumptions) == z3::sat)
 		{
 			if(!model_used)
 				std::cerr << "PDR::WARNING: last SAT model unused and discarded" << std::endl;
@@ -83,7 +108,10 @@ namespace pdr
 			result = true;
 		}
 		else
+		{
 			result = false;
+			core_available = true;
+		}
 
 		std::chrono::duration<double> diff(steady_clock::now() - start);
 		stats.solver_call(level, diff.count());
@@ -106,6 +134,14 @@ namespace pdr
 		model_used = true;
 	}
 
+	expr_vector Frame::unsat_core()
+	{
+		assert(core_available);
+		expr_vector core = consecution_solver.unsat_core();
+		core_available = false;
+		return core;
+	}
+
 	bool Frame::equals(const Frame& f) const
 	{ 
 		return blocked_cubes == f.blocked_cubes;
@@ -124,7 +160,7 @@ namespace pdr
 	std::string Frame::solver_str() const
 	{
 		std::string str(fmt::format("solver level {}\n", level));
-		const expr_vector& asserts = consecution_solver.assertions();
+		const expr_vector asserts = consecution_solver.assertions();
 		
 		auto it = asserts.begin();
 		for (int i = 0; i < cubes_start && it != asserts.end(); i++) it++;
