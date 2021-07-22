@@ -126,8 +126,8 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, in
 
 	literals.print();
 
-	load_pebble_transition_raw2(G);
-	// load_pebble_transition(G);
+	// load_pebble_transition_raw2(G);
+	load_pebble_transition(G);
 	std::cout << transition << std::endl;
 
 	cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));

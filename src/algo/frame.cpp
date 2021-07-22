@@ -28,6 +28,7 @@ namespace pdr
 		{
 			if (z3ext::subsumes(blocked_cube, cube))
 			{
+				SPDLOG_LOGGER_TRACE(log, "already blocked by {}", z3ext::join_expr_vec(blocked_cube));
 				return true; //equal or stronger clause found
 			}
 		}
@@ -51,6 +52,12 @@ namespace pdr
 		consecution_solver.reset();
 		
 		init_solver();
+
+		for (const expr_vector& cube : blocked_cubes)
+		{
+			expr clause = z3::mk_or(z3ext::negate(cube));
+			consecution_solver.add(clause);
+		}
 	}
 
 	unsigned Frame::remove_subsumed(const expr_vector& cube)

@@ -288,7 +288,6 @@ namespace pdr
 
 			expr state_clause = z3::mk_or(z3ext::negate(state->cube));
 
-			SPDLOG_LOGGER_TRACE(log, "SAT | assertions:\n {}", frames[n]->solver_str());
 			if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
 			{	//predecessor found
 				expr_vector pred_cube = frames[n]->sat_cube(
@@ -482,7 +481,6 @@ namespace pdr
 			}
 			else 
 			{
-				SPDLOG_LOGGER_TRACE(log, "{}| alreadt in {}", TAB, i);
 			}
 
 		}
