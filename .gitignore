@@ -44,4 +44,4 @@ build
 .z3-trace
 
 #benchmarks
-benchmarks/rls
+benchmark/rls
