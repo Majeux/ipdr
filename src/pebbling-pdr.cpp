@@ -6,6 +6,7 @@
 
 #include "pdr-model.h"
 #include "parse_bench.h"
+#include "parse_tfc.h"
 #include "dag.h"
 #include "pdr.h"
 
@@ -42,14 +43,20 @@ void test()
 
 int main()
 {
-	std::string model_name = "c432";
-	filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
+	// std::string model_name = "c432";
+	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
+	// dag::Graph G = parse::parse_file(file.string());
 
-	dag::Graph G = parse_file(file.string());
-	int max_pebbles = 60;
+	std::string model_name = "ham3tc";
+	filesystem::path file = filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
+
+	parse::TFCParser parser;
+	dag::Graph G = parser.parse_file(file.string());
+	int max_pebbles = 10;
 
 	cout << "Graph" << endl << G;
 
+	return 0;
 	config settings;
 	settings.set("unsat_core", true);
 	settings.set("model", true);

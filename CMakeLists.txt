@@ -42,3 +42,6 @@ target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_
 add_custom_command(TARGET pebbling-pdr PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${CMAKE_SOURCE_DIR}/benchmark/iscas85/bench $<TARGET_FILE_DIR:pebbling-pdr>/benchmark/iscas85/bench)
+add_custom_command(TARGET pebbling-pdr PRE_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/benchmark/rls $<TARGET_FILE_DIR:pebbling-pdr>/benchmark/rls)

@@ -23,6 +23,8 @@ namespace dag {
 		string from;
 		string to;
 
+		Edge(const string& f, const string& t) : from(f), to(t) { }
+
 		friend bool operator<(const Edge& lhs, const Edge& rhs)
 		{
 			if (lhs.from < rhs.from)
@@ -49,8 +51,9 @@ namespace dag {
 			set<string> output; //subet of nodes
 			set<Edge> edges; //nodes X nodes
 			map<string, vector<string>> children; //nodes X nodes
+			string prefix = "";
 
-			static string node(string name) { return "n_" + name; }
+			string node(string name) { return prefix + name; }
 			
 			Graph() { }
 
@@ -79,11 +82,11 @@ namespace dag {
 						continue;
 
 					assert(nodes.find(n) != nodes.end());
-					edges.insert({ n, to });
+					edges.emplace(n, to);
 					to_children.push_back(n);
 				}
 
-				children.insert(std::make_pair(to, std::move(to_children)));
+				children.emplace(to, std::move(to_children));
 			}
 
 			friend std::ostream& operator<<(std::ostream& stream, Graph const& g) {
