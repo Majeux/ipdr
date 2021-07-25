@@ -15,6 +15,8 @@
 
 namespace parse 
 {
+	using std::string;
+	using std::vector;
 	using str::extensions::split;
 	using vars_iterator = std::map<string, unsigned>::iterator;
 	using const_vars_iterator = std::map<string, unsigned>::const_iterator;
@@ -61,7 +63,7 @@ namespace parse
 						switch(state)
 						{
 							case TFCState::VARS:
-								prefixed(line, ".v ");
+								assert(prefixed(line, ".v "));
 								state = TFCState::INPUTS;
 								break;
 							case TFCState::INPUTS:
@@ -73,12 +75,11 @@ namespace parse
 								state = TFCState::CONSTANTS;
 								break;
 							case TFCState::CONSTANTS:
-								prefixed(line, ".c ", false);
+								retry = !prefixed(line, ".c ");
 								state = TFCState::BEGIN;
-								retry = true;
 								break;
 							case TFCState::BEGIN:
-								prefixed(line, "BEGIN");
+								assert(prefixed(line, "BEGIN"));
 								state = TFCState::BODY;
 								break;
 							case TFCState::BODY:
@@ -159,10 +160,11 @@ namespace parse
 				return std::make_pair(old_t, new_t);
 			}
 
-			void prefixed(string line, string pre, bool required = true)
+			bool prefixed(string line, string pre)
 			{
-				if (pre != "" && required)
-					assert(line.rfind(pre, 0) == 0);
+				if (pre != "")
+					return line.rfind(pre, 0) == 0;
+				return true;
 			}
 
 			void parse_inputs(dag::Graph& G, string line)

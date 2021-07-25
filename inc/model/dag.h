@@ -11,13 +11,14 @@
 
 #include "string-ext.h"
 
-using std::set;
-using std::map;
-using std::vector;
-using std::string;
-using str::extensions::join;
-
 namespace dag {
+	using std::set;
+	using std::map;
+	using std::vector;
+	using std::string;
+	using std::endl;
+	using str::extensions::join;
+
 	struct Edge
 	{
 		string from;
@@ -50,6 +51,7 @@ namespace dag {
 			set<string> nodes;
 			set<string> output; //subet of nodes
 			set<Edge> edges; //nodes X nodes
+			set<Edge> input_edges; //nodes X nodes
 			map<string, vector<string>> children; //nodes X nodes
 			string prefix = "";
 
@@ -79,7 +81,11 @@ namespace dag {
 				{
 					string n = node(i);
 					if (input.find(n) != input.end())
+					{
+						assert(nodes.find(n) != nodes.end());
+						input_edges.emplace(n, to);	
 						continue;
+					}
 
 					assert(nodes.find(n) != nodes.end());
 					edges.emplace(n, to);
@@ -89,14 +95,43 @@ namespace dag {
 				children.emplace(to, std::move(to_children));
 			}
 
-			friend std::ostream& operator<<(std::ostream& stream, Graph const& g) {
+			friend std::ostream& operator<<(std::ostream& stream, Graph const& g) 
+			{
 				stream << "DAG {";
-				stream << std::endl;
-				stream << "\tinput { " << join(g.input) << " }" << std::endl;
-				stream << "\toutput { " << join(g.output) << " }" << std::endl;
-				stream << "\tnodes { " << join(g.nodes) << " }" << std::endl;
-				stream << "\tinput { " << join(g.edges) << " }" << std::endl;
-				stream << "}" << std::endl;
+				stream << endl;
+				stream << "\tinput { " << join(g.input) << " }" << endl;
+				stream << "\toutput { " << join(g.output) << " }" << endl;
+				stream << "\tnodes { " << join(g.nodes) << " }" << endl;
+				stream << "\tinput { " << join(g.edges) << " }" << endl;
+				stream << "}" << endl;
+				return stream;
+			}
+
+			std::ostream& export_digraph(std::ostream& stream)
+			{
+				// std::vector<string> inner_nodes;
+				// std::set_difference(
+				// 		nodes.begin(), nodes.end(),
+				// 		input.begin(), input.end(),
+				// 		std::back_inserter(inner_nodes));
+
+				// stream << inner_nodes.size() << endl
+				// 	   << join(inner_nodes, "\n") << endl;
+
+				stream << "digraph G {" << endl;
+				
+				for (const Edge& e : input_edges)
+					stream << fmt::format("{} -> {};", e.from, e.to) << endl;
+				for (const Edge& e : edges)
+					stream << fmt::format("{} -> {};", e.from, e.to) << endl;
+
+				for (const string& o : input)
+					stream << fmt::format("{} [shape=plain];", o) << endl;
+				for (const string& o : output)
+					stream << fmt::format("{} [shape=doublecircle];", o) << endl;
+
+				stream << "}" << endl;
+
 				return stream;
 			}
 

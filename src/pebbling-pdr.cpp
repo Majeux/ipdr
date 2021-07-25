@@ -47,7 +47,7 @@ int main()
 	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 	// dag::Graph G = parse::parse_file(file.string());
 
-	std::string model_name = "ham3tc";
+	std::string model_name = "5mod5tc";
 	filesystem::path file = filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
 
 	parse::TFCParser parser;
@@ -55,6 +55,7 @@ int main()
 	int max_pebbles = 10;
 
 	cout << "Graph" << endl << G;
+	G.export_digraph(cout);
 
 	return 0;
 	config settings;
