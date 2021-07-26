@@ -19,17 +19,32 @@ int main()
 	// dag::Graph G = parse::parse_file(file.string());
 
 	std::string model_name = "ham7tc";
-	std::filesystem::path folder = std::filesystem::current_path() / "benchmark" / "rls";
-	std::filesystem::path file = std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
+	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
+	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
+	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
+	std::filesystem::create_directory(results_folder);
+	std::filesystem::create_directory(stats_folder);
+
+	std::filesystem::path model_path = 
+		std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
+
+	string stats_file = model_name + ".stats";
+	string stats_path = (stats_folder / stats_file).string();
+	std::cout << "Statistics to: " << stats_path << std::endl;
+	std::fstream stats(stats_path, std::fstream::out | std::fstream::trunc);
+	string results_file = model_name + "-strategy.result";
+	string results_path = (results_folder / results_file).string();
+	std::cout << "Result to: " << results_path << std::endl;
+	std::fstream results(results_path, std::fstream::out | std::fstream::trunc);	
+	assert(stats.is_open()); assert(results.is_open());
 
 	parse::TFCParser parser;
-	dag::Graph G = parser.parse_file(file.string(), model_name);
+	dag::Graph G = parser.parse_file(model_path.string(), model_name);
 	int max_pebbles = 10;
 
 	std::cout << "Graph" << std::endl << G;
-	G.export_digraph(folder);
+	G.export_digraph(bench_folder);
 
-	return 0;
 	z3::config settings;
 	settings.set("unsat_core", true);
 	settings.set("model", true);
@@ -39,8 +54,12 @@ int main()
 
 	pdr::PDR algorithm(model);
 	algorithm.run();
-	algorithm.show_results();
-	std::cout << std::endl << algorithm.stats << std::endl;
+
+	algorithm.show_results(results);
+	stats << algorithm.stats << std::endl;
+
+	results.close();
+	stats.close();
 
 	return 0;
 }

@@ -556,9 +556,22 @@ namespace pdr
 
 		int i = 1;
 		shared_ptr<State> current = bad;
+		auto count_pebbled = [](const expr_vector& vec) 
+		{
+			unsigned count = 0;
+			for (const expr& e : vec)
+				if(!e.is_not())
+					count++;
+
+			return count; 
+		};
 		while (current)
 		{
-			out << format("{} |\t [ {} ]", i, join_expr_vec(current->cube)) << endl; 
+			out << format("{} |\t [ {} ] No. pebbled = {}", 
+					i, 
+					join_expr_vec(current->cube), 
+					count_pebbled(current->cube))
+				<< endl; 
 			current = current->prev;
 			i++;
 		}

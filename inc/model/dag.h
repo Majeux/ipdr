@@ -85,7 +85,6 @@ namespace dag {
 					string n = node(i);
 					if (input.find(n) != input.end())
 					{
-						assert(nodes.find(n) != nodes.end());
 						input_edges.emplace(n, to);	
 						continue;
 					}
@@ -112,16 +111,8 @@ namespace dag {
 
 			void export_digraph(const std::filesystem::path& folder)
 			{
-				std::stringstream ss("digraph " + name + "{\n");
-				// std::vector<string> inner_nodes;
-				// std::set_difference(
-				// 		nodes.begin(), nodes.end(),
-				// 		input.begin(), input.end(),
-				// 		std::back_inserter(inner_nodes));
-
-				// stream << inner_nodes.size() << endl
-				// 	   << join(inner_nodes, "\n") << endl;
-
+				//make dot representation
+				std::stringstream ss;
 				ss << "digraph G {" << endl;
 				
 				for (const Edge& e : input_edges)

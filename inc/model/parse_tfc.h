@@ -174,7 +174,8 @@ namespace parse
 				vector<string> names = str::extensions::split(line, ',');
 				for (const string& n : names)
 				{
-					string var_init = new_var(G, n);
+					string var_init = node(n, 0);
+					vars.emplace(n, 0);
 					ins.insert(n);
 					G.add_input(var_init);
 				}
