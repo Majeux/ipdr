@@ -37,6 +37,10 @@ target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/
 target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
 target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
+# drawing graphs using graphviz
+target_link_libraries(pebbling-pdr PRIVATE gvc)
+target_link_libraries(pebbling-pdr PRIVATE cgraph)
+target_link_libraries(pebbling-pdr PRIVATE cdt)
 
 # make benchmarks available in out/build
 add_custom_command(TARGET pebbling-pdr PRE_BUILD

@@ -1,15 +1,17 @@
 #ifndef DAG
 #define DAG
 
+#include "string-ext.h"
+
 #include <set>
 #include <map>
 #include <vector>
 #include <string>
 #include <sstream>
-#include <fmt/format.h>
 #include <cassert>
-
-#include "string-ext.h"
+#include <filesystem>
+#include <graphviz/gvc.h>
+#include <fmt/format.h>
 
 namespace dag {
 	using std::set;
@@ -47,6 +49,7 @@ namespace dag {
 	class Graph
 	{
 		public:	
+			string name;
 			set<string> input;
 			set<string> nodes;
 			set<string> output; //subet of nodes
@@ -57,7 +60,7 @@ namespace dag {
 
 			string node(string name) { return prefix + name; }
 			
-			Graph() { }
+			Graph(const string& s) : name(s) { }
 
 			void add_input(string name) { input.insert(node(name)); }
 
@@ -107,8 +110,9 @@ namespace dag {
 				return stream;
 			}
 
-			std::ostream& export_digraph(std::ostream& stream)
+			void export_digraph(const std::filesystem::path& folder)
 			{
+				std::stringstream ss("digraph " + name + "{\n");
 				// std::vector<string> inner_nodes;
 				// std::set_difference(
 				// 		nodes.begin(), nodes.end(),
@@ -118,21 +122,31 @@ namespace dag {
 				// stream << inner_nodes.size() << endl
 				// 	   << join(inner_nodes, "\n") << endl;
 
-				stream << "digraph G {" << endl;
+				ss << "digraph G {" << endl;
 				
 				for (const Edge& e : input_edges)
-					stream << fmt::format("{} -> {};", e.from, e.to) << endl;
+					ss << fmt::format("{} -> {};", e.from, e.to) << endl;
 				for (const Edge& e : edges)
-					stream << fmt::format("{} -> {};", e.from, e.to) << endl;
+					ss << fmt::format("{} -> {};", e.from, e.to) << endl;
 
 				for (const string& o : input)
-					stream << fmt::format("{} [shape=plain];", o) << endl;
+					ss << fmt::format("{} [shape=plain];", o) << endl;
 				for (const string& o : output)
-					stream << fmt::format("{} [shape=doublecircle];", o) << endl;
+					ss << fmt::format("{} [shape=doublecircle];", o) << endl;
 
-				stream << "}" << endl;
+				ss << "}" << endl;
 
-				return stream;
+				//export to svg
+				GVC_t *gvc = gvContext();
+				Agraph_t *g = agmemread(ss.str().c_str());
+				string image_file = (folder / "graphs" / (name + ".svg")).string();
+
+				gvLayout(gvc, g, "dot");
+				gvRenderFilename (gvc, g, "svg", image_file.c_str());
+
+				gvFreeLayout(gvc, g);
+				agclose(g);
+				gvFreeContext(gvc);
 			}
 
 			bool is_output(const string& name) const { return output.find(name) != output.end(); }

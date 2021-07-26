@@ -146,12 +146,12 @@ namespace parse
 	}
 
 
-	dag::Graph parse_file(string filename)
+	dag::Graph parse_file(const string& filename, const string& graph_name)
 	{
 		assert(filename.substr(filename.find_last_of('.')) == ".bench");
 		std::cout << "file: " <<  filename << std::endl;
 		lineNo = 0;
-		dag::Graph G;
+		dag::Graph G(graph_name);
 		G.prefix = "n_";
 		BenchState state = IN;
 

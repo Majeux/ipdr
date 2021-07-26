@@ -10,36 +10,7 @@
 #include "dag.h"
 #include "pdr.h"
 
-using namespace std;
-using namespace z3;
 
-void test() 
-{
-	config settings;
-	settings.set("unsat_core", true);
-	settings.set("model", true);
-	context ctx;
-
-	solver test_solver = solver(ctx);
-	test_solver.set("sat.cardinality.solver", true);
-
-	expr_vector vars = expr_vector(ctx);
-	vars.push_back(ctx.bool_const("a"));
-	vars.push_back(ctx.bool_const("b"));
-
-	test_solver.add(vars[0] & vars[1]);
-
-	expr e = !vars[0];
-
-	check_result result = test_solver.check(1, &e);
-
-	if (result == sat)
-		cout << "SAT" << endl;
-	else if (result == unsat)
-		cout << "UNSAT" << endl;
-	else
-		cout << "UNKNOWN" << endl;
-}
 
 int main()
 {
@@ -47,18 +18,19 @@ int main()
 	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 	// dag::Graph G = parse::parse_file(file.string());
 
-	std::string model_name = "5mod5tc";
-	filesystem::path file = filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
+	std::string model_name = "ham7tc";
+	std::filesystem::path folder = std::filesystem::current_path() / "benchmark" / "rls";
+	std::filesystem::path file = std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
 
 	parse::TFCParser parser;
-	dag::Graph G = parser.parse_file(file.string());
+	dag::Graph G = parser.parse_file(file.string(), model_name);
 	int max_pebbles = 10;
 
-	cout << "Graph" << endl << G;
-	G.export_digraph(cout);
+	std::cout << "Graph" << std::endl << G;
+	G.export_digraph(folder);
 
 	return 0;
-	config settings;
+	z3::config settings;
 	settings.set("unsat_core", true);
 	settings.set("model", true);
 
@@ -68,7 +40,7 @@ int main()
 	pdr::PDR algorithm(model);
 	algorithm.run();
 	algorithm.show_results();
-	cout << endl << algorithm.stats << endl;
+	std::cout << std::endl << algorithm.stats << std::endl;
 
 	return 0;
 }

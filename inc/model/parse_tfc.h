@@ -39,11 +39,11 @@ namespace parse
 			static string node(const string& name, unsigned i) { return name + "_" + std::to_string(i); }
 			static string node(const_vars_iterator n) { return n->first + "_" + std::to_string(n->second); }
 
-			dag::Graph parse_file(string filename)
+			dag::Graph parse_file(const string& filename, const string& graph_name)
 			{
 				assert(filename.substr(filename.find_last_of('.')) == ".tfc");
 				std::cout << "file: " <<  filename << std::endl;
-				dag::Graph G;
+				dag::Graph G(graph_name);
 				vars.clear();
 
 				file.open(filename);
