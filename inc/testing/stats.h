@@ -7,6 +7,7 @@
 #include <ostream>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <string>
 #include <iostream>
 #include <fmt/format.h>
@@ -36,6 +37,8 @@ namespace pdr {
 			vector<unsigned> subsumed_cubes;
 
 			unsigned blocked_ignored = 0;
+			double elapsed = -1.0;
+			std::map<string, unsigned> model;
 
 			void solver_call(size_t frame)
 			{
@@ -115,6 +118,16 @@ namespace pdr {
 
 			friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
 			{
+				out << "Total elapsed time: " << s.elapsed << endl << endl;
+
+				if (!s.model.empty())
+				{
+					out << "Model: " << endl << "--------" << endl;
+					for (auto name_value : s.model)
+						out << name_value.first << " = " << name_value.second << endl;
+				}
+				out << endl;
+
 				string frame_line("# - frame {level:<3} {name:<10}: {state:<20}");
 				string frame_line_avg("# - frame {level:<3} {name:<10}: {state:<20} | avg: {avg}");
 				out << "######################" << endl

@@ -93,9 +93,11 @@ namespace pdr
 
 	bool PDR::finish(bool result) 
 	{
-		cout << format("Total elapsed time {}", timer) << endl;
-		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", timer);
+		double final_time = timer.elapsed().count();
+		cout << format("Total elapsed time {}", final_time) << endl;
+		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", final_time);
 		log_indent = 0;
+		stats.elapsed = final_time;
 
 		return result;
 	}

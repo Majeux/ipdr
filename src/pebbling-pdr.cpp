@@ -18,6 +18,7 @@ int main()
 	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 	// dag::Graph G = parse::parse_file(file.string());
 
+	//set files/paths/folders for input and output
 	std::string model_name = "ham7tc";
 	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
 	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
@@ -38,6 +39,8 @@ int main()
 	std::fstream results(results_path, std::fstream::out | std::fstream::trunc);	
 	assert(stats.is_open()); assert(results.is_open());
 
+
+	//read input model
 	parse::TFCParser parser;
 	dag::Graph G = parser.parse_file(model_path.string(), model_name);
 	int max_pebbles = 10;
@@ -45,16 +48,23 @@ int main()
 	std::cout << "Graph" << std::endl << G;
 	G.export_digraph(bench_folder);
 
+
+	//init z3
 	z3::config settings;
 	settings.set("unsat_core", true);
 	settings.set("model", true);
 
+	//create model from DAG graph and set up algorithm
 	PDRModel model(settings);
 	model.load_model(model_name, G, max_pebbles);
-
 	pdr::PDR algorithm(model);
-	algorithm.run();
+	algorithm.stats.model.emplace("nodes", G.nodes.size());
+	algorithm.stats.model.emplace("edges", G.edges.size());
+	algorithm.stats.model.emplace("outputs", G.output.size());
 
+
+	//run pdr and write output
+	algorithm.run();
 	algorithm.show_results(results);
 	stats << algorithm.stats << std::endl;
 
