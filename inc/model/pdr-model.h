@@ -21,7 +21,6 @@ class PDRModel
 {
 	public:
 		std::string name;
-		int max_pebbles;
 		context ctx;
 		ExpressionCache literals;
 		ExpressionCache property;
@@ -33,8 +32,11 @@ class PDRModel
 		const expr_vector& get_transition() const;
 		const expr_vector& get_initial() const;
 		const expr_vector& get_cardinality() const;
+		unsigned get_max_pebbles() const;
+		void set_max_pebbles(unsigned x);
 
 	private:
+		int max_pebbles;
 		expr_vector initial;
 		expr_vector transition; //vector of clauses (cnf)
 		expr_vector cardinality; //cardinality constraint for current and next state

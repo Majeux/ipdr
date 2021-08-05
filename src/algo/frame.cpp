@@ -60,6 +60,12 @@ namespace pdr
 		}
 	}
 
+	void Frame::reset_frame(const vector<expr_vector>& assertions)
+	{
+		base_assertions = assertions;
+		reset_solver();
+	}
+
 	unsigned Frame::remove_subsumed(const expr_vector& cube)
 	{
 		unsigned before = blocked_cubes.size();

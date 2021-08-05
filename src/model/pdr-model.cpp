@@ -114,7 +114,6 @@ void PDRModel::load_property(const dag::Graph& G)
 void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, int pebbles) 
 {
 	name = model_name;
-	max_pebbles = pebbles;
 	std::cout << "load graph model " << name << std::endl;
 
 	for (string node : G.nodes)
@@ -130,11 +129,21 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, in
 	load_pebble_transition(G);
 	std::cout << transition << std::endl;
 
-	cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
-	cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
+	set_max_pebbles(pebbles);
 
 	load_property(G);
 	std::cout << "property: " << std::endl; property.print();
 	std::cout << "not_property: " << std::endl; not_property.print();
 
+}
+
+unsigned PDRModel::get_max_pebbles() const { return max_pebbles; }
+
+void PDRModel::set_max_pebbles(unsigned x)
+{
+	max_pebbles = x;
+
+	cardinality = expr_vector(ctx);
+	cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
+	cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
 }

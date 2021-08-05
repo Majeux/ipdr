@@ -76,12 +76,14 @@ namespace pdr
 
 			shared_ptr<State> bad;
 
+			vector<unique_ptr<Frame>> old_frames;
 			vector<unique_ptr<Frame>> frames;
 			solver init_solver;
 
 			const unsigned mic_retries = 3; //if mic fails to reduce a clause c this many times, take c
 
-			Frame* make_frame(int level);
+			Frame* make_frame(unsigned level);
+			void extend_frames(unsigned level);
 			void print_model(const z3::model& m);
 			//main loops
 			bool init();
@@ -100,13 +102,16 @@ namespace pdr
 			//results
 			void show_trace(std::ostream& out) const;
 			bool finish(bool);
+			void store_frames();
 
 		public:
+			bool dynamic_cardinality = true;
 			Statistics stats;
 
 			PDR(PDRModel& m);
 			bool run();
 			void show_results(std::ostream& out = std::cout) const;
+			void decrement(unsigned x);
 	};
 }
 #endif //PDR_ALG

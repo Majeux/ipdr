@@ -30,15 +30,28 @@ namespace pdr
 		spdlog::flush_on(spdlog::level::trace);
 	}
 
-	Frame* PDR::make_frame(int level)
+	Frame* PDR::make_frame(unsigned level)
 	{
-		assert(level >= 0);
 		SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
 
 		if (level == 0)
 			return new Frame(0, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
 
 		return new Frame(level, ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() }, log);
+	}
+
+	void PDR::extend_frames(unsigned level)
+	{
+		assert(level == frames.size());
+
+		if (dynamic_cardinality && 0 < level && level < old_frames.size())
+		{
+			frames.emplace_back(std::move(old_frames[level]));
+			frames.back()->reset_frame({ model.property.currents(), model.get_transition(), model.get_cardinality() });
+			SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
+		}
+		else
+			frames.emplace_back(make_frame(level));
 	}
 
 	void PDR::print_model(const z3::model& m)
@@ -98,6 +111,9 @@ namespace pdr
 		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", final_time);
 		log_indent = 0;
 		stats.elapsed = final_time;
+
+		if (dynamic_cardinality)
+			store_frames();
 
 		return result;
 	}
@@ -530,9 +546,17 @@ namespace pdr
 		return false;
 	}
 
+	void PDR::decrement(unsigned x)
+	{
+		unsigned max_pebbles = model.get_max_pebbles();
+		assert(x < max_pebbles);
+
+		model.set_max_pebbles(max_pebbles - x);
+	}
+
 	void PDR::show_results(std::ostream& out) const
 	{
-		out << format("Results pebbling strategy with {} pebbles for {}", model.max_pebbles, model.name) << endl;
+		out << format("Results pebbling strategy with {} pebbles for {}", model.get_max_pebbles(), model.name) << endl;
 		out << SEP2 << endl;
 
 		out << "Bad state reached:" << endl;
