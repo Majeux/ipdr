@@ -105,7 +105,8 @@ namespace pdr
 			void store_frames();
 
 		public:
-			bool dynamic_cardinality = true;
+			// bool dynamic_cardinality = true;
+			bool dynamic_cardinality = false;
 			Statistics stats;
 
 			PDR(PDRModel& m);

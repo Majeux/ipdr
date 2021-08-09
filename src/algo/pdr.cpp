@@ -13,6 +13,7 @@
 #include <fmt/format.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <fstream>
+#include <tuple>
 #include <z3++.h>
 
 namespace pdr
@@ -559,12 +560,19 @@ namespace pdr
 		out << format("Results pebbling strategy with {} pebbles for {}", model.get_max_pebbles(), model.name) << endl;
 		out << SEP2 << endl;
 
-		out << "Bad state reached:" << endl;
-		out << format("[ {} ]", join_expr_vec(model.not_property.currents(), " & ")) << endl << endl;
+		if (bad)
+		{
+			out << "Bad state reached:" << endl;
+			out << format("[ {} ]", join_expr_vec(model.not_property.currents(), " & ")) << endl << endl;
 
-		out << "Reached from:" << endl;
-		show_trace(out);
-		out << SEP2 << endl;
+			out << "Reached from:" << endl;
+			show_trace(out);
+			out << SEP2 << endl;
+		}
+		else 
+		{
+			out << fmt::format("No strategy for {} pebbles", model.get_max_pebbles()) << endl << endl;
+		}
 
 		out << "Frames" << endl;
 		for (const unique_ptr<Frame>& f : frames)
@@ -578,9 +586,8 @@ namespace pdr
 
 	void PDR::show_trace(std::ostream& out) const
 	{
-		out << format("{} |\t [ {} ]", 0, join_expr_vec(model.get_initial())) << endl;
+		std::vector<std::tuple<unsigned, string, unsigned>> steps;
 
-		int i = 1;
 		shared_ptr<State> current = bad;
 		auto count_pebbled = [](const expr_vector& vec) 
 		{
@@ -591,17 +598,25 @@ namespace pdr
 
 			return count; 
 		};
+
+		unsigned i = 0;
 		while (current)
 		{
-			out << format("{} |\t [ {} ] No. pebbled = {}", 
+			i++;
+			steps.emplace_back(
 					i, 
 					join_expr_vec(current->cube), 
-					count_pebbled(current->cube))
-				<< endl; 
+					count_pebbled(current->cube)
+				);
 			current = current->prev;
-			i++;
 		}
+		unsigned i_padding = i/10 + 1;
 
-		out << format("{} |\t [ {} ]", i, join_expr_vec(model.not_property.currents())) << endl;
+		out << format("{:>{}} |\t [ {} ]", 'I', i_padding, join_expr_vec(model.get_initial())) << endl;
+
+		for (const auto &[num, vec, count] : steps)
+			out << format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding, vec, count) << endl; 
+
+		out << format("{:>{}} |\t [ {} ]", 'F', i_padding, join_expr_vec(model.not_property.currents())) << endl;
 	}
 }

@@ -1,53 +1,77 @@
-﻿#include <fstream>
-#include <z3++.h>
-#include <filesystem>
-#include <memory>
-#include <string>
-
-#include "pdr-model.h"
+﻿#include "pdr-model.h"
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "dag.h"
 #include "pdr.h"
 
+#include <fmt/core.h>
+#include <fstream>
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <tuple>
+#include <z3++.h>
+#include <fmt/format.h>
 
+//ensure proper folders exist and create file names for In and Output
+std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebbles) 
+{
+	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
+	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
 
-int main()
+	std::filesystem::create_directory(results_folder);
+	std::filesystem::create_directory(results_folder / model_name);
+	std::filesystem::create_directory(stats_folder);
+	std::filesystem::create_directory(stats_folder / model_name);
+
+	string stats_file = fmt::format("{}-{}pebbles.stats", model_name, n_pebbles);
+	string strategy_file = fmt::format("{}-{}pebbles.strategy", model_name, n_pebbles);
+
+	return std::make_pair(
+			(stats_folder / model_name / stats_file).string(),
+			(results_folder / model_name / strategy_file).string()
+		);
+}
+
+int main(int argc, char *argv[])
 {
 	// std::string model_name = "c432";
 	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
 	// dag::Graph G = parse::parse_file(file.string());
 
-	//set files/paths/folders for input and output
-	std::string model_name = "ham7tc";
+	std::string model_name; int max_pebbles;
+	if (argc >= 3) 
+	{
+		model_name = argv[1];
+		max_pebbles = std::stoul(argv[2]);
+	}
+	else 
+	{
+		model_name = "ham7tc";
+		max_pebbles = 9;
+	}
+
+	std::cout << fmt::format("Finding {}-pebble strategy for {}", max_pebbles, model_name) << std::endl;
+
 	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
-	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
-	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
-	std::filesystem::create_directory(results_folder);
-	std::filesystem::create_directory(stats_folder);
-
-	std::filesystem::path model_path = 
+	std::filesystem::path model_file = 
 		std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
+	const auto [stats_file, strategy_file] = setup_in_out(model_name, max_pebbles);
 
-	string stats_file = model_name + ".stats";
-	string stats_path = (stats_folder / stats_file).string();
-	std::cout << "Statistics to: " << stats_path << std::endl;
-	std::fstream stats(stats_path, std::fstream::out | std::fstream::trunc);
-	string results_file = model_name + "-strategy.result";
-	string results_path = (results_folder / results_file).string();
-	std::cout << "Result to: " << results_path << std::endl;
-	std::fstream results(results_path, std::fstream::out | std::fstream::trunc);	
+	std::cout << "Statistics to: " << stats_file << std::endl;
+	std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
+
+	std::cout << "Result to: " << strategy_file << std::endl;
+	std::fstream results(strategy_file, std::fstream::out | std::fstream::trunc);	
+	
 	assert(stats.is_open()); assert(results.is_open());
-
 
 	//read input model
 	parse::TFCParser parser;
-	dag::Graph G = parser.parse_file(model_path.string(), model_name);
-	int max_pebbles = 10;
+	dag::Graph G = parser.parse_file(model_file, model_name);
 
 	std::cout << "Graph" << std::endl << G;
 	G.export_digraph(bench_folder);
-
 
 	//init z3
 	z3::config settings;
