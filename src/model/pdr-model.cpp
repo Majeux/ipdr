@@ -129,6 +129,7 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, in
 	load_pebble_transition(G);
 	std::cout << transition << std::endl;
 
+	final_pebbles = G.output.size();
 	set_max_pebbles(pebbles);
 
 	load_property(G);
@@ -137,10 +138,11 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, in
 
 }
 
-unsigned PDRModel::get_max_pebbles() const { return max_pebbles; }
+int PDRModel::get_max_pebbles() const { return max_pebbles; }
 
-void PDRModel::set_max_pebbles(unsigned x)
+void PDRModel::set_max_pebbles(int x)
 {
+	assert(x >= final_pebbles);
 	max_pebbles = x;
 
 	cardinality = expr_vector(ctx);

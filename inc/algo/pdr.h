@@ -103,16 +103,20 @@ namespace pdr
 			void show_trace(std::ostream& out) const;
 			bool finish(bool);
 			void store_frames();
+			void store_frame_strings();
 
 		public:
 			// bool dynamic_cardinality = true;
 			bool dynamic_cardinality = false;
+			string frames_string = "";
+			string solvers_string = "";
 			Statistics stats;
 
 			PDR(PDRModel& m);
-			bool run();
+			void reset();
+			bool run(bool dynamic = false);
 			void show_results(std::ostream& out = std::cout) const;
-			void decrement(unsigned x);
+			void decrement(int x);
 	};
 }
 #endif //PDR_ALG

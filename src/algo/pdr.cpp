@@ -6,9 +6,11 @@
 #include <iterator>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
+#include <sstream>
 #include <string>
 #include <fmt/format.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -29,6 +31,15 @@ namespace pdr
 		log->set_level(spdlog::level::trace);
 		// spdlog::flush_every(std::chrono::seconds(20));
 		spdlog::flush_on(spdlog::level::trace);
+	}
+
+	void PDR::reset()
+	{
+		log_indent = 0;
+		bad = std::shared_ptr<State>();
+		stats = Statistics();
+		frames_string = "None";
+		solvers_string = "None";
 	}
 
 	Frame* PDR::make_frame(unsigned level)
@@ -65,9 +76,14 @@ namespace pdr
 		cout << "}" << endl;
 	}
 
-	 bool PDR::run()
+	bool PDR::run(bool dynamic)
 	{
+		dynamic_cardinality = dynamic;
+		reset();
 		timer.reset();
+
+		assert(frames.size() == 0);
+
 		bool failed = false;
 		cout << endl << "PDR start:" << endl;
 		SPDLOG_LOGGER_INFO(log, "");
@@ -110,9 +126,9 @@ namespace pdr
 		double final_time = timer.elapsed().count();
 		cout << format("Total elapsed time {}", final_time) << endl;
 		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", final_time);
-		log_indent = 0;
 		stats.elapsed = final_time;
 
+		store_frame_strings();
 		if (dynamic_cardinality)
 			store_frames();
 
@@ -134,7 +150,7 @@ namespace pdr
 		}
 
 		frames.clear();
-		frames.emplace_back(make_frame(0));
+		extend_frames(0);
 
 		if ( frames[0]->SAT(model.not_property.nexts()) )
 		{
@@ -153,7 +169,7 @@ namespace pdr
 	{
 		cout << SEP3 << endl;
 		cout << "Start iteration" << endl;
-		frames.emplace_back(make_frame(1));
+		extend_frames(1);
 
 		// I => P and I & T ⇒ P' (from init)
 		// continue until the frontier (F[i]) becomes a fixpoint
@@ -210,7 +226,7 @@ namespace pdr
 			SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, k, k+1);
 			log_indent++;
 
-			frames.emplace_back(make_frame(k+1));
+			extend_frames(k+1);
 			if (propagate(k))
 				return true;
 
@@ -227,7 +243,7 @@ namespace pdr
 	{
 		cout << SEP3 << endl;
 		cout << "Start iteration" << endl;
-		frames.emplace_back(make_frame(1));
+		extend_frames(1);
 
 		// I => P and I & T ⇒ P' (from init)
 		// continue until the frontier (F[i]) becomes a fixpoint
@@ -269,7 +285,7 @@ namespace pdr
 			log_indent++;
 
 			assert(frames.size() == k+1);
-			frames.emplace_back(make_frame(k+1));
+			extend_frames(k+1);
 			if (propagate(k))
 				return true;
 
@@ -547,12 +563,23 @@ namespace pdr
 		return false;
 	}
 
-	void PDR::decrement(unsigned x)
+	void PDR::store_frame_strings() 
 	{
-		unsigned max_pebbles = model.get_max_pebbles();
-		assert(x < max_pebbles);
+		std::stringstream ss;
 
-		model.set_max_pebbles(max_pebbles - x);
+		ss << "Frames" << endl;
+		for (const unique_ptr<Frame>& f : frames)
+			ss << (*f).blocked_str() << endl;
+
+		frames_string = ss.str();
+
+		ss = std::stringstream();
+
+		ss << "Solvers" << endl;
+		for (const unique_ptr<Frame>& f : frames)
+				ss << (*f).solver_str() << endl;
+
+		solvers_string = ss.str();
 	}
 
 	void PDR::show_results(std::ostream& out) const
@@ -574,14 +601,9 @@ namespace pdr
 			out << fmt::format("No strategy for {} pebbles", model.get_max_pebbles()) << endl << endl;
 		}
 
-		out << "Frames" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-				out << format("{}", (*f).blocked_str()) << endl;
-
+		out << frames_string << endl;
 		out << SEP << endl;
-		out << "Solvers" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-				out << format("{}", (*f).solver_str()) << endl;
+		out << solvers_string << endl;
 	}
 
 	void PDR::show_trace(std::ostream& out) const

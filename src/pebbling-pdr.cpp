@@ -4,6 +4,7 @@
 #include "dag.h"
 #include "pdr.h"
 
+#include <cstring>
 #include <fmt/core.h>
 #include <fstream>
 #include <filesystem>
@@ -14,7 +15,7 @@
 #include <fmt/format.h>
 
 //ensure proper folders exist and create file names for In and Output
-std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebbles) 
+std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebbles, bool dynamic) 
 {
 	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
 	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
@@ -24,8 +25,8 @@ std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebb
 	std::filesystem::create_directory(stats_folder);
 	std::filesystem::create_directory(stats_folder / model_name);
 
-	string stats_file = fmt::format("{}-{}pebbles.stats", model_name, n_pebbles);
-	string strategy_file = fmt::format("{}-{}pebbles.strategy", model_name, n_pebbles);
+	string stats_file = fmt::format("{}-{}pebbles{}.stats", model_name, n_pebbles, dynamic ? "-dyn" : "");
+	string strategy_file = fmt::format("{}-{}pebbles{}.strategy", model_name, n_pebbles, dynamic ? "-dyn" : "");
 
 	return std::make_pair(
 			(stats_folder / model_name / stats_file).string(),
@@ -51,12 +52,21 @@ int main(int argc, char *argv[])
 		max_pebbles = 9;
 	}
 
+	bool dynamic = false;
+	if (argc >= 4)
+	{
+		if (std::strcmp("-d", argv[3]) == 0)
+			dynamic = true;
+		else 
+			assert(false); // invalid argument
+	}
+
 	std::cout << fmt::format("Finding {}-pebble strategy for {}", max_pebbles, model_name) << std::endl;
 
 	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
 	std::filesystem::path model_file = 
 		std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
-	const auto [stats_file, strategy_file] = setup_in_out(model_name, max_pebbles);
+	const auto [stats_file, strategy_file] = setup_in_out(model_name, max_pebbles, dynamic);
 
 	std::cout << "Statistics to: " << stats_file << std::endl;
 	std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
@@ -86,11 +96,21 @@ int main(int argc, char *argv[])
 	algorithm.stats.model.emplace("edges", G.edges.size());
 	algorithm.stats.model.emplace("outputs", G.output.size());
 
-
 	//run pdr and write output
-	algorithm.run();
+	bool strategy = !algorithm.run(dynamic);
 	algorithm.show_results(results);
 	stats << algorithm.stats << std::endl;
+
+
+	if (dynamic && strategy) //decrement and find better strategy
+	{
+		max_pebbles--;
+		std::cout << "retrying with" << max_pebbles << std::endl;
+		algorithm.decrement(1);
+		algorithm.run(true);
+		algorithm.show_results(results);
+		stats << algorithm.stats << std::endl;
+	}
 
 	results.close();
 	stats.close();
