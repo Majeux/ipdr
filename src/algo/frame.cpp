@@ -60,8 +60,9 @@ namespace pdr
 		}
 	}
 
-	void Frame::reset_frame(const vector<expr_vector>& assertions)
+	void Frame::reset_frame(Statistics& s, const vector<expr_vector>& assertions)
 	{
+		stats = s;
 		base_assertions = assertions;
 		reset_solver();
 	}

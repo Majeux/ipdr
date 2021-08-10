@@ -45,7 +45,7 @@ namespace pdr
 			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
 			
 			void reset_solver();
-			void reset_frame(const vector<expr_vector>& assertions);
+			void reset_frame(Statistics& s, const vector<expr_vector>& assertions);
 
 			unsigned remove_subsumed(const expr_vector& cube);
 			bool blocked(const expr_vector& cube) const;

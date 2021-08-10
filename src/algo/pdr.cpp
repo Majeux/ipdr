@@ -59,7 +59,7 @@ namespace pdr
 		if (dynamic_cardinality && 0 < level && level < old_frames.size())
 		{
 			frames.emplace_back(std::move(old_frames[level]));
-			frames.back()->reset_frame({ model.property.currents(), model.get_transition(), model.get_cardinality() });
+			frames.back()->reset_frame(stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
 			SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
 		}
 		else
