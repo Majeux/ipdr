@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	if (dynamic && strategy) //decrement and find better strategy
 	{
 		max_pebbles--;
-		std::cout << "retrying with" << max_pebbles << std::endl;
+		std::cout << "retrying with " << max_pebbles << std::endl;
 		algorithm.decrement(1);
 		algorithm.run(true);
 		algorithm.show_results(results);

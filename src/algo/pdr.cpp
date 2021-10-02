@@ -56,13 +56,13 @@ namespace pdr
 	{
 		assert(level == frames.size());
 
-		if (dynamic_cardinality && 0 < level && level < old_frames.size())
-		{
-			frames.emplace_back(std::move(old_frames[level]));
-			frames.back()->reset_frame(stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
-			SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
-		}
-		else
+		// if (dynamic_cardinality && 0 < level && level < old_frames.size())
+		// {
+		// 	frames.emplace_back(std::move(old_frames[level]));
+		// 	frames.back()->reset_frame(stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
+		// 	SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
+		// }
+		// else
 			frames.emplace_back(make_frame(level));
 	}
 
@@ -82,7 +82,9 @@ namespace pdr
 		reset();
 		timer.reset();
 
-		assert(frames.size() == 0);
+		if (k == 0)
+			assert(frames.size() == 0);
+		else assert(frames.size() == k+1);
 
 		bool failed = false;
 		cout << endl << "PDR start:" << endl;
@@ -90,10 +92,13 @@ namespace pdr
 		SPDLOG_LOGGER_INFO(log, "NEW RUN\n");
 		SPDLOG_LOGGER_INFO(log, "PDR start");
 		
-		SPDLOG_LOGGER_INFO(log, "Start initiation");
-		log_indent++;
-		failed = !init();
-		log_indent--;
+		if (!dynamic || k == 0)
+		{
+			SPDLOG_LOGGER_INFO(log, "Start initiation");
+			log_indent++;
+			failed = !init();
+			log_indent--;
+		}
 
 		if (failed)
 		{
@@ -162,6 +167,9 @@ namespace pdr
 			return false;
 		}
 
+		extend_frames(1);
+		k = 1;
+
 		return true;
 	}
 
@@ -169,11 +177,9 @@ namespace pdr
 	{
 		cout << SEP3 << endl;
 		cout << "Start iteration" << endl;
-		extend_frames(1);
 
 		// I => P and I & T ⇒ P' (from init)
-		// continue until the frontier (F[i]) becomes a fixpoint
-		for (unsigned k = 1; ; k++)
+		while (true) //iterate over k, if dynamic this continues from last k
 		{
 			cout << "iterate frame "<< k << endl;
 			SPDLOG_LOGGER_TRACE(log, "");
@@ -181,7 +187,7 @@ namespace pdr
 			SPDLOG_LOGGER_TRACE(log, "{}| frame {}", TAB, k);
 			assert(k == frames.size() - 1);
 
-			while (true)
+			while (true) //exhaust all transitions to !P
 			{
 				if (frames[k]->SAT(model.not_property.nexts()))
 				{
@@ -227,7 +233,9 @@ namespace pdr
 			log_indent++;
 
 			extend_frames(k+1);
-			if (propagate(k))
+			bool  done = propagate(k);
+			k++;
+			if (done)
 				return true;
 
 			log_indent--;
@@ -524,7 +532,8 @@ namespace pdr
 
 	bool PDR::propagate(unsigned level)
 	{
-		assert(level + 1 == frames.size()-1);
+		std::cerr << level << " vs " << frames.size()-2 << std::endl; 
+		assert(level == frames.size()-2); // k == |F|-1
 		sub_timer.reset();
 		cout << "propagate level " << level << endl;
 		//extracts arguments of e as an expr_vector

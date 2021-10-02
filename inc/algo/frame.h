@@ -32,8 +32,8 @@ namespace pdr
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
 
-			// std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
-			std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			// std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
 			bool core_available = false;

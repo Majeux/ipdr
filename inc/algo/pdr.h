@@ -76,6 +76,7 @@ namespace pdr
 
 			shared_ptr<State> bad;
 
+			unsigned k = 0;
 			vector<unique_ptr<Frame>> old_frames;
 			vector<unique_ptr<Frame>> frames;
 			solver init_solver;
@@ -93,6 +94,7 @@ namespace pdr
 			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
 			void remove_state(expr_vector& cube, int level);
 			bool propagate(unsigned level);
+			bool repropagate();
 			//generalization
 			int highest_inductive_frame(const expr_vector& cube, int min, int max);
 			int highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core);

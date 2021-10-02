@@ -70,9 +70,16 @@ namespace pdr
 	unsigned Frame::remove_subsumed(const expr_vector& cube)
 	{
 		unsigned before = blocked_cubes.size();
-		auto new_end = std::remove_if(blocked_cubes.begin(), blocked_cubes.end(),
-				[&cube](const expr_vector& blocked) { return z3ext::subsumes(cube, blocked); });
-		blocked_cubes.erase(new_end, blocked_cubes.end());
+		// auto new_end = std::remove_if(blocked_cubes.begin(), blocked_cubes.end(),
+		// 		[&cube](const expr_vector& blocked) { return z3ext::subsumes(cube, blocked); });
+		for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
+		{
+			if (z3ext::subsumes(cube, *it))
+				it = blocked_cubes.erase(it);
+			else
+				it++;
+		}
+		// blocked_cubes.erase(new_end, blocked_cubes.end());
 		return before - blocked_cubes.size();
 	}
 
@@ -89,7 +96,8 @@ namespace pdr
 		unsigned n_removed = remove_subsumed(cube); //remove all blocked cubes that are weaker than cube
 		stats.subsumed(level, n_removed);
 
-		blocked_cubes.push_back(cube);
+		// blocked_cubes.push_back(cube);
+		bool inserted = blocked_cubes.insert(cube).second; assert(inserted);
 
 		expr clause = z3::mk_or(z3ext::negate(cube));
 		consecution_solver.add(clause);
