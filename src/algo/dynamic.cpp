@@ -18,7 +18,7 @@ namespace pdr
 		std::cout << msg << std::endl;
 		SPDLOG_LOGGER_INFO(log, msg);
 		//if we are repeating, the last propagation was k-1, repeat this
-		propagate(k-1);
+		propagate(k-1, true);
 	}
 
 	void PDR::store_frames()

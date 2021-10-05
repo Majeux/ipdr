@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 #include <set>
+#include <map>
 #include <vector>
 #include <z3++.h>
 #include <fmt/format.h>
@@ -23,6 +24,8 @@ namespace pdr
 	using z3::expr;
 	using z3::expr_vector;
 
+	using CubeSet = std::set<expr_vector, z3ext::expr_vector_less>;
+
 	class Frame
 	{
 		private:
@@ -32,7 +35,9 @@ namespace pdr
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
 
-			std::set<expr_vector, z3ext::expr_vector_less> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			CubeSet blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
+			//cubes that are already blocked by some cube. check the key has not been propagated, check if one of its values can.
+			std::map<expr_vector, CubeSet, z3ext::expr_vector_less> subsumed; 
 			// std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
 			bool model_used = true; //used to give a warning if the SAT model is no queried before overwriting
@@ -47,8 +52,9 @@ namespace pdr
 			void reset_solver();
 			void reset_frame(Statistics& s, const vector<expr_vector>& assertions);
 
+			void store_subsumed(const expr_vector& super, const expr_vector& sub);
 			unsigned remove_subsumed(const expr_vector& cube);
-			bool blocked(const expr_vector& cube) const;
+			bool blocked(const expr_vector& cube);
 			bool block_cube(const expr_vector& cube);
 
 			//solver interface

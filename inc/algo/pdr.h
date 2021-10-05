@@ -93,7 +93,7 @@ namespace pdr
 			bool block(expr_vector& counter, unsigned o_level, unsigned level);
 			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
 			void remove_state(expr_vector& cube, int level);
-			bool propagate(unsigned level);
+			bool propagate(unsigned level, bool repeat = false);
 			bool repropagate();
 			//generalization
 			int highest_inductive_frame(const expr_vector& cube, int min, int max);

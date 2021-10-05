@@ -2,9 +2,11 @@
 #include "z3-ext.h"
 
 #include <algorithm>
+#include <fmt/core.h>
 #include <memory>
 #include <numeric>
 #include <chrono>
+#include <utility>
 #include <z3++.h>
 
 
@@ -22,19 +24,6 @@ namespace pdr
 		: Frame(k, c, s, assertions, shared_ptr<spdlog::logger>()) 
 	{ }
 
-	bool Frame::blocked(const expr_vector& cube) const 
-	{ 
-		for (const expr_vector& blocked_cube : blocked_cubes)
-		{
-			if (z3ext::subsumes(blocked_cube, cube))
-			{
-				SPDLOG_LOGGER_TRACE(log, "already blocked by {}", z3ext::join_expr_vec(blocked_cube));
-				return true; //equal or stronger clause found
-			}
-		}
-		return false;	
-	}
-	
 	void Frame::init_solver()
 	{
 		consecution_solver.set("sat.cardinality.solver", true);
@@ -67,15 +56,49 @@ namespace pdr
 		reset_solver();
 	}
 
+	//cube subsumption functions
+	//
+	void Frame::store_subsumed(const expr_vector& super, const expr_vector& sub)
+	{
+		return;
+		SPDLOG_LOGGER_TRACE(log, "store for later propagation {}", z3ext::join_expr_vec(sub));
+		CubeSet s = {sub};
+		auto [it, inserted] = subsumed.emplace(super, std::move(s));
+
+		if (!inserted)
+		{
+			it->second.insert(sub);
+		}
+
+	}
+
+	bool Frame::blocked(const expr_vector& cube) 
+	{ 
+		for (const expr_vector& blocked_cube : blocked_cubes)
+		{
+			if (z3ext::subsumes(blocked_cube, cube))
+			{
+				SPDLOG_LOGGER_TRACE(log, "already blocked by {}", z3ext::join_expr_vec(blocked_cube));
+				store_subsumed(blocked_cube, cube);
+				return true; //equal or stronger clause found
+			}
+		}
+		return false;	
+	}
+	
 	unsigned Frame::remove_subsumed(const expr_vector& cube)
 	{
+		// return 0;
 		unsigned before = blocked_cubes.size();
 		// auto new_end = std::remove_if(blocked_cubes.begin(), blocked_cubes.end(),
 		// 		[&cube](const expr_vector& blocked) { return z3ext::subsumes(cube, blocked); });
 		for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
 		{
 			if (z3ext::subsumes(cube, *it))
+			{
+				store_subsumed(cube, *it);
 				it = blocked_cubes.erase(it);
+			}
 			else
 				it++;
 		}
@@ -83,6 +106,8 @@ namespace pdr
 		return before - blocked_cubes.size();
 	}
 
+	//interface
+	//
 	//cube is sorted by id()
 	//block cube unless it, or a stronger version, is already blocked
 	bool Frame::block_cube(const expr_vector& cube)
@@ -164,9 +189,32 @@ namespace pdr
 		return core;
 	}
 
+	// assumes vectors in 'blocked_cubes' are sorted
 	bool Frame::equals(const Frame& f) const
 	{ 
-		return blocked_cubes == f.blocked_cubes;
+		auto eq_return = [](bool rv) {
+			// std::cout << fmt::format("F{} and F{}", this->level, f.level) 
+			// 		  << (rv ? "equal" : "not equal") << std::endl;
+			return rv;
+		};
+
+		if (this->blocked_cubes.size() != f.blocked_cubes.size())
+			return eq_return(false);
+		
+		auto l_cube = this->blocked_cubes.begin(); auto r_cube = f.blocked_cubes.begin();
+		auto l_end = this->blocked_cubes.end(); auto r_end = f.blocked_cubes.end();
+		for (; l_cube != l_end && r_cube != r_end; l_cube++, r_cube++)
+		{
+			// if l_cubes* != r_cubes* -> return false
+			if (l_cube->size() != r_cube->size())
+				return eq_return(false);
+
+			auto l_lit = l_cube->begin(); auto r_lit = r_cube->begin();
+			for (; l_lit != l_cube->end() && r_lit != r_cube->end(); l_lit++, r_lit++)
+				if ((*l_lit).id() != (*r_lit).id())
+					return eq_return(false);
+		}
+		return eq_return(true);
 	}
 
 	std::vector<expr_vector> Frame::diff(const Frame& f) const
