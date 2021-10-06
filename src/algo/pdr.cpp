@@ -23,7 +23,7 @@ namespace pdr
 	using std::cout;
 	using z3ext::join_expr_vec;
 
-	PDR::PDR(PDRModel& m) : ctx(m.ctx), model(m), init_solver(ctx)
+	PDR::PDR(PDRModel& m, bool d = false) : ctx(m.ctx), model(m), delta(d), init_solver(ctx)
 	{
 		init_solver.add(m.get_initial());
 		string log_file = m.name + ".log";
@@ -47,9 +47,9 @@ namespace pdr
 		SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
 
 		if (level == 0)
-			return new Frame(0, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
+			return new Frame(0, k, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
 
-		return new Frame(level, ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() }, log);
+		return new Frame(level, k,  ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() }, log);
 	}
 
 	void PDR::extend_frames(unsigned level)
@@ -377,22 +377,34 @@ namespace pdr
 		return true;
 	}
 
-	void PDR::remove_state(expr_vector& cube, int level)
+	void PDR::remove_state(expr_vector& cube, unsigned level)
 	{
 		level = std::min(static_cast<size_t>(level), frames.size()-1);
 		SPDLOG_LOGGER_TRACE(log, "{}| removing cube from level [1..{}]: [{}]", TAB, level, join(cube));
 		log_indent++;
 
-		for (int i = 1; i <= level; i++)
+		if (delta) //a cube is only stored in the last frame it holds
 		{
-			if (frames[i]->block_cube(cube))
+			for (unsigned i = 1; i <= level; i++)
 			{
-				SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
+				if (frames[i]->blocked(cube)) //do not add if an equal or stronger version is already blocked
+				{
+					stats.blocked_ignored++;
+					break;
+				}
+				//remove all blocked cubes that are weaker than cube
+				unsigned n_removed = frames[i]->remove_subsumed(cube); 
+				stats.subsumed(level, n_removed);
+				
+				if (frames[level]->block_cube(cube))
+					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, level);
 			}
-			else 
-			{
-			}
-
+		}
+		else
+		{
+			for (int i = 1; i <= level; i++)
+				if (frames[i]->block_cube(cube))
+					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
 		}
 		log_indent--;
 	}
@@ -402,6 +414,21 @@ namespace pdr
 		assert(level == frames.size()-2); // k == |F|-1
 		sub_timer.reset();
 		cout << "propagate level " << level << endl;
+
+		bool invariant;
+		if (delta)
+			invariant = delta_propagate(level, repeat);
+		else
+			invariant = fat_propagate(level, repeat);
+
+		SPDLOG_LOGGER_TRACE(log, "Propagation elapsed {}", sub_timer);
+		cout << format("Propagation elapsed {}", sub_timer) << endl;
+		return invariant;
+	}
+
+	bool PDR::fat_propagate(unsigned level, bool repeat)
+	{
+		frames[1]->reset_solver();
 		//extracts arguments of e as an expr_vector
 		for (unsigned i = 1; i <= level; i++)
 		{   //TODO: check in of exclusief
@@ -426,31 +453,36 @@ namespace pdr
 				else 
 					frames[i]->discard_model();
 			}
+			frames[i+1]->reset_solver();
 
 			if (diff.size() == 0 || frames[i]->equals(*frames[i + 1]))
-			{
-				cout << "Frame[" << i << "] == Frame[" << (i + 1) << "]" << endl;
 				return true;
-			}
-			// if (diff.size() == 0)
-			// {
-			// 	cout << "Frame[" << i << "] \\ Frame[" << (i + 1) << "] = 0" << endl;
-			// 	if (frames[i]->equals(*frames[i + 1]))
-			// 		cout << "and are equal" << endl;
-			// 	return true;
-			// }
-			// if (frames[i]->equals(*frames[i + 1]))
-			// {
-			// 	cout << "Frame[" << i << "] == Frame[" << (i + 1) << "]" << endl;
-			// 	cout << "but diff != 0" << endl;
-			// 	return true;
-			// }
-			
-			
-			frames[i+1]->reset_solver();
 		}
-		SPDLOG_LOGGER_TRACE(log, "Propagation elapsed {}", sub_timer);
-		cout << format("Propagation elapsed {}", sub_timer) << endl;
+		return false;
+	}
+
+	bool PDR::delta_propagate(unsigned level, bool repeat)
+	{
+		frames[1]->reset_solver();
+		for (unsigned i = 1; i <= level; i++)
+		{
+			for (const expr_vector& cube : frames[i]->get_blocked_cubes())
+			{
+				expr_vector cube_next = model.literals.p(cube);
+				if (frames[i]->UNSAT(cube_next))
+				{
+					if (frames[i+1]->block_cube(cube))
+						if (repeat)
+							cout << "new blocked in repeat" << endl;
+				}
+				else
+					frames[i]->discard_model();
+			}
+			frames[i+1]->reset_solver();
+			
+			if (frames[i]->empty())
+				return true;
+		}
 		return false;
 	}
 

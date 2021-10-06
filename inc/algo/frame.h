@@ -29,14 +29,18 @@ namespace pdr
 	class Frame
 	{
 		private:
-			int level;
+			unsigned level;
+			const unsigned& max;
+			context& ctx;
 			Statistics& stats;
 			vector<expr_vector> base_assertions;
 			solver consecution_solver;
 			shared_ptr<spdlog::logger> log;
+			bool delta;
 
 			CubeSet blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
-			//cubes that are already blocked by some cube. check the key has not been propagated, check if one of its values can.
+			//cubes that are already blocked by some cube. check the key has not been propagated, 
+			//check if one of its values can.
 			std::map<expr_vector, CubeSet, z3ext::expr_vector_less> subsumed; 
 			// std::vector<expr_vector> blocked_cubes; //the arguments of the clause are sorted by mic, use id to search
 
@@ -46,8 +50,10 @@ namespace pdr
 
 			void init_solver();
 		public:
-			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l);
-			Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions);
+			Frame(unsigned i, const unsigned& k, context& c, Statistics& s, 
+					const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l, bool d = false);
+			Frame(unsigned i, const unsigned& k, context& c, Statistics& s, 
+					const vector<expr_vector>& assertions, bool d = false);
 			
 			void reset_solver();
 			void reset_frame(Statistics& s, const vector<expr_vector>& assertions);
@@ -56,11 +62,16 @@ namespace pdr
 			unsigned remove_subsumed(const expr_vector& cube);
 			bool blocked(const expr_vector& cube);
 			bool block_cube(const expr_vector& cube);
+			bool fat_block(const expr_vector& cube);
+			bool delta_block(expr_vector cube);
+			expr activation_lit(unsigned level) const;
 
 			//solver interface
 			//////////////////
 			bool SAT(const expr& current, expr_vector next);
 			bool SAT(const expr_vector& next);
+			bool fat_SAT(const expr_vector& next);
+			bool delta_SAT(expr_vector next);
 			bool UNSAT(const expr& current, expr_vector next);
 			bool UNSAT(const expr_vector& next);
 
@@ -87,6 +98,10 @@ namespace pdr
 			//Frame comparisons
 			bool equals(const Frame& f) const;
 			std::vector<expr_vector> diff(const Frame& f) const;
+
+			//getters
+			const CubeSet& get_blocked_cubes() const;
+			bool empty() const;
 
 			//string representations
 			std::string solver_str() const;

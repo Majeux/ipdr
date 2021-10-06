@@ -14,14 +14,17 @@ namespace pdr
 {
 	using z3ext::join_expr_vec;
 
-	Frame::Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l) 
-		: level(k), stats(s), base_assertions(assertions), consecution_solver(c/*, "QF_FD"*/), log(l)
+	Frame::Frame(unsigned i, const unsigned& k, context& c, Statistics& s, 
+			const vector<expr_vector>& assertions, shared_ptr<spdlog::logger> l, bool d) 
+		: level(i), max(k), ctx(c), stats(s), 
+			base_assertions(assertions), consecution_solver(c/*, "QF_FD"*/), log(l), delta(d)
 	{
 		init_solver();
 	}
 
-	Frame::Frame(int k, context& c, Statistics& s, const vector<expr_vector>& assertions) 
-		: Frame(k, c, s, assertions, shared_ptr<spdlog::logger>()) 
+	Frame::Frame(unsigned i, const unsigned& k, context& c, Statistics& s, 
+			const vector<expr_vector>& assertions, bool d) 
+		: Frame(i, k, c, s, assertions, shared_ptr<spdlog::logger>(), d) 
 	{ }
 
 	void Frame::init_solver()
@@ -112,6 +115,14 @@ namespace pdr
 	//block cube unless it, or a stronger version, is already blocked
 	bool Frame::block_cube(const expr_vector& cube)
 	{
+		if (delta)
+			return delta_block(cube);
+		else
+			return fat_block(cube);
+	}
+
+	bool Frame::fat_block(const expr_vector& cube)
+	{
 		if (blocked(cube)) //do not add if an equal or stronger version is already blocked
 		{
 			stats.blocked_ignored++;
@@ -129,6 +140,24 @@ namespace pdr
 		return true;
 	}
 
+	expr Frame::activation_lit(unsigned level) const
+	{
+		std::string name = fmt::format("__act{}__", level);
+		return ctx.bool_const(name.c_str());
+	}
+
+	bool Frame::delta_block(expr_vector cube)
+	{
+		cube.push_back(activation_lit(level));
+		z3ext::sort(cube);
+		//add clause with !act
+		bool inserted = blocked_cubes.insert(cube).second; assert(inserted);
+
+		expr clause = z3::mk_or(z3ext::negate(cube));
+		consecution_solver.add(clause);
+		return true;
+	}
+
 	bool Frame::SAT(const expr& current, expr_vector next)
 	{
 		next.push_back(current);
@@ -137,11 +166,22 @@ namespace pdr
 
 	bool Frame::SAT(const expr_vector& assumptions) 
 	{ 
-		
 		using std::chrono::steady_clock; 
 		auto start = steady_clock::now();
 		bool result;
 
+		if (delta)	
+			result = delta_SAT(assumptions);
+		else
+			result = fat_SAT(assumptions);
+
+		std::chrono::duration<double> diff(steady_clock::now() - start);
+		stats.solver_call(level, diff.count());
+		return result;
+	}
+
+	bool Frame::fat_SAT(const expr_vector& assumptions)
+	{
 		// if (log)
 		// {
 		// 	SPDLOG_LOGGER_TRACE(log, "SAT | assertions:\n {}", solver_str());
@@ -152,17 +192,19 @@ namespace pdr
 			if(!model_used)
 				std::cerr << "PDR::WARNING: last SAT model unused and discarded" << std::endl;
 			model_used = false;
-			result = true;
-		}
-		else
-		{
-			result = false;
-			core_available = true;
+			return true;
 		}
 
-		std::chrono::duration<double> diff(steady_clock::now() - start);
-		stats.solver_call(level, diff.count());
-		return result;
+		core_available = true;
+		return false;
+	}
+
+	bool Frame::delta_SAT(expr_vector assumptions) //fmcad: return lowest used act
+	{
+		for (unsigned i = level; i <= max; i++)
+			assumptions.push_back(activation_lit(i));
+		
+		return fat_SAT(assumptions);
 	}
 
 	bool Frame::UNSAT(const expr& current, expr_vector next) 
@@ -226,6 +268,9 @@ namespace pdr
 				std::back_inserter(out), z3ext::expr_vector_less());
 		return out;
 	}
+
+	const CubeSet& Frame::get_blocked_cubes() const { return blocked_cubes; }
+	bool Frame::empty() const { return blocked_cubes.size() == 0; }
 
 	std::string Frame::solver_str() const
 	{
