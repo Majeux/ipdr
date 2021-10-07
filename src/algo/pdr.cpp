@@ -402,7 +402,7 @@ namespace pdr
 		}
 		else
 		{
-			for (int i = 1; i <= level; i++)
+			for (unsigned i = 1; i <= level; i++)
 				if (frames[i]->block_cube(cube))
 					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
 		}
@@ -456,7 +456,10 @@ namespace pdr
 			frames[i+1]->reset_solver();
 
 			if (diff.size() == 0 || frames[i]->equals(*frames[i + 1]))
+			{
+				std::cout << format("F[{}] \\ F[{}] == 0", i, i+1) << std::endl;
 				return true;
+			}
 		}
 		return false;
 	}
@@ -481,7 +484,10 @@ namespace pdr
 			frames[i+1]->reset_solver();
 			
 			if (frames[i]->empty())
+			{
+				std::cout << format("F[{}] \\ F[{}] == 0", i, i+1) << std::endl;
 				return true;
+			}
 		}
 		return false;
 	}

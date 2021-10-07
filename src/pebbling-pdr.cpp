@@ -5,10 +5,15 @@
 #include "pdr.h"
 
 #include <cstring>
+#include <cxxopts.hpp>
+#include <exception>
 #include <fmt/core.h>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 #include <memory>
+#include <ostream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <z3++.h>
@@ -34,39 +39,87 @@ std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebb
 		);
 }
 
+struct ArgumentList{
+	std::string model_name;
+	unsigned max_pebbles;
+	bool dynamic;
+	bool delta;
+
+	bool _failed = false;
+};
+
+cxxopts::Options make_options(std::string name, ArgumentList& clargs)
+{
+	cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum amount of pebbles through PDR");
+	clargs.dynamic = clargs.delta = false;
+	clopt.add_options()
+		("d,dynamic", "Multiple runs that reduce the amount of pebbles", cxxopts::value<bool>(clargs.dynamic))
+		("delta", "Use delta-encoded frames", cxxopts::value<bool>(clargs.delta))
+		("model", "Name of the graph to pebble", cxxopts::value<std::string>(clargs.model_name))
+		("pebbles", "Maximum number of pebbles for a strategy", cxxopts::value<unsigned>(clargs.max_pebbles))
+		("h,help", "Show usage");
+
+	clopt.parse_positional({"model", "pebbles"});
+	clopt.positional_help("<model name> <max pebbles>").show_positional_help();
+
+	return clopt;
+}
+
+ArgumentList parse_cl(int argc, char *argv[])
+{
+	ArgumentList clargs;
+	cxxopts::Options clopt = make_options(argv[0], clargs);
+	try {
+		auto clresult = clopt.parse(argc, argv);
+
+		if (clresult.count("help"))
+		{
+			std::cout << clopt.help() << std::endl;
+			exit(0);
+		}
+
+		if (clresult.count("dynamic"))
+			clargs.dynamic = true;
+		else
+			clargs.dynamic = false;
+
+		if (clresult.count("delta"))
+			clargs.delta = true;
+		else
+			clargs.delta = false;
+
+		if (clresult.count("model"))
+			clargs.model_name = clresult["model"].as<std::string>();
+		else 
+			throw std::invalid_argument("<model name> is required");
+
+		if (clresult.count("pebbles"))
+			clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
+		else 
+			throw std::invalid_argument("<max pebbles> is required");
+	}
+	catch (const std::exception& e) {
+		std::cout << "Error parsing command line arguments" << std::endl << std::endl;
+		std::cout << clopt.help() << std::endl;
+		throw;
+	}
+
+	return clargs;
+}
+
 int main(int argc, char *argv[])
 {
-	// std::string model_name = "c432";
-	// filesystem::path file = filesystem::current_path() / "benchmark" / "iscas85" / "bench" / (model_name + ".bench");
-	// dag::Graph G = parse::parse_file(file.string());
+	ArgumentList clargs = parse_cl(argc, argv);
 
-	std::string model_name; int max_pebbles;
-	if (argc >= 3) 
-	{
-		model_name = argv[1];
-		max_pebbles = std::stoul(argv[2]);
-	}
-	else 
-	{
-		model_name = "ham7tc";
-		max_pebbles = 9;
-	}
-
-	bool dynamic = false;
-	if (argc >= 4)
-	{
-		if (std::strcmp("-d", argv[3]) == 0)
-			dynamic = true;
-		else 
-			assert(false); // invalid argument
-	}
-
-	std::cout << fmt::format("Finding {}-pebble strategy for {}", max_pebbles, model_name) << std::endl;
+	std::cout << fmt::format("Finding {}-pebble strategy for {}", clargs.max_pebbles, clargs.model_name) 
+			  << std::endl 
+			  << (clargs.dynamic ? "Using dynamic cardinality. " : "")
+			  << (clargs.delta   ? "Using delta-encoded frames." : "") << std::endl;
 
 	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
 	std::filesystem::path model_file = 
-		std::filesystem::current_path() / "benchmark" / "rls" / (model_name + ".tfc");
-	const auto [stats_file, strategy_file] = setup_in_out(model_name, max_pebbles, dynamic);
+		std::filesystem::current_path() / "benchmark" / "rls" / (clargs.model_name + ".tfc");
+	const auto [stats_file, strategy_file] = setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.dynamic);
 
 	std::cout << "Statistics to: " << stats_file << std::endl;
 	std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
@@ -78,7 +131,7 @@ int main(int argc, char *argv[])
 
 	//read input model
 	parse::TFCParser parser;
-	dag::Graph G = parser.parse_file(model_file, model_name);
+	dag::Graph G = parser.parse_file(model_file, clargs.model_name);
 
 	std::cout << "Graph" << std::endl << G;
 	G.export_digraph(bench_folder);
@@ -90,22 +143,22 @@ int main(int argc, char *argv[])
 
 	//create model from DAG graph and set up algorithm
 	PDRModel model(settings);
-	model.load_model(model_name, G, max_pebbles);
-	pdr::PDR algorithm(model);
+	model.load_model(clargs.model_name, G, clargs.max_pebbles);
+	pdr::PDR algorithm(model, clargs.delta);
 	algorithm.stats.model.emplace("nodes", G.nodes.size());
 	algorithm.stats.model.emplace("edges", G.edges.size());
 	algorithm.stats.model.emplace("outputs", G.output.size());
 
 	//run pdr and write output
-	bool strategy = !algorithm.run(dynamic);
+	bool strategy = !algorithm.run(clargs.dynamic);
 	algorithm.show_results(results);
 	stats << algorithm.stats << std::endl;
 
 
-	if (dynamic && strategy) //decrement and find better strategy
+	if (clargs.dynamic && strategy) //decrement and find better strategy
 	{
-		max_pebbles--;
-		std::cout << "retrying with " << max_pebbles << std::endl;
+		clargs.max_pebbles--;
+		std::cout << "retrying with " << clargs.max_pebbles << std::endl;
 		algorithm.decrement(1);
 		algorithm.run(true);
 		algorithm.show_results(results);
