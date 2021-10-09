@@ -47,9 +47,11 @@ namespace pdr
 		SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
 
 		if (level == 0)
-			return new Frame(0, k, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
+			return new Frame(0, k, ctx, stats, 
+					{ model.get_initial(), model.get_transition(), model.get_cardinality() });
 
-		return new Frame(level, k,  ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() }, log);
+		return new Frame(level, k,  ctx, stats, 
+				{ model.property.currents(), model.get_transition(), model.get_cardinality() }, log, delta);
 	}
 
 	void PDR::extend_frames(unsigned level)
