@@ -48,7 +48,6 @@ namespace pdr
 			bool block_cube(const z3::expr_vector& cube);
 			bool fat_block(const z3::expr_vector& cube);
 			bool delta_block(z3::expr_vector cube);
-			z3::expr activation_lit(unsigned level) const;
 
 			//Frame comparisons
 			bool equals(const Frame& f) const;

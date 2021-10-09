@@ -30,6 +30,7 @@ namespace pdr
 			void add(const z3::expr& e);
 
 			bool SAT(const z3::expr_vector& assumptions);
+			z3::model get_model() const;
 			void discard_model();
 			std::string as_str(const std::string& header = "") const;
 

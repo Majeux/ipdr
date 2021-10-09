@@ -8,74 +8,36 @@
 #include <algorithm>
 #include <memory>
 #include <set>
-#include <spdlog/common.h>
-#include <spdlog/spdlog.h>
 #include <sstream>
 #include <string>
 #include <fmt/format.h>
-#include <spdlog/sinks/basic_file_sink.h>
 #include <fstream>
 #include <tuple>
 #include <z3++.h>
 
 namespace pdr
 {
-	using std::cout;
-	using z3ext::join_expr_vec;
-
-	PDR::PDR(PDRModel& m, bool d = false) : ctx(m.ctx), model(m), delta(d), init_solver(ctx)
-	{
-		init_solver.add(m.get_initial());
-		string log_file = m.name + ".log";
-		log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
-		log->set_level(spdlog::level::trace);
-		// spdlog::flush_every(std::chrono::seconds(20));
-		spdlog::flush_on(spdlog::level::trace);
-	}
+	PDR::PDR(PDRModel& m, bool d = false) 
+		: ctx(m.ctx), model(m), delta(d), logger(model.name), frames(delta, ctx, m, logger)
+	{}
 
 	void PDR::reset()
 	{
-		log_indent = 0;
+		logger.log_indent = 0;
 		bad = std::shared_ptr<State>();
 		stats = Statistics();
 		frames_string = "None";
 		solvers_string = "None";
 	}
 
-	Frame* PDR::make_frame(unsigned level)
-	{
-		SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
-
-		if (level == 0)
-			return new Frame(0, k, ctx, stats, 
-					{ model.get_initial(), model.get_transition(), model.get_cardinality() });
-
-		return new Frame(level, k,  ctx, stats, 
-				{ model.property.currents(), model.get_transition(), model.get_cardinality() }, log, delta);
-	}
-
-	void PDR::extend_frames(unsigned level)
-	{
-		assert(level == frames.size());
-
-		// if (dynamic_cardinality && 0 < level && level < old_frames.size())
-		// {
-		// 	frames.emplace_back(std::move(old_frames[level]));
-		// 	frames.back()->reset_frame(stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
-		// 	SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
-		// }
-		// else
-			frames.emplace_back(make_frame(level));
-	}
-
 	void PDR::print_model(const z3::model& m)
 	{
-		cout << "model consts \{" << std::endl;
+		std::cout << "model consts \{" << std::endl;
 		for (unsigned i = 0; i < m.num_consts(); i++)
 		{
-			cout << "\t" << m.get_const_interp( m.get_const_decl(i) );
+			std::cout << "\t" << m.get_const_interp( m.get_const_decl(i) );
 		}
-		cout << "}" << endl;
+		std::cout << "}" << endl;
 	}
 
 	bool PDR::run(bool dynamic)
@@ -84,55 +46,53 @@ namespace pdr
 		reset();
 		timer.reset();
 
-		if (k == 0)
-			assert(frames.size() == 0);
-		else assert(frames.size() == k+1);
+		assert(k == frames.frontier());
 
 		bool failed = false;
-		cout << endl << "PDR start:" << endl;
-		SPDLOG_LOGGER_INFO(log, "");
-		SPDLOG_LOGGER_INFO(log, "NEW RUN\n");
-		SPDLOG_LOGGER_INFO(log, "PDR start");
+		std::cout << endl << "PDR start:" << endl;
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "");
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "PDR start");
 		
 		if (!dynamic || k == 0)
 		{
-			SPDLOG_LOGGER_INFO(log, "Start initiation");
-			log_indent++;
+			SPDLOG_LOGGER_INFO(logger.spd_logger, "Start initiation");
+			logger.log_indent++;
 			failed = !init();
-			log_indent--;
+			logger.log_indent--;
 		}
 
 		if (failed)
 		{
-			cout << "Failed initiation" << endl;
-			SPDLOG_LOGGER_TRACE(log, "Failed initiation");
+			std::cout << "Failed initiation" << endl;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "Failed initiation");
 			return finish(false);
 		}
-		cout << "Survived initiation" << endl;
-		SPDLOG_LOGGER_INFO(log, "Survived initiation");
+		std::cout << "Survived initiation" << endl;
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "Survived initiation");
 
-		SPDLOG_LOGGER_INFO(log, "Start iteration");
-		log_indent++;
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "Start iteration");
+		logger.log_indent++;
 		failed = !iterate();
-		log_indent--;
+		logger.log_indent--;
 
 		if(failed) 
 		{
-			cout << "Failed iteration" << endl;
-			SPDLOG_LOGGER_TRACE(log, "Failed iteration");
+			std::cout << "Failed iteration" << endl;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "Failed iteration");
 			return finish(false);
 		}
 
-		cout << "Property verified" << endl;
-		SPDLOG_LOGGER_INFO(log, "Property verified");
+		std::cout << "Property verified" << endl;
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "Property verified");
 		return finish(true);
 	}
 
 	bool PDR::finish(bool result) 
 	{
 		double final_time = timer.elapsed().count();
-		cout << format("Total elapsed time {}", final_time) << endl;
-		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", final_time);
+		std::cout << format("Total elapsed time {}", final_time) << endl;
+		SPDLOG_LOGGER_INFO(logger.spd_logger, "Total elapsed time {}", final_time);
 		stats.elapsed = final_time;
 
 		store_frame_strings();
@@ -145,65 +105,67 @@ namespace pdr
 	// returns true if the model survives initiation
 	bool PDR::init() 
 	{
-		SPDLOG_LOGGER_TRACE(log, "Start initiation");
-		if ( init_solver.check(model.not_property.currents()) == z3::sat )
+		assert(frames.frontier() == 0);
+
+		SPDLOG_LOGGER_TRACE(logger.spd_logger, "Start initiation");
+		z3::expr_vector notP = model.not_property.currents();
+		if (frames.init_solver.check(notP))
 		{
 			std::cout << "I =/> P" << std::endl;
-			z3::model counter = init_solver.get_model();
+			z3::model counter = frames[0].get_solver()->get_model();
 			print_model(counter);
 			//TODO TRACE	
 			bad = std::make_shared<State>(model.get_initial());
 			return false;
 		}
 
-		frames.clear();
-		extend_frames(0);
-
-		if ( frames[0]->SAT(model.not_property.nexts()) )
-		{
+		z3::expr_vector notP_next = model.not_property.nexts();
+		if ( frames.SAT(0, notP_next) )
+		{	//there is a transitions from I to !P
 			std::cout << "I & T =/> P'" << std::endl;
-			expr_vector bad_cube = frames[0]->sat_cube(
+			expr_vector bad_cube = frames[0].get_solver()->sat_cube(
 					[this](const expr& e) { return model.literals.atom_is_current(e); });
 			bad = std::make_shared<State>(bad_cube);
 
 			return false;
 		}
 
-		extend_frames(1);
+		frames.extend();
 		k = 1;
+		assert(k == frames.frontier());
 
 		return true;
 	}
 
 	bool PDR::iterate()
 	{
-		cout << SEP3 << endl;
-		cout << "Start iteration" << endl;
+		std::cout << SEP3 << endl;
+		std::cout << "Start iteration" << endl;
 
 		// I => P and I & T ⇒ P' (from init)
 		while (true) //iterate over k, if dynamic this continues from last k
 		{
-			cout << "iterate frame "<< k << endl;
-			SPDLOG_LOGGER_TRACE(log, "");
-			SPDLOG_LOGGER_TRACE(log, SEP3);
-			SPDLOG_LOGGER_TRACE(log, "{}| frame {}", TAB, k);
-			assert(k == frames.size() - 1);
+			std::cout << "iterate frame "<< k << endl;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
+			assert(k == frames.frontier());
 
 			while (true) //exhaust all transitions to !P
 			{
-				if (frames[k]->SAT(model.not_property.nexts()))
+				if (frames.transition_from_to(k, model.not_property.currents())) //TODO naar nexts impliciet
 				{
 						// F_i & T /=> F_i+1' (= P')
 					// strengthen F_i
-					SPDLOG_LOGGER_TRACE(log, "{}| cti found at frame {}", TAB, k);
-					cout << "new cti" << endl;
-					log_indent++;
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| cti found at frame {}", logger.tab(), k);
+					std::cout << "new cti" << endl;
+					logger.log_indent++;
 					
-					expr_vector cti_current = frames[k]->sat_cube(
+					expr_vector cti_current = frames[k].get_solver()->sat_cube(
 							[this](const expr& e) { return model.literals.atom_is_current(e); });
 
-					SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(cti_current));	
-					log_indent--;
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(cti_current));	
+					logger.log_indent--;
 
 						// s is not in F_k-1 (or it would have been found previously)
 						// F_k-2 & T & !s => !s'
@@ -218,33 +180,29 @@ namespace pdr
 					expr_vector smaller_cti = generalize(core, n);
 					remove_state(smaller_cti, n + 1);
 
-					SPDLOG_LOGGER_TRACE(log, "{}| block", TAB);
-					log_indent++;
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block", logger.tab());
+					logger.log_indent++;
 					
 					if (not block(cti_current, n+1, k)) 
 						return false;
-					log_indent--;
-					SPDLOG_LOGGER_TRACE(log, SEP2);
-					cout << endl;
+					logger.log_indent--;
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
+					std::cout << endl;
 				}
 				else // no more counter examples
 					break;
 			}
 
-			SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, 1, k);
-			log_indent++;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| propagate frame {} to {}", logger.tab(), 1, k);
+			logger.log_indent++;
 
-			extend_frames(k+1);
+			frames.extend();
 			bool  done = propagate(k);
-			if (k == 6)
-			{
-				cout << "SIX TIME\n//////////////////////////////" << endl;
-			}
 			k++;
 			
-			log_indent--;
-			cout << "###############" << endl;
-			SPDLOG_LOGGER_TRACE(log, SEP3); 
+			logger.log_indent--;
+			std::cout << "###############" << endl;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3); 
 			for (const unique_ptr<Frame>& f : frames)
 			{
 				// if (k == 7) 
@@ -255,9 +213,9 @@ namespace pdr
 				// 	fs.close();
 
 				// }
-				SPDLOG_LOGGER_TRACE(log, "{}", (*f).solver_str());
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", (*f).solver_str());
 			}
-			SPDLOG_LOGGER_TRACE(log, SEP3);
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
 
 			if (done)
 				return true;
@@ -281,12 +239,12 @@ namespace pdr
 			auto [n, state, depth] = *(obligations.begin());
 
 			assert(n <= level);
-			SPDLOG_LOGGER_TRACE(log, SEP);
-			SPDLOG_LOGGER_TRACE(log, "{}| obligations pending: {}", TAB, obligations.size());
-			SPDLOG_LOGGER_TRACE(log, "{}| top obligation", TAB);
-			log_indent++;
-			SPDLOG_LOGGER_TRACE(log, "{}| {}, [{}]", TAB, n, join(state->cube));
-			log_indent--;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| obligations pending: {}", logger.tab(), obligations.size());
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation", logger.tab());
+			logger.log_indent++;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(), n, join(state->cube));
+			logger.log_indent--;
 
 			expr state_clause = z3::mk_or(z3ext::negate(state->cube));
 
@@ -296,10 +254,10 @@ namespace pdr
 							[this](const expr& e) { return model.literals.atom_is_current(e); });
 				shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
 
-				SPDLOG_LOGGER_TRACE(log, "{}| predecessor found", TAB);
-				log_indent++;
-				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(pred->cube));
-				log_indent--;
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor found", logger.tab());
+				logger.log_indent++;
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(pred->cube));
+				logger.log_indent--;
 
 				expr_vector core(ctx);
 				// state is inductive relative to F[n-2]
@@ -315,7 +273,7 @@ namespace pdr
 
 					if (static_cast<unsigned>(m+1) <= level)
 					{
-						SPDLOG_LOGGER_TRACE(log, "{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred->cube));
+						SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| push predecessor to level {}: [{}]", logger.tab(), m+1, join(pred->cube));
 						obligations.emplace(m+1, pred, depth+1);
 					}
 				}
@@ -329,10 +287,10 @@ namespace pdr
 			}
 			else 
 			{	//finish state
-				SPDLOG_LOGGER_TRACE(log, "{}| finishing state", TAB);
-				log_indent++;
-				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
-				log_indent--;
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state", logger.tab());
+				logger.log_indent++;
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(state->cube));
+				logger.log_indent--;
 
 				expr_vector core(ctx);
 				// !state is now inductive relative to n
@@ -350,7 +308,7 @@ namespace pdr
 
 					if (static_cast<unsigned>(m+1) <= level)
 					{
-						SPDLOG_LOGGER_TRACE(log, "{}| push state to higher to level {}: [{}]", TAB, m+1, join(state->cube));
+						SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| push state to higher to level {}: [{}]", logger.tab(), m+1, join(state->cube));
 						obligations.emplace(m+1, state, depth);
 					}
 				}
@@ -363,16 +321,16 @@ namespace pdr
 				branch = "(finish)";
 			}
 			stats.obligation_done(level, elapsed);
-			SPDLOG_LOGGER_TRACE(log, "Obligation {} elapsed {}", branch, elapsed);
-			cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "Obligation {} elapsed {}", branch, elapsed);
+			std::cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
 			elapsed = -1.0;
 
 			if (period >= 100)
 			{
 				period = 0;
-				cout << "Stats written" << endl;
-				SPDLOG_LOGGER_DEBUG(log, stats.to_string());
-				log->flush();
+				std::cout << "Stats written" << endl;
+				SPDLOG_LOGGER_DEBUG(logger.spd_logger, stats.to_string());
+				logger.spd_logger->flush();
 			}
 			else period++;
 		}
@@ -382,8 +340,8 @@ namespace pdr
 	void PDR::remove_state(expr_vector& cube, unsigned level)
 	{
 		level = std::min(static_cast<size_t>(level), frames.size()-1);
-		SPDLOG_LOGGER_TRACE(log, "{}| removing cube from level [1..{}]: [{}]", TAB, level, join(cube));
-		log_indent++;
+		SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| removing cube from level [1..{}]: [{}]", logger.tab(), level, join(cube));
+		logger.log_indent++;
 
 		if (delta) //a cube is only stored in the last frame it holds
 		{
@@ -399,23 +357,23 @@ namespace pdr
 				stats.subsumed(level, n_removed);
 				
 				if (frames[level]->block_cube(cube))
-					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, level);
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}", logger.tab(), level);
 			}
 		}
 		else
 		{
 			for (unsigned i = 1; i <= level; i++)
 				if (frames[i]->block_cube(cube))
-					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}", logger.tab(), i);
 		}
-		log_indent--;
+		logger.log_indent--;
 	}
 
 	bool PDR::propagate(unsigned level, bool repeat)
 	{
 		assert(level == frames.size()-2); // k == |F|-1
 		sub_timer.reset();
-		cout << "propagate level " << level << endl;
+		std::cout << "propagate level " << level << endl;
 
 		bool invariant;
 		if (delta)
@@ -423,8 +381,8 @@ namespace pdr
 		else
 			invariant = fat_propagate(level, repeat);
 
-		SPDLOG_LOGGER_TRACE(log, "Propagation elapsed {}", sub_timer);
-		cout << format("Propagation elapsed {}", sub_timer) << endl;
+		SPDLOG_LOGGER_TRACE(logger.spd_logger, "Propagation elapsed {}", sub_timer);
+		std::cout << format("Propagation elapsed {}", sub_timer) << endl;
 		return invariant;
 	}
 
@@ -444,7 +402,7 @@ namespace pdr
 				{
 					if (frames[i+1]->block_cube(cube))
 						if (repeat)
-							cout << "new blocked in repeat" << endl;
+							std::cout << "new blocked in repeat" << endl;
 						// trace.AddedClauses++;
 					// else
 					// {
@@ -478,7 +436,7 @@ namespace pdr
 				{
 					if (frames[i+1]->block_cube(cube))
 						if (repeat)
-							cout << "new blocked in repeat" << endl;
+							std::cout << "new blocked in repeat" << endl;
 				}
 				else
 					frames[i]->discard_model();

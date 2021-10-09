@@ -1,7 +1,7 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
-#include "frame.h"
+#include "frames.h"
 #include "pdr-model.h"
 #include "stats.h"
 #include "logging.h"
@@ -17,39 +17,32 @@
 #define SEP "--------------------"
 #define SEP2 "===================="
 #define SEP3 "####################"
-#define TAB std::string(log_indent, '\t')
 #define MIN_ORDERING(T) T, std::vector<T>, std::greater<T> //type arguments for ascending priority queue
 
 namespace pdr 
 {
-	using std::vector;
-	using std::unique_ptr;
-	using std::shared_ptr;
-	using z3::context;
-	using z3::solver;
-
 	struct State 
 	{
 		expr_vector cube;
-		shared_ptr<State> prev; //store predecessor for trace
+		std::shared_ptr<State> prev; //store predecessor for trace
 
-		State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) { }
-		State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) { }
+		State(const expr_vector& e) : cube(e), prev(std::shared_ptr<State>()) { }
+		State(const expr_vector& e, std::shared_ptr<State> s) : cube(e), prev(s) { }
 		//move constructors
-		State(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<State>()) { }
-		State(expr_vector&& e, shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
+		State(expr_vector&& e) : cube(std::move(e)), prev(std::shared_ptr<State>()) { }
+		State(expr_vector&& e, std::shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
 	};
 
 	struct Obligation
 	{
 		unsigned level;
-		shared_ptr<State> state;
+		std::shared_ptr<State> state;
 		unsigned depth;
 
 		Obligation(unsigned k, expr_vector&& cube, unsigned d) : 
 			level(k), state( std::make_shared<State>(std::move(cube)) ), depth(d) { }
 
-		Obligation(unsigned k, const shared_ptr<State>& s, unsigned d) : level(k), state(s), depth(d) { }
+		Obligation(unsigned k, const std::shared_ptr<State>& s, unsigned d) : level(k), state(s), depth(d) { }
 
 		// bool operator<(const Obligation& o) const { return this->level < o.level; }
 		bool operator<(const Obligation& o) const 
@@ -70,22 +63,17 @@ namespace pdr
 			PDRModel& model;
 			bool delta; //use a delta encoding for the frames
 
-			shared_ptr<spdlog::logger> log;
-			unsigned log_indent = 0;
+			Logger logger;
 			spdlog::stopwatch timer;
 			spdlog::stopwatch sub_timer;
 
-			shared_ptr<State> bad;
+			std::shared_ptr<State> bad;
 
 			unsigned k = 0;
-			vector<unique_ptr<Frame>> old_frames;
-			vector<unique_ptr<Frame>> frames;
-			solver init_solver;
+			Frames frames;
 
 			const unsigned mic_retries = 3; //if mic fails to reduce a clause c this many times, take c
 
-			Frame* make_frame(unsigned level);
-			void extend_frames(unsigned level);
 			void print_model(const z3::model& m);
 			//main loops
 			bool init();

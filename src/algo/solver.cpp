@@ -50,6 +50,12 @@ namespace pdr
 		return false;
 
 	}
+
+
+	z3::model Solver::get_model() const
+	{
+		return internal_solver.get_model();
+	}
 	
 	void Solver::discard_model()
 	{

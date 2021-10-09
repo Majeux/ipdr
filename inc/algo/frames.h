@@ -32,6 +32,8 @@ namespace pdr
 			std::vector<z3::expr> act;
 
 		public:
+			z3::solver init_solver;
+
 			Frames(bool d, z3::context& c, const PDRModel& m, Logger& l);
 			void extend();
 
@@ -40,6 +42,7 @@ namespace pdr
 			void fat_remove_state(expr_vector& cube, size_t level);
 
 			//queries
+			bool init_implies(const expr_vector& formula) const;
 			bool inductive_rel_to(const z3::expr_vector& cube, size_t frame) const;
 			bool transition_from_to(size_t frame, const z3::expr_vector& cube) const;
 
@@ -49,6 +52,7 @@ namespace pdr
 
 			//getters
 			unsigned frontier() const;
+			const Frame& operator[](size_t i);
 	};
 	
 }

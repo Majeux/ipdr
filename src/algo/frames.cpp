@@ -14,8 +14,9 @@
 namespace pdr 
 {
 	Frames::Frames(bool d, z3::context& c, const PDRModel& m, Logger& l) 
-		: delta(d), ctx(c), model(m), logger(l)
+		: delta(d), ctx(c), model(m), logger(l), init_solver(ctx)
 	{
+		init_solver.add(model.get_initial());
 		base_assertions.push_back(model.property.currents());
 		base_assertions.push_back(model.get_transition());
 		base_assertions.push_back(model.get_cardinality());
@@ -23,9 +24,9 @@ namespace pdr
 		if (delta)
 			delta_solver = std::make_unique<Solver>(ctx, base_assertions);
 
-		std::vector<z3::expr_vector> initial_assertions = {
-			model.get_initial(), model.get_transition(), model.get_cardinality() 
-		};
+		std::vector<z3::expr_vector> initial_assertions = 
+			{ model.get_initial(), model.get_transition(), model.get_cardinality()	};
+		act.emplace_back("__actI__"); //unused
 		frames.emplace_back(delta, frames.size(), ctx, logger, initial_assertions);
 	}
 	
@@ -98,7 +99,7 @@ namespace pdr
 	}
 
 	bool Frames::transition_from_to(size_t frame, const z3::expr_vector& cube) const
-	{	//query: Fi & T /=> !s'
+	{
 		z3::expr_vector cube_p = model.literals.p(cube);  //cube in next state
 
 		return SAT(frame, cube_p); //there is a transition from Fi to s'
@@ -142,5 +143,10 @@ namespace pdr
 	{
 		assert(frames.size() > 0);
 		return frames.size() - 1;
+	}
+
+	const Frame& Frames::operator[](size_t i)
+	{
+		return *frames.at(i);
 	}
 }
