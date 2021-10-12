@@ -81,11 +81,6 @@ namespace pdr
 			bool iterate_short();
 			bool block(expr_vector& counter, unsigned o_level, unsigned level);
 			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
-			void remove_state(expr_vector& cube, unsigned level);
-			bool propagate(unsigned level, bool repeat = false);
-			bool fat_propagate(unsigned level, bool repeat = false);
-			bool delta_propagate(unsigned level, bool repeat = false);
-			bool repropagate();
 			//generalization
 			int highest_inductive_frame(const expr_vector& cube, int min, int max);
 			int highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core);
@@ -103,7 +98,6 @@ namespace pdr
 			bool dynamic_cardinality = false;
 			string frames_string = "";
 			string solvers_string = "";
-			Statistics stats;
 
 			PDR(PDRModel& m, bool d);
 			void reset();

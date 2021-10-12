@@ -3,6 +3,7 @@
 #include "z3-ext.h"
 
 #include <algorithm>
+#include <cassert>
 #include <fmt/core.h>
 #include <memory>
 #include <numeric>
@@ -15,12 +16,9 @@ namespace pdr
 {
 	using z3ext::join_expr_vec;
 
-	Frame::Frame(bool d, unsigned i, z3::context& ctx, Logger& l, const vector<z3::expr_vector>& assertions) 
-		: delta(d), level(i), logger(l), base_assertions(assertions)
-	{
-		if (!delta || level == 0)
-			solver = std::make_unique<Solver>(ctx, base_assertions);
-	}
+	Frame::Frame(unsigned i, Solver* s, Logger& l) 
+		: level(i), logger(l), solver(s)
+	{ }
 
 	void Frame::reset_solver()
 	{
@@ -36,24 +34,7 @@ namespace pdr
 	void Frame::reset_frame(Statistics& s, const vector<z3::expr_vector>& assertions)
 	{
 		logger.stats = s;
-		base_assertions = assertions;
-		reset_solver();
-	}
-
-	//cube subsumption functions
-	//
-	void Frame::store_subsumed(const z3::expr_vector& super, const z3::expr_vector& sub)
-	{
-		return;
-		SPDLOG_LOGGER_TRACE(logger.spd_logger, "store for later propagation {}", z3ext::join_expr_vec(sub));
-		CubeSet s = {sub};
-		auto [it, inserted] = subsumed.emplace(super, std::move(s));
-
-		if (!inserted)
-		{
-			it->second.insert(sub);
-		}
-
+		reset_solver(assertions);
 	}
 
 	bool Frame::blocked(const z3::expr_vector& cube) 
@@ -94,27 +75,17 @@ namespace pdr
 	//
 	//cube is sorted by id()
 	//block cube unless it, or a stronger version, is already blocked
-	bool Frame::block_cube(const z3::expr_vector& cube)
+	bool Frame::block(const z3::expr_vector& cube)
 	{
-		if (delta)
-			return delta_block(cube);
-		else
-			return fat_block(cube);
-	}
-
-	bool Frame::fat_block(const z3::expr_vector& cube)
-	{
-		// if (blocked(cube)) //do not add if an equal or stronger version is already blocked
-		// {
-		// 	logger.stats.blocked_ignored++;
-		// 	return false;
-		// }
-
-		bool inserted = blocked_cubes.insert(cube).second; assert(inserted);
-
-		z3::expr clause = z3::mk_or(z3ext::negate(cube));
-		solver->add(clause);
+		bool inserted = blocked_cubes.insert(cube).second; 
+		assert(inserted);
 		return true;
+	}
+	
+	bool Frame::block_in_solver(const z3::expr_vector& cube)
+	{
+		assert(solver);
+		solver->block(cube);
 	}
 
 	// assumes vectors in 'blocked_cubes' are sorted
@@ -155,9 +126,8 @@ namespace pdr
 		return out;
 	}
 
-	const CubeSet& Frame::get_blocked_cubes() const { return blocked_cubes; }
+	const CubeSet& Frame::get_blocked() const { return blocked_cubes; }
 	bool Frame::empty() const { return blocked_cubes.size() == 0; }
-	bool Frame::is_delta() const { return delta; }
 	Solver* Frame::get_solver() const { return solver.get(); }
 
 	std::string Frame::blocked_str() const

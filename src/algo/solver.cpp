@@ -26,6 +26,18 @@ namespace pdr
 		init();
 	}
 
+	void Solver::block(const z3::expr_vector& cube) 
+	{
+		z3::expr clause = z3::mk_or(z3ext::negate(cube));
+		this->add(clause);
+	}
+
+	void Solver::block(const z3::expr_vector& cube, const z3::expr& act) 
+	{
+		z3::expr clause = z3::mk_or(z3ext::negate(cube));
+		this->add(clause | !act);
+	}
+
 	void Solver::add(const z3::expr& e) 
 	{
 		internal_solver.add(e);

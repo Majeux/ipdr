@@ -27,6 +27,8 @@ namespace pdr
 
 			void init();
 			void reset();
+			void block(const z3::expr_vector& cube);
+			void block(const z3::expr_vector& cube, const z3::expr& act);
 			void add(const z3::expr& e);
 
 			bool SAT(const z3::expr_vector& assumptions);
@@ -37,8 +39,8 @@ namespace pdr
 			// function to extract a cube representing a satisfying assignment to the last SAT call to the solver.
 			// the resulting vector or expr_vector is in sorted order
 			// template UnaryPredicate: function expr->bool to filter atoms. accepts 1 expr, returns bool
-			template <typename UnaryPredicate> z3::expr_vector sat_cube(UnaryPredicate p);
-			template <typename UnaryPredicate> std::vector<z3::expr> sat_cube_vector(UnaryPredicate p);
+			template <typename UnaryPredicate> z3::expr_vector witness(UnaryPredicate p);
+			template <typename UnaryPredicate> std::vector<z3::expr> witness_vector(UnaryPredicate p);
 
 			// function extract the unsat_core from the solver, a subset of the assumptions
 			// the resulting vector or expr_vector is in sorted order
@@ -51,9 +53,9 @@ namespace pdr
 	};
 
 	template <typename UnaryPredicate> 
-	z3::expr_vector Solver::sat_cube(UnaryPredicate p)
+	z3::expr_vector Solver::witness(UnaryPredicate p)
 	{
-		std::vector<z3::expr> std_vec = sat_cube_vector(p);
+		std::vector<z3::expr> std_vec = witness_vector(p);
 		z3::expr_vector v(std_vec[0].ctx());
 		for (const z3::expr& e : std_vec)
 			v.push_back(e);
@@ -61,7 +63,7 @@ namespace pdr
 	}
 
 	template <typename UnaryPredicate> 
-	std::vector<z3::expr> Solver::sat_cube_vector(UnaryPredicate p)
+	std::vector<z3::expr> Solver::witness_vector(UnaryPredicate p)
 	{
 		model_used = true;
 		z3::model m = internal_solver.get_model();
