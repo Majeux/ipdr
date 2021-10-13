@@ -46,7 +46,13 @@ namespace pdr
 			frames.emplace_back(delta, frames.size(), ctx, logger, base_assertions);
 	}
 
-	bool Frames::remove_state(const expr_vector& cube, size_t level)
+	void Frames::reset_frames(Statistics& s, std::vector<z3::expr_vector> assertions)
+	{
+		for (auto& f : frames)
+			f->reset_frame(s, assertions);
+	}
+
+	bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
 	{
 		level = std::min(level, frames.size()-1);
 		SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| removing cube from level [1..{}]: [{}]", 
@@ -62,7 +68,7 @@ namespace pdr
 		return result;
 	}
 
-	bool Frames::delta_remove_state(const expr_vector& cube, size_t level)
+	bool Frames::delta_remove_state(const z3::expr_vector& cube, size_t level)
 	{
 		for (unsigned i = 1; i <= level; i++)
 		{
@@ -132,7 +138,7 @@ namespace pdr
 
 	void Frames::push_forward_delta(unsigned level, bool repeat)
 	{
-		for (const expr_vector& cube : frames.at(level)->get_blocked())
+		for (const z3::expr_vector& cube : frames.at(level)->get_blocked())
 		{
 			if (!transition_from_to(level, cube))
 			{
@@ -148,7 +154,7 @@ namespace pdr
 	bool Frames::push_forward_fat(unsigned level, bool repeat)
 	{
 		std::vector<z3::expr_vector> diff = frames.at(level)->diff(*frames.at(level+1));
-		for (const expr_vector& cube : diff)
+		for (const z3::expr_vector& cube : diff)
 		{
 			if (!transition_from_to(level, cube))
 			{
@@ -175,6 +181,14 @@ namespace pdr
 
 	//queries
 	//
+	bool Frames::neg_inductive_rel_to(const std::vector<z3::expr>& cube, size_t frame) const
+	{
+		z3::expr_vector ev(ctx);
+		for (const z3::expr& e : cube)
+			ev.push_back(e);
+		return neg_inductive_rel_to(ev, frame);
+	}
+
 	bool Frames::neg_inductive_rel_to(const z3::expr_vector& cube, size_t frame) const
 	{	//query: Fi & !s & T /=> !s'
 		z3::expr clause = z3::mk_or(z3ext::negate(cube)); //negate cube via demorgan
@@ -288,6 +302,32 @@ namespace pdr
 	{
 		for (const std::unique_ptr<Frame>& f : frames)
 			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", (*f).get_solver()->as_str());
+	}
+
+	std::string Frames::blocked_str() const
+	{
+		std::string str;
+		for (auto& f : frames)
+		{
+			str += f->blocked_str();
+			str += '\n';
+		}
+		return str;
+	}
+	std::string Frames::solvers_str() const
+	{
+		std::string str;
+		if (delta)
+			str += delta_solver->as_str();
+		else
+		{
+			for (auto& f : frames)
+			{
+				str += f->get_solver()->as_str();
+				str += '\n';
+			}
+		}
+		return str;
 	}
 
 }

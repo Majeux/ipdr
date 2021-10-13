@@ -9,20 +9,19 @@
 #include <numeric>
 #include <chrono>
 #include <utility>
+#include <vector>
 #include <z3++.h>
 
 
 namespace pdr
 {
-	using z3ext::join_expr_vec;
-
 	Frame::Frame(unsigned i, Solver* s, Logger& l) 
 		: level(i), logger(l), solver(s)
 	{ }
 
-	void Frame::reset_solver()
+	void Frame::reset_solver(std::vector<z3::expr_vector> assertions)
 	{
-		solver->reset();
+		solver->reset(assertions);
 
 		for (const z3::expr_vector& cube : blocked_cubes)
 		{
@@ -82,7 +81,7 @@ namespace pdr
 		return true;
 	}
 	
-	bool Frame::block_in_solver(const z3::expr_vector& cube)
+	void Frame::block_in_solver(const z3::expr_vector& cube)
 	{
 		assert(solver);
 		solver->block(cube);
@@ -134,7 +133,7 @@ namespace pdr
 	{
 		std::string str(fmt::format("blocked cubes level {}\n", level));
 		for (const z3::expr_vector& e : blocked_cubes)
-			str += fmt::format("- {}\n", join_expr_vec(e, " & "));
+			str += fmt::format("- {}\n", z3ext::join_expr_vec(e, " & "));
 
 		return str;
 	}

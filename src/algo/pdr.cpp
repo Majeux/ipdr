@@ -94,7 +94,7 @@ namespace pdr
 		double final_time = timer.elapsed().count();
 		std::cout << format("Total elapsed time {}", final_time) << endl;
 		SPDLOG_LOGGER_INFO(logger.spd_logger, "Total elapsed time {}", final_time);
-		stats.elapsed = final_time;
+		logger.stats.elapsed = final_time;
 
 		store_frame_strings();
 		if (dynamic_cardinality)
@@ -124,8 +124,8 @@ namespace pdr
 		if ( frames.SAT(0, notP_next) )
 		{	//there is a transitions from I to !P
 			std::cout << "I & T =/> P'" << std::endl;
-			expr_vector bad_cube = frames.solver(0)->witness(
-					[this](const expr& e) { return model.literals.atom_is_current(e); });
+			z3::expr_vector bad_cube = frames.solver(0)->witness(
+					[this](const z3::expr& e) { return model.literals.atom_is_current(e); });
 			bad = std::make_shared<State>(bad_cube);
 
 			return false;
@@ -162,23 +162,24 @@ namespace pdr
 					std::cout << "new cti" << endl;
 					logger.log_indent++;
 					
-					expr_vector cti_current = frames.solver(k)->witness(
-							[this](const expr& e) { return model.literals.atom_is_current(e); });
+					z3::expr_vector cti_current = frames.solver(k)->witness(
+							[this](const z3::expr& e) { return model.literals.atom_is_current(e); });
 
-					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(cti_current));	
+					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", 
+							logger.tab(), str::extensions::join(cti_current));	
 					logger.log_indent--;
 
 						// s is not in F_k-1 (or it would have been found previously)
 						// F_k-2 & T & !s => !s'
 						// only need to to search k-1 ... k
-					expr_vector core(ctx);
+					z3::expr_vector core(ctx);
 					int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
 						// int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
 					assert(n >= 0);
 
 						// F_n & T & !s => !s
 						// F_n & T => F_n+1
-					expr_vector smaller_cti = generalize(core, n);
+					z3::expr_vector smaller_cti = generalize(core, n);
 					frames.remove_state(smaller_cti, n + 1);
 
 					SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block", logger.tab());
@@ -216,7 +217,7 @@ namespace pdr
 		}
 	}
 
-	bool PDR::block(expr_vector& cti, unsigned n, unsigned level)
+	bool PDR::block(z3::expr_vector& cti, unsigned n, unsigned level)
 	{
 		unsigned period = 0;
 		std::set<Obligation, std::less<Obligation>> obligations; 
@@ -237,17 +238,19 @@ namespace pdr
 					"{}| obligations pending: {}", logger.tab(), obligations.size());
 			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation", logger.tab());
 			logger.log_indent++;
-			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(), n, join(state->cube));
+			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", 
+					logger.tab(), n, str::extensions::join(state->cube));
 			logger.log_indent--;
 
 			if (frames.neg_inductive_rel_to(state->cube, n))
 			{	//!s is now inductive to at least F_n
 				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state", logger.tab());
 				logger.log_indent++;
-				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(state->cube));
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", 
+						logger.tab(), str::extensions::join(state->cube));
 				logger.log_indent--;
 
-				expr_vector core(ctx);
+				z3::expr_vector core(ctx);
 				// see if !state is also inductive relative to some m >= n
 				int m = highest_inductive_frame(state->cube, n + 1, level, core);
 				// m in [n-1, level]
@@ -255,7 +258,7 @@ namespace pdr
 
 				if (m >= 0)
 				{
-					expr_vector smaller_state = generalize(core, m);
+					z3::expr_vector smaller_state = generalize(core, m);
 					// expr_vector smaller_state = generalize(state->cube, m);
 					frames.remove_state(smaller_state, m + 1);
 					obligations.erase(obligations.begin()); //problem with & structured binding??
@@ -264,7 +267,7 @@ namespace pdr
 					{
 						SPDLOG_LOGGER_TRACE(logger.spd_logger, 
 								"{}| push state to higher to level {}: [{}]", 
-								logger.tab(), m+1, join(state->cube));
+								logger.tab(), m+1, str::extensions::join(state->cube));
 						obligations.emplace(m+1, state, depth);
 					}
 				}
@@ -278,29 +281,31 @@ namespace pdr
 			}
 			else 
 			{	// a !s predecessor found
-				expr_vector pred_cube = frames.solver(n)->witness(
-							[this](const expr& e) { return model.literals.atom_is_current(e); });
+				z3::expr_vector pred_cube = frames.solver(n)->witness(
+							[this](const z3::expr& e) { return model.literals.atom_is_current(e); });
 				std::shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
 
 				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor found", logger.tab());
 				logger.log_indent++;
-				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(), join(pred->cube));
+				SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", 
+						logger.tab(), str::extensions::join(pred->cube));
 				logger.log_indent--;
 
-				expr_vector core(ctx);
+				z3::expr_vector core(ctx);
 				// state is inductive relative to F[n-2]
 				// else there would be an F[k-1] state t preceding state, making state an F[k-1] state
 				int m = highest_inductive_frame(pred->cube, n-1, level, core);
 				// m in [n-1, level]
 				if (m >= 0)
 				{
-					expr_vector smaller_pred = generalize(core, m);
+					z3::expr_vector smaller_pred = generalize(core, m);
 					frames.remove_state(smaller_pred, m + 1);
 
 					if (static_cast<unsigned>(m+1) <= level)
 					{
 						SPDLOG_LOGGER_TRACE(logger.spd_logger, 
-								"{}| push predecessor to level {}: [{}]", logger.tab(), m+1, join(pred->cube));
+								"{}| push predecessor to level {}: [{}]", 
+								logger.tab(), m+1, str::extensions::join(pred->cube));
 						obligations.emplace(m+1, pred, depth+1);
 					}
 				}
@@ -334,16 +339,14 @@ namespace pdr
 		std::stringstream ss;
 
 		ss << "Frames" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-			ss << (*f).blocked_str() << endl;
+		ss << frames.blocked_str() << endl;
 
 		frames_string = ss.str();
 
 		ss = std::stringstream();
 
 		ss << "Solvers" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-				ss << (*f).solver_str() << endl;
+		ss << frames.solvers_str() << endl;
 
 		solvers_string = ss.str();
 	}
@@ -357,7 +360,7 @@ namespace pdr
 		if (bad)
 		{
 			out << "Bad state reached:" << endl;
-			out << format("[ {} ]", join_expr_vec(model.not_property.currents(), " & ")) << endl << endl;
+			out << format("[ {} ]", z3ext::join_expr_vec(model.not_property.currents(), " & ")) << endl << endl;
 
 			out << "Reached from:" << endl;
 			show_trace(out);
@@ -377,11 +380,11 @@ namespace pdr
 	{
 		std::vector<std::tuple<unsigned, string, unsigned>> steps;
 
-		shared_ptr<State> current = bad;
-		auto count_pebbled = [](const expr_vector& vec) 
+		std::shared_ptr<State> current = bad;
+		auto count_pebbled = [](const z3::expr_vector& vec) 
 		{
 			unsigned count = 0;
-			for (const expr& e : vec)
+			for (const z3::expr& e : vec)
 				if(!e.is_not())
 					count++;
 
@@ -394,18 +397,18 @@ namespace pdr
 			i++;
 			steps.emplace_back(
 					i, 
-					join_expr_vec(current->cube), 
+					z3ext::join_expr_vec(current->cube), 
 					count_pebbled(current->cube)
 				);
 			current = current->prev;
 		}
 		unsigned i_padding = i/10 + 1;
 
-		out << format("{:>{}} |\t [ {} ]", 'I', i_padding, join_expr_vec(model.get_initial())) << endl;
+		out << format("{:>{}} |\t [ {} ]", 'I', i_padding, z3ext::join_expr_vec(model.get_initial())) << endl;
 
 		for (const auto &[num, vec, count] : steps)
 			out << format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding, vec, count) << endl; 
 
-		out << format("{:>{}} |\t [ {} ]", 'F', i_padding, join_expr_vec(model.not_property.currents())) << endl;
+		out << format("{:>{}} |\t [ {} ]", 'F', i_padding, z3ext::join_expr_vec(model.not_property.currents())) << endl;
 	}
 }

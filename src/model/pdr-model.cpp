@@ -1,8 +1,6 @@
 #include "pdr-model.h"
 #include <z3++.h>
 
-using z3::expr;
-
 PDRModel::PDRModel() : 
 	ctx(), 
 	literals(ctx),
@@ -23,20 +21,20 @@ PDRModel::PDRModel(z3::config& settings) :
 	cardinality(ctx)
 { }
 
-const expr_vector& PDRModel::get_transition() const { return transition; }
-const expr_vector& PDRModel::get_initial() const { return initial; }
-const expr_vector& PDRModel::get_cardinality() const { return cardinality; }
+const z3::expr_vector& PDRModel::get_transition() const { return transition; }
+const z3::expr_vector& PDRModel::get_initial() const { return initial; }
+const z3::expr_vector& PDRModel::get_cardinality() const { return cardinality; }
 
 void PDRModel::load_pebble_transition(const dag::Graph& G)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
 	{
-		string name = literals(i).to_string();
+		std::string name = literals(i).to_string();
 		//pebble if all children are pebbled now and next
 		//or unpebble if all children are pebbled now and next
-		for (const string& child : G.children.at(name))
+		for (const std::string& child : G.children.at(name))
 		{
-			expr child_node = ctx.bool_const(child.c_str());
+			z3::expr child_node = ctx.bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
 
 			transition.push_back(  literals(i) || !literals.p(i) || literals(child_i));
@@ -51,15 +49,15 @@ void PDRModel::load_pebble_transition_raw1(const dag::Graph& G)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
 	{
-		string name = literals(i).to_string();
-		expr parent_flip = literals(i) ^ literals.p(i);
+		std::string name = literals(i).to_string();
+		z3::expr parent_flip = literals(i) ^ literals.p(i);
 		//pebble if all children are pebbled now and next
 		//or unpebble if all children are pebbled now and next
-		for (const string& child : G.children.at(name))
+		for (const std::string& child : G.children.at(name))
 		{
-			expr child_node = ctx.bool_const(child.c_str());
+			z3::expr child_node = ctx.bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
-			expr child_pebbled = literals(child_i) & literals.p(child_i);
+			z3::expr child_pebbled = literals(child_i) & literals.p(child_i);
 
 			transition.push_back(z3::implies(parent_flip, child_pebbled));
 		}
@@ -70,14 +68,14 @@ void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
 {
 	for (int i = 0; i < literals.size(); i++) //every node has a transition
 	{
-		string name = literals(i).to_string();
-		expr parent_flip = literals(i) ^ literals.p(i);
+		std::string name = literals(i).to_string();
+		z3::expr parent_flip = literals(i) ^ literals.p(i);
 		//pebble if all children are pebbled now and next
 		//or unpebble if all children are pebbled now and next
-		expr_vector children_pebbled(ctx);
-		for (const string& child : G.children.at(name))
+		z3::expr_vector children_pebbled(ctx);
+		for (const std::string& child : G.children.at(name))
 		{
-			expr child_node = ctx.bool_const(child.c_str());
+			z3::expr child_node = ctx.bool_const(child.c_str());
 			int child_i = literals.indexof(child_node);
 			children_pebbled.push_back(literals(child_i));
 			children_pebbled.push_back(literals.p(child_i));
@@ -89,7 +87,7 @@ void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
 void PDRModel::load_property(const dag::Graph& G)
 {
 	//final nodes are pebbled and others are not
-	for (const expr& e : literals.currents())
+	for (const z3::expr& e : literals.currents())
 	{
 		if (G.is_output(e.to_string()))
 			not_property.add_expression(e, literals);
@@ -99,8 +97,8 @@ void PDRModel::load_property(const dag::Graph& G)
 	not_property.finish();
 
 	//final nodes are unpebbled and others are
-	expr_vector disjunction(ctx);
-	for (const expr& e : literals.currents())
+	z3::expr_vector disjunction(ctx);
+	for (const z3::expr& e : literals.currents())
 	{
 		if (G.is_output(e.to_string()))
 			disjunction.push_back(!e);
@@ -116,11 +114,11 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G, in
 	name = model_name;
 	std::cout << "load graph model " << name << std::endl;
 
-	for (string node : G.nodes)
+	for (std::string node : G.nodes)
 		literals.add_literal(node);
 	literals.finish();
 
-	for (const expr& e : literals.currents())
+	for (const z3::expr& e : literals.currents())
 		initial.push_back(!e);
 
 	literals.print();
@@ -145,7 +143,7 @@ void PDRModel::set_max_pebbles(int x)
 	assert(x >= final_pebbles);
 	max_pebbles = x;
 
-	cardinality = expr_vector(ctx);
+	cardinality = z3::expr_vector(ctx);
 	cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
 	cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
 }

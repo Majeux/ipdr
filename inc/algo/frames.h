@@ -39,17 +39,19 @@ namespace pdr
 			//frame interface
 			//
 			void extend();
-			bool remove_state(const expr_vector& cube, size_t level);
-			bool delta_remove_state(const expr_vector& cube, size_t level);
-			bool fat_remove_state(const expr_vector& cube, size_t level);
+			void reset_frames(Statistics& s, std::vector<z3::expr_vector> assertions);
+			bool remove_state(const z3::expr_vector& cube, size_t level);
+			bool delta_remove_state(const z3::expr_vector& cube, size_t level);
+			bool fat_remove_state(const z3::expr_vector& cube, size_t level);
 			bool propagate(unsigned level, bool repeat = false);
 			void push_forward_delta(unsigned level, bool repeat = false);
 			bool push_forward_fat(unsigned level, bool repeat = false);
 
 			//queries
 			//
-			bool init_implies(const expr_vector& formula) const;
+			bool init_implies(const z3::expr_vector& formula) const;
 			//returns if the negation of cube is inductive relative to frame
+			bool neg_inductive_rel_to(const std::vector<z3::expr>& cube, size_t frame) const;
 			bool neg_inductive_rel_to(const z3::expr_vector& cube, size_t frame) const;
 			//returns if there exists a transition from frame to cube, 
 			//allows collection of witness from solver(frame) if true.
@@ -69,6 +71,8 @@ namespace pdr
 			const Frame& operator[](size_t i);
 
 			void log_solvers() const;
+			std::string blocked_str() const;
+			std::string solvers_str() const;
 	};
 	
 }

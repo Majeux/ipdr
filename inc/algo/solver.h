@@ -26,7 +26,7 @@ namespace pdr
 			Solver(z3::context& c, std::vector<z3::expr_vector> base); 
 
 			void init();
-			void reset();
+			void reset(std::vector<z3::expr_vector> assertions = {});
 			void block(const z3::expr_vector& cube);
 			void block(const z3::expr_vector& cube, const z3::expr& act);
 			void add(const z3::expr& e);

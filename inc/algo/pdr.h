@@ -23,14 +23,14 @@ namespace pdr
 {
 	struct State 
 	{
-		expr_vector cube;
+		z3::expr_vector cube;
 		std::shared_ptr<State> prev; //store predecessor for trace
 
-		State(const expr_vector& e) : cube(e), prev(std::shared_ptr<State>()) { }
-		State(const expr_vector& e, std::shared_ptr<State> s) : cube(e), prev(s) { }
+		State(const z3::expr_vector& e) : cube(e), prev(std::shared_ptr<State>()) { }
+		State(const z3::expr_vector& e, std::shared_ptr<State> s) : cube(e), prev(s) { }
 		//move constructors
-		State(expr_vector&& e) : cube(std::move(e)), prev(std::shared_ptr<State>()) { }
-		State(expr_vector&& e, std::shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
+		State(z3::expr_vector&& e) : cube(std::move(e)), prev(std::shared_ptr<State>()) { }
+		State(z3::expr_vector&& e, std::shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
 	};
 
 	struct Obligation
@@ -39,7 +39,7 @@ namespace pdr
 		std::shared_ptr<State> state;
 		unsigned depth;
 
-		Obligation(unsigned k, expr_vector&& cube, unsigned d) : 
+		Obligation(unsigned k, z3::expr_vector&& cube, unsigned d) : 
 			level(k), state( std::make_shared<State>(std::move(cube)) ), depth(d) { }
 
 		Obligation(unsigned k, const std::shared_ptr<State>& s, unsigned d) : level(k), state(s), depth(d) { }
@@ -59,11 +59,10 @@ namespace pdr
 	class PDR 
 	{
 		private:
-			context& ctx;
+			z3::context& ctx;
 			PDRModel& model;
 			bool delta; //use a delta encoding for the frames
 
-			Logger logger;
 			spdlog::stopwatch timer;
 			spdlog::stopwatch sub_timer;
 
@@ -79,14 +78,14 @@ namespace pdr
 			bool init();
 			bool iterate();
 			bool iterate_short();
-			bool block(expr_vector& counter, unsigned o_level, unsigned level);
-			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
+			bool block(z3::expr_vector& counter, unsigned o_level, unsigned level);
+			bool block_short(z3::expr_vector& counter, unsigned o_level, unsigned level);
 			//generalization
-			int highest_inductive_frame(const expr_vector& cube, int min, int max);
-			int highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core);
-			expr_vector generalize(const expr_vector& cube, int level);
-			expr_vector MIC(const expr_vector& cube, int level);
-			bool down(vector<expr>& cube, int level);
+			int highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
+			int highest_inductive_frame(const z3::expr_vector& cube, int min, int max, z3::expr_vector& core);
+			z3::expr_vector generalize(const z3::expr_vector& cube, int level);
+			z3::expr_vector MIC(const z3::expr_vector& cube, int level);
+			bool down(vector<z3::expr>& cube, int level);
 			//results
 			void show_trace(std::ostream& out) const;
 			bool finish(bool);
@@ -94,6 +93,7 @@ namespace pdr
 			void store_frame_strings();
 
 		public:
+			Logger logger;
 			// bool dynamic_cardinality = true;
 			bool dynamic_cardinality = false;
 			string frames_string = "";

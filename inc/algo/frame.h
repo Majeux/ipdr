@@ -33,14 +33,14 @@ namespace pdr
 		public:
 			Frame(unsigned i, Solver* s, Logger& l);
 			
-			void reset_solver();
+			void reset_solver(std::vector<z3::expr_vector> assertions = {});
 			void reset_frame(Statistics& s, const vector<z3::expr_vector>& assertions);
 
 			void store_subsumed(const z3::expr_vector& super, const z3::expr_vector& sub);
 			unsigned remove_subsumed(const z3::expr_vector& cube);
 			bool blocked(const z3::expr_vector& cube);
 			bool block(const z3::expr_vector& cube);
-			bool block_in_solver(const z3::expr_vector& cube);
+			void block_in_solver(const z3::expr_vector& cube);
 
 			//Frame comparisons
 			bool equals(const Frame& f) const;

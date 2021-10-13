@@ -20,9 +20,10 @@ namespace pdr
 				0, [](int agg, const z3::expr_vector& v) { return agg + v.size(); });
 	}
 
-	void Solver::reset()
+	void Solver::reset(std::vector<z3::expr_vector> assertions)
 	{
 		internal_solver.reset();
+		base_assertions = assertions;
 		init();
 	}
 

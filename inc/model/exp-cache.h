@@ -124,21 +124,21 @@ class ExpressionCache
 			z3::expr lit = ctx.bool_const(name.c_str());
 			z3::expr lit_p = ctx.bool_const((name + ".p").c_str());
 
-			current.push_back(move(lit));
-			next.push_back(move(lit_p));
+			current.push_back(std::move(lit));
+			next.push_back(std::move(lit_p));
 
 			literal_index.insert(std::make_pair(lit.id(), current.size() - 1));
 			literal_index_p.insert(std::make_pair(lit_p.id(), current.size() - 1));
 		}
 
-		void add_expression(expr e, const ExpressionCache& cache)
+		void add_expression(z3::expr e, const ExpressionCache& cache)
 		{
 			assert(!finished);
 			assert(cache.encodes == Encoding::LITERALS);
 			encodes = Encoding::EXPRESSIONS;
 
 			current.push_back(e);
-			expr e_next = e.substitute(cache.currents(), cache.nexts());
+			z3::expr e_next = e.substitute(cache.currents(), cache.nexts());
 			next.push_back(e_next);
 		}
 
@@ -146,8 +146,8 @@ class ExpressionCache
 
 		void print() const
 		{
-			std::cout << "Lits:      " << join(current) << std::endl;
-			std::cout << "Next Lits: " << join(next) << std::endl;
+			std::cout << "Lits:      " << str::extensions::join(current) << std::endl;
+			std::cout << "Next Lits: " << str::extensions::join(next) << std::endl;
 		}
 };
 

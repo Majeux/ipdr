@@ -20,7 +20,7 @@
 #include <fmt/format.h>
 
 //ensure proper folders exist and create file names for In and Output
-std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebbles, bool dynamic) 
+std::pair<std::string, std::string> setup_in_out(const std::string& model_name, unsigned n_pebbles, bool dynamic) 
 {
 	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
 	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
@@ -30,8 +30,8 @@ std::pair<string, string> setup_in_out(const string& model_name, unsigned n_pebb
 	std::filesystem::create_directory(stats_folder);
 	std::filesystem::create_directory(stats_folder / model_name);
 
-	string stats_file = fmt::format("{}-{}pebbles{}.stats", model_name, n_pebbles, dynamic ? "-dyn" : "");
-	string strategy_file = fmt::format("{}-{}pebbles{}.strategy", model_name, n_pebbles, dynamic ? "-dyn" : "");
+	std::string stats_file = fmt::format("{}-{}pebbles{}.stats", model_name, n_pebbles, dynamic ? "-dyn" : "");
+	std::string strategy_file = fmt::format("{}-{}pebbles{}.strategy", model_name, n_pebbles, dynamic ? "-dyn" : "");
 
 	return std::make_pair(
 			(stats_folder / model_name / stats_file).string(),
@@ -145,14 +145,14 @@ int main(int argc, char *argv[])
 	PDRModel model(settings);
 	model.load_model(clargs.model_name, G, clargs.max_pebbles);
 	pdr::PDR algorithm(model, clargs.delta);
-	algorithm.stats.model.emplace("nodes", G.nodes.size());
-	algorithm.stats.model.emplace("edges", G.edges.size());
-	algorithm.stats.model.emplace("outputs", G.output.size());
+	algorithm.logger.stats.model.emplace("nodes", G.nodes.size());
+	algorithm.logger.stats.model.emplace("edges", G.edges.size());
+	algorithm.logger.stats.model.emplace("outputs", G.output.size());
 
 	//run pdr and write output
 	bool strategy = !algorithm.run(clargs.dynamic);
 	algorithm.show_results(results);
-	stats << algorithm.stats << std::endl;
+	stats << algorithm.logger.stats << std::endl;
 
 
 	if (clargs.dynamic && strategy) //decrement and find better strategy
@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
 		algorithm.decrement(1);
 		algorithm.run(true);
 		algorithm.show_results(results);
-		stats << algorithm.stats << std::endl;
+		stats << algorithm.logger.stats << std::endl;
 	}
 
 	results.close();
