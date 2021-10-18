@@ -1,6 +1,6 @@
-#include "logging.h"
 #include "frames.h"
 #include "frame.h"
+#include "logging.h"
 #include "stats.h"
 #include "solver.h"
 #include "z3-ext.h"
@@ -27,8 +27,8 @@ namespace pdr
 
 		std::vector<z3::expr_vector> initial_assertions = 
 			{ model.get_initial(), model.get_transition(), model.get_cardinality()	};
-		act.emplace_back("__actI__"); //unused
-		frames.emplace_back(delta, frames.size(), ctx, logger, initial_assertions);
+		act.emplace_back(ctx.bool_const("__actI__")); //unused
+		frames.push_back(std::make_unique<Frame>(frames.size(), new Solver(ctx, initial_assertions), logger));
 	}
 
 	//frame interface
@@ -301,7 +301,9 @@ namespace pdr
 	void Frames::log_solvers() const
 	{
 		for (const std::unique_ptr<Frame>& f : frames)
+		{
 			SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", (*f).get_solver()->as_str());
+		}
 	}
 
 	std::string Frames::blocked_str() const
