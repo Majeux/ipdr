@@ -31,12 +31,12 @@ namespace pdr
 
 			void init_solver();
 		public:
-			Frame(unsigned i, Solver* s, Logger& l);
+			Frame(unsigned i, Logger& l);
+			Frame(unsigned i, z3::context& ctx, const std::vector<z3::expr_vector>& ass, Logger& l);
 			
 			void reset_solver(std::vector<z3::expr_vector> assertions = {});
 			void reset_frame(Statistics& s, const vector<z3::expr_vector>& assertions);
 
-			void store_subsumed(const z3::expr_vector& super, const z3::expr_vector& sub);
 			unsigned remove_subsumed(const z3::expr_vector& cube);
 			bool blocked(const z3::expr_vector& cube);
 			bool block(const z3::expr_vector& cube);

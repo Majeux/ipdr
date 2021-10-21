@@ -1,4 +1,5 @@
 #include "frame.h"
+#include "pdr-model.h"
 #include "solver.h"
 #include "z3-ext.h"
 
@@ -15,8 +16,12 @@
 
 namespace pdr
 {
-	Frame::Frame(unsigned i, Solver* s, Logger& l) 
-		: level(i), logger(l), solver(s)
+	Frame::Frame(unsigned i, Logger& l) 
+		: level(i), logger(l)
+	{ }
+
+	Frame::Frame(unsigned i, z3::context& ctx, const std::vector<z3::expr_vector>& ass, Logger& l) 
+		: level(i), logger(l), solver(std::make_unique<Solver>(ctx, ass))
 	{ }
 
 	void Frame::reset_solver(std::vector<z3::expr_vector> assertions)
@@ -43,7 +48,6 @@ namespace pdr
 			if (z3ext::subsumes(blocked_cube, cube))
 			{
 				SPDLOG_LOGGER_TRACE(logger.spd_logger, "already blocked in F{} by {}", level, z3ext::join_expr_vec(blocked_cube));
-				store_subsumed(blocked_cube, cube);
 				return true; //equal or stronger clause found
 			}
 		}
@@ -60,7 +64,6 @@ namespace pdr
 		{
 			if (z3ext::subsumes(cube, *it))
 			{
-				store_subsumed(cube, *it);
 				it = blocked_cubes.erase(it);
 			}
 			else
