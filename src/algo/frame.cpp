@@ -15,11 +15,15 @@
 
 namespace pdr
 {
-	Frame::Frame(unsigned i, Solver* s, Logger& l) 
-		: level(i), logger(l), solver(s)
+	Frame::Frame(unsigned i, Logger& l) 
+		: level(i), logger(l)
 	{ }
 
-	void Frame::reset_solver(std::vector<z3::expr_vector> assertions)
+	Frame::Frame(unsigned i, z3::context& c, const std::vector<z3::expr_vector>& assertions, Logger& l) 
+		: level(i), logger(l), solver(std::make_unique<Solver>(c, assertions))
+	{ }
+
+	void Frame::reset_solver(const std::vector<z3::expr_vector>& assertions)
 	{
 		solver->reset(assertions);
 

@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <vector>
 #include <z3++.h>
 
@@ -27,8 +28,10 @@ namespace pdr
 
 		std::vector<z3::expr_vector> initial_assertions = 
 			{ model.get_initial(), model.get_transition(), model.get_cardinality()	};
-		act.emplace_back(ctx.bool_const("__actI__")); //unused
-		frames.push_back(std::make_unique<Frame>(frames.size(), new Solver(ctx, initial_assertions), logger));
+		act.push_back(ctx.bool_const("__actI__")); //unused
+		frames.push_back(
+			std::make_unique<Frame>(frames.size(), ctx, initial_assertions, logger)
+		);
 	}
 
 	//frame interface
@@ -39,11 +42,16 @@ namespace pdr
 		assert(frames.size() > 0);	
 		if (delta)
 		{
-			act.emplace_back(fmt::format("__act{}__", frames.size()));
-			frames.emplace_back(delta, frames.size(), ctx, logger);
+			std::string acti = fmt::format("__act{}__", frames.size());
+			act.push_back(ctx.bool_const(acti.c_str()));
+			frames.push_back(
+				std::make_unique<Frame>(frames.size(), logger)
+			);
 		}
 		else
-			frames.emplace_back(delta, frames.size(), ctx, logger, base_assertions);
+			frames.push_back(
+				std::make_unique<Frame>(frames.size(), ctx, base_assertions, logger)
+			);
 	}
 
 	void Frames::reset_frames(Statistics& s, std::vector<z3::expr_vector> assertions)

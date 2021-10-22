@@ -31,9 +31,12 @@ namespace pdr
 
 			void init_solver();
 		public:
-			Frame(unsigned i, Solver* s, Logger& l);
+			//Delta frame, without logger
+			Frame(unsigned i, Logger& l);
+			//Fat frame, with its own logger
+			Frame(unsigned i, z3::context& c, const std::vector<z3::expr_vector>& assertions, Logger& l);
 			
-			void reset_solver(std::vector<z3::expr_vector> assertions = {});
+			void reset_solver(const std::vector<z3::expr_vector>& assertions);
 			void reset_frame(Statistics& s, const vector<z3::expr_vector>& assertions);
 
 			void store_subsumed(const z3::expr_vector& super, const z3::expr_vector& sub);
