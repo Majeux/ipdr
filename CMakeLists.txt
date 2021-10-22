@@ -14,6 +14,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(cxxopts CONFIG REQUIRED)
+find_package(ghc_filesystem CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
@@ -35,6 +36,7 @@ endif (DO_LOG)
 
 target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/testing)
 
+target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
 target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
 target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_only)

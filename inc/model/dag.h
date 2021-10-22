@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 #include <cassert>
-#include <filesystem>
+#include <ghc/filesystem.hpp>
 #include <graphviz/gvc.h>
 #include <fmt/format.h>
 
@@ -109,7 +109,7 @@ namespace dag {
 				return stream;
 			}
 
-			void export_digraph(const std::filesystem::path& folder)
+			void export_digraph(const ghc::filesystem::path& folder)
 			{
 				//make dot representation
 				std::stringstream ss;

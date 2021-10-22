@@ -9,7 +9,8 @@
 #include <exception>
 #include <fmt/core.h>
 #include <fstream>
-#include <filesystem>
+// #include <filesystem>
+#include <ghc/filesystem.hpp>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -22,13 +23,13 @@
 //ensure proper folders exist and create file names for In and Output
 std::pair<std::string, std::string> setup_in_out(const std::string& model_name, unsigned n_pebbles, bool dynamic) 
 {
-	std::filesystem::path results_folder = std::filesystem::current_path() / "results";
-	std::filesystem::path stats_folder = std::filesystem::current_path() / "stats";
+	ghc::filesystem::path results_folder = ghc::filesystem::current_path() / "results";
+	ghc::filesystem::path stats_folder = ghc::filesystem::current_path() / "stats";
 
-	std::filesystem::create_directory(results_folder);
-	std::filesystem::create_directory(results_folder / model_name);
-	std::filesystem::create_directory(stats_folder);
-	std::filesystem::create_directory(stats_folder / model_name);
+	ghc::filesystem::create_directory(results_folder);
+	ghc::filesystem::create_directory(results_folder / model_name);
+	ghc::filesystem::create_directory(stats_folder);
+	ghc::filesystem::create_directory(stats_folder / model_name);
 
 	std::string stats_file = fmt::format("{}-{}pebbles{}.stats", model_name, n_pebbles, dynamic ? "-dyn" : "");
 	std::string strategy_file = fmt::format("{}-{}pebbles{}.strategy", model_name, n_pebbles, dynamic ? "-dyn" : "");
@@ -116,9 +117,9 @@ int main(int argc, char *argv[])
 			  << (clargs.dynamic ? "Using dynamic cardinality. " : "")
 			  << (clargs.delta   ? "Using delta-encoded frames." : "") << std::endl;
 
-	std::filesystem::path bench_folder = std::filesystem::current_path() / "benchmark" / "rls";
-	std::filesystem::path model_file = 
-		std::filesystem::current_path() / "benchmark" / "rls" / (clargs.model_name + ".tfc");
+	ghc::filesystem::path bench_folder = ghc::filesystem::current_path() / "benchmark" / "rls";
+	ghc::filesystem::path model_file = 
+		ghc::filesystem::current_path() / "benchmark" / "rls" / (clargs.model_name + ".tfc");
 	const auto [stats_file, strategy_file] = setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.dynamic);
 
 	std::cout << "Statistics to: " << stats_file << std::endl;
