@@ -1,0 +1,14 @@
+UseTab: Never
+TabWidth: 4
+IndentWidth: 4
+NamespaceIndentation: All
+
+BreakBeforeBraces: Linux
+
+PointerAlignment: Left
+
+AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+
+FixNamespaceComments: true

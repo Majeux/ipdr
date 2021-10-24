@@ -44,17 +44,17 @@ namespace pdr
 	// 				// strengthen F_i
 	// 				SPDLOG_LOGGER_TRACE(log, "{}| cti found at frame {}", TAB, k);
 	// 				cout << "new cti" << endl;
-	// 				log_indent++;
+	// 				indent++;
 					
 	// 				expr_vector cti_current = frames[k]->sat_cube(
 	// 						[this](const expr& e) { return model.literals.atom_is_current(e); });
 
 	// 				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(cti_current));	
-	// 				log_indent--;
+	// 				indent--;
 					
 	// 				if (not block_short(cti_current, k-1, k)) 
 	// 					return false;
-	// 				log_indent--;
+	// 				indent--;
 	// 				SPDLOG_LOGGER_TRACE(log, SEP2);
 	// 				cout << endl;
 	// 			}
@@ -63,14 +63,14 @@ namespace pdr
 	// 		}
 
 	// 		SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, k, k+1);
-	// 		log_indent++;
+	// 		indent++;
 
 	// 		assert(frames.size() == k+1);
 	// 		extend_frames(k+1);
 	// 		if (propagate(k))
 	// 			return true;
 
-	// 		log_indent--;
+	// 		indent--;
 	// 		cout << "###############" << endl;
 	// 		SPDLOG_LOGGER_TRACE(log, SEP3); 
 	// 		for (const unique_ptr<Frame>& f : frames)
@@ -97,9 +97,9 @@ namespace pdr
 	// 		SPDLOG_LOGGER_TRACE(log, SEP);
 	// 		SPDLOG_LOGGER_TRACE(log, "{}| obligations pending: {}", TAB, obligations.size());
 	// 		SPDLOG_LOGGER_TRACE(log, "{}| top obligation", TAB);
-	// 		log_indent++;
+	// 		indent++;
 	// 		SPDLOG_LOGGER_TRACE(log, "{}| {}, [{}]", TAB, n, join(state->cube));
-	// 		log_indent--;
+	// 		indent--;
 
 	// 		expr state_clause = z3::mk_or(z3ext::negate(state->cube));
 
@@ -110,9 +110,9 @@ namespace pdr
 	// 			shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
 
 	// 			SPDLOG_LOGGER_TRACE(log, "{}| predecessor found", TAB);
-	// 			log_indent++;
+	// 			indent++;
 	// 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(pred->cube));
-	// 			log_indent--;
+	// 			indent--;
 
 	// 			if (n == 0)
 	// 			{ 
@@ -129,9 +129,9 @@ namespace pdr
 	// 		else 
 	// 		{	//finish state
 	// 			SPDLOG_LOGGER_TRACE(log, "{}| finishing state", TAB);
-	// 			log_indent++;
+	// 			indent++;
 	// 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
-	// 			log_indent--;
+	// 			indent--;
 				
 
 	// 			expr_vector smaller_state = generalize(frames[n]->unsat_core(), n);
