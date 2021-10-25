@@ -18,7 +18,7 @@
 
 namespace pdr
 {
-    PDR::PDR(PDRModel& m, bool d = false)
+    PDR::PDR(PDRModel& m, bool d)
         : ctx(m.ctx), model(m), delta(d), logger(model.name),
           frames(delta, ctx, m, logger)
     {

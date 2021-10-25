@@ -48,7 +48,7 @@ setup_in_out(const std::string& model_name, unsigned n_pebbles, bool dynamic)
 struct ArgumentList {
     std::string model_name;
     unsigned max_pebbles;
-    bool dynamic;
+    bool optimize;
     bool delta;
 
     bool _failed = false;
@@ -58,11 +58,11 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
 {
     cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                  "amount of pebbles through PDR");
-    clargs.dynamic = clargs.delta = false;
+    clargs.optimize = clargs.delta = false;
     clopt.add_options()
-		("d,dynamic", "Multiple runs that reduce the amount of pebbles",
-            cxxopts::value<bool>(clargs.dynamic))
-		("delta", "Use delta-encoded frames",
+		("o,optimize", "Multiple runs that find a strategy with minimum pebbles",
+            cxxopts::value<bool>(clargs.optimize))
+		("d,delta", "Use delta-encoded frames",
 		 	cxxopts::value<bool>(clargs.delta))
 		("model", "Name of the graph to pebble",
             cxxopts::value<std::string>(clargs.model_name))
@@ -87,16 +87,6 @@ ArgumentList parse_cl(int argc, char* argv[])
             std::cout << clopt.help() << std::endl;
             exit(0);
         }
-
-        if (clresult.count("dynamic"))
-            clargs.dynamic = true;
-        else
-            clargs.dynamic = false;
-
-        if (clresult.count("delta"))
-            clargs.delta = true;
-        else
-            clargs.delta = false;
 
         if (clresult.count("model"))
             clargs.model_name = clresult["model"].as<std::string>();
@@ -124,7 +114,7 @@ int main(int argc, char* argv[])
     std::cout << fmt::format("Finding {}-pebble strategy for {}",
                              clargs.max_pebbles, clargs.model_name)
               << std::endl
-              << (clargs.dynamic ? "Using dynamic cardinality. " : "")
+              << (clargs.optimize ? "Using dynamic cardinality. " : "")
               << (clargs.delta ? "Using delta-encoded frames." : "")
               << std::endl;
 
@@ -134,7 +124,7 @@ int main(int argc, char* argv[])
                                        "benchmark" / "rls" /
                                        (clargs.model_name + ".tfc");
     const auto [stats_file, strategy_file] =
-        setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.dynamic);
+        setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.optimize);
 
     std::cout << "Statistics to: " << stats_file << std::endl;
     std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
@@ -161,17 +151,19 @@ int main(int argc, char* argv[])
     // create model from DAG graph and set up algorithm
     PDRModel model(settings);
     model.load_model(clargs.model_name, G, clargs.max_pebbles);
+	assert(clargs.delta);
+	assert(clargs.optimize);
     pdr::PDR algorithm(model, clargs.delta);
     algorithm.stats().model.emplace("nodes", G.nodes.size());
     algorithm.stats().model.emplace("edges", G.edges.size());
     algorithm.stats().model.emplace("outputs", G.output.size());
 
     // run pdr and write output
-    bool strategy = !algorithm.run(clargs.dynamic);
+    bool strategy = !algorithm.run(clargs.optimize);
     algorithm.show_results(results);
     stats << algorithm.stats() << std::endl;
 
-    if (clargs.dynamic && strategy) // decrement and find better strategy
+    if (clargs.optimize && strategy) // decrement and find better strategy
     {
         clargs.max_pebbles--;
         std::cout << "retrying with " << clargs.max_pebbles << std::endl;

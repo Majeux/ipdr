@@ -19,6 +19,7 @@ namespace pdr
     Frames::Frames(bool d, z3::context& c, const PDRModel& m, Logger& l)
         : delta(d), ctx(c), model(m), logger(l), init_solver(ctx)
     {
+		assert(d);
         init_solver.add(model.get_initial());
         base_assertions.push_back(model.property.currents());
         base_assertions.push_back(model.get_transition());
