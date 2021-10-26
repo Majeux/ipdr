@@ -13,7 +13,7 @@ namespace pdr
     class Solver
     {
       private:
-        z3::context &ctx;
+        z3::context& ctx;
         z3::solver internal_solver;
         bool model_used = true; // used to give a warning if the SAT model is no
                                 // queried before overwriting
@@ -23,27 +23,29 @@ namespace pdr
 
       public:
         std::vector<z3::expr_vector> base_assertions;
-        Solver(z3::context &c, std::vector<z3::expr_vector> base);
+        Solver(z3::context& c, std::vector<z3::expr_vector> base);
 
         void init();
         void reset();
-        void block(const z3::expr_vector &cube);
-        void block(const z3::expr_vector &cube, const z3::expr &act);
-        void add(const z3::expr &e);
+        void block(const z3::expr_vector& cube);
+        void block(const z3::expr_vector& cube, const z3::expr& act);
+        void add(const z3::expr& e);
 
-        bool SAT(const z3::expr_vector &assumptions);
+        bool SAT(const z3::expr_vector& assumptions);
         z3::model get_model() const;
         void discard_model();
-        std::string as_str(const std::string &header = "") const;
+        std::string as_str(const std::string& header = "") const;
 
         // function to extract a cube representing a satisfying assignment to
         // the last SAT call to the solver. the resulting vector or expr_vector
         // is in sorted order template UnaryPredicate: function expr->bool to
         // filter atoms. accepts 1 expr, returns bool
         template <typename UnaryPredicate>
-        z3::expr_vector witness(UnaryPredicate p);
+        static z3::expr_vector filter_witness(const z3::model& m,
+                                              UnaryPredicate p);
         template <typename UnaryPredicate>
-        std::vector<z3::expr> witness_vector(UnaryPredicate p);
+        static std::vector<z3::expr> filter_witness_vector(const z3::model& m,
+                                                           UnaryPredicate p);
 
         // function extract the unsat_core from the solver, a subset of the
         // assumptions the resulting vector or expr_vector is in sorted order
@@ -57,35 +59,33 @@ namespace pdr
     };
 
     template <typename UnaryPredicate>
-    z3::expr_vector Solver::witness(UnaryPredicate p)
+    z3::expr_vector Solver::filter_witness(const z3::model& m, UnaryPredicate p)
     {
-        std::vector<z3::expr> std_vec = witness_vector(p);
+        std::vector<z3::expr> std_vec = filter_witness_vector(m, p);
         z3::expr_vector v(std_vec[0].ctx());
-        for (const z3::expr &e : std_vec)
+        for (const z3::expr& e : std_vec)
             v.push_back(e);
         return v;
     }
 
     template <typename UnaryPredicate>
-    std::vector<z3::expr> Solver::witness_vector(UnaryPredicate p)
+    std::vector<z3::expr> Solver::filter_witness_vector(const z3::model& m,
+                                                        UnaryPredicate p)
     {
-        model_used = true;
-        z3::model m = internal_solver.get_model();
         std::vector<z3::expr> v;
         v.reserve(m.num_consts());
         for (unsigned i = 0; i < m.size(); i++) {
             z3::func_decl f = m[i];
             z3::expr b_value = m.get_const_interp(f);
-            z3::expr literal(internal_solver.ctx());
-            if (b_value.is_true())
-                literal = f();
-            else if (b_value.is_false())
-                literal = !f();
-            else
-                throw std::runtime_error("model contains non-constant");
-
-            if (p(f()) == true)
-                v.push_back(literal);
+            z3::expr literal = f();
+            if (p(literal)) {
+                if (b_value.is_true())
+                    v.push_back(literal);
+                else if (b_value.is_false())
+                    v.push_back(!literal);
+                else
+                    throw std::runtime_error("model contains non-constant");
+            }
         }
         std::sort(v.begin(), v.end(), z3ext::expr_less());
         return v;
@@ -101,7 +101,7 @@ namespace pdr
 
         std::vector<z3::expr> core;
         core.reserve(full_core.size());
-        for (const z3::expr &e : full_core)
+        for (const z3::expr& e : full_core)
             if (p(e))
                 core.push_back(t(e));
         std::sort(core.begin(), core.end(), z3ext::expr_less());

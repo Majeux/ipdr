@@ -151,8 +151,6 @@ int main(int argc, char* argv[])
     // create model from DAG graph and set up algorithm
     PDRModel model(settings);
     model.load_model(clargs.model_name, G, clargs.max_pebbles);
-	assert(clargs.delta);
-	assert(clargs.optimize);
     pdr::PDR algorithm(model, clargs.delta);
     algorithm.stats().model.emplace("nodes", G.nodes.size());
     algorithm.stats().model.emplace("edges", G.edges.size());

@@ -18,8 +18,7 @@ namespace pdr
         z3::expr_vector cube_p = model.literals.p(cube);
 
         // if SAT(F_0 & !s & T & s') aka F_0 & !s & T /=> !s'
-        if (min <= 0 && !frames.neg_inductive_rel_to(cube, 0)) {
-            frames.discard_model(0);
+        if (min <= 0 && !frames.inductive(cube, 0)) {
 			SPDLOG_LOGGER_TRACE(logger.spd_logger,
 					"{}| Intersects I", logger.tab());
             return -1; // intersects with D[0]
@@ -28,8 +27,7 @@ namespace pdr
         int highest = max;
         for (int i = std::max(1, min); i <= max; i++) {
             // clause was inductive up to this iteration
-            if (!frames.neg_inductive_rel_to(cube, i)) {
-                frames.discard_model(0);
+            if (!frames.inductive(cube, i)) {
                 highest = i - 1; // previous was greatest inductive frame
                 break;
             }
@@ -137,17 +135,14 @@ namespace pdr
             if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
                 return false;
 
-            if (frames.neg_inductive_rel_to(state, level))
-                return true;
+            if (Witness w = frames.counter_to_inductiveness(state, level))
+			{
+				// intersect the current states from the model with state
+				vector<z3::expr> cti_intersect =
+					Solver::filter_witness_vector(*w, is_current_in_state);
 
-            // intersect the current states from the model with state
-            vector<z3::expr> cti_intersect =
-                frames.solver(level)->witness_vector(is_current_in_state);
-
-            state = move(cti_intersect);
-
-            // SPDLOG_LOGGER_TRACE(log, "{}| down-reduction: [{}]", TAB,
-            // join(state));
+				state = move(cti_intersect);
+			} else return true;
         }
         return false;
     }

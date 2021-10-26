@@ -21,7 +21,7 @@ class PDRModel
 		z3::context ctx;
 		ExpressionCache literals;
 		ExpressionCache property;
-		ExpressionCache not_property;
+		ExpressionCache n_property;
 
 		PDRModel();
 		PDRModel(z3::config& settings);

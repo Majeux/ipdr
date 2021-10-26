@@ -19,6 +19,7 @@
 namespace pdr
 {
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
+    using Witness = std::unique_ptr<z3::model>;
 
     class Frames
     {
@@ -52,21 +53,31 @@ namespace pdr
         // queries
         //
         bool init_implies(const z3::expr_vector& formula) const;
-        // returns if the negation of cube is inductive relative to frame
-        bool neg_inductive_rel_to(const std::vector<z3::expr>& cube,
-                                  size_t frame) const;
-        bool neg_inductive_rel_to(const z3::expr_vector& cube,
-                                  size_t frame) const;
+        // returns if the negation of cube is inductive relative to F_frame
+        bool inductive(const std::vector<z3::expr>& cube, size_t frame) const;
+        bool inductive(const z3::expr_vector& cube, size_t frame) const;
+        Witness counter_to_inductiveness(const std::vector<z3::expr>& cube,
+                                         size_t frame) const;
+        Witness counter_to_inductiveness(const z3::expr_vector& cube,
+                                         size_t frame) const;
         // returns if there exists a transition from frame to cube,
         // allows collection of witness from solver(frame) if true.
-        bool transition_from_to(size_t frame, const z3::expr_vector& cube,
-                                bool primed = false) const;
+        bool trans_from_to(size_t frame, const z3::expr_vector& cube,
+                           bool primed = false) const;
+        std::unique_ptr<z3::model>
+            get_trans_from_to(size_t frame, const z3::expr_vector& cube,
+                              bool primed = false) const;
 
         // Solver calls
         //
+        // returns if there exists a satisfying assignment
         bool SAT(size_t frame, const z3::expr_vector& assumptions) const;
         bool SAT(size_t frame, z3::expr_vector& assumptions) const;
-        void discard_model(size_t frame);
+        // returns a satisfying assignment if it exists
+        Witness SAT_model(size_t frame,
+                          const z3::expr_vector& assumptions) const;
+        Witness SAT_model(size_t frame, z3::expr_vector& assumptions) const;
+        const z3::model get_model(size_t frame) const;
         void reset_solver(size_t frame);
 
         // getters
