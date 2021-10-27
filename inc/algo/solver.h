@@ -15,8 +15,6 @@ namespace pdr
       private:
         z3::context& ctx;
         z3::solver internal_solver;
-        bool model_used = true; // used to give a warning if the SAT model is no
-                                // queried before overwriting
         bool core_available = false;
         unsigned cubes_start; // point where base_assertions ends and other
                               // assertions begin
@@ -33,7 +31,6 @@ namespace pdr
 
         bool SAT(const z3::expr_vector& assumptions);
         z3::model get_model() const;
-        void discard_model();
         std::string as_str(const std::string& header = "") const;
 
         // function to extract a cube representing a satisfying assignment to

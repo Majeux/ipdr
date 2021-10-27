@@ -43,21 +43,14 @@ namespace pdr
 
     bool Solver::SAT(const z3::expr_vector& assumptions)
     {
-        if (internal_solver.check(assumptions) == z3::sat) {
-            if (!model_used)
-                std::cerr << "PDR::WARNING: last SAT model unused and discarded"
-                          << std::endl;
-            model_used = false;
+        if (internal_solver.check(assumptions) == z3::sat)
             return true;
-        }
 
         core_available = true;
         return false;
     }
 
     z3::model Solver::get_model() const { return internal_solver.get_model(); }
-
-    void Solver::discard_model() { model_used = true; }
 
     z3::expr_vector Solver::unsat_core()
     {

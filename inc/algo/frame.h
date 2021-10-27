@@ -28,11 +28,11 @@ namespace pdr
         Logger& logger;
         std::unique_ptr<Solver> solver;
         // the arguments of the clause are sorted by mic, use id to search
-        CubeSet blocked_cubes;
 
         void init_solver();
 
       public:
+        CubeSet blocked_cubes;
         // Delta frame, without logger
         Frame(unsigned i, Logger& l);
         // Fat frame, with its own logger

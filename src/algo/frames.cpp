@@ -42,11 +42,13 @@ namespace pdr
     void Frames::extend()
     {
         assert(frames.size() > 0);
-        if (delta) {
+        if (delta)
+        {
             std::string acti = fmt::format("__act{}__", frames.size());
             act.push_back(ctx.bool_const(acti.c_str()));
             frames.push_back(std::make_unique<Frame>(frames.size(), logger));
-        } else
+        }
+        else
             frames.push_back(std::make_unique<Frame>(frames.size(), ctx,
                                                      base_assertions, logger));
     }
@@ -77,7 +79,8 @@ namespace pdr
 
     bool Frames::delta_remove_state(const z3::expr_vector& cube, size_t level)
     {
-        for (unsigned i = 1; i <= level; i++) {
+        for (unsigned i = 1; i <= level; i++)
+        {
             // remove all blocked cubes that are equal or weaker than cube
             unsigned n_removed = frames.at(i)->remove_subsumed(cube);
             logger.stats.subsumed(level, n_removed);
@@ -98,16 +101,19 @@ namespace pdr
     bool Frames::fat_remove_state(const z3::expr_vector& cube, size_t level)
     {
         assert(level > 0);
-        for (unsigned i = 1; i <= level; i++) {
+        for (unsigned i = 1; i <= level; i++)
+        {
             // remove all blocked cubes that are equal or weaker than cube
             unsigned n_removed = frames.at(i)->remove_subsumed(cube);
             logger.stats.subsumed(level, n_removed);
 
-            if (frames.at(i)->block(cube)) {
+            if (frames.at(i)->block(cube))
+            {
                 frames.at(i)->block_in_solver(cube);
                 SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}",
                                     logger.tab(), i);
-            } else
+            }
+            else
                 return false;
         }
         return true;
@@ -121,16 +127,19 @@ namespace pdr
         if (!delta)
             frames.at(1)->reset_solver();
 
-        for (unsigned i = 1; i <= level; i++) {
+        for (unsigned i = 1; i <= level; i++)
+        {
             if (delta)
                 push_forward_delta(i, repeat);
             else if (push_forward_fat(i, repeat))
                 return true;
         }
 
-        if (delta) {
+        if (delta)
+        {
             for (unsigned i = 1; i <= level; i++)
-                if (frames.at(i)->empty()) {
+                if (frames.at(i)->empty())
+                {
                     std::cout << format("F[{}] \\ F[{}] == 0", i, i + 1)
                               << std::endl;
                     return true;
@@ -143,13 +152,15 @@ namespace pdr
 
     void Frames::push_forward_delta(unsigned level, bool repeat)
     {
-        for (const z3::expr_vector& cube : frames.at(level)->get_blocked()) {
-            if (!trans_from_to(level, cube)) {
+		CubeSet blocked = frames.at(level)->blocked_cubes;
+        for (const z3::expr_vector& cube : blocked)
+        {
+            if (!trans_from_to(level, cube))
+            {
                 if (remove_state(cube, level + 1))
                     if (repeat)
                         std::cout << "new blocked in repeat" << endl;
-            } else
-                delta_solver->discard_model();
+            }
         }
     }
 
@@ -157,17 +168,18 @@ namespace pdr
     {
         std::vector<z3::expr_vector> diff =
             frames.at(level)->diff(*frames.at(level + 1));
-        for (const z3::expr_vector& cube : diff) {
-            if (!trans_from_to(level, cube)) {
+        for (const z3::expr_vector& cube : diff)
+        {
+            if (!trans_from_to(level, cube))
+            {
                 if (remove_state(cube, level + 1))
                     if (repeat)
                         std::cout << "new blocked in repeat" << endl;
-            } else
-                solver(level)->discard_model();
+            }
         }
 
-        if (diff.size() == 0 ||
-            frames.at(level)->equals(*frames.at(level + 1))) {
+        if (diff.size() == 0 || frames.at(level)->equals(*frames.at(level + 1)))
+        {
             std::cout << format("F[{}] \\ F[{}] == 0", level, level + 1)
                       << std::endl;
             return true;
@@ -257,7 +269,8 @@ namespace pdr
         using std::chrono::steady_clock;
 
         Solver* solver = nullptr;
-        if (delta && frame > 0) {
+        if (delta && frame > 0)
+        {
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Delta check",
                                 logger.tab());
 
@@ -266,7 +279,9 @@ namespace pdr
                 assumptions.push_back(act.at(i));
 
             solver = delta_solver.get();
-        } else {
+        }
+        else
+        {
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Fat check",
                                 logger.tab());
             solver = frames.at(frame)->get_solver();
@@ -317,17 +332,19 @@ namespace pdr
 
     void Frames::reset_solver(size_t frame)
     {
-        if (delta && frame > 0) {
+        if (delta && frame > 0)
+        {
             delta_solver->reset();
 
-            for (const z3::expr_vector& cube :
-                 frames.at(frame)->get_blocked()) {
+            for (const z3::expr_vector& cube : frames.at(frame)->get_blocked())
+            {
                 if (delta)
                     delta_solver->block(cube, act.at(frame));
                 else
                     solver(frame)->block(cube);
             }
-        } else
+        }
+        else
             frames.at(frame)->reset_solver();
     }
 
@@ -360,7 +377,8 @@ namespace pdr
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}",
                                 delta_solver->as_str());
         else
-            for (const std::unique_ptr<Frame>& f : frames) {
+            for (const std::unique_ptr<Frame>& f : frames)
+            {
                 SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}",
                                     (*f).get_solver()->as_str());
             }
@@ -369,7 +387,8 @@ namespace pdr
     std::string Frames::blocked_str() const
     {
         std::string str;
-        for (auto& f : frames) {
+        for (auto& f : frames)
+        {
             str += f->blocked_str();
             str += '\n';
         }
@@ -380,8 +399,10 @@ namespace pdr
         std::string str;
         if (delta)
             str += delta_solver->as_str();
-        else {
-            for (auto& f : frames) {
+        else
+        {
+            for (auto& f : frames)
+            {
                 str += f->get_solver()->as_str();
                 str += '\n';
             }
