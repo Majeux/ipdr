@@ -72,11 +72,11 @@ namespace pdr
         //
         // returns if there exists a satisfying assignment
         bool SAT(size_t frame, const z3::expr_vector& assumptions) const;
-        bool SAT(size_t frame, z3::expr_vector& assumptions) const;
+        bool SAT(size_t frame, z3::expr_vector&& assumptions) const;
         // returns a satisfying assignment if it exists
         Witness SAT_model(size_t frame,
                           const z3::expr_vector& assumptions) const;
-        Witness SAT_model(size_t frame, z3::expr_vector& assumptions) const;
+        Witness SAT_model(size_t frame, z3::expr_vector&& assumptions) const;
         const z3::model get_model(size_t frame) const;
         void reset_solver(size_t frame);
 

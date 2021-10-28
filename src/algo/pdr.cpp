@@ -131,7 +131,7 @@ namespace pdr
             z3::model witness = frames.solver(0)->get_model();
             z3::expr_vector bad_cube = Solver::filter_witness(
                 witness, [this](const z3::expr& e)
-					{ return model.literals.atom_is_current(e); });
+                { return model.literals.atom_is_current(e); });
             bad = std::make_shared<State>(bad_cube);
 
             return false;
@@ -161,6 +161,9 @@ namespace pdr
 
             while (true) // exhaust all transitions to !P
             {
+				SPDLOG_LOGGER_TRACE(logger.spd_logger,
+									"{}| property {}",
+									logger.tab(), z3ext::join_expr_vec(model.n_property.nexts()));
                 Witness transition =
                     frames.get_trans_from_to(k, model.n_property.nexts(), true);
                 if (transition)
@@ -203,7 +206,11 @@ namespace pdr
                     std::cout << endl;
                 }
                 else // no more counter examples
+                {
+                    SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                                        "{}| no more counters", logger.tab());
                     break;
+                }
             }
 
             SPDLOG_LOGGER_TRACE(logger.spd_logger,

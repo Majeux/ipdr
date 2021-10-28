@@ -15,6 +15,15 @@ namespace z3ext
 
     inline expr minus(const expr& e) { return e.is_not() ? e.arg(0) : !e; }
 
+	inline expr_vector copy(const expr_vector& v)
+	{
+		z3::expr_vector new_v(v.ctx());
+		for (const z3::expr& e : v)
+			new_v.push_back(e);
+
+		return new_v;
+	}
+
     inline expr_vector negate(const expr_vector& lits)
     {
         expr_vector negated(lits.ctx());

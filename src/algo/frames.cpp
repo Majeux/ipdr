@@ -87,8 +87,7 @@ namespace pdr
         }
 
         assert(level > 0);
-        if (frames.at(level)->block(
-                cube)) // only blocks cube in frame, not in solver
+        if (frames.at(level)->block(cube))
         {
             delta_solver->block(cube, act.at(level));
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}",
@@ -145,6 +144,13 @@ namespace pdr
                     return true;
                 }
             delta_solver->reset();
+
+            for (size_t i = 1; i < frames.size(); i++)
+            {
+                auto& f = frames.at(i);
+                for (const z3::expr_vector& cube : f->get_blocked())
+                    delta_solver->block(cube, act.at(i));
+            }
         }
 
         return false;
@@ -152,7 +158,7 @@ namespace pdr
 
     void Frames::push_forward_delta(unsigned level, bool repeat)
     {
-		CubeSet blocked = frames.at(level)->blocked_cubes;
+        CubeSet blocked = frames.at(level)->blocked_cubes;
         for (const z3::expr_vector& cube : blocked)
         {
             if (!trans_from_to(level, cube))
@@ -203,6 +209,9 @@ namespace pdr
 
     bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
     { // query: Fi & !s & T /=> !s'
+        SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                            "{}| check relative inductiveness, frame {}",
+                            logger.tab(), frame);
         z3::expr clause =
             z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
         z3::expr_vector assumptions =
@@ -218,6 +227,9 @@ namespace pdr
     Witness Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
                                              size_t frame) const
     {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                            "{}| counter to relative inductiveness, frame {}",
+                            logger.tab(), frame);
         if (!inductive(cube, frame))
             return std::make_unique<z3::model>(get_model(frame));
 
@@ -237,6 +249,8 @@ namespace pdr
     bool Frames::trans_from_to(size_t frame, const z3::expr_vector& cube,
                                bool primed) const
     {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition check, frame {}",
+                            logger.tab(), frame);
         if (!primed) // cube is in current, bring to next
             return SAT(frame, model.literals.p(cube));
 
@@ -246,6 +260,8 @@ namespace pdr
     Witness Frames::get_trans_from_to(size_t frame, const z3::expr_vector& cube,
                                       bool primed) const
     {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition query, frame {}",
+                            logger.tab(), frame);
         if (!primed) // cube is in current, bring to next
             return SAT_model(frame, model.literals.p(cube));
 
@@ -259,12 +275,11 @@ namespace pdr
     //
     bool Frames::SAT(size_t frame, const z3::expr_vector& assumptions) const
     {
-        z3::expr_vector ass_copy =
-            assumptions; // since we modify assumptions in SAT
-        return SAT(frame, ass_copy);
+		//!!! normal assignment/constr copies reference to vector
+        return SAT(frame, z3ext::copy(assumptions));
     }
 
-    bool Frames::SAT(size_t frame, z3::expr_vector& assumptions) const
+    bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions) const
     {
         using std::chrono::steady_clock;
 
@@ -289,15 +304,13 @@ namespace pdr
 
         auto start = steady_clock::now();
 
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| SAT check, frame {}",
-                            logger.tab(), frame);
         logger.indent++;
         SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| assumps: [ {} ]",
                             logger.tab(),
                             z3ext::join_expr_vec(assumptions, false));
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| solver: ", logger.tab());
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}", logger.tab(),
-                            solver->as_str());
+        // SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| solver: ", logger.tab());
+        // SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}", logger.tab(),
+        //                     solver->as_str());
 
         logger.indent--;
         bool result = solver->SAT(assumptions);
@@ -315,7 +328,7 @@ namespace pdr
         return std::unique_ptr<z3::model>();
     }
 
-    Witness Frames::SAT_model(size_t frame, z3::expr_vector& assumptions) const
+    Witness Frames::SAT_model(size_t frame, z3::expr_vector&& assumptions) const
     {
         if (SAT(frame, assumptions))
             return std::make_unique<z3::model>(get_model(frame));
