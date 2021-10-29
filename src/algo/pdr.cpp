@@ -161,28 +161,24 @@ namespace pdr
 
             while (true) // exhaust all transitions to !P
             {
-				SPDLOG_LOGGER_TRACE(logger.spd_logger,
-									"{}| property {}",
-									logger.tab(), z3ext::join_expr_vec(model.n_property.nexts()));
-                Witness transition =
+                Witness witness =
                     frames.get_trans_from_to(k, model.n_property.nexts(), true);
-                if (transition)
+
+                if (witness)
                 {
                     // F_i leads to violation, strengthen
                     SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                                        "{}| cti found at frame {}",
-                                        logger.tab(), k);
-                    std::cout << "new cti" << endl;
-                    logger.indent++;
+                                        "{}| cti at frame {}", logger.tab(), k);
 
+                    logger.indent++;
                     auto extract_current = [this](const z3::expr& e)
                     { return model.literals.atom_is_current(e); };
                     z3::expr_vector cti_current =
-                        Solver::filter_witness(*transition, extract_current);
+                        Solver::filter_witness(*witness, extract_current);
 
                     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]",
                                         logger.tab(),
-                                        str::extensions::join(cti_current));
+                                        str::extend::join(cti_current));
                     logger.indent--;
 
                     z3::expr_vector core(ctx);
@@ -197,11 +193,12 @@ namespace pdr
 
                     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block",
                                         logger.tab());
-                    logger.indent++;
 
+                    logger.indent++;
                     if (not block(cti_current, n + 1, k))
                         return false;
                     logger.indent--;
+
                     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
                     std::cout << endl;
                 }
@@ -221,16 +218,15 @@ namespace pdr
             frames.extend();
             sub_timer.reset();
             bool done = frames.propagate(k);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "Propagation elapsed {}",
-                                sub_timer);
-            std::cout << format("Propagation elapsed {}", sub_timer) << endl;
+
+            std::string msg = fmt::format("Propagation elapsed {}", sub_timer);
+            SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
+            std::cout << msg << endl;
             k++;
 
             logger.indent--;
             std::cout << "###############" << endl;
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
             frames.log_solvers();
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
 
             if (done)
                 return true;
@@ -263,7 +259,7 @@ namespace pdr
                                 logger.tab());
             logger.indent++;
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(),
-                                n, str::extensions::join(state->cube));
+                                n, str::extend::join(state->cube));
             logger.indent--;
 
             if (Witness w = frames.counter_to_inductiveness(state->cube, n))
@@ -280,7 +276,7 @@ namespace pdr
                                     logger.tab());
                 logger.indent++;
                 SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                                    str::extensions::join(pred->cube));
+                                    str::extend::join(pred->cube));
                 logger.indent--;
 
                 z3::expr_vector core(ctx);
@@ -297,8 +293,7 @@ namespace pdr
                         SPDLOG_LOGGER_TRACE(
                             logger.spd_logger,
                             "{}| push predecessor to level {}: [{}]",
-                            logger.tab(), m + 1,
-                            str::extensions::join(pred->cube));
+                            logger.tab(), m + 1, str::extend::join(pred->cube));
                         obligations.emplace(m + 1, pred, depth + 1);
                     }
                 }
@@ -317,7 +312,7 @@ namespace pdr
                                     logger.tab());
                 logger.indent++;
                 SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                                    str::extensions::join(state->cube));
+                                    str::extend::join(state->cube));
                 logger.indent--;
 
                 z3::expr_vector core(ctx);
@@ -344,7 +339,7 @@ namespace pdr
                             logger.spd_logger,
                             "{}| push state to higher to level {}: [{}]",
                             logger.tab(), m + 1,
-                            str::extensions::join(state->cube));
+                            str::extend::join(state->cube));
                         obligations.emplace(m + 1, state, depth);
                     }
                 }

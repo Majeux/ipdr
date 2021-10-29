@@ -15,15 +15,20 @@ namespace z3ext
 
     inline expr minus(const expr& e) { return e.is_not() ? e.arg(0) : !e; }
 
-	inline expr_vector copy(const expr_vector& v)
-	{
-		z3::expr_vector new_v(v.ctx());
-		for (const z3::expr& e : v)
-			new_v.push_back(e);
+	// !allocates new vector
+    // by default, assignment and copy constructors copy a reference to an
+    // internal vector. This constructs a deep copy, preventing the original
+    // from being altered
+    inline expr_vector copy(const expr_vector& v)
+    {
+        z3::expr_vector new_v(v.ctx());
+        for (const z3::expr& e : v)
+            new_v.push_back(e);
 
-		return new_v;
-	}
+        return new_v;
+    }
 
+	// !allocates new vector
     inline expr_vector negate(const expr_vector& lits)
     {
         expr_vector negated(lits.ctx());
@@ -32,6 +37,7 @@ namespace z3ext
         return negated;
     }
 
+	// !allocates new vector
     inline expr_vector negate(const vector<expr>& lits)
     {
         expr_vector negated(lits[0].ctx());
@@ -40,8 +46,20 @@ namespace z3ext
         return negated;
     }
 
-    inline expr_vector convert(vector<expr> vec)
+	// !allocates new vector
+    inline expr_vector convert(const vector<expr>& vec)
     {
+		assert(vec.size() > 0);
+        expr_vector converted(vec[0].ctx());
+        for (const expr& e : vec)
+            converted.push_back(std::move(e));
+        return converted;
+    }
+
+	// !allocates new vector
+    inline expr_vector convert(vector<expr>&& vec)
+    {
+		assert(vec.size() > 0);
         expr_vector converted(vec[0].ctx());
         for (const expr& e : vec)
             converted.push_back(std::move(e));
@@ -57,6 +75,7 @@ namespace z3ext
         return converted;
     }
 
+	// !allocates new vector
     inline expr_vector args(const expr& e)
     {
         expr_vector vec(e.ctx());
@@ -80,7 +99,8 @@ namespace z3ext
 
         bool first = true;
         unsigned largest;
-        for (const string& s : strings) {
+        for (const string& s : strings)
+        {
             if (s.length() > largest || first)
                 largest = s.length();
             first = false;
@@ -88,7 +108,8 @@ namespace z3ext
 
         first = true;
         std::stringstream ss;
-        for (const string& s : strings) {
+        for (const string& s : strings)
+        {
             if (!first)
                 ss << delimiter;
             first = false;
@@ -100,7 +121,8 @@ namespace z3ext
     }
 
     // z3::expr comparator
-    struct expr_less {
+    struct expr_less
+    {
         bool operator()(const z3::expr& l, const z3::expr& r) const
         {
             return l.id() < r.id();
@@ -111,7 +133,7 @@ namespace z3ext
     {
         vector<expr> std_vec = convert(v);
         std::sort(std_vec.begin(), std_vec.end(), expr_less());
-        v = convert(std_vec);
+        v = convert(std::move(std_vec));
     }
 
     // returns true if l c= r
@@ -126,13 +148,15 @@ namespace z3ext
                              expr_less());
     }
 
-    struct expr_vector_less {
+    struct expr_vector_less
+    {
         bool operator()(const expr_vector& l, const expr_vector& r) const
         {
             auto l_it = l.begin();
             auto r_it = r.begin();
 
-            for (; l_it != l.end() && r_it != r.end(); l_it++, r_it++) {
+            for (; l_it != l.end() && r_it != r.end(); l_it++, r_it++)
+            {
                 if ((*l_it).id() < (*r_it).id())
                     return true;
                 if ((*l_it).id() > (*r_it).id())

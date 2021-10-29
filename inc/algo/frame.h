@@ -24,6 +24,7 @@ namespace pdr
     class Frame
     {
       private:
+        CubeSet blocked_cubes;
         unsigned level;
         Logger& logger;
         std::unique_ptr<Solver> solver;
@@ -32,17 +33,14 @@ namespace pdr
         void init_solver();
 
       public:
-        CubeSet blocked_cubes;
         // Delta frame, without logger
         Frame(unsigned i, Logger& l);
         // Fat frame, with its own logger
         Frame(unsigned i, z3::context& c,
               const std::vector<z3::expr_vector>& assertions, Logger& l);
 
-        void reset_solver();
-        void reset_solver(const std::vector<z3::expr_vector>& assertions);
-        void reset_frame(Statistics& s,
-                         const vector<z3::expr_vector>& assertions);
+        void clean_solver();
+        void set_stats(Statistics& s);
 
         unsigned remove_subsumed(const z3::expr_vector& cube);
         bool blocked(const z3::expr_vector& cube);

@@ -19,7 +19,7 @@ namespace dag {
 	using std::vector;
 	using std::string;
 	using std::endl;
-	using str::extensions::join;
+	using str::extend::join;
 
 	struct Edge
 	{

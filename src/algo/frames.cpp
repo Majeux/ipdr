@@ -53,11 +53,56 @@ namespace pdr
                                                      base_assertions, logger));
     }
 
-    void Frames::reset_frames(Statistics& s,
-                              std::vector<z3::expr_vector> assertions)
+	void Frames::clean_delta()
+	{
+		assert(delta);
+		delta_solver->reset();
+
+		for (size_t i = 1; i < frames.size(); i++)
+		{
+			auto& f = frames.at(i);
+			for (const z3::expr_vector& cube : f->get_blocked())
+				delta_solver->block(cube, act.at(i));
+		}
+	}
+
+    void Frames::clean_frames(Statistics& s,
+                              const std::vector<z3::expr_vector>& assertions)
     {
-        for (auto& f : frames)
-            f->reset_frame(s, assertions);
+		for (size_t i = 0; i < frames.size(); i++)
+		{
+			auto& f = frames[0];
+
+			f->set_stats(s);
+			if (delta && i > 0)
+			{
+				delta_solver->base_assertions = assertions;
+				clean_delta();
+			}
+			else
+			{
+				solver(i)->base_assertions = assertions;
+				solver(i)->clean_solver();
+			}
+		}
+    }
+
+    void Frames::reset_solver(size_t frame)
+    {
+        if (delta && frame > 0)
+        {
+            delta_solver->reset();
+
+            for (const z3::expr_vector& cube : frames.at(frame)->get_blocked())
+            {
+                if (delta)
+                    delta_solver->block(cube, act.at(frame));
+                else
+                    solver(frame)->block(cube);
+            }
+        }
+        else
+            frames.at(frame)->reset_solver();
     }
 
     bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
@@ -65,7 +110,7 @@ namespace pdr
         level = std::min(level, frames.size() - 1);
         SPDLOG_LOGGER_TRACE(logger.spd_logger,
                             "{}| removing cube from level [1..{}]: [{}]",
-                            logger.tab(), level, str::extensions::join(cube));
+                            logger.tab(), level, str::extend::join(cube));
         logger.indent++;
 
         bool result;
@@ -123,9 +168,6 @@ namespace pdr
         assert(level == frontier() - 1); // k == |F|-1
         std::cout << "propagate level " << level << endl;
 
-        if (!delta)
-            frames.at(1)->reset_solver();
-
         for (unsigned i = 1; i <= level; i++)
         {
             if (delta)
@@ -135,7 +177,6 @@ namespace pdr
         }
 
         if (delta)
-        {
             for (unsigned i = 1; i <= level; i++)
                 if (frames.at(i)->empty())
                 {
@@ -143,22 +184,14 @@ namespace pdr
                               << std::endl;
                     return true;
                 }
-            delta_solver->reset();
-
-            for (size_t i = 1; i < frames.size(); i++)
-            {
-                auto& f = frames.at(i);
-                for (const z3::expr_vector& cube : f->get_blocked())
-                    delta_solver->block(cube, act.at(i));
-            }
-        }
+			clean_delta();
 
         return false;
     }
 
     void Frames::push_forward_delta(unsigned level, bool repeat)
     {
-        CubeSet blocked = frames.at(level)->blocked_cubes;
+        CubeSet blocked = frames.at(level)->get_blocked();
         for (const z3::expr_vector& cube : blocked)
         {
             if (!trans_from_to(level, cube))
@@ -172,6 +205,8 @@ namespace pdr
 
     bool Frames::push_forward_fat(unsigned level, bool repeat)
     {
+		frames.at(level)->clean_solver();
+
         std::vector<z3::expr_vector> diff =
             frames.at(level)->diff(*frames.at(level + 1));
         for (const z3::expr_vector& cube : diff)
@@ -201,14 +236,13 @@ namespace pdr
     bool Frames::inductive(const std::vector<z3::expr>& cube,
                            size_t frame) const
     {
-        z3::expr_vector ev(ctx);
-        for (const z3::expr& e : cube)
-            ev.push_back(e);
-        return inductive(ev, frame);
+        return inductive(z3ext::convert(cube), frame);
     }
 
+	// verifies if !cube is inductive relative to F_[frame]
+	// query: Fi & !s & T /=> !s'
     bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
-    { // query: Fi & !s & T /=> !s'
+    { 
         SPDLOG_LOGGER_TRACE(logger.spd_logger,
                             "{}| check relative inductiveness, frame {}",
                             logger.tab(), frame);
@@ -218,8 +252,10 @@ namespace pdr
             model.literals.p(cube); // cube in next state
         assumptions.push_back(clause);
 
-        if (SAT(frame, assumptions)) // there is a transition from !s to s'
+        if (SAT(frame, std::move(assumptions))) 
+		{   // there is a transition from !s to s'
             return false;
+		}
 
         return true;
     }
@@ -275,10 +311,11 @@ namespace pdr
     //
     bool Frames::SAT(size_t frame, const z3::expr_vector& assumptions) const
     {
-		//!!! normal assignment/constr copies reference to vector
         return SAT(frame, z3ext::copy(assumptions));
     }
 
+	// the expr_vector assumptions are modified by acts, 
+	// and should be considered usable afterwards
     bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions) const
     {
         using std::chrono::steady_clock;
@@ -343,24 +380,6 @@ namespace pdr
             return frames.at(frame)->get_solver()->get_model();
     }
 
-    void Frames::reset_solver(size_t frame)
-    {
-        if (delta && frame > 0)
-        {
-            delta_solver->reset();
-
-            for (const z3::expr_vector& cube : frames.at(frame)->get_blocked())
-            {
-                if (delta)
-                    delta_solver->block(cube, act.at(frame));
-                else
-                    solver(frame)->block(cube);
-            }
-        }
-        else
-            frames.at(frame)->reset_solver();
-    }
-
     //
     // end SAT interface
 
@@ -386,6 +405,7 @@ namespace pdr
 
     void Frames::log_solvers() const
     {
+		SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
         if (delta)
             SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}",
                                 delta_solver->as_str());
@@ -395,6 +415,7 @@ namespace pdr
                 SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}",
                                     (*f).get_solver()->as_str());
             }
+		SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
     }
 
     std::string Frames::blocked_str() const

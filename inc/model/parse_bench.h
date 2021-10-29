@@ -59,7 +59,7 @@ namespace parse
 		assert(operands_begin < end_bracket);
 
 		size_t n_chars = end_bracket - operands_begin;
-		return str::extensions::split(operands.substr(operands_begin, n_chars), ',');
+		return str::extend::split(operands.substr(operands_begin, n_chars), ',');
 	}
 
 	inline std::vector<std::string> parse_operator(const std::string& line, std::string op)
@@ -92,7 +92,7 @@ namespace parse
 					return  LineResult(false);
 
 				new_node = line.substr(0, sep);
-				str::extensions::trim(new_node);
+				str::extend::trim(new_node);
 				nodes = parse_any_operator(line);
 				break;
 			default:
@@ -154,7 +154,7 @@ namespace parse
 		std::string line;
 		while (std::getline(file, line)) 
 		{
-			str::extensions::trim(line);
+			str::extend::trim(line);
 
 			// ignore empty lines and comments
 			if (line == "" || line[0] == '#')

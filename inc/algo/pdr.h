@@ -14,9 +14,6 @@
 #include <vector>
 #include <z3++.h>
 
-#define SEP "--------------------"
-#define SEP2 "===================="
-#define SEP3 "####################"
 #define MIN_ORDERING(T)                                                        \
     T, std::vector<T>,                                                         \
         std::greater<T> // type arguments for ascending priority queue

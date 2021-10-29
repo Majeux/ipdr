@@ -11,5 +11,6 @@ PointerAlignment: Left
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
+AllowShortLambdasOnASingleLine : All
 
 FixNamespaceComments: true
