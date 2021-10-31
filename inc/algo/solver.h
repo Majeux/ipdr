@@ -6,12 +6,14 @@
 #include <memory>
 #include <numeric>
 #include <vector>
+#include <set>
 #include <z3++.h>
 
 namespace pdr
 {
     class Solver
     {
+		using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
       private:
         z3::context& ctx;
         z3::solver internal_solver;
@@ -25,6 +27,7 @@ namespace pdr
 
         void init();
         void reset();
+		void reset(const CubeSet& cubes);
         void block(const z3::expr_vector& cube);
         void block(const z3::expr_vector& cube, const z3::expr& act);
         void add(const z3::expr& e);

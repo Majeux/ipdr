@@ -1,4 +1,6 @@
 #include "solver.h"
+#include "frame.h"
+#include <z3++.h>
 
 namespace pdr
 {
@@ -25,6 +27,15 @@ namespace pdr
     {
         internal_solver.reset();
         init();
+    }
+
+	// reset and automatically repopulate by blocking cubes
+	// used by frames
+    void Solver::reset(const CubeSet& cubes)
+    {
+		reset();
+		for (const z3::expr_vector& cube : cubes)
+			block(cube);
     }
 
     void Solver::block(const z3::expr_vector& cube)

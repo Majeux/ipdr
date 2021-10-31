@@ -21,8 +21,9 @@
 #include <z3++.h>
 
 // ensure proper folders exist and create file names for In and Output
-std::pair<std::string, std::string>
-setup_in_out(const std::string& model_name, unsigned n_pebbles, bool dynamic)
+std::pair<std::string, std::string> setup_in_out(const std::string& model_name,
+                                                 unsigned n_pebbles,
+                                                 bool optimize, bool delta)
 {
     ghc::filesystem::path results_folder =
         ghc::filesystem::current_path() / "results";
@@ -34,18 +35,20 @@ setup_in_out(const std::string& model_name, unsigned n_pebbles, bool dynamic)
     ghc::filesystem::create_directory(stats_folder);
     ghc::filesystem::create_directory(stats_folder / model_name);
 
-    std::string stats_file = fmt::format("{}-{}pebbles{}.stats", model_name,
-                                         n_pebbles, dynamic ? "-dyn" : "");
+    std::string stats_file =
+        fmt::format("{}-{}pebbles{}{}.stats", model_name, n_pebbles,
+                    optimize ? "_opt" : "", delta ? "_delta" : "");
     std::string strategy_file =
-        fmt::format("{}-{}pebbles{}.strategy", model_name, n_pebbles,
-                    dynamic ? "-dyn" : "");
+        fmt::format("{}-{}pebbles{}{}.strategy", model_name, n_pebbles,
+                    optimize ? "_dyn" : "", delta ? "_delta" : "");
 
     return std::make_pair(
         (stats_folder / model_name / stats_file).string(),
         (results_folder / model_name / strategy_file).string());
 }
 
-struct ArgumentList {
+struct ArgumentList
+{
     std::string model_name;
     unsigned max_pebbles;
     bool optimize;
@@ -59,16 +62,23 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
     cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                  "amount of pebbles through PDR");
     clargs.optimize = clargs.delta = false;
-    clopt.add_options()
-		("o,optimize", "Multiple runs that find a strategy with minimum pebbles",
-            cxxopts::value<bool>(clargs.optimize))
-		("d,delta", "Use delta-encoded frames",
-		 	cxxopts::value<bool>(clargs.delta))
-		("model", "Name of the graph to pebble",
-            cxxopts::value<std::string>(clargs.model_name))
-		("pebbles", "Maximum number of pebbles for a strategy",
-            cxxopts::value<unsigned>(clargs.max_pebbles))
-		("h,help", "Show usage");
+    clopt.add_options()(
+        "o,optimize", "Multiple runs that find a strategy with minimum pebbles",
+        cxxopts::value<bool>(clargs.optimize))(
+        "d,delta", "Use delta-encoded frames",
+        cxxopts::value<bool>(
+            clargs
+                .delta))("model", "Name of the graph to pebble",
+                         cxxopts::value<std::string>(
+                             clargs
+                                 .model_name))("pebbles",
+                                               "Maximum number of pebbles for "
+                                               "a strategy",
+                                               cxxopts::value<unsigned>(
+                                                   clargs
+                                                       .max_pebbles))("h,help",
+                                                                      "Show "
+                                                                      "usage");
 
     clopt.parse_positional({"model", "pebbles"});
     clopt.positional_help("<model name> <max pebbles>").show_positional_help();
@@ -80,10 +90,12 @@ ArgumentList parse_cl(int argc, char* argv[])
 {
     ArgumentList clargs;
     cxxopts::Options clopt = make_options(argv[0], clargs);
-    try {
+    try
+    {
         auto clresult = clopt.parse(argc, argv);
 
-        if (clresult.count("help")) {
+        if (clresult.count("help"))
+        {
             std::cout << clopt.help() << std::endl;
             exit(0);
         }
@@ -97,7 +109,9 @@ ArgumentList parse_cl(int argc, char* argv[])
             clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
         else
             throw std::invalid_argument("<max pebbles> is required");
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "Error parsing command line arguments" << std::endl
                   << std::endl;
         std::cout << clopt.help() << std::endl;
@@ -123,8 +137,8 @@ int main(int argc, char* argv[])
     ghc::filesystem::path model_file = ghc::filesystem::current_path() /
                                        "benchmark" / "rls" /
                                        (clargs.model_name + ".tfc");
-    const auto [stats_file, strategy_file] =
-        setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.optimize);
+    const auto [stats_file, strategy_file] = setup_in_out(
+        clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
 
     std::cout << "Statistics to: " << stats_file << std::endl;
     std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);

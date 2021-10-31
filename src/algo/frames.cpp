@@ -19,7 +19,6 @@ namespace pdr
     Frames::Frames(bool d, z3::context& c, const PDRModel& m, Logger& l)
         : delta(d), ctx(c), model(m), logger(l), init_solver(ctx)
     {
-        assert(d);
         init_solver.add(model.get_initial());
         base_assertions.push_back(model.property.currents());
         base_assertions.push_back(model.get_transition());
@@ -53,56 +52,45 @@ namespace pdr
                                                      base_assertions, logger));
     }
 
-	void Frames::clean_delta()
+	// prepare frames for a new run:
+	// - possibly define new statistics
+	// - provide new {property, transition, cardinality} to the solvers
+	// then clean all solvers from old assertions
+	void Frames::reset_frames(Statistics& s,
+                              const std::vector<z3::expr_vector>& assertions)
 	{
-		assert(delta);
-		delta_solver->reset();
-
+		if (delta)
+			delta_solver->base_assertions = assertions;
+		
 		for (size_t i = 1; i < frames.size(); i++)
 		{
-			auto& f = frames.at(i);
-			for (const z3::expr_vector& cube : f->get_blocked())
-				delta_solver->block(cube, act.at(i));
+			frames[i]->set_stats(s);
+			if (!delta)
+				solver(i)->base_assertions = assertions;
 		}
+
+		clean_solvers();
 	}
 
-    void Frames::clean_frames(Statistics& s,
-                              const std::vector<z3::expr_vector>& assertions)
+	//reset solvers and repopulate with current blocked cubes
+	void Frames::clean_solvers()
     {
-		for (size_t i = 0; i < frames.size(); i++)
+		for (size_t i = 1; i < frames.size(); i++)
 		{
-			auto& f = frames[0];
+			auto& f = frames[i];
 
-			f->set_stats(s);
-			if (delta && i > 0)
+			if (delta)
 			{
-				delta_solver->base_assertions = assertions;
-				clean_delta();
+				if (i == 1)
+					delta_solver->reset();
+				for (const z3::expr_vector& cube : f->get_blocked())
+					delta_solver->block(cube, act.at(i));
 			}
 			else
 			{
-				solver(i)->base_assertions = assertions;
-				solver(i)->clean_solver();
+				solver(i)->reset(f->get_blocked());
 			}
 		}
-    }
-
-    void Frames::reset_solver(size_t frame)
-    {
-        if (delta && frame > 0)
-        {
-            delta_solver->reset();
-
-            for (const z3::expr_vector& cube : frames.at(frame)->get_blocked())
-            {
-                if (delta)
-                    delta_solver->block(cube, act.at(frame));
-                else
-                    solver(frame)->block(cube);
-            }
-        }
-        else
-            frames.at(frame)->reset_solver();
     }
 
     bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
@@ -178,13 +166,16 @@ namespace pdr
 
         if (delta)
             for (unsigned i = 1; i <= level; i++)
+			{
                 if (frames.at(i)->empty())
                 {
                     std::cout << format("F[{}] \\ F[{}] == 0", i, i + 1)
                               << std::endl;
                     return true;
                 }
-			clean_delta();
+			}
+
+		clean_solvers();
 
         return false;
     }
@@ -205,8 +196,6 @@ namespace pdr
 
     bool Frames::push_forward_fat(unsigned level, bool repeat)
     {
-		frames.at(level)->clean_solver();
-
         std::vector<z3::expr_vector> diff =
             frames.at(level)->diff(*frames.at(level + 1));
         for (const z3::expr_vector& cube : diff)

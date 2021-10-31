@@ -22,19 +22,6 @@ namespace pdr
     {
     }
 
-	// clean up the solver and re-add blocked cubes
-    void Frame::clean_solver()
-    {
-		assert(solver);
-        solver->reset();
-
-        for (const z3::expr_vector& cube : blocked_cubes)
-        {
-            z3::expr clause = z3::mk_or(z3ext::negate(cube));
-            solver->add(clause);
-        }
-    }
-
 	void Frame::set_stats(Statistics& s) 
 	{
 		logger.stats = s;	
