@@ -101,7 +101,7 @@ namespace z3ext
         unsigned largest;
         for (const string& s : strings)
         {
-            if (s.length() > largest || first)
+            if (first || s.length() > largest)
                 largest = s.length();
             first = false;
         }

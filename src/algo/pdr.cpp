@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <fstream>
 #include <functional>
@@ -144,6 +145,33 @@ namespace pdr
         return true;
     }
 
+    // shorthands for logging messages and stats
+    void PDR::log_iteration()
+    {
+        std::cout << "###############" << endl;
+        std::cout << "iterate frame " << k << endl;
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
+    }
+
+    void PDR::log_cti(const z3::expr_vector& cti)
+    {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| cti at frame {}",
+                            logger.tab(), k);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                            str::extend::join(cti));
+    }
+
+    void PDR::log_propagation(unsigned level, double time)
+    {
+        std::string msg = fmt::format("Propagation elapsed {}", time);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
+        std::cout << msg << endl;
+        logger.stats.propagation.add_timed(level, time);
+    }
+
     bool PDR::iterate()
     {
         std::cout << SEP3 << endl;
@@ -152,11 +180,7 @@ namespace pdr
         // I => P and I & T ⇒ P' (from init)
         while (true) // iterate over k, if dynamic this continues from last k
         {
-            std::cout << "iterate frame " << k << endl;
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(),
-                                k);
+            log_iteration();
             assert(k == frames.frontier());
 
             while (true) // exhaust all transitions to !P
@@ -167,19 +191,12 @@ namespace pdr
                 if (witness)
                 {
                     // F_i leads to violation, strengthen
-                    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                                        "{}| cti at frame {}", logger.tab(), k);
-
-                    logger.indent++;
                     auto extract_current = [this](const z3::expr& e)
                     { return model.literals.atom_is_current(e); };
                     z3::expr_vector cti_current =
                         Solver::filter_witness(*witness, extract_current);
 
-                    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]",
-                                        logger.tab(),
-                                        str::extend::join(cti_current));
-                    logger.indent--;
+                    log_cti(cti_current);
 
                     z3::expr_vector core(ctx);
                     int n = highest_inductive_frame(cti_current, (int)k - 1,
@@ -191,41 +208,28 @@ namespace pdr
                     z3::expr_vector smaller_cti = generalize(core, n);
                     frames.remove_state(smaller_cti, n + 1);
 
-                    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block",
-                                        logger.tab());
-
-                    logger.indent++;
                     if (not block(cti_current, n + 1, k))
                         return false;
-                    logger.indent--;
 
-                    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
                     std::cout << endl;
                 }
                 else // no more counter examples
                 {
                     SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                                        "{}| no more counters", logger.tab());
+                                        "{}| no more counters at F_{}",
+                                        logger.tab(), k);
                     break;
                 }
             }
 
-            SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                                "{}| propagate frame {} to {}", logger.tab(), 1,
-                                k);
-            logger.indent++;
-
             frames.extend();
+
             sub_timer.reset();
             bool done = frames.propagate(k);
+            double time = sub_timer.elapsed().count();
+            log_propagation(k, time);
 
-            std::string msg = fmt::format("Propagation elapsed {}", sub_timer);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-            std::cout << msg << endl;
             k++;
-
-            logger.indent--;
-            std::cout << "###############" << endl;
             frames.log_solvers();
 
             if (done)
@@ -233,15 +237,69 @@ namespace pdr
         }
     }
 
+    void PDR::log_top_obligation(size_t queue_size, unsigned top_level, const z3::expr_vector& top)
+    {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| obligations pending: {}",
+                            logger.tab(), queue_size);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation",
+                            logger.tab());
+        logger.indent++;
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(), top_level,
+                            str::extend::join(top));
+        logger.indent--;
+    }
+
+    void PDR::log_pred(const z3::expr_vector& p)
+    {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                            "{}| predecessor:", logger.tab());
+        logger.indent++;
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                            str::extend::join(p));
+        logger.indent--;
+    }
+
+    void PDR::log_state_push(unsigned frame, const z3::expr_vector& p)
+    {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                            "{}| pred is inductive until F_{}", frame - 1,
+                            logger.tab());
+        SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                            "{}| push predecessor to level {}: [{}]",
+                            logger.tab(), frame, str::extend::join(p));
+    }
+
+    void PDR::log_finish(const z3::expr_vector& s)
+    {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state",
+                            logger.tab());
+        logger.indent++;
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                            str::extend::join(s));
+        logger.indent--;
+    }
+
+    void PDR::log_obligation(const std::string& type, unsigned l, double time)
+    {
+        logger.stats.obligations_handled.add_timed(l, time);
+        std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
+        std::cout << msg << endl;
+    }
+
     bool PDR::block(z3::expr_vector& cti, unsigned n, unsigned level)
     {
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block", logger.tab());
+        logger.indent++;
+
         unsigned period = 0;
         std::set<Obligation, std::less<Obligation>> obligations;
         if ((n + 1) <= level)
             obligations.emplace(n + 1, std::move(cti), 0);
 
-        // forall (n, state) in obligations: !state->cube is inductive relative
-        // to F[i-1]
+        // forall (n, state) in obligations: !state->cube is inductive
+        // relative to F[i-1]
         while (obligations.size() > 0)
         {
             sub_timer.reset();
@@ -249,21 +307,12 @@ namespace pdr
             string branch;
 
             auto [n, state, depth] = *(obligations.begin());
-
             assert(n <= level);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                                "{}| obligations pending: {}", logger.tab(),
-                                obligations.size());
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation",
-                                logger.tab());
-            logger.indent++;
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(),
-                                n, str::extend::join(state->cube));
-            logger.indent--;
-
+            log_top_obligation(obligations.size(), n, state->cube);
+            std::cout << "test" << std::endl;
             if (Witness w = frames.counter_to_inductiveness(state->cube, n))
-            { // a !s predecessor found
+            {
+                // get predecessor from the witness
                 auto extract_current = [this](const z3::expr& e)
                 { return model.literals.atom_is_current(e); };
                 z3::expr_vector pred_cube =
@@ -271,16 +320,10 @@ namespace pdr
 
                 std::shared_ptr<State> pred =
                     std::make_shared<State>(pred_cube, state);
+                log_pred(pred->cube);
 
-                SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor found",
-                                    logger.tab());
-                logger.indent++;
-                SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                                    str::extend::join(pred->cube));
-                logger.indent--;
-
+                // state is at least inductive relative to F[n-2]
                 z3::expr_vector core(ctx);
-                // state is inductive relative to F[n-2]
                 int m = highest_inductive_frame(pred->cube, n - 1, level, core);
                 // m in [n-1, level]
                 if (m >= 0)
@@ -290,10 +333,7 @@ namespace pdr
 
                     if (static_cast<unsigned>(m + 1) <= level)
                     {
-                        SPDLOG_LOGGER_TRACE(
-                            logger.spd_logger,
-                            "{}| push predecessor to level {}: [{}]",
-                            logger.tab(), m + 1, str::extend::join(pred->cube));
+                        log_state_push(m + 1, pred->cube);
                         obligations.emplace(m + 1, pred, depth + 1);
                     }
                 }
@@ -307,16 +347,10 @@ namespace pdr
             }
             else
             {
+                log_finish(state->cube);
                 //! s is now inductive to at least F_n
-                SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state",
-                                    logger.tab());
-                logger.indent++;
-                SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                                    str::extend::join(state->cube));
-                logger.indent--;
-
-                z3::expr_vector core(ctx);
                 // see if !state is also inductive relative to some m >= n
+                z3::expr_vector core(ctx);
                 int m =
                     highest_inductive_frame(state->cube, n + 1, level, core);
                 // m in [n-1, level]
@@ -325,21 +359,17 @@ namespace pdr
                 if (m >= 0)
                 {
                     z3::expr_vector smaller_state = generalize(core, m);
-                    // expr_vector smaller_state = generalize(state->cube, m);
+                    // expr_vector smaller_state = generalize(state->cube,
+                    // m);
                     frames.remove_state(smaller_state, m + 1);
                     obligations.erase(
-                        obligations
-                            .begin()); // problem with & structured binding??
+                        obligations.begin()); // problem with & structured
+                                              // binding??
 
-                    if (static_cast<unsigned>(m + 1) <=
-                        level) // push upwards until inductive relative to
-                               // F_level
+                    if (static_cast<unsigned>(m + 1) <= level)
                     {
-                        SPDLOG_LOGGER_TRACE(
-                            logger.spd_logger,
-                            "{}| push state to higher to level {}: [{}]",
-                            logger.tab(), m + 1,
-                            str::extend::join(state->cube));
+                        // push upwards until inductive relative to F_level
+                        log_state_push(m + 1, state->cube);
                         obligations.emplace(m + 1, state, depth);
                     }
                 }
@@ -351,13 +381,10 @@ namespace pdr
                 elapsed = sub_timer.elapsed().count();
                 branch = "(finish)";
             }
-            logger.stats.obligation_done(level, elapsed);
-            SPDLOG_LOGGER_TRACE(logger.spd_logger, "Obligation {} elapsed {}",
-                                branch, elapsed);
-            std::cout << format("Obligation {} elapsed {}", branch, elapsed)
-                      << endl;
-            elapsed = -1.0;
+            log_obligation(branch, level, elapsed);
+			elapsed = -1.0;
 
+            // periodically write stats in case of long runs
             if (period >= 100)
             {
                 period = 0;
@@ -369,6 +396,8 @@ namespace pdr
             else
                 period++;
         }
+
+        logger.indent--;
         return true;
     }
 

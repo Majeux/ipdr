@@ -117,6 +117,15 @@ namespace pdr
         void store_frames();
         void store_frame_strings();
 
+		void log_iteration();
+		void log_cti(const z3::expr_vector& cti);
+		void log_propagation(unsigned level, double time);
+		void log_top_obligation(size_t queue_size, unsigned top_level, const z3::expr_vector& top);
+		void log_pred(const z3::expr_vector& p);
+		void log_state_push(unsigned frame, const z3::expr_vector& p);
+		void log_finish(const z3::expr_vector& s);
+		void log_obligation(const std::string& type, unsigned l, double time);
+
       public:
         // bool dynamic_cardinality = true;
         bool dynamic_cardinality = false;

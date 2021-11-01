@@ -187,6 +187,5 @@ int main(int argc, char* argv[])
 
     results.close();
     stats.close();
-
     return 0;
 }

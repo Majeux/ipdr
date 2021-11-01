@@ -116,7 +116,7 @@ namespace pdr
         {
             // remove all blocked cubes that are equal or weaker than cube
             unsigned n_removed = frames.at(i)->remove_subsumed(cube);
-            logger.stats.subsumed(level, n_removed);
+            logger.stats.subsumed_cubes.add(level, n_removed);
         }
 
         assert(level > 0);
@@ -137,7 +137,7 @@ namespace pdr
         {
             // remove all blocked cubes that are equal or weaker than cube
             unsigned n_removed = frames.at(i)->remove_subsumed(cube);
-            logger.stats.subsumed(level, n_removed);
+            logger.stats.subsumed_cubes.add(level, n_removed);
 
             if (frames.at(i)->block(cube))
             {
@@ -155,6 +155,10 @@ namespace pdr
     {
         assert(level == frontier() - 1); // k == |F|-1
         std::cout << "propagate level " << level << endl;
+		SPDLOG_LOGGER_TRACE(logger.spd_logger,
+							"{}| propagate frame {} to {}", logger.tab(), 1,
+							level);
+		logger.indent++;
 
         for (unsigned i = 1; i <= level; i++)
         {
@@ -176,6 +180,7 @@ namespace pdr
 			}
 
 		clean_solvers();
+		logger.indent--;
 
         return false;
     }
@@ -334,14 +339,11 @@ namespace pdr
         SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| assumps: [ {} ]",
                             logger.tab(),
                             z3ext::join_expr_vec(assumptions, false));
-        // SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| solver: ", logger.tab());
-        // SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}", logger.tab(),
-        //                     solver->as_str());
 
         logger.indent--;
         bool result = solver->SAT(assumptions);
         std::chrono::duration<double> diff(steady_clock::now() - start);
-        logger.stats.solver_call(frontier(), diff.count());
+        logger.stats.solver_calls.add(frontier(), diff.count());
 
         return result;
     }
