@@ -2,6 +2,7 @@ TODO
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
 	- proof/disprove minimal traces (heuristic?)
+	- continue from last known cardinality
 	
 	DELTA
 		- terminates later than original (maybe ok)
