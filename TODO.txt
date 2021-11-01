@@ -1,0 +1,14 @@
+TODO
+	- generalization statistic
+	- some indexing/caching optimization from IC3 git
+	- proof/disprove minimal traces (heuristic?)
+	
+	DELTA
+		- terminates later than original (maybe ok)
+		- slower in some cases (factor 2), see g^xxxxx
+			- Maybe because of extra logging overhead?
+
+	EXPERIMENTS
+		- Determine comparisons to pebbling paper
+		- Compare speed of iterations between --optimize and not
+		- Determine speedup for reusing
