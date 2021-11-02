@@ -140,7 +140,7 @@ namespace parse
 	}
 
 
-	inline dag::Graph parse_file(const std::string& filename, const std::string& graph_name)
+	inline dag::Graph parse_bench(const std::string& filename, const std::string& graph_name)
 	{
 		assert(filename.substr(filename.find_last_of('.')) == ".bench");
 		std::cout << "file: " <<  filename << std::endl;

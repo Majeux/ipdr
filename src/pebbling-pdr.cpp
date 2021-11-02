@@ -132,6 +132,14 @@ int main(int argc, char* argv[])
               << (clargs.delta ? "Using delta-encoded frames." : "")
               << std::endl;
 
+	//bench model
+    // ghc::filesystem::path bench_folder =
+    //     ghc::filesystem::current_path() / "benchmark" / "iscas85" / "bench";
+    // ghc::filesystem::path model_file = ghc::filesystem::current_path() /
+										// "benchmark" / "iscas85" / "bench" /
+    //                                    (clargs.model_name + ".bench");
+
+	//tfc model
     ghc::filesystem::path bench_folder =
         ghc::filesystem::current_path() / "benchmark" / "rls";
     ghc::filesystem::path model_file = ghc::filesystem::current_path() /
@@ -153,6 +161,7 @@ int main(int argc, char* argv[])
     // read input model
     parse::TFCParser parser;
     dag::Graph G = parser.parse_file(model_file, clargs.model_name);
+    // dag::Graph G = parse::parse_bench(model_file, clargs.model_name);
 
     std::cout << "Graph" << std::endl << G;
     G.export_digraph(bench_folder);
@@ -171,19 +180,19 @@ int main(int argc, char* argv[])
     algorithm.stats().model.emplace("outputs", G.output.size());
 
     // run pdr and write output
-    bool strategy = !algorithm.run(clargs.optimize);
-    algorithm.show_results(results);
-    stats << algorithm.stats() << std::endl;
+	while (true)
+	{
+		bool strategy = !algorithm.run(clargs.optimize);
+		algorithm.show_results(results);
+		stats << algorithm.stats() << std::endl;
 
-    if (clargs.optimize && strategy) // decrement and find better strategy
-    {
-        clargs.max_pebbles--;
-        std::cout << "retrying with " << clargs.max_pebbles << std::endl;
-        algorithm.decrement(1);
-        algorithm.run(true);
-        algorithm.show_results(results);
-        stats << algorithm.stats() << std::endl;
-    }
+		if (!clargs.optimize || !strategy)
+			break;
+
+		clargs.max_pebbles--;
+		std::cout << "retrying with " << clargs.max_pebbles << std::endl;
+		algorithm.decrement(1);
+	}
 
     results.close();
     stats.close();

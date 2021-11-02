@@ -231,7 +231,7 @@ namespace pdr
             auto [n, state, depth] = *(obligations.begin());
             assert(n <= level);
             log_top_obligation(obligations.size(), n, state->cube);
-            std::cout << "test" << std::endl;
+
             if (Witness w = frames.counter_to_inductiveness(state->cube, n))
             {
                 // get predecessor from the witness
