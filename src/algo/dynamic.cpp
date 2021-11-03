@@ -19,12 +19,4 @@ namespace pdr
 		//if we are repeating, the last propagation was k-1, repeat this
 		frames.propagate(k-1, true);
 	}
-
-	void PDR::store_frames()
-	{
-		// old_frames = std::move(frames);
-		// frames.clear();
-		std::cout << "Stored old frames for next run" << std::endl;
-	}
-
 }

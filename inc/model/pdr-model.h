@@ -31,6 +31,7 @@ class PDRModel
 		const z3::expr_vector& get_cardinality() const;
 		int get_max_pebbles() const;
 		void set_max_pebbles(int x);
+		int get_f_pebbles() const;
 
 	private:
 		int max_pebbles = -1;

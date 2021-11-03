@@ -19,11 +19,10 @@ namespace pdr
 
         std::string tab() const { return std::string(indent, '\t'); }
 
-        Logger(const std::string& name) : stats()
+        Logger(const std::string& log_file) : stats()
         {
-            string log_file = name + ".log";
             spd_logger =
-                spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
+                spdlog::basic_logger_mt("pdr_logger", log_file);
             spd_logger->set_level(spdlog::level::trace);
             // spdlog::flush_every(std::chrono::seconds(20));
             spdlog::flush_on(spdlog::level::trace);
