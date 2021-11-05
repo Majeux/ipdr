@@ -14,134 +14,125 @@
 
 namespace pdr
 {
-    using fmt::arg;
-    using fmt::format;
-    using std::endl;
-    using std::string;
-    using std::vector;
+  struct Statistic
+  {
+    bool timed;
 
-    struct Statistic
+    Statistic(bool t = false) : timed(t) {}
+
+    unsigned total_count = 0;
+    std::vector<unsigned> count;
+    // optional
+    double total_time = 0;
+    std::vector<double> time;
+
+    void add(size_t i, size_t amount = 1)
     {
-        bool timed;
+      total_count += amount;
 
-        Statistic(bool t = false) : timed(t) {}
+      while (count.size() <= i)
+        count.push_back(0);
 
-        unsigned total_count = 0;
-        vector<unsigned> count;
-        // optional
-        double total_time = 0;
-        vector<double> time;
+      count[i] += amount;
+    }
 
-        void add(size_t i, size_t amount = 1)
-        {
-            total_count += amount;
-
-            while (count.size() <= i)
-                count.push_back(0);
-
-            count[i] += amount;
-        }
-
-        void add_timed(size_t i, double dt)
-        {
-            assert(dt > 0.0);
-            add(i);
-            total_time += dt;
-
-            while (time.size() <= i)
-                time.push_back(0.0);
-            assert(count.size() == time.size());
-
-            time[i] += dt;
-        }
-
-        double avg_time(size_t i) const
-        {
-            if (time.size() <= i)
-                return -1.0;
-            return time[i] / count[i];
-        }
-
-        friend std::ostream& operator<<(std::ostream& out,
-                                        const Statistic& stat)
-        {
-            if (stat.timed)
-                out << "# - total time:  " << stat.total_time << endl;
-            out << "# - total calls: " << stat.total_count << endl;
-
-            if (stat.timed)
-            {
-                for (size_t i = 0; i < stat.time.size(); i++)
-                    out << format(
-                               "# - iter {level:<3} {name:<10}: {state:<20} | "
-                               "avg: {avg}",
-                               arg("level", i), arg("name", "time"),
-                               arg("state", stat.time[i]),
-                               arg("avg", stat.avg_time(i)))
-                        << endl;
-            }
-            for (size_t i = 0; i < stat.count.size(); i++)
-                out << format("# - iter {level:<3} {name:<10}: {state:<20}",
-                              arg("level", i), arg("name", "calls"),
-                              arg("state", stat.count[i]))
-                    << endl;
-            return out << "#";
-        }
-    };
-
-    class Statistics
+    void add_timed(size_t i, double dt)
     {
+      assert(dt > 0.0);
+      add(i);
+      total_time += dt;
 
-      public:
-        Statistic solver_calls;
-        Statistic propagation;
-        Statistic obligations_handled;
+      while (time.size() <= i)
+        time.push_back(0.0);
+      assert(count.size() == time.size());
 
-        Statistic subsumed_cubes;
+      time[i] += dt;
+    }
 
-        double elapsed = -1.0;
-        std::map<string, unsigned> model;
+    double avg_time(size_t i) const
+    {
+      if (time.size() <= i)
+        return -1.0;
+      return time[i] / count[i];
+    }
 
-        Statistics()
-            : solver_calls(true), propagation(true), obligations_handled(true)
-        {
-        }
+    friend std::ostream& operator<<(std::ostream& out, const Statistic& stat)
+    {
+      if (stat.timed)
+        out << "# - total time:  " << stat.total_time << std::endl;
+      out << "# - total calls: " << stat.total_count << std::endl;
 
-        std::string to_string() const
-        {
-            std::stringstream ss;
-            ss << *this << endl;
-            return ss.str();
-        }
+      if (stat.timed)
+      {
+        for (size_t i = 0; i < stat.time.size(); i++)
+          out << fmt::format("# - iter {level:<3} {name:<10}: {state:<20} | "
+                             "avg: {avg}",
+                             fmt::arg("level", i), fmt::arg("name", "time"),
+                             fmt::arg("state", stat.time[i]),
+                             fmt::arg("avg", stat.avg_time(i)))
+              << std::endl;
+      }
+      for (size_t i = 0; i < stat.count.size(); i++)
+        out << fmt::format("# - iter {level:<3} {name:<10}: {state:<20}",
+                           fmt::arg("level", i), fmt::arg("name", "calls"),
+                           fmt::arg("state", stat.count[i]))
+            << std::endl;
+      return out << "#";
+    }
+  };
 
-        friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
-        {
-            out << "Total elapsed time: " << s.elapsed << endl << endl;
+  class Statistics
+  {
 
-            if (!s.model.empty())
-            {
-                out << "Model: " << endl << "--------" << endl;
-                for (auto name_value : s.model)
-                    out << name_value.first << " = " << name_value.second
-                        << endl;
-            }
-            out << endl;
+  public:
+    Statistic solver_calls;
+    Statistic propagation;
+    Statistic obligations_handled;
 
-            string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
-            string frame_line_avg(
-                "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-            out << "######################" << endl
-                << "# Statistics" << endl
-                << "######################" << endl;
+    Statistic subsumed_cubes;
 
-            out << "# Solver" << endl << s.solver_calls << endl;
-            out << "# Obligations" << endl << s.obligations_handled << endl;
-            out << "# Propagation" << endl << s.propagation << endl;
-            out << "# Subsumed clauses" << endl << s.subsumed_cubes << endl;
-            out << "#" << endl;
+    double elapsed = -1.0;
+    std::map<std::string, unsigned> model;
 
-            return out << "######################" << endl;
-        }
-    };
+    Statistics()
+        : solver_calls(true), propagation(true), obligations_handled(true)
+    {
+    }
+
+    std::string to_string() const
+    {
+      std::stringstream ss;
+      ss << *this << std::endl;
+      return ss.str();
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
+    {
+      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
+
+      if (!s.model.empty())
+      {
+        out << "Model: " << std::endl << "--------" << std::endl;
+        for (auto name_value : s.model)
+          out << name_value.first << " = " << name_value.second << std::endl;
+      }
+      out << std::endl;
+
+      std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
+      std::string frame_line_avg(
+          "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
+      out << "######################" << std::endl
+          << "# Statistics" << std::endl
+          << "######################" << std::endl;
+
+      out << "# Solver" << std::endl << s.solver_calls << std::endl;
+      out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
+      out << "# Propagation" << std::endl << s.propagation << std::endl;
+      out << "# Subsumed clauses" << std::endl << s.subsumed_cubes << std::endl;
+      out << "#" << std::endl;
+
+      return out << "######################" << std::endl;
+    }
+  };
 } // namespace pdr
 #endif // STAT

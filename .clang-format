@@ -3,6 +3,7 @@ NamespaceIndentation: All
 IndentWrappedFunctionNames: true
 TabWidth: 2
 IndentWidth: 2
+AccessModifierOffset: -1
 
 BreakBeforeBraces: Allman
 

@@ -154,7 +154,7 @@ namespace pdr
     bool Frames::propagate(unsigned level, bool repeat)
     {
         assert(level == frontier() - 1); // k == |F|-1
-        std::cout << "propagate level " << level << endl;
+        std::cout << "propagate level " << level << std::endl;
 		SPDLOG_LOGGER_TRACE(logger.spd_logger,
 							"{}| propagate frame {} to {}", logger.tab(), 1,
 							level);
@@ -173,7 +173,7 @@ namespace pdr
 			{
                 if (frames.at(i)->empty())
                 {
-                    std::cout << format("F[{}] \\ F[{}] == 0", i, i + 1)
+                    std::cout << fmt::format("F[{}] \\ F[{}] == 0", i, i + 1)
                               << std::endl;
                     return true;
                 }
@@ -194,7 +194,7 @@ namespace pdr
             {
                 if (remove_state(cube, level + 1))
                     if (repeat)
-                        std::cout << "new blocked in repeat" << endl;
+                        std::cout << "new blocked in repeat" << std::endl;
             }
         }
     }
@@ -209,13 +209,13 @@ namespace pdr
             {
                 if (remove_state(cube, level + 1))
                     if (repeat)
-                        std::cout << "new blocked in repeat" << endl;
+                        std::cout << "new blocked in repeat" << std::endl;
             }
         }
 
         if (diff.size() == 0 || frames.at(level)->equals(*frames.at(level + 1)))
         {
-            std::cout << format("F[{}] \\ F[{}] == 0", level, level + 1)
+            std::cout << fmt::format("F[{}] \\ F[{}] == 0", level, level + 1)
                       << std::endl;
             return true;
         }

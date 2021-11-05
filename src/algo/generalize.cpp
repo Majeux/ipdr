@@ -113,7 +113,7 @@ namespace pdr
     }
 
     // state is sorted
-    bool PDR::down(vector<z3::expr>& state, int level)
+    bool PDR::down(std::vector<z3::expr>& state, int level)
     {
         assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
         auto is_current_in_state = [this, &state](const z3::expr& e)
@@ -132,7 +132,7 @@ namespace pdr
             if (Witness w = frames.counter_to_inductiveness(state, level))
             {
                 // intersect the current states from the model with state
-                vector<z3::expr> cti_intersect =
+                std::vector<z3::expr> cti_intersect =
                     Solver::filter_witness_vector(*w, is_current_in_state);
 
                 state = move(cti_intersect);

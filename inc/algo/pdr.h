@@ -11,6 +11,7 @@
 #include <ostream>
 #include <queue>
 #include <spdlog/stopwatch.h>
+#include <string>
 #include <vector>
 #include <z3++.h>
 
@@ -79,11 +80,17 @@ namespace pdr
     unsigned pebbles_used;
     size_t invariant_index;
     double total_time;
+
+    std::vector<std::string> listing() const
+    {
+      return {std::to_string(pebbles_used), std::to_string(invariant_index),
+              std::to_string(total_time)};
+    }
   };
 
   class PDR
   {
-  private:
+   private:
     z3::context& ctx;
     PDRModel& model;
     bool delta; // use a delta encoding for the frames
@@ -92,10 +99,11 @@ namespace pdr
     spdlog::stopwatch sub_timer;
     Logger logger;
 
-    PDResult result;
-
     unsigned k = 0;
     Frames frames;
+
+    std::vector<PDResult> results;
+    PDResult& result;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -114,10 +122,11 @@ namespace pdr
                                 z3::expr_vector& core);
     z3::expr_vector generalize(const z3::expr_vector& cube, int level);
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
-    bool down(vector<z3::expr>& cube, int level);
+    bool down(std::vector<z3::expr>& cube, int level);
     // results
     void store_result();
-    void show_trace(std::ostream& out) const;
+    void show_trace(const std::shared_ptr<State> trace_root,
+                    std::ostream& out) const;
     bool finish(bool);
     void store_frame_strings();
 
@@ -132,11 +141,11 @@ namespace pdr
     void log_finish(const z3::expr_vector& s);
     void log_obligation(const std::string& type, unsigned l, double time);
 
-  public:
+   public:
     // bool dynamic_cardinality = true;
     bool dynamic_cardinality = false;
-    string frames_string = "";
-    string solvers_string = "";
+    std::string frames_string = "";
+    std::string solvers_string = "";
 
     PDR(PDRModel& m, bool d, const std::string& log_file);
     void reset();

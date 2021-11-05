@@ -34,7 +34,7 @@ else ()
 	message("! logging turned off")
 endif (DO_LOG)
 
-target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/testing)
+target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/ext/text-table inc/testing)
 
 target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
 target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
