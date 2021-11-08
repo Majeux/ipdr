@@ -3,6 +3,7 @@ TODO
 	- some indexing/caching optimization from IC3 git
 	- proof/disprove minimal traces (heuristic?)
 	- continue from last known cardinality
+	- get HIF from act variable
 	
 	DELTA
 		- terminates later than original (maybe ok)
