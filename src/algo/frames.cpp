@@ -151,7 +151,7 @@ namespace pdr
         return true;
     }
 
-    bool Frames::propagate(unsigned level, bool repeat)
+    int Frames::propagate(unsigned level, bool repeat)
     {
         assert(level == frontier() - 1); // k == |F|-1
         std::cout << "propagate level " << level << std::endl;
@@ -165,7 +165,7 @@ namespace pdr
             if (delta)
                 push_forward_delta(i, repeat);
             else if (push_forward_fat(i, repeat))
-                return true;
+                return i;
         }
 
         if (delta)
@@ -175,14 +175,14 @@ namespace pdr
                 {
                     std::cout << fmt::format("F[{}] \\ F[{}] == 0", i, i + 1)
                               << std::endl;
-                    return true;
+                    return i;
                 }
 			}
 
 		clean_solvers();
 		logger.indent--;
 
-        return false;
+        return -1;
     }
 
     void Frames::push_forward_delta(unsigned level, bool repeat)
@@ -199,7 +199,7 @@ namespace pdr
         }
     }
 
-    bool Frames::push_forward_fat(unsigned level, bool repeat)
+    int Frames::push_forward_fat(unsigned level, bool repeat)
     {
         std::vector<z3::expr_vector> diff =
             frames.at(level)->diff(*frames.at(level + 1));
@@ -217,10 +217,10 @@ namespace pdr
         {
             std::cout << fmt::format("F[{}] \\ F[{}] == 0", level, level + 1)
                       << std::endl;
-            return true;
+            return level;
         }
 
-        return false;
+        return -1;
     }
     //
     // end frame interface

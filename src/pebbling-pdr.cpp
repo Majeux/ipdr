@@ -181,7 +181,6 @@ int main(int argc, char* argv[])
   while (true)
   {
     bool strategy = !algorithm.run(clargs.optimize);
-    algorithm.show_results(results);
     stats << algorithm.stats() << std::endl;
 
     if (!clargs.optimize || !strategy)
@@ -189,8 +188,10 @@ int main(int argc, char* argv[])
 
     clargs.max_pebbles--;
     std::cout << "retrying with " << clargs.max_pebbles << std::endl;
-    algorithm.decrement(1);
+    if (algorithm.decrement(1))
+		break;
   }
+    algorithm.show_results(results);
 
   results.close();
   stats.close();

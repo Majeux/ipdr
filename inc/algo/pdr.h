@@ -77,20 +77,21 @@ namespace pdr
   {
     std::shared_ptr<State> trace;
     std::string trace_string;
-    unsigned pebbles_used;
-    size_t invariant_index;
+    unsigned trace_length;
+    int pebbles_used;
+    int invariant_index;
     double total_time;
 
     PDResult()
-        : trace(nullptr), trace_string(""), pebbles_used(0), invariant_index(0),
-          total_time(0.0)
+        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(-1),
+          invariant_index(-1), total_time(0.0)
     {
     }
 
     std::vector<std::string> listing() const
     {
       return {std::to_string(pebbles_used), std::to_string(invariant_index),
-              std::to_string(total_time)};
+              std::to_string(trace_length), std::to_string(total_time)};
     }
   };
 
@@ -109,7 +110,7 @@ namespace pdr
     Frames frames;
 
     std::vector<PDResult> results;
-    PDResult& result;
+    PDResult& result();
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -157,7 +158,7 @@ namespace pdr
     void reset();
     bool run(bool optimize = false);
     void show_results(std::ostream& out = std::cout) const;
-    void decrement(int x);
+    bool decrement(int x);
 
     Statistics& stats();
   };

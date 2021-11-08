@@ -24,14 +24,14 @@ namespace pdr
 {
   PDR::PDR(PDRModel& m, bool d, const std::string& log_file)
       : ctx(m.ctx), model(m), delta(d), logger(log_file),
-        frames(delta, ctx, m, logger), results(1), result(results[0])
+        frames(delta, ctx, m, logger), results(1)
   {
   }
 
   void PDR::reset()
   {
     logger.indent = 0;
-    result.trace.reset();
+    result().trace.reset();
     logger.stats = Statistics();
     frames_string = "None";
     solvers_string = "None";
@@ -93,13 +93,14 @@ namespace pdr
   {
     double final_time = timer.elapsed().count();
     log_and_show(fmt::format("Total elapsed time {}", final_time));
+	result().total_time = final_time;
     logger.stats.elapsed = final_time;
     store_result();
     store_frame_strings();
     if (dynamic_cardinality)
     {
       results.push_back(PDResult());
-      result = results.back();
+      result() = results.back();
     }
 
     return rv;
@@ -118,7 +119,7 @@ namespace pdr
       z3::model counter = frames.solver(0)->get_model();
       print_model(counter);
       // TODO TRACE
-      result.trace = std::make_shared<State>(model.get_initial());
+      result().trace = std::make_shared<State>(model.get_initial());
       return false;
     }
 
@@ -130,7 +131,7 @@ namespace pdr
       z3::expr_vector bad_cube =
           Solver::filter_witness(witness, [this](const z3::expr& e)
                                  { return model.literals.atom_is_current(e); });
-      result.trace = std::make_shared<State>(bad_cube);
+      result().trace = std::make_shared<State>(bad_cube);
 
       return false;
     }
@@ -193,15 +194,18 @@ namespace pdr
       frames.extend();
 
       sub_timer.reset();
-      bool done = frames.propagate(k);
+      int invariant = frames.propagate(k);
       double time = sub_timer.elapsed().count();
       log_propagation(k, time);
 
       k++;
       frames.log_solvers();
 
-      if (done)
+      if (invariant >= 0)
+	  {
+		result().invariant_index = invariant;
         return true;
+	  }
     }
   }
 
@@ -254,7 +258,7 @@ namespace pdr
         }
         else // intersects with I
         {
-          result.trace = pred;
+          result().trace = pred;
           return false;
         }
         elapsed = sub_timer.elapsed().count();
@@ -286,7 +290,7 @@ namespace pdr
         }
         else
         {
-          result.trace = state;
+          result().trace = state;
           return false;
         }
         elapsed = sub_timer.elapsed().count();
@@ -311,6 +315,8 @@ namespace pdr
     return true;
   }
 
+  PDResult& PDR::result() { return results.back(); }
+
   void PDR::store_frame_strings()
   {
     std::stringstream ss;
@@ -334,13 +340,14 @@ namespace pdr
     t.setAlignment(0, TextTable::Alignment::RIGHT);
     t.setAlignment(1, TextTable::Alignment::RIGHT);
     t.setAlignment(2, TextTable::Alignment::RIGHT);
+    t.setAlignment(3, TextTable::Alignment::RIGHT);
 
     out << fmt::format("Pebbling strategies for {}:", model.name) << std::endl
         << std::endl;
     out << SEP2 << std::endl;
 
     std::vector<std::string> header = {"pebbles", "invariant index",
-                                       "strategy length"};
+                                       "strategy length", "Total time"};
     t.addRow(header);
     for (const PDResult& res : results)
       t.addRow(res.listing());
@@ -380,12 +387,12 @@ namespace pdr
   void PDR::store_result()
   {
     std::stringstream ss("Strategy:\n");
-    result.pebbles_used = 0;
-    result.trace_string = "";
+    result().pebbles_used = 0;
+    result().trace_string = "";
 
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
-    std::shared_ptr<State> current = result.trace;
+    std::shared_ptr<State> current = result().trace;
     auto count_pebbled = [](const z3::expr_vector& vec)
     {
       unsigned count = 0;
@@ -400,11 +407,12 @@ namespace pdr
     while (current)
     {
       i++;
-      unsigned pebbles = count_pebbled(current->cube);
-      result.pebbles_used = std::max(result.pebbles_used, pebbles);
+      int pebbles = count_pebbled(current->cube);
+      result().pebbles_used = std::max(result().pebbles_used, pebbles);
       steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
       current = current->prev;
     }
+	result().trace_length = i+1;
     unsigned i_padding = i / 10 + 1;
 
     std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
@@ -418,7 +426,7 @@ namespace pdr
     ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
        << std::endl;
 
-    result.trace_string = ss.str();
+    result().trace_string = ss.str();
   }
 
   void PDR::show_trace(const std::shared_ptr<State> trace_root, std::ostream& out) const

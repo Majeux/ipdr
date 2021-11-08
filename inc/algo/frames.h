@@ -47,9 +47,9 @@ namespace pdr
         bool remove_state(const z3::expr_vector& cube, size_t level);
         bool delta_remove_state(const z3::expr_vector& cube, size_t level);
         bool fat_remove_state(const z3::expr_vector& cube, size_t level);
-        bool propagate(unsigned level, bool repeat = false);
+        int propagate(unsigned level, bool repeat = false);
         void push_forward_delta(unsigned level, bool repeat = false);
-        bool push_forward_fat(unsigned level, bool repeat = false);
+        int push_forward_fat(unsigned level, bool repeat = false);
 
         // queries
         //
