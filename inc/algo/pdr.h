@@ -81,6 +81,12 @@ namespace pdr
     size_t invariant_index;
     double total_time;
 
+    PDResult()
+        : trace(nullptr), trace_string(""), pebbles_used(0), invariant_index(0),
+          total_time(0.0)
+    {
+    }
+
     std::vector<std::string> listing() const
     {
       return {std::to_string(pebbles_used), std::to_string(invariant_index),

@@ -24,14 +24,14 @@ namespace pdr
 {
   PDR::PDR(PDRModel& m, bool d, const std::string& log_file)
       : ctx(m.ctx), model(m), delta(d), logger(log_file),
-        frames(delta, ctx, m, logger), results(1), result(results[1])
+        frames(delta, ctx, m, logger), results(1), result(results[0])
   {
   }
 
   void PDR::reset()
   {
     logger.indent = 0;
-    result.trace = std::shared_ptr<State>();
+    result.trace.reset();
     logger.stats = Statistics();
     frames_string = "None";
     solvers_string = "None";
