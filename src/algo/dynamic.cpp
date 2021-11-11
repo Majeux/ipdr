@@ -5,13 +5,16 @@
 
 namespace pdr
 {
-  bool PDR::decrement(int x)
+  bool PDR::decrement()
   {
     int max_pebbles = model.get_max_pebbles();
-    assert(x < max_pebbles);
+    assert(shortest_strategy > 0);
+    int new_pebbles = shortest_strategy - 1;
+    assert(new_pebbles < max_pebbles);
 
-    model.set_max_pebbles(max_pebbles - x);
-    frames.reset_frames(logger.stats, // TODO separate staistics from dyn runs
+    model.set_max_pebbles(new_pebbles);
+    // TODO separate staistics from dyn runs
+    frames.reset_frames(logger.stats,
                         {model.property.currents(), model.get_transition(),
                          model.get_cardinality()});
 

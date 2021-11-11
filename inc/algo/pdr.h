@@ -7,6 +7,7 @@
 #include "stats.h"
 #include "z3-ext.h"
 
+#include <climits>
 #include <memory>
 #include <ostream>
 #include <queue>
@@ -111,6 +112,7 @@ namespace pdr
 
     std::vector<PDResult> results;
     PDResult& result();
+	unsigned shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -158,7 +160,7 @@ namespace pdr
     void reset();
     bool run(bool optimize = false);
     void show_results(std::ostream& out = std::cout) const;
-    bool decrement(int x);
+    bool decrement();
 
     Statistics& stats();
   };

@@ -35,6 +35,7 @@ namespace pdr
     logger.stats = Statistics();
     frames_string = "None";
     solvers_string = "None";
+	shortest_strategy = UINT_MAX;
   }
 
   void PDR::print_model(const z3::model& m)
@@ -99,6 +100,7 @@ namespace pdr
     store_frame_strings();
     if (dynamic_cardinality)
     {
+	  shortest_strategy = result().pebbles_used;
       results.push_back(PDResult());
       result() = results.back();
     }

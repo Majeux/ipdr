@@ -4,6 +4,7 @@
 #include "pdr-model.h"
 #include "pdr.h"
 
+#include <cassert>
 #include <cstring>
 #include <cxxopts.hpp>
 #include <exception>
@@ -178,20 +179,28 @@ int main(int argc, char* argv[])
   algorithm.stats().model.emplace("outputs", G.output.size());
 
   // run pdr and write output
-  while (true)
+  if (clargs.optimize)
   {
-    bool strategy = !algorithm.run(clargs.optimize);
-    stats << algorithm.stats() << std::endl;
+	  while (true)
+	  {
+		bool strategy = !algorithm.run(clargs.optimize);
+		stats << algorithm.stats() << std::endl;
 
-    if (!clargs.optimize || !strategy)
-      break;
+		if (!clargs.optimize || !strategy)
+		  break;
 
-    clargs.max_pebbles--;
-    std::cout << "retrying with " << clargs.max_pebbles << std::endl;
-    if (algorithm.decrement(1))
-		break;
+		clargs.max_pebbles--;
+		std::cout << "retrying with " << clargs.max_pebbles << std::endl;
+		if (algorithm.decrement())
+			break;
+	  }
+	  algorithm.show_results(results);
   }
-    algorithm.show_results(results);
+  else
+  {
+	//TODO multiple normal runs from comparision
+	assert(false && "//TODO multiple normal runs from comparision");
+  }
 
   results.close();
   stats.close();

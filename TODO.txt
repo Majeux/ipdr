@@ -6,6 +6,7 @@ TODO
 	- get HIF from act variable
 	- doubles and not deleted clauses in final solver output
 	- remember queue between iterations??
+	- tseitin transition
 	
 	DELTA
 		- terminates later than original (maybe ok)
