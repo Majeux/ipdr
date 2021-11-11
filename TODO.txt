@@ -5,6 +5,7 @@ TODO
 	- continue from last known cardinality
 	- get HIF from act variable
 	- doubles and not deleted clauses in final solver output
+	- remember queue between iterations??
 	
 	DELTA
 		- terminates later than original (maybe ok)
