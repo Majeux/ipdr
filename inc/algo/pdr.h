@@ -105,14 +105,14 @@ namespace pdr
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
-    Logger logger;
+    Logger& logger;
 
     unsigned k = 0;
     Frames frames;
 
     std::vector<PDResult> results;
     PDResult& result();
-	unsigned shortest_strategy;
+    int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -156,13 +156,14 @@ namespace pdr
     std::string frames_string = "";
     std::string solvers_string = "";
 
-    PDR(PDRModel& m, bool d, const std::string& log_file);
+    PDR(PDRModel& m, bool d, Logger& l);
     void reset();
     bool run(bool optimize = false);
     void show_results(std::ostream& out = std::cout) const;
-    bool decrement();
+    bool decrement(bool reuse = false);
 
     Statistics& stats();
+    int length_shortest_strategy() const;
   };
 } // namespace pdr
 #endif // PDR_ALG

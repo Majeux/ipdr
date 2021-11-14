@@ -22,8 +22,8 @@
 
 namespace pdr
 {
-  PDR::PDR(PDRModel& m, bool d, const std::string& log_file)
-      : ctx(m.ctx), model(m), delta(d), logger(log_file),
+  PDR::PDR(PDRModel& m, bool d, Logger& l)
+      : ctx(m.ctx), model(m), delta(d), logger(l),
         frames(delta, ctx, m, logger), results(1)
   {
   }
@@ -32,10 +32,9 @@ namespace pdr
   {
     logger.indent = 0;
     result().trace.reset();
-    logger.stats = Statistics();
     frames_string = "None";
     solvers_string = "None";
-	shortest_strategy = UINT_MAX;
+    shortest_strategy = UINT_MAX;
   }
 
   void PDR::print_model(const z3::model& m)
@@ -49,7 +48,6 @@ namespace pdr
   bool PDR::run(bool optimize)
   {
     dynamic_cardinality = optimize;
-    reset();
     timer.reset();
 
     assert(k == frames.frontier());
@@ -94,13 +92,14 @@ namespace pdr
   {
     double final_time = timer.elapsed().count();
     log_and_show(fmt::format("Total elapsed time {}", final_time));
-	result().total_time = final_time;
+    result().total_time = final_time;
     logger.stats.elapsed = final_time;
     store_result();
     store_frame_strings();
+
+    shortest_strategy = result().pebbles_used;
     if (dynamic_cardinality)
     {
-	  shortest_strategy = result().pebbles_used;
       results.push_back(PDResult());
       result() = results.back();
     }
@@ -155,17 +154,16 @@ namespace pdr
     {
       log_iteration();
       assert(k == frames.frontier());
-
-      while (true) // exhaust all transitions to !P
+      // exhaust all counters to the inductiveness of !P
+      while (Witness cti =
+                 frames.get_trans_from_to(k, model.n_property.nexts(), true))
       {
-        Witness witness =
-            frames.get_trans_from_to(k, model.n_property.nexts(), true);
 
-        if (witness)
+        if (cti)
         {
           // F_i leads to violation, strengthen
           z3::expr_vector cti_current = Solver::filter_witness(
-              *witness, [this](const z3::expr& e)
+              *cti, [this](const z3::expr& e)
               { return model.literals.atom_is_current(e); });
 
           log_cti(cti_current);
@@ -204,10 +202,10 @@ namespace pdr
       frames.log_solvers();
 
       if (invariant >= 0)
-	  {
-		result().invariant_index = invariant;
+      {
+        result().invariant_index = invariant;
         return true;
-	  }
+      }
     }
   }
 
@@ -302,6 +300,7 @@ namespace pdr
       elapsed = -1.0;
 
       // periodically write stats in case of long runs
+      /*
       if (period >= 100)
       {
         period = 0;
@@ -311,6 +310,7 @@ namespace pdr
       }
       else
         period++;
+      */
     }
 
     logger.indent--;
@@ -414,7 +414,7 @@ namespace pdr
       steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
       current = current->prev;
     }
-	result().trace_length = i+1;
+    result().trace_length = i + 1;
     unsigned i_padding = i / 10 + 1;
 
     std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
@@ -431,7 +431,8 @@ namespace pdr
     result().trace_string = ss.str();
   }
 
-  void PDR::show_trace(const std::shared_ptr<State> trace_root, std::ostream& out) const
+  void PDR::show_trace(const std::shared_ptr<State> trace_root,
+                       std::ostream& out) const
   {
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
@@ -457,20 +458,21 @@ namespace pdr
     unsigned i_padding = i / 10 + 1;
 
     out << fmt::format("{:>{}} |\t [ {} ]", 'I', i_padding,
-                  z3ext::join_expr_vec(model.get_initial()))
+                       z3ext::join_expr_vec(model.get_initial()))
         << std::endl;
 
     for (const auto& [num, vec, count] : steps)
-      out << fmt::format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding, vec,
-                    count)
+      out << fmt::format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding,
+                         vec, count)
           << std::endl;
 
     out << fmt::format("{:>{}} |\t [ {} ]", 'F', i_padding,
-                  z3ext::join_expr_vec(model.n_property.currents()))
+                       z3ext::join_expr_vec(model.n_property.currents()))
         << std::endl;
   }
 
   Statistics& PDR::stats() { return logger.stats; }
+  int PDR::length_shortest_strategy() const { return shortest_strategy; }
 
   // LOGGING AND STAT COLLECTION SHORTHANDS
   //
@@ -503,7 +505,7 @@ namespace pdr
     std::string msg = fmt::format("Propagation elapsed {}", time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
     std::cout << msg << std::endl;
-    logger.stats.propagation.add_timed(level, time);
+    logger.stats.propagation_it.add_timed(level, time);
   }
 
   void PDR::log_top_obligation(size_t queue_size, unsigned top_level,

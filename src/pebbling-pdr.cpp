@@ -71,15 +71,22 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                "amount of pebbles through PDR");
   clargs.optimize = clargs.delta = false;
-  clopt.add_options()
-    ("o, optimize", "Multiple runs that find a strategy with minimum pebbles",
-      cxxopts::value<bool>(clargs.optimize))
-	("d, delta", "Use delta-encoded frames", cxxopts::value<bool>(clargs.delta))
-	("model", "Name of the graph to pebble",
-	  cxxopts::value<std::string>(clargs.model_name))
-	("pebbles", "Maximum number of pebbles for a strategy",
-      cxxopts::value<unsigned>(clargs.max_pebbles))
-	("h,help", "Show usage");	
+  clopt.add_options()("o, optimize",
+                      "Multiple runs that find a strategy with minimum pebbles",
+                      cxxopts::value<bool>(clargs.optimize))(
+      "d, delta", "Use delta-encoded frames",
+      cxxopts::value<bool>(
+          clargs.delta))("model", "Name of the graph to pebble",
+                         cxxopts::value<std::string>(
+                             clargs
+                                 .model_name))("pebbles",
+                                               "Maximum number of pebbles for "
+                                               "a strategy",
+                                               cxxopts::value<unsigned>(
+                                                   clargs
+                                                       .max_pebbles))("h,help",
+                                                                      "Show "
+                                                                      "usage");
 
   clopt.parse_positional({"model", "pebbles"});
   clopt.positional_help("<model name> <max pebbles>").show_positional_help();
@@ -173,36 +180,54 @@ int main(int argc, char* argv[])
   // create model from DAG graph and set up algorithm
   PDRModel model(settings);
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
-  pdr::PDR algorithm(model, clargs.delta, log_file);
-  algorithm.stats().model.emplace("nodes", G.nodes.size());
-  algorithm.stats().model.emplace("edges", G.edges.size());
-  algorithm.stats().model.emplace("outputs", G.output.size());
+
+  // initialize logger and other bookkeeping
+  pdr::Logger pdr_logger(log_file);
+  pdr_logger.stats.model.emplace("nodes", G.nodes.size());
+  pdr_logger.stats.model.emplace("edges", G.edges.size());
+  pdr_logger.stats.model.emplace("outputs", G.output.size());
 
   // run pdr and write output
   if (clargs.optimize)
   {
-	  while (true)
-	  {
-		bool strategy = !algorithm.run(clargs.optimize);
-		stats << algorithm.stats() << std::endl;
+    pdr::PDR algorithm(model, clargs.delta, pdr_logger);
 
-		if (!clargs.optimize || !strategy)
-		  break;
+    while (true)
+    {
+      bool strategy = !algorithm.run(clargs.optimize);
+      stats << pdr_logger.stats << std::endl;
 
-		clargs.max_pebbles--;
-		std::cout << "retrying with " << clargs.max_pebbles << std::endl;
-		if (algorithm.decrement())
-			break;
-	  }
-	  algorithm.show_results(results);
+      if (!strategy)
+        break;
+
+      clargs.max_pebbles--;
+      if (algorithm.decrement(true))
+        break;
+      algorithm.reset();
+    }
+    algorithm.show_results(results);
   }
   else
   {
-	//TODO multiple normal runs from comparision
-	assert(false && "//TODO multiple normal runs from comparision");
+    // TODO multiple normal runs from comparision
+    while (true)
+    {
+      pdr::PDR algorithm(model, clargs.delta, pdr_logger);
+      bool strategy = !algorithm.run(clargs.optimize);
+      stats << pdr_logger.stats << std::endl;
+
+      if (!strategy)
+      {
+        algorithm.show_results(results);
+        break;
+      }
+      algorithm.decrement(false);
+    }
   }
 
   results.close();
   stats.close();
   return 0;
 }
+
+

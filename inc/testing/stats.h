@@ -38,6 +38,7 @@ namespace pdr
 
     void add_timed(size_t i, double dt)
     {
+      assert(timed);
       assert(dt > 0.0);
       add(i);
       total_time += dt;
@@ -60,33 +61,37 @@ namespace pdr
     {
       if (stat.timed)
         out << "# - total time:  " << stat.total_time << std::endl;
-      out << "# - total calls: " << stat.total_count << std::endl;
+      out << "# - total count: " << stat.total_count << std::endl;
 
       if (stat.timed)
       {
         for (size_t i = 0; i < stat.time.size(); i++)
-          out << fmt::format("# - iter {level:<3} {name:<10}: {state:<20} | "
+        {
+          out << fmt::format("# - i={level:<3} {name:<10}: {state:<20} | "
                              "avg: {avg}",
                              fmt::arg("level", i), fmt::arg("name", "time"),
                              fmt::arg("state", stat.time[i]),
                              fmt::arg("avg", stat.avg_time(i)))
               << std::endl;
+        }
+        out << "-" << std::endl;
       }
       for (size_t i = 0; i < stat.count.size(); i++)
-        out << fmt::format("# - iter {level:<3} {name:<10}: {state:<20}",
+        out << fmt::format("# - i={level:<3} {name:<10}: {state:<20}",
                            fmt::arg("level", i), fmt::arg("name", "calls"),
                            fmt::arg("state", stat.count[i]))
             << std::endl;
-      return out << "#";
+      return out << "###";
     }
   };
 
   class Statistics
   {
 
-  public:
+   public:
     Statistic solver_calls;
-    Statistic propagation;
+    Statistic propagation_it;
+    Statistic propagation_level;
     Statistic obligations_handled;
 
     Statistic subsumed_cubes;
@@ -95,7 +100,8 @@ namespace pdr
     std::map<std::string, unsigned> model;
 
     Statistics()
-        : solver_calls(true), propagation(true), obligations_handled(true)
+        : solver_calls(true), propagation_it(true), propagation_level(true),
+          obligations_handled(true), subsumed_cubes(false)
     {
     }
 
@@ -108,14 +114,16 @@ namespace pdr
 
     friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
     {
-      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
-
+      assert(!s.model.empty());
       if (!s.model.empty())
       {
         out << "Model: " << std::endl << "--------" << std::endl;
         for (auto name_value : s.model)
-          out << name_value.first << " = " << name_value.second << std::endl;
+          out << name_value.first << " = " << name_value.second << ", ";
+        std::cout << std::endl;
       }
+      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
+
       out << std::endl;
 
       std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
@@ -127,7 +135,10 @@ namespace pdr
 
       out << "# Solver" << std::endl << s.solver_calls << std::endl;
       out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
-      out << "# Propagation" << std::endl << s.propagation << std::endl;
+      out << "# Propagation per iteration" << std::endl
+          << s.propagation_it << std::endl;
+      out << "# Propagation per level" << std::endl
+          << s.propagation_level << std::endl;
       out << "# Subsumed clauses" << std::endl << s.subsumed_cubes << std::endl;
       out << "#" << std::endl;
 
