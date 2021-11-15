@@ -13,6 +13,8 @@ namespace pdr
     assert(new_pebbles < max_pebbles);
 
     model.set_max_pebbles(new_pebbles);
+	reset();
+	results.extend();
     std::cout << "retrying with " << new_pebbles << std::endl;
     if (!reuse)
       return false;

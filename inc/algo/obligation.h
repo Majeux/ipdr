@@ -1,8 +1,11 @@
 #ifndef PDR_OBL
 #define PDR_OBL
 
+#include "TextTable.h"
 #include "z3-ext.h"
 #include <fmt/format.h>
+#include <string>
+#include <vector>
 #include <z3++.h>
 
 namespace pdr
@@ -26,7 +29,7 @@ namespace pdr
     {
     }
 
-    unsigned show(std::ostream& out) const
+    unsigned show(TextTable& table) const
     {
       std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
@@ -55,7 +58,11 @@ namespace pdr
 
       std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
       for (const auto& [num, vec, count] : steps)
-        out << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
+      {
+        std::vector<std::string> step_row = {std::to_string(num), vec,
+                                             std::to_string(count)};
+        table.addRow(step_row);
+      }
 
       return i_padding;
     }

@@ -69,22 +69,29 @@ namespace pdr
         {
           out << fmt::format("Strategy for {} pebbles", res.pebbles_used)
               << std::endl;
-          out << fmt::format("Target: [ {} ]", model.n_property.currents())
+          out << fmt::format("Target: [ {} ]",
+                             z3ext::join_expr_vec(model.n_property.currents()))
               << std::endl
               << std::endl;
 
           std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
           std::string initial = z3ext::join_expr_vec(model.get_initial());
           std::string final = z3ext::join_expr_vec(model.n_property.currents());
-          std::stringstream ss;
-          unsigned padding = res.trace->show(ss);
 
-          out << "Trace:" << std::endl
-              << fmt::format(line_form, 'I', padding, initial, 0) << std::endl
-              << ss.str()
-              << fmt::format(line_form, 'F', padding, final,
-                             model.get_f_pebbles())
-              << std::endl;
+          TextTable trace_table;
+          trace_table.setAlignment(0, TextTable::Alignment::RIGHT);
+          trace_table.setAlignment(1, TextTable::Alignment::RIGHT);
+          trace_table.setAlignment(2, TextTable::Alignment::RIGHT);
+
+          std::vector<std::string> header = {"step", "state", "No. pebbled"};
+          trace_table.addRow(header);
+          std::vector<std::string> I_row = {"I", initial, "0"};
+          std::vector<std::string> F_row = {
+              "F", final, std::to_string(model.get_max_pebbles())};
+          trace_table.addRow(I_row);
+          res.trace->show(trace_table);
+          trace_table.addRow(F_row);
+          out << "Trace:" << std::endl << trace_table << std::endl;
         }
         else
         {

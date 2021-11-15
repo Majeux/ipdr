@@ -25,25 +25,27 @@
 // "{model}-{n pebbles}[_opt?][_delta?]"
 std::string file_name(const std::string& name, unsigned n, bool opt, bool delta)
 {
-  return fmt::format("{}-{}pebbles{}{}.strategy", name, n, opt ? "_opt" : "",
+  return fmt::format("{}-{}pebbles{}{}", name, n, opt ? "_opt" : "",
                      delta ? "_delta" : "");
 }
 
+std::string folder_name(unsigned n, bool opt, bool delta)
+{
+  return fmt::format("{}{}{}", n, opt ? "-opt" : "", delta ? "-delta" : "");
+}
+
 // ensure proper folders exist and create file names for In and Output
-std::tuple<std::string, std::string, std::string>
+std::tuple<std::string, std::string, std::string, std::string>
     setup_in_out(const std::string& model_name, unsigned n_pebbles,
                  bool optimize, bool delta)
 {
   ghc::filesystem::path results_folder =
-      ghc::filesystem::current_path() / "results";
-  ghc::filesystem::path stats_folder =
-      ghc::filesystem::current_path() / "stats";
-  ghc::filesystem::path log_folder = ghc::filesystem::current_path() / "logs";
+      ghc::filesystem::current_path() / "output";
 
+  std::string opts = folder_name(n_pebbles, optimize, delta);
   ghc::filesystem::create_directory(results_folder);
   ghc::filesystem::create_directory(results_folder / model_name);
-  ghc::filesystem::create_directory(stats_folder);
-  ghc::filesystem::create_directory(stats_folder / model_name);
+  ghc::filesystem::create_directory(results_folder / model_name / opts);
 
   std::string stats_file =
       file_name(model_name, n_pebbles, optimize, delta) + ".stats";
@@ -52,9 +54,11 @@ std::tuple<std::string, std::string, std::string>
   std::string log_file =
       file_name(model_name, n_pebbles, optimize, delta) + ".log";
 
-  return std::make_tuple((stats_folder / model_name / stats_file).string(),
-                         (results_folder / model_name / strategy_file).string(),
-                         (log_folder / model_name / log_file).string());
+  return std::make_tuple(
+      (results_folder / model_name / opts / stats_file).string(),
+      (results_folder / model_name / opts / strategy_file).string(),
+      (results_folder / model_name / opts / log_file).string(),
+      (results_folder / model_name / opts / "solver_dump.solver").string());
 }
 
 struct ArgumentList
@@ -76,18 +80,14 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
                       "Multiple runs that find a strategy with minimum pebbles",
                       cxxopts::value<bool>(clargs.optimize))(
       "d, delta", "Use delta-encoded frames",
-      cxxopts::value<bool>(
-          clargs.delta))("model", "Name of the graph to pebble",
-                         cxxopts::value<std::string>(
-                             clargs
-                                 .model_name))("pebbles",
-                                               "Maximum number of pebbles for "
-                                               "a strategy",
-                                               cxxopts::value<unsigned>(
-                                                   clargs
-                                                       .max_pebbles))("h,help",
-                                                                      "Show "
-                                                                      "usage");
+      cxxopts::value<bool>(clargs.delta))(
+      "model", "Name of the graph to pebble",
+      cxxopts::value<std::string>(clargs.model_name))(
+      "pebbles",
+      "Maximum number of pebbles for "
+      "a strategy",
+      cxxopts::value<unsigned>(clargs.max_pebbles))("h,help", "Show "
+                                                              "usage");
 
   clopt.parse_positional({"model", "pebbles"});
   clopt.positional_help("<model name> <max pebbles>").show_positional_help();
@@ -153,14 +153,15 @@ int main(int argc, char* argv[])
   ghc::filesystem::path model_file = ghc::filesystem::current_path() /
                                      "benchmark" / "rls" /
                                      (clargs.model_name + ".tfc");
-  const auto [stats_file, strategy_file, log_file] = setup_in_out(
+  const auto [stats_file, strategy_file, log_file, solver_file] = setup_in_out(
       clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
 
   std::cout << "Statistics to: " << stats_file << std::endl;
   std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
-
   std::cout << "Result to: " << strategy_file << std::endl;
   std::fstream results(strategy_file, std::fstream::out | std::fstream::trunc);
+  std::cout << "Solver to: " << strategy_file << std::endl;
+  std::fstream solver_dump(solver_file, std::fstream::out | std::fstream::trunc);
 
   assert(stats.is_open());
   assert(results.is_open());
@@ -199,17 +200,17 @@ int main(int argc, char* argv[])
     while (true)
     {
       bool strategy = !algorithm.run(clargs.optimize);
+      stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
       if (!strategy)
         break;
 
-      clargs.max_pebbles--;
       if (algorithm.decrement(true))
         break;
-      algorithm.reset();
     }
     algorithm.show_results(results);
+	algorithm.show_solver(solver_dump, clargs.max_pebbles);
   }
   else
   {
@@ -218,8 +219,10 @@ int main(int argc, char* argv[])
     {
       pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
       bool strategy = !algorithm.run(clargs.optimize);
+      stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
+	  algorithm.show_solver(solver_dump, model.get_max_pebbles());
       if (!strategy)
       {
         algorithm.show_results(results);
@@ -233,5 +236,3 @@ int main(int argc, char* argv[])
   stats.close();
   return 0;
 }
-
-

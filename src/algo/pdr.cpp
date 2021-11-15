@@ -1,6 +1,6 @@
 #include "pdr.h"
-#include "output.h"
 #include "TextTable.h"
+#include "output.h"
 #include "solver.h"
 #include "stats.h"
 #include "string-ext.h"
@@ -32,6 +32,7 @@ namespace pdr
   void PDR::reset()
   {
     logger.indent = 0;
+	//trace is already converted into string, discard states
     results.current().trace.reset();
     frames_string = "None";
     solvers_string = "None";
@@ -52,16 +53,12 @@ namespace pdr
     timer.reset();
 
     assert(k == frames.frontier());
+	log_start();
 
     bool failed = false;
-    std::cout << std::endl;
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "");
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
-    log_and_show("PDR start:");
-
     if (!optimize || k == 0)
     {
-      SPDLOG_LOGGER_INFO(logger.spd_logger, "Start initiation");
+      log_and_show("Start initiation");
       logger.indent++;
       failed = !init();
       logger.indent--;
@@ -72,9 +69,9 @@ namespace pdr
       log_and_show("Failed initiation");
       return finish(false);
     }
-    log_and_show("Survived Initiation");
 
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "Start iteration");
+    log_and_show("Survived Initiation");
+    log_and_show("Start iteration");
     logger.indent++;
     failed = !iterate();
     logger.indent--;
@@ -97,10 +94,7 @@ namespace pdr
     logger.stats.elapsed = final_time;
     store_result();
     store_frame_strings();
-
     shortest_strategy = results.current().pebbles_used;
-    if (dynamic_cardinality)
-      results.extend();
 
     return rv;
   }
@@ -110,7 +104,6 @@ namespace pdr
   {
     assert(frames.frontier() == 0);
 
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "Start initiation");
     z3::expr_vector notP = model.n_property.currents();
     if (frames.init_solver.check(notP))
     {
@@ -332,20 +325,22 @@ namespace pdr
     solvers_string = ss.str();
   }
 
-  
+  void PDR::show_solver(std::ostream& out, unsigned it) const
+  {
+	out << SEP3 << " iteration " << it << std::endl;
+    out << frames_string << std::endl;
+    out << SEP2 << std::endl;
+    out << solvers_string << std::endl;
+  }
+
   void PDR::show_results(std::ostream& out) const
   {
-	  results.show(out);
-      out << SEP3 << std::endl;
-      out << frames_string << std::endl;
-      out << SEP2 << std::endl;
-      out << solvers_string << std::endl;
+    results.show(out);
   }
 
   void PDR::store_result()
   {
     std::stringstream ss("Strategy:\n");
-    results.current().pebbles_used = 0;
     results.current().trace_string = "";
 
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
@@ -366,7 +361,8 @@ namespace pdr
     {
       i++;
       int pebbles = count_pebbled(current->cube);
-      results.current().pebbles_used = std::max(results.current().pebbles_used, pebbles);
+      results.current().pebbles_used =
+          std::max(results.current().pebbles_used, pebbles);
       steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
       current = current->prev;
     }
@@ -432,11 +428,20 @@ namespace pdr
 
   // LOGGING AND STAT COLLECTION SHORTHANDS
   //
-  void PDR::log_and_show(const std::string& str, std::ostream& out)
+  void PDR::log_and_show(const std::string& str, std::ostream& out) const
   {
     out << str << std::endl;
     SPDLOG_LOGGER_INFO(logger.spd_logger, str);
   }
+
+  void PDR::log_start() const
+  {
+    SPDLOG_LOGGER_INFO(logger.spd_logger, "");
+    SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
+    std::cout << std::endl;
+    log_and_show("PDR start:");
+  }
+
   void PDR::log_iteration()
   {
     std::cout << "###############" << std::endl;

@@ -64,7 +64,9 @@ namespace pdr
     bool finish(bool);
     void store_frame_strings();
 
-    void log_and_show(const std::string& str, std::ostream& out = std::cout);
+    void log_and_show(const std::string& str,
+                      std::ostream& out = std::cout) const;
+    void log_start() const;
     void log_iteration();
     void log_cti(const z3::expr_vector& cti);
     void log_propagation(unsigned level, double time);
@@ -84,6 +86,7 @@ namespace pdr
     PDR(PDRModel& m, bool d, Logger& l, PDResults& r);
     void reset();
     bool run(bool optimize = false);
+    void show_solver(std::ostream& out, unsigned it) const;
     void show_results(std::ostream& out = std::cout) const;
     bool decrement(bool reuse = false);
 
