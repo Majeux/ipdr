@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
 #include <z3++.h>
 
 // "{model}-{n pebbles}[_opt?][_delta?]"
@@ -187,10 +188,13 @@ int main(int argc, char* argv[])
   pdr_logger.stats.model.emplace("edges", G.edges.size());
   pdr_logger.stats.model.emplace("outputs", G.output.size());
 
+  std::string target = z3ext::join_expr_vec(model.n_property.currents(), " & ");
+  pdr::PDResults res(model);
+
   // run pdr and write output
   if (clargs.optimize)
   {
-    pdr::PDR algorithm(model, clargs.delta, pdr_logger);
+    pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
 
     while (true)
     {
@@ -212,7 +216,7 @@ int main(int argc, char* argv[])
     // TODO multiple normal runs from comparision
     while (true)
     {
-      pdr::PDR algorithm(model, clargs.delta, pdr_logger);
+      pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
       bool strategy = !algorithm.run(clargs.optimize);
       stats << pdr_logger.stats << std::endl;
 

@@ -1,4 +1,5 @@
 #include "pdr.h"
+#include "output.h"
 #include "TextTable.h"
 #include "solver.h"
 #include "stats.h"
@@ -22,16 +23,16 @@
 
 namespace pdr
 {
-  PDR::PDR(PDRModel& m, bool d, Logger& l)
+  PDR::PDR(PDRModel& m, bool d, Logger& l, PDResults& r)
       : ctx(m.ctx), model(m), delta(d), logger(l),
-        frames(delta, ctx, m, logger), results(1)
+        frames(delta, ctx, m, logger), results(r)
   {
   }
 
   void PDR::reset()
   {
     logger.indent = 0;
-    result().trace.reset();
+    results.current().trace.reset();
     frames_string = "None";
     solvers_string = "None";
     shortest_strategy = UINT_MAX;
@@ -92,17 +93,14 @@ namespace pdr
   {
     double final_time = timer.elapsed().count();
     log_and_show(fmt::format("Total elapsed time {}", final_time));
-    result().total_time = final_time;
+    results.current().total_time = final_time;
     logger.stats.elapsed = final_time;
     store_result();
     store_frame_strings();
 
-    shortest_strategy = result().pebbles_used;
+    shortest_strategy = results.current().pebbles_used;
     if (dynamic_cardinality)
-    {
-      results.push_back(PDResult());
-      result() = results.back();
-    }
+      results.extend();
 
     return rv;
   }
@@ -120,7 +118,7 @@ namespace pdr
       z3::model counter = frames.solver(0)->get_model();
       print_model(counter);
       // TODO TRACE
-      result().trace = std::make_shared<State>(model.get_initial());
+      results.current().trace = std::make_shared<State>(model.get_initial());
       return false;
     }
 
@@ -132,7 +130,7 @@ namespace pdr
       z3::expr_vector bad_cube =
           Solver::filter_witness(witness, [this](const z3::expr& e)
                                  { return model.literals.atom_is_current(e); });
-      result().trace = std::make_shared<State>(bad_cube);
+      results.current().trace = std::make_shared<State>(bad_cube);
 
       return false;
     }
@@ -203,7 +201,7 @@ namespace pdr
 
       if (invariant >= 0)
       {
-        result().invariant_index = invariant;
+        results.current().invariant_index = invariant;
         return true;
       }
     }
@@ -258,7 +256,7 @@ namespace pdr
         }
         else // intersects with I
         {
-          result().trace = pred;
+          results.current().trace = pred;
           return false;
         }
         elapsed = sub_timer.elapsed().count();
@@ -290,7 +288,7 @@ namespace pdr
         }
         else
         {
-          result().trace = state;
+          results.current().trace = state;
           return false;
         }
         elapsed = sub_timer.elapsed().count();
@@ -317,8 +315,6 @@ namespace pdr
     return true;
   }
 
-  PDResult& PDR::result() { return results.back(); }
-
   void PDR::store_frame_strings()
   {
     std::stringstream ss;
@@ -336,65 +332,25 @@ namespace pdr
     solvers_string = ss.str();
   }
 
+  
   void PDR::show_results(std::ostream& out) const
   {
-    TextTable t;
-    t.setAlignment(0, TextTable::Alignment::RIGHT);
-    t.setAlignment(1, TextTable::Alignment::RIGHT);
-    t.setAlignment(2, TextTable::Alignment::RIGHT);
-    t.setAlignment(3, TextTable::Alignment::RIGHT);
-
-    out << fmt::format("Pebbling strategies for {}:", model.name) << std::endl
-        << std::endl;
-    out << SEP2 << std::endl;
-
-    std::vector<std::string> header = {"pebbles", "invariant index",
-                                       "strategy length", "Total time"};
-    t.addRow(header);
-    for (const PDResult& res : results)
-      t.addRow(res.listing());
-
-    out << t << std::endl << std::endl;
-
-    for (const PDResult& res : results)
-    {
-      if (res.trace)
-      {
-        out << fmt::format("Strategy for {} pebbles", res.pebbles_used)
-            << std::endl;
-        out << fmt::format(
-                   "Final: [ {} ]",
-                   z3ext::join_expr_vec(model.n_property.currents(), " & "))
-            << std::endl
-            << std::endl;
-
-        out << "Trace:" << std::endl;
-        show_trace(res.trace, out);
-        out << SEP << std::endl;
-      }
-      else
-      {
-        out << fmt::format("No strategy for {} pebbles",
-                           model.get_max_pebbles())
-            << std::endl
-            << std::endl;
-      }
-    }
-    out << SEP3 << std::endl;
-    out << frames_string << std::endl;
-    out << SEP2 << std::endl;
-    out << solvers_string << std::endl;
+	  results.show(out);
+      out << SEP3 << std::endl;
+      out << frames_string << std::endl;
+      out << SEP2 << std::endl;
+      out << solvers_string << std::endl;
   }
 
   void PDR::store_result()
   {
     std::stringstream ss("Strategy:\n");
-    result().pebbles_used = 0;
-    result().trace_string = "";
+    results.current().pebbles_used = 0;
+    results.current().trace_string = "";
 
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
-    std::shared_ptr<State> current = result().trace;
+    std::shared_ptr<State> current = results.current().trace;
     auto count_pebbled = [](const z3::expr_vector& vec)
     {
       unsigned count = 0;
@@ -410,11 +366,11 @@ namespace pdr
     {
       i++;
       int pebbles = count_pebbled(current->cube);
-      result().pebbles_used = std::max(result().pebbles_used, pebbles);
+      results.current().pebbles_used = std::max(results.current().pebbles_used, pebbles);
       steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
       current = current->prev;
     }
-    result().trace_length = i + 1;
+    results.current().trace_length = i + 1;
     unsigned i_padding = i / 10 + 1;
 
     std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
@@ -428,7 +384,7 @@ namespace pdr
     ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
        << std::endl;
 
-    result().trace_string = ss.str();
+    results.current().trace_string = ss.str();
   }
 
   void PDR::show_trace(const std::shared_ptr<State> trace_root,

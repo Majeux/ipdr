@@ -1,6 +1,7 @@
 #include "frames.h"
 #include "_logging.h"
 #include "frame.h"
+#include "output.h"
 #include "solver.h"
 #include "stats.h"
 #include "z3-ext.h"

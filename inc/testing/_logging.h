@@ -8,9 +8,5 @@
 #endif //LOG
 
 #include <spdlog/spdlog.h>
-#define SEP "--------------------"
-#define SEP2 "===================="
-#define SEP3 "####################"
-
 
 #endif //LOGGING_H

@@ -4,6 +4,7 @@
 #include "_logging.h"
 #include "frames.h"
 #include "pdr-model.h"
+#include "result.h"
 #include "stats.h"
 #include "z3-ext.h"
 
@@ -21,81 +22,6 @@
 
 namespace pdr
 {
-  struct State
-  {
-    z3::expr_vector cube;
-    std::shared_ptr<State> prev; // store predecessor for trace
-
-    State(const z3::expr_vector& e) : cube(e), prev(std::shared_ptr<State>()) {}
-    State(const z3::expr_vector& e, std::shared_ptr<State> s) : cube(e), prev(s)
-    {
-    }
-    // move constructors
-    State(z3::expr_vector&& e)
-        : cube(std::move(e)), prev(std::shared_ptr<State>())
-    {
-    }
-    State(z3::expr_vector&& e, std::shared_ptr<State> s)
-        : cube(std::move(e)), prev(s)
-    {
-    }
-  };
-
-  struct Obligation
-  {
-    unsigned level;
-    std::shared_ptr<State> state;
-    unsigned depth;
-
-    Obligation(unsigned k, z3::expr_vector&& cube, unsigned d)
-        : level(k), state(std::make_shared<State>(std::move(cube))), depth(d)
-    {
-    }
-
-    Obligation(unsigned k, const std::shared_ptr<State>& s, unsigned d)
-        : level(k), state(s), depth(d)
-    {
-    }
-
-    // bool operator<(const Obligation& o) const { return this->level <
-    // o.level; }
-    bool operator<(const Obligation& o) const
-    {
-      if (this->level < o.level)
-        return true;
-      if (this->level > o.level)
-        return false;
-      if (this->depth < o.depth)
-        return true;
-      if (this->depth > o.depth)
-        return false;
-
-      return z3ext::expr_vector_less()(this->state->cube, o.state->cube);
-    }
-  };
-
-  struct PDResult
-  {
-    std::shared_ptr<State> trace;
-    std::string trace_string;
-    unsigned trace_length;
-    int pebbles_used;
-    int invariant_index;
-    double total_time;
-
-    PDResult()
-        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(-1),
-          invariant_index(-1), total_time(0.0)
-    {
-    }
-
-    std::vector<std::string> listing() const
-    {
-      return {std::to_string(pebbles_used), std::to_string(invariant_index),
-              std::to_string(trace_length), std::to_string(total_time)};
-    }
-  };
-
   class PDR
   {
    private:
@@ -110,8 +36,7 @@ namespace pdr
     unsigned k = 0;
     Frames frames;
 
-    std::vector<PDResult> results;
-    PDResult& result();
+    PDResults& results;
     int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
@@ -156,7 +81,7 @@ namespace pdr
     std::string frames_string = "";
     std::string solvers_string = "";
 
-    PDR(PDRModel& m, bool d, Logger& l);
+    PDR(PDRModel& m, bool d, Logger& l, PDResults& r);
     void reset();
     bool run(bool optimize = false);
     void show_results(std::ostream& out = std::cout) const;
