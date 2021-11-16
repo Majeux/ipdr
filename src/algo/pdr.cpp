@@ -340,47 +340,48 @@ namespace pdr
 
   void PDR::store_result()
   {
-    std::stringstream ss("Strategy:\n");
-    results.current().trace_string = "";
-
-    std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
-
-    std::shared_ptr<State> current = results.current().trace;
-    auto count_pebbled = [](const z3::expr_vector& vec)
+    if ( std::shared_ptr<State> current = results.current().trace )
     {
-      unsigned count = 0;
-      for (const z3::expr& e : vec)
-        if (!e.is_not())
-          count++;
+      std::stringstream ss("Strategy:\n");
 
-      return count;
-    };
+      std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
-    unsigned i = 0;
-    while (current)
-    {
-      i++;
-      int pebbles = count_pebbled(current->cube);
-      results.current().pebbles_used =
-          std::max(results.current().pebbles_used, pebbles);
-      steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
-      current = current->prev;
+      auto count_pebbled = [](const z3::expr_vector& vec)
+      {
+        unsigned count = 0;
+        for (const z3::expr& e : vec)
+          if (!e.is_not())
+            count++;
+
+        return count;
+      };
+
+      unsigned i = 0;
+      while (current)
+      {
+        i++;
+        int pebbles = count_pebbled(current->cube);
+        results.current().pebbles_used =
+            std::max(results.current().pebbles_used, pebbles);
+        steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
+        current = current->prev;
+      }
+      results.current().trace_length = i + 1;
+      unsigned i_padding = i / 10 + 1;
+
+      std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
+
+      std::string initial = z3ext::join_expr_vec(model.get_initial());
+      std::string final = z3ext::join_expr_vec(model.n_property.currents());
+
+      ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
+      for (const auto& [num, vec, count] : steps)
+        ss << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
+      ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
+         << std::endl;
+
+      results.current().trace_string = ss.str();
     }
-    results.current().trace_length = i + 1;
-    unsigned i_padding = i / 10 + 1;
-
-    std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
-
-    std::string initial = z3ext::join_expr_vec(model.get_initial());
-    std::string final = z3ext::join_expr_vec(model.n_property.currents());
-
-    ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
-    for (const auto& [num, vec, count] : steps)
-      ss << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
-    ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
-       << std::endl;
-
-    results.current().trace_string = ss.str();
   }
 
   void PDR::show_trace(const std::shared_ptr<State> trace_root,

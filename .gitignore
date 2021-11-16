@@ -45,4 +45,5 @@ build
 
 #benchmarks
 benchmark/rls
+benchmark/output
 !benchmark/rls/_rls-benchmarks.txt
