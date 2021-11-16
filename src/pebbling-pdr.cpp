@@ -80,14 +80,18 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
                       "Multiple runs that find a strategy with minimum pebbles",
                       cxxopts::value<bool>(clargs.optimize))(
       "d, delta", "Use delta-encoded frames",
-      cxxopts::value<bool>(clargs.delta))(
-      "model", "Name of the graph to pebble",
-      cxxopts::value<std::string>(clargs.model_name))(
-      "pebbles",
-      "Maximum number of pebbles for "
-      "a strategy",
-      cxxopts::value<unsigned>(clargs.max_pebbles))("h,help", "Show "
-                                                              "usage");
+      cxxopts::value<bool>(
+          clargs.delta))("model", "Name of the graph to pebble",
+                         cxxopts::value<std::string>(
+                             clargs
+                                 .model_name))("pebbles",
+                                               "Maximum number of pebbles for "
+                                               "a strategy",
+                                               cxxopts::value<unsigned>(
+                                                   clargs
+                                                       .max_pebbles))("h,help",
+                                                                      "Show "
+                                                                      "usage");
 
   clopt.parse_positional({"model", "pebbles"});
   clopt.positional_help("<model name> <max pebbles>").show_positional_help();
@@ -144,7 +148,7 @@ int main(int argc, char* argv[])
   // ghc::filesystem::path bench_folder =
   //     ghc::filesystem::current_path() / "benchmark" / "iscas85" / "bench";
   // ghc::filesystem::path model_file = ghc::filesystem::current_path() /
-  // "benchmark" / "iscas85" / "bench" /
+  //                                    "benchmark" / "iscas85" / "bench" /
   //                                    (clargs.model_name + ".bench");
 
   // tfc model
@@ -153,15 +157,26 @@ int main(int argc, char* argv[])
   ghc::filesystem::path model_file = ghc::filesystem::current_path() /
                                      "benchmark" / "rls" /
                                      (clargs.model_name + ".tfc");
+
   const auto [stats_file, strategy_file, log_file, solver_file] = setup_in_out(
       clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
 
-  std::cout << "Statistics to: " << stats_file << std::endl;
+  TextTable output_files;
+  std::vector<std::string> cwd_row = {" current dir ",
+                                      ghc::filesystem::current_path().string()};
+  std::vector<std::string> stat_row = {" stats file ", stats_file};
+  std::vector<std::string> res_row = {" result file ", strategy_file};
+  std::vector<std::string> solver_row = {" solver_dump file", solver_file};
+  output_files.addRow(cwd_row);
+  output_files.addRow(stat_row);
+  output_files.addRow(res_row);
+  output_files.addRow(solver_row);
+  std::cout << output_files << std::endl;
+
   std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
-  std::cout << "Result to: " << strategy_file << std::endl;
   std::fstream results(strategy_file, std::fstream::out | std::fstream::trunc);
-  std::cout << "Solver to: " << strategy_file << std::endl;
-  std::fstream solver_dump(solver_file, std::fstream::out | std::fstream::trunc);
+  std::fstream solver_dump(solver_file,
+                           std::fstream::out | std::fstream::trunc);
 
   assert(stats.is_open());
   assert(results.is_open());
@@ -210,7 +225,7 @@ int main(int argc, char* argv[])
         break;
     }
     algorithm.show_results(results);
-	algorithm.show_solver(solver_dump, clargs.max_pebbles);
+    algorithm.show_solver(solver_dump, clargs.max_pebbles);
   }
   else
   {
@@ -222,7 +237,7 @@ int main(int argc, char* argv[])
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
-	  algorithm.show_solver(solver_dump, model.get_max_pebbles());
+      algorithm.show_solver(solver_dump, model.get_max_pebbles());
       if (!strategy)
       {
         algorithm.show_results(results);

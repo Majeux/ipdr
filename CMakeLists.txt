@@ -9,6 +9,7 @@ project ("pebbling-pdr")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-g -Wall -Wextra")
+set( EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../ )
 
 find_package(fmt CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)
