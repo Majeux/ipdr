@@ -1,3 +1,7 @@
+NOW
+	- Remove verbose output
+	- Add file with progress
+
 TODO
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git

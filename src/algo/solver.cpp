@@ -54,8 +54,11 @@ namespace pdr
 
     bool Solver::SAT(const z3::expr_vector& assumptions)
     {
-        if (internal_solver.check(assumptions) == z3::sat)
+        z3::check_result result = internal_solver.check(assumptions);
+        if (result == z3::sat)
             return true;
+
+        assert(result != z3::check_result::unknown);
 
         core_available = true;
         return false;
