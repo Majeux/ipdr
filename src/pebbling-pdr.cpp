@@ -40,7 +40,7 @@ std::string folder_name(unsigned n, bool opt, bool delta)
 }
 
 // ensure proper folders exist and create file names for In and Output
-std::array<std::string, 4> setup_in_out(const std::string& model_name,
+std::array<std::string, 5> setup_in_out(const std::string& model_name,
                                         unsigned n_pebbles, bool optimize,
                                         bool delta)
 {
@@ -50,22 +50,37 @@ std::array<std::string, 4> setup_in_out(const std::string& model_name,
   fs::create_directory(results_folder);
   fs::create_directory(results_folder / model_name);
   fs::create_directory(results_folder / model_name / opts);
+  fs::path base = results_folder / model_name / opts;
 
-  std::string stats_file =
-      file_name(model_name, n_pebbles, optimize, delta) + ".stats";
-  std::string strategy_file =
-      file_name(model_name, n_pebbles, optimize, delta) + ".strategy";
-  std::string log_file =
-      file_name(model_name, n_pebbles, optimize, delta) + ".log";
+  fs::path stats_file =
+      base / (file_name(model_name, n_pebbles, optimize, delta) + ".stats");
+  fs::path strategy_file =
+      base / (file_name(model_name, n_pebbles, optimize, delta) + ".strategy");
+  fs::path log_file =
+      base / (file_name(model_name, n_pebbles, optimize, delta) + ".log");
+  fs::path solver_file = base / "solver_dump.solver";
+  fs::path progress    = base / "progress.txt";
 
-  return {(results_folder / model_name / opts / stats_file).string(),
-          (results_folder / model_name / opts / strategy_file).string(),
-          (results_folder / model_name / opts / log_file).string(),
-          (results_folder / model_name / opts / "solver_dump.solver").string()};
+  // show used paths
+  TextTable output_files;
+  auto cwd_row  = { std::string(" current dir "), fs::current_path().string() };
+  auto stat_row = { std::string(" stats file "), stats_file.string() };
+  auto res_row  = { std::string(" result file "), strategy_file.string() };
+  auto solver_row = { std::string(" solver_dump file"), solver_file.string() };
+  output_files.addRow(cwd_row);
+  output_files.addRow(stat_row);
+  output_files.addRow(res_row);
+  output_files.addRow(solver_row);
+  std::cout << output_files << std::endl;
+
+  return { stats_file.string(), strategy_file.string(), log_file.string(),
+           solver_file.string(), progress.string() };
 }
 
 struct ArgumentList
 {
+  bool verbose;
+  bool whisper;
   std::string model_name;
   fs::path bench_folder;
   unsigned max_pebbles;
@@ -80,20 +95,25 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                "amount of pebbles through PDR");
   clargs.optimize = clargs.delta = false;
+  // clang-format off
   clopt.add_options()
+    ("v,verbose", "Remove all output during pdr iterations",
+      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
+    ("w,wisper", "Output only minor info during pdr iterations",
+      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
     ("o, optimize", "Multiple runs that find a strategy with minimum pebbles",
       cxxopts::value<bool>(clargs.optimize))
-    ("d, delta", "Use delta-encoded frames", 
+    ("d, delta", "Use delta-encoded frames",
       cxxopts::value<bool>(clargs.delta))
     ("model", "Name of the graph to pebble",
       cxxopts::value<std::string>(clargs.model_name))
     ("pebbles", "Maximum number of pebbles for a strategy",
       cxxopts::value<unsigned>(clargs.max_pebbles))
-    ("b,benchfolder", "Folder that contains runable .tfc benchmarks",
+    ("b,benchfolder","Folder than contains runable .tfc benchmarks",
       cxxopts::value<fs::path>()->default_value(BENCH_FOLDER))
     ("h,help", "Show usage");
-
-  clopt.parse_positional({"model", "pebbles"});
+  // clang-format on
+  clopt.parse_positional({ "model", "pebbles" });
   clopt.positional_help("<model name> <max pebbles>").show_positional_help();
 
   return clopt;
@@ -109,7 +129,7 @@ ArgumentList parse_cl(int argc, char* argv[])
 
     if (clresult.count("help"))
     {
-      std::cout << clopt.help() << std::endl;
+      std::cerr << clopt.help() << std::endl;
       exit(0);
     }
 
@@ -127,9 +147,9 @@ ArgumentList parse_cl(int argc, char* argv[])
   }
   catch (const std::exception& e)
   {
-    std::cout << "Error parsing command line arguments" << std::endl
+    std::cerr << "Error parsing command line arguments" << std::endl
               << std::endl;
-    std::cout << clopt.help() << std::endl;
+    std::cerr << clopt.help() << std::endl;
     throw;
   }
 
@@ -156,26 +176,14 @@ int main(int argc, char* argv[])
   // tfc model
   fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
 
-  const auto [stats_file, strategy_file, log_file, solver_file] = setup_in_out(
-      clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
+  const auto [stats_file, strategy_file, log_file, solver_file, progress_file] =
+      setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.optimize,
+                   clargs.delta);
 
-  // show used paths
-  TextTable output_files;
-  std::vector<std::string> cwd_row = {" current dir ",
-                                      fs::current_path().string()};
-  std::vector<std::string> stat_row = {" stats file ", stats_file};
-  std::vector<std::string> res_row = {" result file ", strategy_file};
-  std::vector<std::string> solver_row = {" solver_dump file", solver_file};
-  output_files.addRow(cwd_row);
-  output_files.addRow(stat_row);
-  output_files.addRow(res_row);
-  output_files.addRow(solver_row);
-  std::cout << output_files << std::endl;
-
-  std::fstream stats(stats_file, std::fstream::out | std::fstream::trunc);
-  std::fstream results(strategy_file, std::fstream::out | std::fstream::trunc);
-  std::fstream solver_dump(solver_file,
-                           std::fstream::out | std::fstream::trunc);
+  std::ofstream stats(stats_file, std::fstream::out | std::fstream::trunc);
+  std::ofstream results(strategy_file, std::fstream::out | std::fstream::trunc);
+  std::ofstream solver_dump(solver_file,
+                            std::fstream::out | std::fstream::trunc);
 
   assert(stats.is_open());
   assert(results.is_open());
@@ -186,7 +194,7 @@ int main(int argc, char* argv[])
   // dag::Graph G = parse::parse_bench(model_file, clargs.model_name);
 
   std::cout << "Graph" << std::endl << G;
-  G.export_digraph(BENCH_FOLDER.string());
+  // G.export_digraph(BENCH_FOLDER.string());
 
   // init z3
   z3::config settings;
@@ -196,14 +204,9 @@ int main(int argc, char* argv[])
   // create model from DAG graph and set up algorithm
   PDRModel model(settings);
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
-
+  model.show(std::cout);
   // initialize logger and other bookkeeping
-  pdr::Logger pdr_logger(log_file);
-  pdr_logger.stats.model.emplace("nodes", G.nodes.size());
-  pdr_logger.stats.model.emplace("edges", G.edges.size());
-  pdr_logger.stats.model.emplace("outputs", G.output.size());
-
-  std::string target = z3ext::join_expr_vec(model.n_property.currents(), " & ");
+  pdr::Logger pdr_logger(log_file, G, progress_file, OutLvl::verbose);
   pdr::PDResults res(model);
 
   // run pdr and write output
@@ -237,16 +240,13 @@ int main(int argc, char* argv[])
       stats << pdr_logger.stats << std::endl;
 
       algorithm.show_solver(solver_dump, model.get_max_pebbles());
-      if (!strategy)
+
+      if (!strategy && algorithm.decrement(true))
       {
         algorithm.show_results(results);
         break;
       }
-      algorithm.decrement(false);
     }
   }
-
-  results.close();
-  stats.close();
   return 0;
 }

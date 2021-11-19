@@ -32,19 +32,20 @@ namespace pdr
   void PDR::reset()
   {
     logger.indent = 0;
-	//trace is already converted into string, discard states
+    // trace is already converted into string, discard states
+    assert(results.current().trace_string != "");
     results.current().trace.reset();
-    frames_string = "None";
-    solvers_string = "None";
+    frames_string     = "None";
+    solvers_string    = "None";
     shortest_strategy = UINT_MAX;
   }
 
   void PDR::print_model(const z3::model& m)
   {
-    std::cout << "model consts \{" << std::endl;
+    logger.out() << "model consts \{" << std::endl;
     for (unsigned i = 0; i < m.num_consts(); i++)
-      std::cout << "\t" << m.get_const_interp(m.get_const_decl(i));
-    std::cout << "}" << std::endl;
+      logger.out() << "\t" << m.get_const_interp(m.get_const_decl(i));
+    logger.out() << "}" << std::endl;
   }
 
   bool PDR::run(bool optimize)
@@ -53,7 +54,7 @@ namespace pdr
     timer.reset();
 
     assert(k == frames.frontier());
-	log_start();
+    log_start();
 
     bool failed = false;
     if (!optimize || k == 0)
@@ -91,7 +92,7 @@ namespace pdr
     double final_time = timer.elapsed().count();
     log_and_show(fmt::format("Total elapsed time {}", final_time));
     results.current().total_time = final_time;
-    logger.stats.elapsed = final_time;
+    logger.stats.elapsed         = final_time;
     store_result();
     store_frame_strings();
     shortest_strategy = results.current().pebbles_used;
@@ -107,7 +108,7 @@ namespace pdr
     z3::expr_vector notP = model.n_property.currents();
     if (frames.init_solver.check(notP))
     {
-      std::cout << "I =/> P" << std::endl;
+      logger.out() << "I =/> P" << std::endl;
       z3::model counter = frames.solver(0)->get_model();
       print_model(counter);
       // TODO TRACE
@@ -118,7 +119,7 @@ namespace pdr
     z3::expr_vector notP_next = model.n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
-      std::cout << "I & T =/> P'" << std::endl;
+      logger.out() << "I & T =/> P'" << std::endl;
       z3::model witness = frames.solver(0)->get_model();
       z3::expr_vector bad_cube =
           Solver::filter_witness(witness, [this](const z3::expr& e)
@@ -137,8 +138,8 @@ namespace pdr
 
   bool PDR::iterate()
   {
-    std::cout << SEP3 << std::endl;
-    std::cout << "Start iteration" << std::endl;
+    logger.out() << SEP3 << std::endl;
+    logger.out() << "Start iteration" << std::endl;
 
     // I => P and I & T ⇒ P' (from init)
     while (true) // iterate over k, if dynamic this continues from last k
@@ -172,7 +173,7 @@ namespace pdr
           if (not block(cti_current, n + 1, k))
             return false;
 
-          std::cout << std::endl;
+          logger.out() << std::endl;
         }
         else // no more counter examples
         {
@@ -186,7 +187,7 @@ namespace pdr
 
       sub_timer.reset();
       int invariant = frames.propagate(k);
-      double time = sub_timer.elapsed().count();
+      double time   = sub_timer.elapsed().count();
       log_propagation(k, time);
 
       k++;
@@ -253,7 +254,7 @@ namespace pdr
           return false;
         }
         elapsed = sub_timer.elapsed().count();
-        branch = "(pred)  ";
+        branch  = "(pred)  ";
       }
       else
       {
@@ -285,7 +286,7 @@ namespace pdr
           return false;
         }
         elapsed = sub_timer.elapsed().count();
-        branch = "(finish)";
+        branch  = "(finish)";
       }
       log_obligation(branch, level, elapsed);
       elapsed = -1.0;
@@ -295,7 +296,7 @@ namespace pdr
       if (period >= 100)
       {
         period = 0;
-        std::cout << "Stats written" << std::endl;
+        logger.out() << "Stats written" << std::endl;
         SPDLOG_LOGGER_DEBUG(logger.spd_logger, logger.stats.to_string());
         logger.spd_logger->flush();
       }
@@ -327,20 +328,17 @@ namespace pdr
 
   void PDR::show_solver(std::ostream& out, unsigned it) const
   {
-	out << SEP3 << " iteration " << it << std::endl;
+    out << SEP3 << " iteration " << it << std::endl;
     out << frames_string << std::endl;
     out << SEP2 << std::endl;
     out << solvers_string << std::endl;
   }
 
-  void PDR::show_results(std::ostream& out) const
-  {
-    results.show(out);
-  }
+  void PDR::show_results(std::ostream& out) const { results.show(out); }
 
   void PDR::store_result()
   {
-    if ( std::shared_ptr<State> current = results.current().trace )
+    if (std::shared_ptr<State> current = results.current().trace)
     {
       std::stringstream ss("Strategy:\n");
 
@@ -367,12 +365,12 @@ namespace pdr
         current = current->prev;
       }
       results.current().trace_length = i + 1;
-      unsigned i_padding = i / 10 + 1;
+      unsigned i_padding             = i / 10 + 1;
 
       std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
 
       std::string initial = z3ext::join_expr_vec(model.get_initial());
-      std::string final = z3ext::join_expr_vec(model.n_property.currents());
+      std::string final   = z3ext::join_expr_vec(model.n_property.currents());
 
       ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
       for (const auto& [num, vec, count] : steps)
@@ -390,7 +388,7 @@ namespace pdr
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
     std::shared_ptr<State> current = trace_root;
-    auto count_pebbled = [](const z3::expr_vector& vec)
+    auto count_pebbled             = [](const z3::expr_vector& vec)
     {
       unsigned count = 0;
       for (const z3::expr& e : vec)
@@ -429,9 +427,9 @@ namespace pdr
 
   // LOGGING AND STAT COLLECTION SHORTHANDS
   //
-  void PDR::log_and_show(const std::string& str, std::ostream& out) const
+  void PDR::log_and_show(const std::string& str) const
   {
-    out << str << std::endl;
+    logger.out() << str << std::endl;
     SPDLOG_LOGGER_INFO(logger.spd_logger, str);
   }
 
@@ -439,14 +437,14 @@ namespace pdr
   {
     SPDLOG_LOGGER_INFO(logger.spd_logger, "");
     SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
-    std::cout << std::endl;
+    logger.out() << std::endl;
     log_and_show("PDR start:");
   }
 
   void PDR::log_iteration()
   {
-    std::cout << "###############" << std::endl;
-    std::cout << "iterate frame " << k << std::endl;
+    logger.out() << "###############" << std::endl;
+    logger.out() << "iterate frame " << k << std::endl;
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
@@ -466,7 +464,7 @@ namespace pdr
   {
     std::string msg = fmt::format("Propagation elapsed {}", time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    std::cout << msg << std::endl;
+    logger.out() << msg << std::endl;
     logger.stats.propagation_it.add_timed(level, time);
   }
 
@@ -522,7 +520,7 @@ namespace pdr
     logger.stats.obligations_handled.add_timed(l, time);
     std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    std::cout << msg << std::endl;
+    logger.out() << msg << std::endl;
   }
 
 } // namespace pdr

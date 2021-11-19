@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -151,11 +152,11 @@ class ExpressionCache
 
     void finish() { finished = true; }
 
-    void print() const
+    void show(std::ostream& out) const
     {
-        std::cout << "Lits:      " << str::extend::join(current)
+        out << "Lits:      " << str::extend::join(current)
                   << std::endl;
-        std::cout << "Next Lits: " << str::extend::join(next) << std::endl;
+        out << "Next Lits: " << str::extend::join(next) << std::endl;
     }
 };
 

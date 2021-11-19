@@ -8,10 +8,17 @@ AccessModifierOffset: -1
 BreakBeforeBraces: Allman
 
 PointerAlignment: Left
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: true
+AlignConsecutiveAssignments: AcrossComments
+AlignEscapedNewlines: Left
 
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortLambdasOnASingleLine : All
+AllowAllArgumentsOnNextLine: true
 
 FixNamespaceComments: true
+
+Cpp11BracedListStyle: false

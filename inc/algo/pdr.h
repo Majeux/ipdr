@@ -64,8 +64,7 @@ namespace pdr
     bool finish(bool);
     void store_frame_strings();
 
-    void log_and_show(const std::string& str,
-                      std::ostream& out = std::cout) const;
+    void log_and_show(const std::string& str) const;
     void log_start() const;
     void log_iteration();
     void log_cti(const z3::expr_vector& cti);
@@ -79,15 +78,19 @@ namespace pdr
 
    public:
     // bool dynamic_cardinality = true;
-    bool dynamic_cardinality = false;
-    std::string frames_string = "";
+    bool dynamic_cardinality   = false;
+    std::string frames_string  = "";
     std::string solvers_string = "";
 
     PDR(PDRModel& m, bool d, Logger& l, PDResults& r);
     void reset();
     bool run(bool optimize = false);
     void show_solver(std::ostream& out, unsigned it) const;
-    void show_results(std::ostream& out = std::cout) const;
+    void show_results(std::ostream& out) const;
+
+    // reduces the max pebbles of the model to 1 lower than the previous
+    // strategy length. returns true if the is already proven invariant by this.
+    // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
 
     Statistics& stats();

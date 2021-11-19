@@ -12,17 +12,19 @@ namespace pdr
     assert(new_pebbles > 0);
     assert(new_pebbles < max_pebbles);
 
-    model.set_max_pebbles(new_pebbles);
+    if (!model.set_max_pebbles(new_pebbles))
+      return false;
+
     results.extend();
     reset();
-    std::cout << "retrying with " << new_pebbles << std::endl;
+    logger.whisper() << "retrying with " << new_pebbles << std::endl;
     if (!reuse)
-      return false;
+      return true;
 
     // TODO separate staistics from dyn runs?
     frames.reset_frames(logger.stats,
-                        {model.property.currents(), model.get_transition(),
-                         model.get_cardinality()});
+                        { model.property.currents(), model.get_transition(),
+                          model.get_cardinality() });
 
     log_and_show("Dynamic: skip initiation. k = " + std::to_string(k));
     // if we are repeating, the last propagation was k-1, repeat this

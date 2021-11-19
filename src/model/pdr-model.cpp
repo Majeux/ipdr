@@ -108,7 +108,6 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G,
                           int pebbles)
 {
   name = model_name;
-  std::cout << "load graph model " << name << std::endl;
 
   for (std::string node : G.nodes)
     literals.add_literal(node);
@@ -117,32 +116,36 @@ void PDRModel::load_model(const std::string& model_name, const dag::Graph& G,
   for (const z3::expr& e : literals.currents())
     initial.push_back(!e);
 
-  literals.print();
-
   // load_pebble_transition_raw2(G);
   load_pebble_transition(G);
-  std::cout << transition << std::endl;
 
   final_pebbles = G.output.size();
   set_max_pebbles(pebbles);
 
   load_property(G);
-  std::cout << "property: " << std::endl;
-  property.print();
-  std::cout << "not_property: " << std::endl;
-  n_property.print();
 }
 
 int PDRModel::get_max_pebbles() const { return max_pebbles; }
 
-void PDRModel::set_max_pebbles(int x)
+bool PDRModel::set_max_pebbles(int x)
 {
-  assert(x >= final_pebbles);
   max_pebbles = x;
 
   cardinality = z3::expr_vector(ctx);
   cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
   cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
+  return x >= final_pebbles;
+
 }
 
 int PDRModel::get_f_pebbles() const { return final_pebbles; }
+
+void PDRModel::show(std::ostream& out) const
+{
+  literals.show(out);
+  out << "Transition Relation:" << std::endl << transition << std::endl;
+  out << "property: " << std::endl;
+  property.show(out);
+  out << "not_property: " << std::endl;
+  n_property.show(out);
+}

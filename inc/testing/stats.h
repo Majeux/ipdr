@@ -120,7 +120,7 @@ namespace pdr
         out << "Model: " << std::endl << "--------" << std::endl;
         for (auto name_value : s.model)
           out << name_value.first << " = " << name_value.second << ", ";
-        std::cout << std::endl;
+        out << std::endl;
       }
       out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
 

@@ -11,8 +11,6 @@
 #include <map>
 #include <fstream>
 
-#define OUT(s) std::cout << s << std::endl
-
 namespace parse 
 {
 	using vars_iterator = std::map<std::string, unsigned>::iterator;
@@ -39,7 +37,6 @@ namespace parse
 			dag::Graph parse_file(const std::string& filename, const std::string& graph_name)
 			{
 				assert(filename.substr(filename.find_last_of('.')) == ".tfc");
-				std::cout << "file: " <<  filename << std::endl;
 				dag::Graph G(graph_name);
 				vars.clear();
 
