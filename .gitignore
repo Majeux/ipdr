@@ -47,5 +47,7 @@ build
 benchmark/rls
 !benchmark/rls/_rls-benchmarks.txt
 
-output
+output/*
+!output/compare_run.sh
+!output/compare_all_runs.sh
 pebbling-pdr

@@ -160,12 +160,6 @@ int main(int argc, char* argv[])
 {
   ArgumentList clargs = parse_cl(argc, argv);
 
-  std::cout << fmt::format("Finding {}-pebble strategy for {}",
-                           clargs.max_pebbles, clargs.model_name)
-            << std::endl
-            << (clargs.optimize ? "Using dynamic cardinality. " : "")
-            << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
-
   // bench model
   // fs::path bench_folder =
   //     fs::current_path() / "benchmark" / "iscas85" / "bench";
@@ -192,7 +186,7 @@ int main(int argc, char* argv[])
   parse::TFCParser parser;
   dag::Graph G = parser.parse_file(model_file, clargs.model_name);
   // dag::Graph G = parse::parse_bench(model_file, clargs.model_name);
-
+  clargs.max_pebbles = G.nodes.size();
   std::cout << "Graph" << std::endl << G;
   // G.export_digraph(BENCH_FOLDER.string());
 
@@ -208,6 +202,12 @@ int main(int argc, char* argv[])
   // initialize logger and other bookkeeping
   pdr::Logger pdr_logger(log_file, G, progress_file, OutLvl::verbose);
   pdr::PDResults res(model);
+
+  std::cout << std::endl << fmt::format("Finding {}-pebble strategy for {}",
+                           clargs.max_pebbles, clargs.model_name)
+            << std::endl
+            << (clargs.optimize ? "Using dynamic cardinality. " : "")
+            << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
 
   // run pdr and write output
   if (clargs.optimize)

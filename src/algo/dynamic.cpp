@@ -15,8 +15,8 @@ namespace pdr
     if (!model.set_max_pebbles(new_pebbles))
       return false;
 
-    results.extend();
     reset();
+    results.extend();
     logger.whisper() << "retrying with " << new_pebbles << std::endl;
     if (!reuse)
       return true;
