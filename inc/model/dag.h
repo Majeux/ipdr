@@ -9,7 +9,7 @@
 #include <string>
 #include <sstream>
 #include <cassert>
-#include <filesystem>
+#include <ghc/filesystem.hpp>
 #include <graphviz/gvc.h>
 #include <fmt/format.h>
 
@@ -19,7 +19,7 @@ namespace dag {
 	using std::vector;
 	using std::string;
 	using std::endl;
-	using str::extensions::join;
+	using str::extend::join;
 
 	struct Edge
 	{
@@ -109,7 +109,7 @@ namespace dag {
 				return stream;
 			}
 
-			void export_digraph(const std::filesystem::path& folder)
+			void export_digraph(const ghc::filesystem::path& folder)
 			{
 				//make dot representation
 				std::stringstream ss;

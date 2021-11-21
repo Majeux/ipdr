@@ -1,573 +1,526 @@
 #include "pdr.h"
-#include "z3-ext.h"
+#include "TextTable.h"
+#include "output.h"
+#include "solver.h"
+#include "stats.h"
 #include "string-ext.h"
+#include "z3-ext.h"
 
+#include <algorithm>
+#include <cassert>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fstream>
 #include <functional>
 #include <iterator>
-#include <cassert>
-#include <algorithm>
 #include <memory>
 #include <set>
-#include <spdlog/common.h>
-#include <spdlog/spdlog.h>
 #include <sstream>
 #include <string>
-#include <fmt/format.h>
-#include <spdlog/sinks/basic_file_sink.h>
-#include <fstream>
 #include <tuple>
+#include <vector>
 #include <z3++.h>
 
 namespace pdr
 {
-	using std::cout;
-	using z3ext::join_expr_vec;
-
-	PDR::PDR(PDRModel& m, bool d = false) : ctx(m.ctx), model(m), delta(d), init_solver(ctx)
-	{
-		init_solver.add(m.get_initial());
-		string log_file = m.name + ".log";
-		log = spdlog::basic_logger_mt("pdr_logger", "logs/" + log_file);
-		log->set_level(spdlog::level::trace);
-		// spdlog::flush_every(std::chrono::seconds(20));
-		spdlog::flush_on(spdlog::level::trace);
-	}
-
-	void PDR::reset()
-	{
-		log_indent = 0;
-		bad = std::shared_ptr<State>();
-		stats = Statistics();
-		frames_string = "None";
-		solvers_string = "None";
-	}
-
-	Frame* PDR::make_frame(unsigned level)
-	{
-		SPDLOG_LOGGER_TRACE(log, "{}| creating new frame {}", TAB, level);
-
-		if (level == 0)
-			return new Frame(0, k, ctx, stats, { model.get_initial(), model.get_transition(), model.get_cardinality() });
-
-		return new Frame(level, k,  ctx, stats, { model.property.currents(), model.get_transition(), model.get_cardinality() }, log);
-	}
-
-	void PDR::extend_frames(unsigned level)
-	{
-		assert(level == frames.size());
-
-		// if (dynamic_cardinality && 0 < level && level < old_frames.size())
-		// {
-		// 	frames.emplace_back(std::move(old_frames[level]));
-		// 	frames.back()->reset_frame(stats, { model.property.currents(), model.get_transition(), model.get_cardinality() });
-		// 	SPDLOG_LOGGER_INFO(log, "Using old clauses from level {}", level);
-		// }
-		// else
-			frames.emplace_back(make_frame(level));
-	}
-
-	void PDR::print_model(const z3::model& m)
-	{
-		cout << "model consts \{" << std::endl;
-		for (unsigned i = 0; i < m.num_consts(); i++)
-		{
-			cout << "\t" << m.get_const_interp( m.get_const_decl(i) );
-		}
-		cout << "}" << endl;
-	}
-
-	bool PDR::run(bool dynamic)
-	{
-		dynamic_cardinality = dynamic;
-		reset();
-		timer.reset();
-
-		if (k == 0)
-			assert(frames.size() == 0);
-		else assert(frames.size() == k+1);
-
-		bool failed = false;
-		cout << endl << "PDR start:" << endl;
-		SPDLOG_LOGGER_INFO(log, "");
-		SPDLOG_LOGGER_INFO(log, "NEW RUN\n");
-		SPDLOG_LOGGER_INFO(log, "PDR start");
-		
-		if (!dynamic || k == 0)
-		{
-			SPDLOG_LOGGER_INFO(log, "Start initiation");
-			log_indent++;
-			failed = !init();
-			log_indent--;
-		}
-
-		if (failed)
-		{
-			cout << "Failed initiation" << endl;
-			SPDLOG_LOGGER_TRACE(log, "Failed initiation");
-			return finish(false);
-		}
-		cout << "Survived initiation" << endl;
-		SPDLOG_LOGGER_INFO(log, "Survived initiation");
-
-		SPDLOG_LOGGER_INFO(log, "Start iteration");
-		log_indent++;
-		failed = !iterate();
-		log_indent--;
-
-		if(failed) 
-		{
-			cout << "Failed iteration" << endl;
-			SPDLOG_LOGGER_TRACE(log, "Failed iteration");
-			return finish(false);
-		}
-
-		cout << "Property verified" << endl;
-		SPDLOG_LOGGER_INFO(log, "Property verified");
-		return finish(true);
-	}
-
-	bool PDR::finish(bool result) 
-	{
-		double final_time = timer.elapsed().count();
-		cout << format("Total elapsed time {}", final_time) << endl;
-		SPDLOG_LOGGER_INFO(log, "Total elapsed time {}", final_time);
-		stats.elapsed = final_time;
-
-		store_frame_strings();
-		if (dynamic_cardinality)
-			store_frames();
-
-		return result;
-	}
-
-	// returns true if the model survives initiation
-	bool PDR::init() 
-	{
-		SPDLOG_LOGGER_TRACE(log, "Start initiation");
-		if ( init_solver.check(model.not_property.currents()) == z3::sat )
-		{
-			std::cout << "I =/> P" << std::endl;
-			z3::model counter = init_solver.get_model();
-			print_model(counter);
-			//TODO TRACE	
-			bad = std::make_shared<State>(model.get_initial());
-			return false;
-		}
-
-		frames.clear();
-		extend_frames(0);
-
-		if ( frames[0]->SAT(model.not_property.nexts()) )
-		{
-			std::cout << "I & T =/> P'" << std::endl;
-			expr_vector bad_cube = frames[0]->sat_cube(
-					[this](const expr& e) { return model.literals.atom_is_current(e); });
-			bad = std::make_shared<State>(bad_cube);
-
-			return false;
-		}
-
-		extend_frames(1);
-		k = 1;
-
-		return true;
-	}
-
-	bool PDR::iterate()
-	{
-		cout << SEP3 << endl;
-		cout << "Start iteration" << endl;
-
-		// I => P and I & T ⇒ P' (from init)
-		while (true) //iterate over k, if dynamic this continues from last k
-		{
-			cout << "iterate frame "<< k << endl;
-			SPDLOG_LOGGER_TRACE(log, "");
-			SPDLOG_LOGGER_TRACE(log, SEP3);
-			SPDLOG_LOGGER_TRACE(log, "{}| frame {}", TAB, k);
-			assert(k == frames.size() - 1);
-
-			while (true) //exhaust all transitions to !P
-			{
-				if (frames[k]->SAT(model.not_property.nexts()))
-				{
-						// F_i & T /=> F_i+1' (= P')
-					// strengthen F_i
-					SPDLOG_LOGGER_TRACE(log, "{}| cti found at frame {}", TAB, k);
-					cout << "new cti" << endl;
-					log_indent++;
-					
-					expr_vector cti_current = frames[k]->sat_cube(
-							[this](const expr& e) { return model.literals.atom_is_current(e); });
-
-					SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(cti_current));	
-					log_indent--;
-
-						// s is not in F_k-1 (or it would have been found previously)
-						// F_k-2 & T & !s => !s'
-						// only need to to search k-1 ... k
-					expr_vector core(ctx);
-					int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
-						// int n = highest_inductive_frame(cti_current, (int)k - 1, (int)k);
-					assert(n >= 0);
-
-						// F_n & T & !s => !s
-						// F_n & T => F_n+1
-					expr_vector smaller_cti = generalize(core, n);
-					remove_state(smaller_cti, n + 1);
-
-					SPDLOG_LOGGER_TRACE(log, "{}| block", TAB);
-					log_indent++;
-					
-					if (not block(cti_current, n+1, k)) 
-						return false;
-					log_indent--;
-					SPDLOG_LOGGER_TRACE(log, SEP2);
-					cout << endl;
-				}
-				else // no more counter examples
-					break;
-			}
-
-			SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, 1, k);
-			log_indent++;
-
-			extend_frames(k+1);
-			bool  done = propagate(k);
-			if (k == 6)
-			{
-				cout << "SIX TIME\n//////////////////////////////" << endl;
-			}
-			k++;
-			
-			log_indent--;
-			cout << "###############" << endl;
-			SPDLOG_LOGGER_TRACE(log, SEP3); 
-			for (const unique_ptr<Frame>& f : frames)
-			{
-				// if (k == 7) 
-				// {
-				// 	std::fstream fs;
-				// 	fs.open ("test/dyn10-6-7.txt", std::fstream::in | std::fstream::app);
-				// 	fs << (*f).solver_str() << endl;
-				// 	fs.close();
-
-				// }
-				SPDLOG_LOGGER_TRACE(log, "{}", (*f).solver_str());
-			}
-			SPDLOG_LOGGER_TRACE(log, SEP3);
-
-			if (done)
-				return true;
-
-		}
-	}
-
-	bool PDR::block(expr_vector& cti, unsigned n, unsigned level)
-	{
-		unsigned period = 0;
-		std::set<Obligation, std::less<Obligation>> obligations; 
-		if ((n + 1) <= level)
-			obligations.emplace(n+1, std::move(cti), 0);
-
-		// forall (n, state) in obligations: !state->cube is inductive relative to F[i-1]
-		while (obligations.size() > 0)
-		{
-			sub_timer.reset();
-			double elapsed; string branch;
-
-			auto [n, state, depth] = *(obligations.begin());
-
-			assert(n <= level);
-			SPDLOG_LOGGER_TRACE(log, SEP);
-			SPDLOG_LOGGER_TRACE(log, "{}| obligations pending: {}", TAB, obligations.size());
-			SPDLOG_LOGGER_TRACE(log, "{}| top obligation", TAB);
-			log_indent++;
-			SPDLOG_LOGGER_TRACE(log, "{}| {}, [{}]", TAB, n, join(state->cube));
-			log_indent--;
-
-			expr state_clause = z3::mk_or(z3ext::negate(state->cube));
-
-			if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
-			{	//predecessor found
-				expr_vector pred_cube = frames[n]->sat_cube(
-							[this](const expr& e) { return model.literals.atom_is_current(e); });
-				shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
-
-				SPDLOG_LOGGER_TRACE(log, "{}| predecessor found", TAB);
-				log_indent++;
-				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(pred->cube));
-				log_indent--;
-
-				expr_vector core(ctx);
-				// state is inductive relative to F[n-2]
-				// else there would be an F[k-1] state t preceding state, making state an F[k-1] state
-				int m = highest_inductive_frame(pred->cube, n-1, level, core);
-				// int m = highest_inductive_frame(pred->cube, n-1, level);
-				// m in [n-1, level]
-				if (m >= 0)
-				{
-					expr_vector smaller_pred = generalize(core, m);
-					// expr_vector smaller_pred = generalize(pred->cube, m);
-					remove_state(smaller_pred, m + 1);
-
-					if (static_cast<unsigned>(m+1) <= level)
-					{
-						SPDLOG_LOGGER_TRACE(log, "{}| push predecessor to level {}: [{}]", TAB, m+1, join(pred->cube));
-						obligations.emplace(m+1, pred, depth+1);
-					}
-				}
-				else //intersects with I
-				{ 
-					bad = pred;
-					return false;
-				}
-				elapsed = sub_timer.elapsed().count();
-				branch = "(pred)  ";
-			}
-			else 
-			{	//finish state
-				SPDLOG_LOGGER_TRACE(log, "{}| finishing state", TAB);
-				log_indent++;
-				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
-				log_indent--;
-
-				expr_vector core(ctx);
-				// !state is now inductive relative to n
-				int m = highest_inductive_frame(state->cube, n + 1, level, core);
-				// int m = highest_inductive_frame(state->cube, n + 1, level);
-				// m in [n-1, level]
-				assert(static_cast<unsigned>(m+1) > n);
-
-				if (m >= 0)
-				{
-					expr_vector smaller_state = generalize(core, m);
-					// expr_vector smaller_state = generalize(state->cube, m);
-					remove_state(smaller_state, m + 1);
-					obligations.erase(obligations.begin()); //problem with & structured binding??
-
-					if (static_cast<unsigned>(m+1) <= level)
-					{
-						SPDLOG_LOGGER_TRACE(log, "{}| push state to higher to level {}: [{}]", TAB, m+1, join(state->cube));
-						obligations.emplace(m+1, state, depth);
-					}
-				}
-				else
-				{
-					bad = state;
-					return false;
-				}
-				elapsed = sub_timer.elapsed().count();
-				branch = "(finish)";
-			}
-			stats.obligation_done(level, elapsed);
-			SPDLOG_LOGGER_TRACE(log, "Obligation {} elapsed {}", branch, elapsed);
-			cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
-			elapsed = -1.0;
-
-			if (period >= 100)
-			{
-				period = 0;
-				cout << "Stats written" << endl;
-				SPDLOG_LOGGER_DEBUG(log, stats.to_string());
-				log->flush();
-			}
-			else period++;
-		}
-		return true;
-	}
-
-	void PDR::remove_state(expr_vector& cube, unsigned level)
-	{
-		level = std::min(static_cast<size_t>(level), frames.size()-1);
-		SPDLOG_LOGGER_TRACE(log, "{}| removing cube from level [1..{}]: [{}]", TAB, level, join(cube));
-		log_indent++;
-
-		if (delta) //a cube is only stored in the last frame it holds
-		{
-			for (unsigned i = 1; i <= level; i++)
-			{
-				if (frames[i]->blocked(cube)) //do not add if an equal or stronger version is already blocked
-				{
-					stats.blocked_ignored++;
-					break;
-				}
-				//remove all blocked cubes that are weaker than cube
-				unsigned n_removed = frames[i]->remove_subsumed(cube); 
-				stats.subsumed(level, n_removed);
-				
-				if (frames[level]->block_cube(cube))
-					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, level);
-			}
-		}
-		else
-		{
-			for (unsigned i = 1; i <= level; i++)
-				if (frames[i]->block_cube(cube))
-					SPDLOG_LOGGER_TRACE(log, "{}| blocked in {}", TAB, i);
-		}
-		log_indent--;
-	}
-
-	bool PDR::propagate(unsigned level, bool repeat)
-	{
-		assert(level == frames.size()-2); // k == |F|-1
-		sub_timer.reset();
-		cout << "propagate level " << level << endl;
-
-		bool invariant;
-		if (delta)
-			invariant = delta_propagate(level, repeat);
-		else
-			invariant = fat_propagate(level, repeat);
-
-		SPDLOG_LOGGER_TRACE(log, "Propagation elapsed {}", sub_timer);
-		cout << format("Propagation elapsed {}", sub_timer) << endl;
-		return invariant;
-	}
-
-	bool PDR::fat_propagate(unsigned level, bool repeat)
-	{
-		frames[1]->reset_solver();
-		//extracts arguments of e as an expr_vector
-		for (unsigned i = 1; i <= level; i++)
-		{   //TODO: check in of exclusief
-			vector<expr_vector> diff = frames[i]->diff(*frames[i+1]);
-
-			for (const expr_vector& cube : diff)
-			{
-				expr_vector cube_next = model.literals.p(cube);
-
-				if (frames[i]->UNSAT(cube_next))
-				{
-					if (frames[i+1]->block_cube(cube))
-						if (repeat)
-							cout << "new blocked in repeat" << endl;
-						// trace.AddedClauses++;
-					// else
-					// {
-						// IC3Trace.LogLine("Clause is subsumed in frame " + i, "Propagate" );
-						// trace.Subsumed++;
-					// }
-				}
-				else 
-					frames[i]->discard_model();
-			}
-			frames[i+1]->reset_solver();
-
-			if (diff.size() == 0 || frames[i]->equals(*frames[i + 1]))
-			{
-				std::cout << format("F[{}] \\ F[{}] == 0", i, i+1) << std::endl;
-				return true;
-			}
-		}
-		return false;
-	}
-
-	bool PDR::delta_propagate(unsigned level, bool repeat)
-	{
-		frames[1]->reset_solver();
-		for (unsigned i = 1; i <= level; i++)
-		{
-			for (const expr_vector& cube : frames[i]->get_blocked_cubes())
-			{
-				expr_vector cube_next = model.literals.p(cube);
-				if (frames[i]->UNSAT(cube_next))
-				{
-					if (frames[i+1]->block_cube(cube))
-						if (repeat)
-							cout << "new blocked in repeat" << endl;
-				}
-				else
-					frames[i]->discard_model();
-			}
-			frames[i+1]->reset_solver();
-			
-			if (frames[i]->empty())
-			{
-				std::cout << format("F[{}] \\ F[{}] == 0", i, i+1) << std::endl;
-				return true;
-			}
-		}
-		return false;
-	}
-
-	void PDR::store_frame_strings() 
-	{
-		std::stringstream ss;
-
-		ss << "Frames" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-			ss << (*f).blocked_str() << endl;
-
-		frames_string = ss.str();
-
-		ss = std::stringstream();
-
-		ss << "Solvers" << endl;
-		for (const unique_ptr<Frame>& f : frames)
-				ss << (*f).solver_str() << endl;
-
-		solvers_string = ss.str();
-	}
-
-	void PDR::show_results(std::ostream& out) const
-	{
-		out << format("Results pebbling strategy with {} pebbles for {}", model.get_max_pebbles(), model.name) << endl;
-		out << SEP2 << endl;
-
-		if (bad)
-		{
-			out << "Bad state reached:" << endl;
-			out << format("[ {} ]", join_expr_vec(model.not_property.currents(), " & ")) << endl << endl;
-
-			out << "Reached from:" << endl;
-			show_trace(out);
-			out << SEP2 << endl;
-		}
-		else 
-		{
-			out << fmt::format("No strategy for {} pebbles", model.get_max_pebbles()) << endl << endl;
-		}
-
-		out << frames_string << endl;
-		out << SEP << endl;
-		out << solvers_string << endl;
-	}
-
-	void PDR::show_trace(std::ostream& out) const
-	{
-		std::vector<std::tuple<unsigned, string, unsigned>> steps;
-
-		shared_ptr<State> current = bad;
-		auto count_pebbled = [](const expr_vector& vec) 
-		{
-			unsigned count = 0;
-			for (const expr& e : vec)
-				if(!e.is_not())
-					count++;
-
-			return count; 
-		};
-
-		unsigned i = 0;
-		while (current)
-		{
-			i++;
-			steps.emplace_back(
-					i, 
-					join_expr_vec(current->cube), 
-					count_pebbled(current->cube)
-				);
-			current = current->prev;
-		}
-		unsigned i_padding = i/10 + 1;
-
-		out << format("{:>{}} |\t [ {} ]", 'I', i_padding, join_expr_vec(model.get_initial())) << endl;
-
-		for (const auto &[num, vec, count] : steps)
-			out << format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding, vec, count) << endl; 
-
-		out << format("{:>{}} |\t [ {} ]", 'F', i_padding, join_expr_vec(model.not_property.currents())) << endl;
-	}
-}
+  PDR::PDR(PDRModel& m, bool d, Logger& l, PDResults& r)
+      : ctx(m.ctx), model(m), delta(d), logger(l),
+        frames(delta, ctx, m, logger), results(r)
+  {
+  }
+
+  void PDR::reset()
+  {
+    logger.indent = 0;
+    // trace is already converted into string, discard states
+    assert(results.current().trace_string != "");
+    results.current().trace.reset();
+    frames_string     = "None";
+    solvers_string    = "None";
+    shortest_strategy = UINT_MAX;
+  }
+
+  void PDR::print_model(const z3::model& m)
+  {
+    logger.out() << "model consts \{" << std::endl;
+    for (unsigned i = 0; i < m.num_consts(); i++)
+      logger.out() << "\t" << m.get_const_interp(m.get_const_decl(i));
+    logger.out() << "}" << std::endl;
+  }
+
+  bool PDR::run(bool optimize)
+  {
+    dynamic_cardinality = optimize;
+    timer.reset();
+
+    assert(k == frames.frontier());
+    log_start();
+
+    bool failed = false;
+    if (!optimize || k == 0)
+    {
+      log_and_show("Start initiation");
+      logger.indent++;
+      failed = !init();
+      logger.indent--;
+    }
+
+    if (failed)
+    {
+      log_and_show("Failed initiation");
+      return finish(false);
+    }
+
+    log_and_show("Survived Initiation");
+    log_and_show("Start iteration");
+    logger.indent++;
+    failed = !iterate();
+    logger.indent--;
+
+    if (failed)
+    {
+      log_and_show("Failed iteration");
+      return finish(false);
+    }
+
+    log_and_show("Property verified");
+    return finish(true);
+  }
+
+  bool PDR::finish(bool rv)
+  {
+    double final_time = timer.elapsed().count();
+    log_and_show(fmt::format("Total elapsed time {}", final_time));
+    results.current().total_time = final_time;
+    logger.stats.elapsed         = final_time;
+    store_result();
+    store_frame_strings();
+    shortest_strategy = results.current().pebbles_used;
+
+    return rv;
+  }
+
+  // returns true if the model survives initiation
+  bool PDR::init()
+  {
+    assert(frames.frontier() == 0);
+
+    z3::expr_vector notP = model.n_property.currents();
+    if (frames.init_solver.check(notP))
+    {
+      logger.out() << "I =/> P" << std::endl;
+      z3::model counter = frames.solver(0)->get_model();
+      print_model(counter);
+      // TODO TRACE
+      results.current().trace = std::make_shared<State>(model.get_initial());
+      return false;
+    }
+
+    z3::expr_vector notP_next = model.n_property.nexts();
+    if (frames.SAT(0, notP_next))
+    { // there is a transitions from I to !P
+      logger.out() << "I & T =/> P'" << std::endl;
+      z3::model witness = frames.solver(0)->get_model();
+      z3::expr_vector bad_cube =
+          Solver::filter_witness(witness, [this](const z3::expr& e)
+                                 { return model.literals.atom_is_current(e); });
+      results.current().trace = std::make_shared<State>(bad_cube);
+
+      return false;
+    }
+
+    frames.extend();
+    k = 1;
+    assert(k == frames.frontier());
+
+    return true;
+  }
+
+  bool PDR::iterate()
+  {
+    logger.out() << SEP3 << std::endl;
+    logger.out() << "Start iteration" << std::endl;
+
+    // I => P and I & T ⇒ P' (from init)
+    while (true) // iterate over k, if dynamic this continues from last k
+    {
+      log_iteration();
+      assert(k == frames.frontier());
+      // exhaust all counters to the inductiveness of !P
+      while (Witness cti =
+                 frames.get_trans_from_to(k, model.n_property.nexts(), true))
+      {
+
+        if (cti)
+        {
+          // F_i leads to violation, strengthen
+          z3::expr_vector cti_current = Solver::filter_witness(
+              *cti, [this](const z3::expr& e)
+              { return model.literals.atom_is_current(e); });
+
+          log_cti(cti_current);
+
+          z3::expr_vector core(ctx);
+          int n =
+              highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
+          assert(n >= 0);
+
+          // F_n & T & !s => !s
+          // F_n & T => F_n+1
+          z3::expr_vector smaller_cti = generalize(core, n);
+          frames.remove_state(smaller_cti, n + 1);
+
+          if (not block(cti_current, n + 1, k))
+            return false;
+
+          logger.out() << std::endl;
+        }
+        else // no more counter examples
+        {
+          SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| no more counters at F_{}",
+                              logger.tab(), k);
+          break;
+        }
+      }
+
+      frames.extend();
+
+      sub_timer.reset();
+      int invariant = frames.propagate(k);
+      double time   = sub_timer.elapsed().count();
+      log_propagation(k, time);
+
+      k++;
+      frames.log_solvers();
+
+      if (invariant >= 0)
+      {
+        results.current().invariant_index = invariant;
+        return true;
+      }
+    }
+  }
+
+  bool PDR::block(z3::expr_vector& cti, unsigned n, unsigned level)
+  {
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block", logger.tab());
+    logger.indent++;
+
+    unsigned period = 0;
+    std::set<Obligation, std::less<Obligation>> obligations;
+    if ((n + 1) <= level)
+      obligations.emplace(n + 1, std::move(cti), 0);
+
+    // forall (n, state) in obligations: !state->cube is inductive
+    // relative to F[i-1]
+    while (obligations.size() > 0)
+    {
+      sub_timer.reset();
+      double elapsed;
+      std::string branch;
+
+      auto [n, state, depth] = *(obligations.begin());
+      assert(n <= level);
+      log_top_obligation(obligations.size(), n, state->cube);
+
+      if (Witness w = frames.counter_to_inductiveness(state->cube, n))
+      {
+        // get predecessor from the witness
+        auto extract_current = [this](const z3::expr& e)
+        { return model.literals.atom_is_current(e); };
+        z3::expr_vector pred_cube = Solver::filter_witness(*w, extract_current);
+
+        std::shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
+        log_pred(pred->cube);
+
+        // state is at least inductive relative to F[n-2]
+        z3::expr_vector core(ctx);
+        int m = highest_inductive_frame(pred->cube, n - 1, level, core);
+        // m in [n-1, level]
+        if (m >= 0)
+        {
+          z3::expr_vector smaller_pred = generalize(core, m);
+          frames.remove_state(smaller_pred, m + 1);
+
+          if (static_cast<unsigned>(m + 1) <= level)
+          {
+            log_state_push(m + 1, pred->cube);
+            obligations.emplace(m + 1, pred, depth + 1);
+          }
+        }
+        else // intersects with I
+        {
+          results.current().trace = pred;
+          return false;
+        }
+        elapsed = sub_timer.elapsed().count();
+        branch  = "(pred)  ";
+      }
+      else
+      {
+        log_finish(state->cube);
+        //! s is now inductive to at least F_n
+        // see if !state is also inductive relative to some m >= n
+        z3::expr_vector core(ctx);
+        int m = highest_inductive_frame(state->cube, n + 1, level, core);
+        // m in [n-1, level]
+        assert(static_cast<unsigned>(m + 1) > n);
+
+        if (m >= 0)
+        {
+          z3::expr_vector smaller_state = generalize(core, m);
+          // expr_vector smaller_state = generalize(state->cube, m);
+          frames.remove_state(smaller_state, m + 1);
+          obligations.erase(obligations.begin());
+
+          if (static_cast<unsigned>(m + 1) <= level)
+          {
+            // push upwards until inductive relative to F_level
+            log_state_push(m + 1, state->cube);
+            obligations.emplace(m + 1, state, depth);
+          }
+        }
+        else
+        {
+          results.current().trace = state;
+          return false;
+        }
+        elapsed = sub_timer.elapsed().count();
+        branch  = "(finish)";
+      }
+      log_obligation(branch, level, elapsed);
+      elapsed = -1.0;
+
+      // periodically write stats in case of long runs
+      /*
+      if (period >= 100)
+      {
+        period = 0;
+        logger.out() << "Stats written" << std::endl;
+        SPDLOG_LOGGER_DEBUG(logger.spd_logger, logger.stats.to_string());
+        logger.spd_logger->flush();
+      }
+      else
+        period++;
+      */
+    }
+
+    logger.indent--;
+    return true;
+  }
+
+  void PDR::store_frame_strings()
+  {
+    std::stringstream ss;
+
+    ss << "Frames" << std::endl;
+    ss << frames.blocked_str() << std::endl;
+
+    frames_string = ss.str();
+
+    ss = std::stringstream();
+
+    ss << "Solvers" << std::endl;
+    ss << frames.solvers_str() << std::endl;
+
+    solvers_string = ss.str();
+  }
+
+  void PDR::show_solver(std::ostream& out, unsigned it) const
+  {
+    out << SEP3 << " iteration " << it << std::endl;
+    out << frames_string << std::endl;
+    out << SEP2 << std::endl;
+    out << solvers_string << std::endl;
+  }
+
+  void PDR::show_results(std::ostream& out) const { results.show(out); }
+
+  void PDR::store_result()
+  {
+    if (std::shared_ptr<State> current = results.current().trace)
+    {
+      std::stringstream ss("Strategy:\n");
+
+      std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
+
+      auto count_pebbled = [](const z3::expr_vector& vec)
+      {
+        unsigned count = 0;
+        for (const z3::expr& e : vec)
+          if (!e.is_not())
+            count++;
+
+        return count;
+      };
+
+      unsigned i = 0;
+      while (current)
+      {
+        i++;
+        int pebbles = count_pebbled(current->cube);
+        results.current().pebbles_used =
+            std::max(results.current().pebbles_used, pebbles);
+        steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
+        current = current->prev;
+      }
+      results.current().trace_length = i + 1;
+      unsigned i_padding             = i / 10 + 1;
+
+      std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
+
+      std::string initial = z3ext::join_expr_vec(model.get_initial());
+      std::string final   = z3ext::join_expr_vec(model.n_property.currents());
+
+      ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
+      for (const auto& [num, vec, count] : steps)
+        ss << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
+      ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
+         << std::endl;
+
+      results.current().trace_string = ss.str();
+    }
+  }
+
+  void PDR::show_trace(const std::shared_ptr<State> trace_root,
+                       std::ostream& out) const
+  {
+    std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
+
+    std::shared_ptr<State> current = trace_root;
+    auto count_pebbled             = [](const z3::expr_vector& vec)
+    {
+      unsigned count = 0;
+      for (const z3::expr& e : vec)
+        if (!e.is_not())
+          count++;
+
+      return count;
+    };
+
+    unsigned i = 0;
+    while (current)
+    {
+      i++;
+      steps.emplace_back(i, z3ext::join_expr_vec(current->cube),
+                         count_pebbled(current->cube));
+      current = current->prev;
+    }
+    unsigned i_padding = i / 10 + 1;
+
+    out << fmt::format("{:>{}} |\t [ {} ]", 'I', i_padding,
+                       z3ext::join_expr_vec(model.get_initial()))
+        << std::endl;
+
+    for (const auto& [num, vec, count] : steps)
+      out << fmt::format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding,
+                         vec, count)
+          << std::endl;
+
+    out << fmt::format("{:>{}} |\t [ {} ]", 'F', i_padding,
+                       z3ext::join_expr_vec(model.n_property.currents()))
+        << std::endl;
+  }
+
+  Statistics& PDR::stats() { return logger.stats; }
+  int PDR::length_shortest_strategy() const { return shortest_strategy; }
+
+  // LOGGING AND STAT COLLECTION SHORTHANDS
+  //
+  void PDR::log_and_show(const std::string& str) const
+  {
+    logger.out() << str << std::endl;
+    SPDLOG_LOGGER_INFO(logger.spd_logger, str);
+  }
+
+  void PDR::log_start() const
+  {
+    SPDLOG_LOGGER_INFO(logger.spd_logger, "");
+    SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
+    logger.out() << std::endl;
+    log_and_show("PDR start:");
+  }
+
+  void PDR::log_iteration()
+  {
+    logger.out() << "###############" << std::endl;
+    logger.out() << "iterate frame " << k << std::endl;
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
+  }
+
+  void PDR::log_cti(const z3::expr_vector& cti)
+  {
+    (void)cti; // ignore unused warning when logging is off
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| cti at frame {}", logger.tab(),
+                        k);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                        str::extend::join(cti));
+  }
+
+  void PDR::log_propagation(unsigned level, double time)
+  {
+    std::string msg = fmt::format("Propagation elapsed {}", time);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
+    logger.out() << msg << std::endl;
+    logger.stats.propagation_it.add_timed(level, time);
+  }
+
+  void PDR::log_top_obligation(size_t queue_size, unsigned top_level,
+                               const z3::expr_vector& top)
+  {
+    (void)queue_size; // ignore unused warning when logging is off
+    (void)top_level;  // ignore unused warning when logging is off
+    (void)top;        // ignore unused warning when logging is off
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| obligations pending: {}",
+                        logger.tab(), queue_size);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation", logger.tab());
+    logger.indent++;
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(),
+                        top_level, str::extend::join(top));
+    logger.indent--;
+  }
+
+  void PDR::log_pred(const z3::expr_vector& p)
+  {
+    (void)p; // ignore unused warning when logging is off
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor:", logger.tab());
+    logger.indent++;
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                        str::extend::join(p));
+    logger.indent--;
+  }
+
+  void PDR::log_state_push(unsigned frame, const z3::expr_vector& p)
+  {
+    (void)frame; // ignore unused warning when logging is off
+    (void)p;     // ignore unused warning when logging is off
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| pred is inductive until F_{}",
+                        frame - 1, logger.tab());
+    SPDLOG_LOGGER_TRACE(logger.spd_logger,
+                        "{}| push predecessor to level {}: [{}]", logger.tab(),
+                        frame, str::extend::join(p));
+  }
+
+  void PDR::log_finish(const z3::expr_vector& s)
+  {
+    (void)s; // ignore unused warning when logging is off
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state", logger.tab());
+    logger.indent++;
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
+                        str::extend::join(s));
+    logger.indent--;
+  }
+
+  void PDR::log_obligation(const std::string& type, unsigned l, double time)
+  {
+    logger.stats.obligations_handled.add_timed(l, time);
+    std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
+    logger.out() << msg << std::endl;
+  }
+
+} // namespace pdr

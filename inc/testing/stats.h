@@ -4,172 +4,146 @@
 #include <cassert>
 #include <cstddef>
 #include <fmt/core.h>
+#include <fmt/format.h>
+#include <iostream>
+#include <map>
 #include <ostream>
 #include <sstream>
-#include <vector>
-#include <map>
 #include <string>
-#include <iostream>
-#include <fmt/format.h>
+#include <vector>
 
-namespace pdr {
-	using std::vector;
-	using std::string;
-	using std::endl;
-	using fmt::format;
-	using fmt::arg;
+namespace pdr
+{
+  struct Statistic
+  {
+    bool timed;
 
-	class Statistics
-	{
+    Statistic(bool t = false) : timed(t) {}
 
-		public:
-			unsigned total_solver_calls = 0;
-			double total_solver_time = 0;
-			vector<unsigned> solver_calls;
-			vector<double> solver_time;
+    unsigned total_count = 0;
+    std::vector<unsigned> count;
+    // optional
+    double total_time = 0;
+    std::vector<double> time;
 
-			unsigned total_obligations_handled = 0;
-			double total_obligations_time = 0;
-			vector<unsigned> obligations_handled;
-			vector<double> obligations_time;
-			
-			unsigned total_subsumed_cubes = 0;
-			vector<unsigned> subsumed_cubes;
+    void add(size_t i, size_t amount = 1)
+    {
+      total_count += amount;
 
-			unsigned blocked_ignored = 0;
-			double elapsed = -1.0;
-			std::map<string, unsigned> model;
+      while (count.size() <= i)
+        count.push_back(0);
 
-			void solver_call(size_t frame)
-			{
-				total_solver_calls++;
+      count[i] += amount;
+    }
 
-				while (solver_calls.size() <= frame)
-					solver_calls.push_back(0);
+    void add_timed(size_t i, double dt)
+    {
+      assert(timed);
+      assert(dt > 0.0);
+      add(i);
+      total_time += dt;
 
-				solver_calls[frame]++;
-			}
+      while (time.size() <= i)
+        time.push_back(0.0);
+      assert(count.size() == time.size());
 
-			void solver_call(size_t frame, double time)
-			{
-				assert(time > 0.0);
-				solver_call(frame);
-				total_solver_time += time;
+      time[i] += dt;
+    }
 
-				while (solver_time.size() <= frame)
-					solver_time.push_back(0.0);
-				assert(solver_calls.size() == solver_time.size());
+    double avg_time(size_t i) const
+    {
+      if (time.size() <= i)
+        return -1.0;
+      return time[i] / count[i];
+    }
 
-				solver_time[frame] += time;
-			}
+    friend std::ostream& operator<<(std::ostream& out, const Statistic& stat)
+    {
+      if (stat.timed)
+        out << "# - total time:  " << stat.total_time << std::endl;
+      out << "# - total count: " << stat.total_count << std::endl;
 
-			double avg_solver_time(size_t frame) const
-			{
-				if (solver_time.size() <= frame)
-					return -1.0;
-				return solver_time[frame] / solver_calls[frame];
-			}
+      if (stat.timed)
+      {
+        for (size_t i = 0; i < stat.time.size(); i++)
+        {
+          out << fmt::format("# - i={level:<3} {name:<10}: {state:<20} | "
+                             "avg: {avg}",
+                             fmt::arg("level", i), fmt::arg("name", "time"),
+                             fmt::arg("state", stat.time[i]),
+                             fmt::arg("avg", stat.avg_time(i)))
+              << std::endl;
+        }
+        out << "-" << std::endl;
+      }
+      for (size_t i = 0; i < stat.count.size(); i++)
+        out << fmt::format("# - i={level:<3} {name:<10}: {state:<20}",
+                           fmt::arg("level", i), fmt::arg("name", "calls"),
+                           fmt::arg("state", stat.count[i]))
+            << std::endl;
+      return out << "###";
+    }
+  };
 
-			void obligation_done(size_t frame)
-			{
-				total_obligations_handled++;
+  class Statistics
+  {
 
-				while (obligations_handled.size() <= frame)
-					obligations_handled.push_back(0);
+   public:
+    Statistic solver_calls;
+    Statistic propagation_it;
+    Statistic propagation_level;
+    Statistic obligations_handled;
 
-				obligations_handled[frame]++;
-			}
+    Statistic subsumed_cubes;
 
-			void obligation_done(size_t frame, double time)
-			{
-				assert(time > 0.0);
-				obligation_done(frame);
-				total_obligations_time += time;
+    double elapsed = -1.0;
+    std::map<std::string, unsigned> model;
 
-				while (obligations_time.size() <= frame)
-					obligations_time.push_back(0.0);
-				assert(obligations_handled.size() == obligations_time.size());
+    Statistics()
+        : solver_calls(true), propagation_it(true), propagation_level(true),
+          obligations_handled(true), subsumed_cubes(false)
+    {
+    }
 
-				obligations_time[frame] += time;
-			}
+    std::string to_string() const
+    {
+      std::stringstream ss;
+      ss << *this << std::endl;
+      return ss.str();
+    }
 
-			double avg_obligation_time(size_t frame) const
-			{
-				if (obligations_time.size() <= frame)
-					return -1.0;
-				return obligations_time[frame] / obligations_handled[frame];
-			}
+    friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
+    {
+      assert(!s.model.empty());
+      if (!s.model.empty())
+      {
+        out << "Model: " << std::endl << "--------" << std::endl;
+        for (auto name_value : s.model)
+          out << name_value.first << " = " << name_value.second << ", ";
+        out << std::endl;
+      }
+      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
 
-			void subsumed(size_t frame, unsigned amount = 1)
-			{
-				total_subsumed_cubes += amount;
-				while (subsumed_cubes.size() <= frame)
-					subsumed_cubes.push_back(0);
+      out << std::endl;
 
-				subsumed_cubes[frame] += amount;
-			}
+      std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
+      std::string frame_line_avg(
+          "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
+      out << "######################" << std::endl
+          << "# Statistics" << std::endl
+          << "######################" << std::endl;
 
-			std::string to_string() const 
-			{
-				std::stringstream ss;
-				ss << *this << endl;
-				return ss.str();
-			}
+      out << "# Solver" << std::endl << s.solver_calls << std::endl;
+      out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
+      out << "# Propagation per iteration" << std::endl
+          << s.propagation_it << std::endl;
+      out << "# Propagation per level" << std::endl
+          << s.propagation_level << std::endl;
+      out << "# Subsumed clauses" << std::endl << s.subsumed_cubes << std::endl;
+      out << "#" << std::endl;
 
-			friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
-			{
-				out << "Total elapsed time: " << s.elapsed << endl << endl;
-
-				if (!s.model.empty())
-				{
-					out << "Model: " << endl << "--------" << endl;
-					for (auto name_value : s.model)
-						out << name_value.first << " = " << name_value.second << endl;
-				}
-				out << endl;
-
-				string frame_line("# - frame {level:<3} {name:<10}: {state:<20}");
-				string frame_line_avg("# - frame {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-				out << "######################" << endl
-					<< "# Statistics" << endl
-					<< "######################" << endl;
-
-				out << "# Solver" << endl
-					<< "# - total time:  " << s.total_solver_time << endl
-					<< "# - total calls: " << s.total_solver_calls << endl;
-				for (size_t i = 0; i < s.solver_time.size(); i++)
-					out << format(frame_line_avg, 
-							arg("level", i), arg("name", "time"), arg("state", s.solver_time[i]), 
-							arg("avg", s.avg_solver_time(i))) << endl;
-				for (size_t i = 0; i < s.solver_calls.size(); i++)
-					out << format(frame_line, 
-							arg("level", i), arg("name", "calls"), arg("state", s.solver_calls[i])) << endl;
-				out << "#" << endl;
-				
-				out << "# Obligations" << endl
-					<< "# - total time:    " << s.total_obligations_time << endl
-					<< "# - total handled: " << s.total_obligations_handled << endl;
-				for (size_t i = 0; i < s.obligations_time.size(); i++)
-					out << format(frame_line_avg, 
-							arg("level", i), arg("name", "time"), arg("state", s.obligations_time[i]),
-							arg("avg", s.avg_obligation_time(i))) << endl;
-				for (size_t i = 0; i < s.obligations_handled.size(); i++)
-					out << format(frame_line, 
-							arg("level", i), arg("name", "handled"), arg("state", s.obligations_handled[i])) << endl;
-				out << "#" << endl;
-				
-				out << "# Subsumed clauses" << endl
-					<< "# - total: " << s.total_subsumed_cubes << endl;
-				for (size_t i = 0; i < s.subsumed_cubes.size(); i++)
-					out << format(frame_line, 
-							arg("level", i), arg("name", "cubes"), arg("state", s.subsumed_cubes[i])) << endl;
-				out << "#" << endl;
-
-				out << "# Blocked clauses ignored" << endl
-					<< "# - total: " << s.blocked_ignored << endl;
-
-				return out << "######################" << endl;
-			}
-	};
-}
-#endif //STAT
+      return out << "######################" << std::endl;
+    }
+  };
+} // namespace pdr
+#endif // STAT

@@ -8,7 +8,7 @@
 #include <sstream>
 #include <algorithm>
 
-namespace str::extensions  
+namespace str::extend  
 {
 	using std::vector;
 	using std::string;

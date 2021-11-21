@@ -11,15 +11,10 @@
 #include <map>
 #include <fstream>
 
-#define OUT(s) std::cout << s << std::endl
-
 namespace parse 
 {
-	using std::string;
-	using std::vector;
-	using str::extensions::split;
-	using vars_iterator = std::map<string, unsigned>::iterator;
-	using const_vars_iterator = std::map<string, unsigned>::const_iterator;
+	using vars_iterator = std::map<std::string, unsigned>::iterator;
+	using const_vars_iterator = std::map<std::string, unsigned>::const_iterator;
 
 	enum class TFCState
 	{
@@ -31,18 +26,17 @@ namespace parse
 	{
 		private:
 			std::ifstream file;
-			std::map<string, unsigned> vars;
-			std::set<string> ins;
-			std::set<string> outs;
+			std::map<std::string, unsigned> vars;
+			std::set<std::string> ins;
+			std::set<std::string> outs;
 		
 		public:
-			static string node(const string& name, unsigned i) { return name + "_" + std::to_string(i); }
-			static string node(const_vars_iterator n) { return n->first + "_" + std::to_string(n->second); }
+			static std::string node(const std::string& name, unsigned i) { return name + "_" + std::to_string(i); }
+			static std::string node(const_vars_iterator n) { return n->first + "_" + std::to_string(n->second); }
 
-			dag::Graph parse_file(const string& filename, const string& graph_name)
+			dag::Graph parse_file(const std::string& filename, const std::string& graph_name)
 			{
 				assert(filename.substr(filename.find_last_of('.')) == ".tfc");
-				std::cout << "file: " <<  filename << std::endl;
 				dag::Graph G(graph_name);
 				vars.clear();
 
@@ -50,10 +44,10 @@ namespace parse
 				assert(file.is_open());
 
 				TFCState state = TFCState::VARS;
-				string line;
+				std::string line;
 				while (state != TFCState::_END && std::getline(file, line)) 
 				{
-					str::extensions::trim(line);
+					str::extend::trim(line);
 					if (line.size() == 0 || line[0] == '#')
 						continue;
 
@@ -94,12 +88,12 @@ namespace parse
 					} while (retry);
 				}
 				file.close();
-				for (const string& o : outs)
+				for (const std::string& o : outs)
 				{
 					auto it = vars.find(o);
 					assert(it != vars.end());
 					//name of latest version static single assignment form
-					string output = node(it);
+					std::string output = node(it);
 					G.add_output(output);
 				}
 
@@ -107,16 +101,16 @@ namespace parse
 			}
 
 			//assumes no starting or trailing whitespace
-			void parse_line(dag::Graph& G, string line)
+			void parse_line(dag::Graph& G, std::string line)
 			{
-				vector<string> op_operands = split(line, ' ');
+				std::vector<std::string> op_operands = str::extend::split(line, ' ');
 				assert(op_operands.size() == 2);
-				vector<string> operands = split(op_operands.back(), ',');
+				std::vector<std::string> operands = str::extend::split(op_operands.back(), ',');
 				
 				auto [old_t, new_t] = target(G, operands.back());
 				operands.pop_back();
 				std::transform(operands.begin(), operands.end(), operands.begin(), 
-						[this](const string& s) { return operand(s); });				
+						[this](const std::string& s) { return operand(s); });				
 
 				if (old_t != "")
 					operands.push_back(old_t);
@@ -124,70 +118,70 @@ namespace parse
 				G.add_edges_to(operands, new_t);
 			}
 
-			string new_var(dag::Graph& G, const string& name)
+			std::string new_var(dag::Graph& G, const std::string& name)
 			{
-				string new_node = node(name, 0);
+				std::string new_node = node(name, 0);
 				vars.emplace(name, 0);
 				G.add_node(new_node);
 				return new_node;
 			}
 
-			string upgrade_var(dag::Graph& G, vars_iterator var)
+			std::string upgrade_var(dag::Graph& G, vars_iterator var)
 			{
 				var->second++;
 				G.add_node(node(var));
 				return node(var);
 			}
 
-			string operand(const string& name)
+			std::string operand(const std::string& name)
 			{
 				auto it = vars.find(name);
 				assert(it != vars.end());
 				return node(it);
 			}
 
-			std::pair<string, string> target(dag::Graph& G, const string& name)
+			std::pair<std::string, std::string> target(dag::Graph& G, const std::string& name)
 			{
 				auto it = vars.find(name);
 				if (it == vars.end())
 				{
-					string new_t = new_var(G, name);
+					std::string new_t = new_var(G, name);
 					return std::make_pair("", new_t);
 				}
-				string old_t = node(it);
-				string new_t = upgrade_var(G, it);
+				std::string old_t = node(it);
+				std::string new_t = upgrade_var(G, it);
 
 				return std::make_pair(old_t, new_t);
 			}
 
-			bool prefixed(string line, string pre)
+			bool prefixed(std::string line, std::string pre)
 			{
 				if (pre != "")
 					return line.rfind(pre, 0) == 0;
 				return true;
 			}
 
-			void parse_inputs(dag::Graph& G, string line)
+			void parse_inputs(dag::Graph& G, std::string line)
 			{
 				assert(line.rfind(".i ", 0) == 0);
 				line = line.substr(3);
-				vector<string> names = str::extensions::split(line, ',');
-				for (const string& n : names)
+				std::vector<std::string> names = str::extend::split(line, ',');
+				for (const std::string& n : names)
 				{
-					string var_init = node(n, 0);
+					std::string var_init = node(n, 0);
 					vars.emplace(n, 0);
 					ins.insert(n);
 					G.add_input(var_init);
 				}
 			}
 
-			void parse_outputs(string line)
+			void parse_outputs(std::string line)
 			{
 				assert(line.rfind(".o ", 0) == 0);
 
 				line = line.substr(3);
-				vector<string> names = str::extensions::split(line, ',');
-				for (const string& n : names)
+				std::vector<std::string> names = str::extend::split(line, ',');
+				for (const std::string& n : names)
 				{
 					outs.insert(n);
 				}

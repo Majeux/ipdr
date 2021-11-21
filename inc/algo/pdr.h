@@ -1,127 +1,100 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
-#include "frame.h"
+#include "_logging.h"
+#include "frames.h"
 #include "pdr-model.h"
+#include "result.h"
 #include "stats.h"
-#include "logging.h"
 #include "z3-ext.h"
 
+#include <climits>
+#include <memory>
 #include <ostream>
 #include <queue>
-#include <memory>
+#include <spdlog/stopwatch.h>
+#include <string>
 #include <vector>
 #include <z3++.h>
-#include <spdlog/stopwatch.h>
 
-#define SEP "--------------------"
-#define SEP2 "===================="
-#define SEP3 "####################"
-#define TAB std::string(log_indent, '\t')
-#define MIN_ORDERING(T) T, std::vector<T>, std::greater<T> //type arguments for ascending priority queue
+// type arguments for ascending priority queue
+#define MIN_ORDERING(T) T, std::vector<T>, std::greater<T>
 
-namespace pdr 
+namespace pdr
 {
-	using std::vector;
-	using std::unique_ptr;
-	using std::shared_ptr;
-	using z3::context;
-	using z3::solver;
+  class PDR
+  {
+   private:
+    z3::context& ctx;
+    PDRModel& model;
+    bool delta; // use a delta encoding for the frames
 
-	struct State 
-	{
-		expr_vector cube;
-		shared_ptr<State> prev; //store predecessor for trace
+    spdlog::stopwatch timer;
+    spdlog::stopwatch sub_timer;
+    Logger& logger;
 
-		State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) { }
-		State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) { }
-		//move constructors
-		State(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<State>()) { }
-		State(expr_vector&& e, shared_ptr<State> s) : cube(std::move(e)), prev(s) { }
-	};
+    unsigned k = 0;
+    Frames frames;
 
-	struct Obligation
-	{
-		unsigned level;
-		shared_ptr<State> state;
-		unsigned depth;
+    PDResults& results;
+    int shortest_strategy;
 
-		Obligation(unsigned k, expr_vector&& cube, unsigned d) : 
-			level(k), state( std::make_shared<State>(std::move(cube)) ), depth(d) { }
+    // if mic fails to reduce a clause c this many times, take c
+    const unsigned mic_retries = 3;
 
-		Obligation(unsigned k, const shared_ptr<State>& s, unsigned d) : level(k), state(s), depth(d) { }
+    void print_model(const z3::model& m);
+    // main loops
+    bool init();
+    bool iterate();
+    bool iterate_short();
+    bool block(z3::expr_vector& counter, unsigned o_level, unsigned level);
+    bool block_short(z3::expr_vector& counter, unsigned o_level,
+                     unsigned level);
+    // generalization
+    int highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
+    int highest_inductive_frame(const z3::expr_vector& cube, int min, int max,
+                                z3::expr_vector& core);
+    z3::expr_vector generalize(const z3::expr_vector& cube, int level);
+    z3::expr_vector MIC(const z3::expr_vector& cube, int level);
+    bool down(std::vector<z3::expr>& cube, int level);
+    // results
+    void store_result();
+    void show_trace(const std::shared_ptr<State> trace_root,
+                    std::ostream& out) const;
+    bool finish(bool);
+    void store_frame_strings();
 
-		// bool operator<(const Obligation& o) const { return this->level < o.level; }
-		bool operator<(const Obligation& o) const 
-		{ 
-			if (this->level < o.level) return true;
-			if (this->level > o.level) return false;
-			if (this->depth < o.depth) return true;
-			if (this->depth > o.depth) return false;
+    void log_and_show(const std::string& str) const;
+    void log_start() const;
+    void log_iteration();
+    void log_cti(const z3::expr_vector& cti);
+    void log_propagation(unsigned level, double time);
+    void log_top_obligation(size_t queue_size, unsigned top_level,
+                            const z3::expr_vector& top);
+    void log_pred(const z3::expr_vector& p);
+    void log_state_push(unsigned frame, const z3::expr_vector& p);
+    void log_finish(const z3::expr_vector& s);
+    void log_obligation(const std::string& type, unsigned l, double time);
 
-			return z3ext::expr_vector_less()(this->state->cube, o.state->cube); 
-		}
-	};
+   public:
+    // bool dynamic_cardinality = true;
+    bool dynamic_cardinality   = false;
+    std::string frames_string  = "";
+    std::string solvers_string = "";
 
-	class PDR 
-	{
-		private:
-			context& ctx;
-			PDRModel& model;
-			bool delta; //use a delta encoding for the frames
+    PDR(PDRModel& m, bool d, Logger& l, PDResults& r);
+    void reset();
+    bool run(bool optimize = false);
+    void show_solver(std::ostream& out, unsigned it) const;
+    void show_results(std::ostream& out) const;
 
-			shared_ptr<spdlog::logger> log;
-			unsigned log_indent = 0;
-			spdlog::stopwatch timer;
-			spdlog::stopwatch sub_timer;
+    // reduces the max pebbles of the model to 1 lower than the previous
+    // strategy length. returns true if the is already proven invariant by this.
+    // returns false if this remains to be verified.
+    bool decrement(bool reuse = false);
 
-			shared_ptr<State> bad;
-
-			unsigned k = 0;
-			vector<unique_ptr<Frame>> old_frames;
-			vector<unique_ptr<Frame>> frames;
-			solver init_solver;
-
-			const unsigned mic_retries = 3; //if mic fails to reduce a clause c this many times, take c
-
-			Frame* make_frame(unsigned level);
-			void extend_frames(unsigned level);
-			void print_model(const z3::model& m);
-			//main loops
-			bool init();
-			bool iterate();
-			bool iterate_short();
-			bool block(expr_vector& counter, unsigned o_level, unsigned level);
-			bool block_short(expr_vector& counter, unsigned o_level, unsigned level);
-			void remove_state(expr_vector& cube, unsigned level);
-			bool propagate(unsigned level, bool repeat = false);
-			bool fat_propagate(unsigned level, bool repeat = false);
-			bool delta_propagate(unsigned level, bool repeat = false);
-			bool repropagate();
-			//generalization
-			int highest_inductive_frame(const expr_vector& cube, int min, int max);
-			int highest_inductive_frame(const expr_vector& cube, int min, int max, expr_vector& core);
-			expr_vector generalize(const expr_vector& cube, int level);
-			expr_vector MIC(const expr_vector& cube, int level);
-			bool down(vector<expr>& cube, int level);
-			//results
-			void show_trace(std::ostream& out) const;
-			bool finish(bool);
-			void store_frames();
-			void store_frame_strings();
-
-		public:
-			// bool dynamic_cardinality = true;
-			bool dynamic_cardinality = false;
-			string frames_string = "";
-			string solvers_string = "";
-			Statistics stats;
-
-			PDR(PDRModel& m, bool d);
-			void reset();
-			bool run(bool dynamic = false);
-			void show_results(std::ostream& out = std::cout) const;
-			void decrement(int x);
-	};
-}
-#endif //PDR_ALG
+    Statistics& stats();
+    int length_shortest_strategy() const;
+  };
+} // namespace pdr
+#endif // PDR_ALG

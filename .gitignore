@@ -44,5 +44,8 @@ build
 .z3-trace
 
 #benchmarks
-benchmark/rls/*
+benchmark/rls
 !benchmark/rls/_rls-benchmarks.txt
+
+output
+pebbling-pdr

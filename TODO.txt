@@ -1,0 +1,23 @@
+NOW
+	- Remove verbose output
+	- Add file with progress
+
+TODO
+	- generalization statistic
+	- some indexing/caching optimization from IC3 git
+	- proof/disprove minimal traces (heuristic?)
+	- continue from last known cardinality
+	- get HIF from act variable
+	- doubles and not deleted clauses in final solver output
+	- remember queue between iterations??
+	- tseitin transition
+	
+	DELTA
+		- terminates later than original (maybe ok)
+		- slower in some cases (factor 2), see g^xxxxx
+			- Maybe because of extra logging overhead?
+
+	EXPERIMENTS
+		- Determine comparisons to pebbling paper
+		- Compare speed of iterations between --optimize and not
+		- Determine speedup for reusing
