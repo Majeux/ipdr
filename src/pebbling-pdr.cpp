@@ -1,4 +1,5 @@
 ﻿#include "dag.h"
+#include "h-operator.h"
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-model.h"
@@ -11,7 +12,6 @@
 #include <exception>
 #include <fmt/core.h>
 #include <fstream>
-// #include <filesystem>
 #include <fmt/format.h>
 #include <ghc/filesystem.hpp>
 #include <iostream>
@@ -183,9 +183,7 @@ int main(int argc, char* argv[])
   assert(results.is_open());
 
   // read input model
-  parse::TFCParser parser;
-  dag::Graph G = parser.parse_file(model_file, clargs.model_name);
-  // dag::Graph G = parse::parse_bench(model_file, clargs.model_name);
+  dag::Graph G = dag::hoperator(2, 3);
   clargs.max_pebbles = G.nodes.size();
   std::cout << "Graph" << std::endl << G;
   // G.export_digraph(BENCH_FOLDER.string());
