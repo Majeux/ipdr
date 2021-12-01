@@ -14,18 +14,12 @@
 
 namespace parse
 {
-
-  //retrieves the value of the "label" attribute
-  //or returns the node index if it does not exist
-  inline std::string name_of(Agnode_t* n)
+  enum XMGnode
   {
-    char* l = agget(n, (char*)"label");
-
-    if (!strcmp(l, "\\N")) // if l == "\N" the key does not exist
-      return std::string(agnameof(n));
-
-    return std::string(l);
-  }
+    pi,
+    po,
+    node
+  };
 
   // check if name has the prefix of an input
   inline bool is_input(const std::string& name)
@@ -38,7 +32,36 @@ namespace parse
   inline bool is_output(const std::string& name)
   {
     std::string prefix = "po";
+    std::cout << name << "  " << (name.compare(0, prefix.size(), prefix) == 0) << std::endl;
     return name.compare(0, prefix.size(), prefix) == 0;
+  }
+
+  // check if name has the prefix of a constant
+  inline bool is_const(const std::string& name)
+  {
+    std::string prefix = "const_";
+    return name.compare(0, prefix.size(), prefix) == 0;
+  }
+
+  // retrieves the value of the "label" attribute
+  // or returns the node index if it does not exist
+  inline std::pair<std::string, XMGnode> name_of(Agnode_t* n)
+  {
+    char* l = agget(n, (char*)"label");
+    std::string label(l);
+    std::string name(agnameof(n));
+
+    if (label == "\\N") 
+      if (is_output(name))
+        return { "out_" + name.substr(2), XMGnode::po };
+
+    if (is_input(label))
+      return { label, XMGnode::pi };
+
+    if (is_const(label))
+      return { label, XMGnode::node };
+
+    return { "n_" + name, XMGnode::node };
   }
 
   class GraphvizGraph
@@ -90,21 +113,22 @@ namespace parse
     graph.foreach_node(
         [&dagraph, &graph](Agnode_t* node)
         {
-          std::string name = name_of(node); 
-          //TODO assign non-integer name to all
-          //remove poX from the graph?
-          if (is_input(name))
-            dagraph.add_input(name);
-          else if (is_output(name))
-            dagraph.add_output(name);
-          else
-            dagraph.add_node(name);
+          auto [name, type] = name_of(node);
+          // TODO remove poX from the graph?
+          switch (type)
+          {
+            case XMGnode::pi: dagraph.add_input(name); break;
+            case XMGnode::po: dagraph.add_output(name); break;
+            case XMGnode::node: dagraph.add_node(name);
+          }
 
           std::vector<std::string> v;
           auto store_child = [&v](Agedge_t* edge)
           {
-            Agnode_t* source = agtail(edge);
-            v.emplace_back(name_of(source));
+            Agnode_t* source  = agtail(edge);
+            auto [name, type] = name_of(source);
+            assert(type == XMGnode::pi || type == XMGnode::node);
+            v.emplace_back(name);
           };
           graph.foreach_edge_to(node, store_child);
           dagraph.add_edges_to(v, name);

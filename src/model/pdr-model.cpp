@@ -24,7 +24,7 @@ void PDRModel::load_pebble_transition(const dag::Graph& G)
     std::string name = literals(i).to_string();
     // pebble if all children are pebbled now and next
     // or unpebble if all children are pebbled now and next
-    for (const std::string& child : G.children.at(name))
+    for (const std::string& child : G.get_children(name))
     {
       z3::expr child_node = ctx.bool_const(child.c_str());
       int child_i = literals.indexof(child_node);
@@ -47,7 +47,7 @@ void PDRModel::load_pebble_transition_raw1(const dag::Graph& G)
     z3::expr parent_flip = literals(i) ^ literals.p(i);
     // pebble if all children are pebbled now and next
     // or unpebble if all children are pebbled now and next
-    for (const std::string& child : G.children.at(name))
+    for (const std::string& child : G.get_children(name))
     {
       z3::expr child_node = ctx.bool_const(child.c_str());
       int child_i = literals.indexof(child_node);
@@ -67,7 +67,7 @@ void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
     // pebble if all children are pebbled now and next
     // or unpebble if all children are pebbled now and next
     z3::expr_vector children_pebbled(ctx);
-    for (const std::string& child : G.children.at(name))
+    for (const std::string& child : G.get_children(name))
     {
       z3::expr child_node = ctx.bool_const(child.c_str());
       int child_i = literals.indexof(child_node);

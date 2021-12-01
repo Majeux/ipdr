@@ -45,15 +45,19 @@ namespace dag
 
   class Graph
   {
+   private:
+    std::map<std::string, std::vector<std::string>> children; // nodes X nodes
+    std::set<Edge> input_edges;                               // nodes X nodes
+    std::vector<std::string> empty_vec;
+
    public:
     std::string name;
+    std::string prefix = "";
+
     std::set<std::string> input;
     std::set<std::string> nodes;
-    std::set<std::string> output;                             // subet of nodes
-    std::set<Edge> edges;                                     // nodes X nodes
-    std::set<Edge> input_edges;                               // nodes X nodes
-    std::map<std::string, std::vector<std::string>> children; // nodes X nodes
-    std::string prefix = "";
+    std::set<std::string> output; // subet of nodes
+    std::set<Edge> edges;         // nodes X nodes
 
     std::string node(std::string name) { return prefix + name; }
 
@@ -144,6 +148,16 @@ namespace dag
     bool is_output(const std::string& name) const
     {
       return output.find(name) != output.end();
+    }
+
+    const std::vector<std::string>& get_children(const std::string& key) const
+    {
+      auto result = children.find(key);
+
+      if (result == children.end())
+        return empty_vec;
+
+      return result->second;
     }
   };
 } // namespace dag

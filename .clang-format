@@ -1,6 +1,7 @@
 UseTab: Never
 NamespaceIndentation: All
 IndentWrappedFunctionNames: true
+IndentCaseLabels: true
 TabWidth: 2
 IndentWidth: 2
 AccessModifierOffset: -1
