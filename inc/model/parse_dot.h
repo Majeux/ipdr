@@ -32,7 +32,6 @@ namespace parse
   inline bool is_output(const std::string& name)
   {
     std::string prefix = "po";
-    std::cout << name << "  " << (name.compare(0, prefix.size(), prefix) == 0) << std::endl;
     return name.compare(0, prefix.size(), prefix) == 0;
   }
 
@@ -51,9 +50,9 @@ namespace parse
     std::string label(l);
     std::string name(agnameof(n));
 
-    if (label == "\\N") 
+    if (label == "\\N")
       if (is_output(name))
-        return { "out_" + name.substr(2), XMGnode::po };
+        return { name, XMGnode::po };
 
     if (is_input(label))
       return { label, XMGnode::pi };
@@ -89,6 +88,23 @@ namespace parse
       gvRenderFilename(context, graph, "svg", dest_file.c_str());
     }
 
+    std::vector<std::string> children_of(Agnode_t* n)
+    {
+      // determine edges to node
+      std::vector<std::string> children;
+      auto store_child = [&children](Agedge_t* edge)
+      {
+        Agnode_t* source  = agtail(edge);
+        auto [name, type] = name_of(source);
+        assert(type == XMGnode::pi || type == XMGnode::node);
+        children.emplace_back(name);
+      };
+
+      foreach_edge_to(n, store_child);
+
+      return children;
+    }
+
     template <typename Fn> void foreach_node(Fn&& function)
     {
       for (Agnode_t* n = agfstnode(graph); n; n = agnxtnode(graph, n))
@@ -118,20 +134,19 @@ namespace parse
           switch (type)
           {
             case XMGnode::pi: dagraph.add_input(name); break;
-            case XMGnode::po: dagraph.add_output(name); break;
+            case XMGnode::po: break;
             case XMGnode::node: dagraph.add_node(name);
           }
 
-          std::vector<std::string> v;
-          auto store_child = [&v](Agedge_t* edge)
+          std::vector<std::string> c = graph.children_of(node);
+
+          if (type == XMGnode::po)
           {
-            Agnode_t* source  = agtail(edge);
-            auto [name, type] = name_of(source);
-            assert(type == XMGnode::pi || type == XMGnode::node);
-            v.emplace_back(name);
-          };
-          graph.foreach_edge_to(node, store_child);
-          dagraph.add_edges_to(v, name);
+            assert(c.size() == 1);
+            dagraph.add_output(c[0]);
+          }
+          else
+            dagraph.add_edges_to(c, name);
         });
 
     return dagraph;

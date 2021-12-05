@@ -11,8 +11,8 @@
 #include <cxxopts.hpp>
 #include <exception>
 #include <fmt/core.h>
-#include <fstream>
 #include <fmt/format.h>
+#include <fstream>
 #include <ghc/filesystem.hpp>
 #include <iostream>
 #include <memory>
@@ -27,6 +27,8 @@ namespace fs = ghc::filesystem;
 
 const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
 
+// FILE IO
+//
 // "{model}-{n pebbles}[_opt?][_delta?]"
 std::string file_name(const std::string& name, unsigned n, bool opt, bool delta)
 {
@@ -39,42 +41,40 @@ std::string folder_name(unsigned n, bool opt, bool delta)
   return fmt::format("{}{}{}", n, opt ? "-opt" : "", delta ? "-delta" : "");
 }
 
-// ensure proper folders exist and create file names for In and Output
-std::array<std::string, 5> setup_in_out(const std::string& model_name,
-                                        unsigned n_pebbles, bool optimize,
-                                        bool delta)
+std::array<fs::path, 2> paths(const std::string& model_name, unsigned n_pebbles,
+                              bool optimize, bool delta)
 {
   fs::path results_folder = fs::current_path() / "output";
-
-  std::string opts = folder_name(n_pebbles, optimize, delta);
+  std::string opts        = folder_name(n_pebbles, optimize, delta);
   fs::create_directory(results_folder);
   fs::create_directory(results_folder / model_name);
   fs::create_directory(results_folder / model_name / opts);
-  fs::path base = results_folder / model_name / opts;
 
-  fs::path stats_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".stats");
-  fs::path strategy_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".strategy");
-  fs::path log_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".log");
-  fs::path solver_file = base / "solver_dump.solver";
-  fs::path progress    = base / "progress.txt";
+  return { results_folder / model_name, results_folder / model_name / opts };
+}
 
+std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
+                         const std::string& ext)
+{
+  fs::path file = folder / fmt::format("{}.{}", filename, ext);
+  std::ofstream stream(file.string(), std::fstream::out | std::fstream::trunc);
+  assert(stream.is_open());
+  return stream;
+}
+//
+// FILE IO
+
+// ensure proper folders exist and create file names for In and Output
+void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
+{
   // show used paths
   TextTable output_files;
-  auto cwd_row  = { std::string(" current dir "), fs::current_path().string() };
-  auto stat_row = { std::string(" stats file "), stats_file.string() };
-  auto res_row  = { std::string(" result file "), strategy_file.string() };
-  auto solver_row = { std::string(" solver_dump file"), solver_file.string() };
-  output_files.addRow(cwd_row);
-  output_files.addRow(stat_row);
-  output_files.addRow(res_row);
-  output_files.addRow(solver_row);
-  std::cout << output_files << std::endl;
-
-  return { stats_file.string(), strategy_file.string(), log_file.string(),
-           solver_file.string(), progress.string() };
+  for (auto kv : paths)
+  {
+    auto row = { kv.first, kv.second.string() };
+    output_files.addRow(row);
+  }
+  os << output_files << std::endl;
 }
 
 struct ArgumentList
@@ -170,22 +170,23 @@ int main(int argc, char* argv[])
   // tfc model
   fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
 
-  const auto [stats_file, strategy_file, log_file, solver_file, progress_file] =
-      setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.optimize,
-                   clargs.delta);
+  const auto [model_dir, base_dir] = paths(
+      clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
+  std::string filename = file_name(clargs.model_name, clargs.max_pebbles,
+                                   clargs.optimize, clargs.delta);
 
-  std::ofstream stats(stats_file, std::fstream::out | std::fstream::trunc);
-  std::ofstream results(strategy_file, std::fstream::out | std::fstream::trunc);
-  std::ofstream solver_dump(solver_file,
-                            std::fstream::out | std::fstream::trunc);
-
-  assert(stats.is_open());
-  assert(results.is_open());
+  std::ofstream stats       = trunc_file(base_dir, filename, "stats");
+  std::ofstream strategy    = trunc_file(base_dir, filename, "strategy");
+  std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
+  std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
 
   // read input model
-  dag::Graph G = dag::hoperator(2, 3);
+  dag::Graph G       = dag::hoperator(2, 3);
   clargs.max_pebbles = G.nodes.size();
-  std::cout << "Graph" << std::endl << G;
+  std::cout << fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}",
+                           G.input.size(), G.output.size(), G.nodes.size())
+            << std::endl;
+  model_descr << G;
   // G.export_digraph(BENCH_FOLDER.string());
 
   // init z3
@@ -197,11 +198,17 @@ int main(int argc, char* argv[])
   PDRModel model(settings);
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
   model.show(std::cout);
+
   // initialize logger and other bookkeeping
-  pdr::Logger pdr_logger(log_file, G, progress_file, OutLvl::verbose);
+  fs::path log_file = base_dir / fmt::format("{}.{}", filename, ".log");
+  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, ".log");
+
+  pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
+                         OutLvl::verbose);
   pdr::PDResults res(model);
 
-  std::cout << std::endl << fmt::format("Finding {}-pebble strategy for {}",
+  std::cout << std::endl
+            << fmt::format("Finding {}-pebble strategy for {}",
                            clargs.max_pebbles, clargs.model_name)
             << std::endl
             << (clargs.optimize ? "Using dynamic cardinality. " : "")
@@ -214,17 +221,17 @@ int main(int argc, char* argv[])
 
     while (true)
     {
-      bool strategy = !algorithm.run(clargs.optimize);
+      bool found_strategy = !algorithm.run(clargs.optimize);
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
-      if (!strategy)
+      if (!found_strategy)
         break;
 
       if (algorithm.decrement(true))
         break;
     }
-    algorithm.show_results(results);
+    algorithm.show_results(strategy);
     algorithm.show_solver(solver_dump, clargs.max_pebbles);
   }
   else
@@ -233,15 +240,15 @@ int main(int argc, char* argv[])
     while (true)
     {
       pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
-      bool strategy = !algorithm.run(clargs.optimize);
+      bool found_strategy = !algorithm.run(clargs.optimize);
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
       algorithm.show_solver(solver_dump, model.get_max_pebbles());
 
-      if (!strategy && algorithm.decrement(true))
+      if (!found_strategy && algorithm.decrement(true))
       {
-        algorithm.show_results(results);
+        algorithm.show_results(strategy);
         break;
       }
     }

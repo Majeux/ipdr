@@ -103,14 +103,13 @@ namespace dag
 
     friend std::ostream& operator<<(std::ostream& stream, Graph const& g)
     {
-      stream << "DAG {";
-      stream << std::endl;
-      stream << "\tinput { " << str::extend::join(g.input) << " }" << std::endl;
-      stream << "\toutput { " << str::extend::join(g.output) << " }"
-             << std::endl;
-      stream << "\tnodes { " << str::extend::join(g.nodes) << " }" << std::endl;
-      stream << "\tinput { " << str::extend::join(g.edges) << " }" << std::endl;
-      stream << "}" << std::endl;
+      stream << "DAG \{" << std::endl
+             << "\tinput { " << str::extend::join(g.input) << " }" << std::endl
+             << "\toutput { " << str::extend::join(g.output) << " }"
+             << std::endl
+             << "\tnodes { " << str::extend::join(g.nodes) << " }" << std::endl
+             << "\tedges { " << str::extend::join(g.edges) << " }" << std::endl
+             << "}" << std::endl;
       return stream;
     }
 
