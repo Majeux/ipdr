@@ -4,3 +4,4 @@
 [submodule "inc/ext/mockturtle"]
 	path = inc/ext/mockturtle
 	url = git@github.com:lsils/mockturtle.git
+	ignore = untracked
