@@ -69,14 +69,14 @@ namespace dag
     {
     }
 
-    void add_input(std::string name) { input.insert(node(name)); }
+    void add_input(std::string iname) { input.insert(node(iname)); }
 
-    void add_node(std::string name) { nodes.insert(node(name)); }
+    void add_node(std::string nname) { nodes.insert(node(nname)); }
 
-    void add_output(std::string name)
+    void add_output(std::string oname)
     {
-      nodes.insert(node(name));
-      output.insert(node(name));
+      nodes.insert(node(oname));
+      output.insert(node(oname));
     }
 
     void add_edges_to(std::vector<std::string> from, std::string to)
