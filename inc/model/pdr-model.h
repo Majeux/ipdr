@@ -13,6 +13,7 @@ class PDRModel
 {
  public:
   std::string name;
+  z3::config conf;
   z3::context ctx;
   ExpressionCache literals;
   ExpressionCache property;
@@ -40,6 +41,7 @@ class PDRModel
   // cardinality constraint for current and next state
   z3::expr_vector cardinality;
 
+  z3::config& set_config(z3::config& settings);
   void load_pebble_transition(const dag::Graph& G);
   void load_pebble_transition_raw1(const dag::Graph& G);
   void load_pebble_transition_raw2(const dag::Graph& G);

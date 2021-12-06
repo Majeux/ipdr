@@ -1,5 +1,6 @@
 ﻿#include "dag.h"
 #include "h-operator.h"
+#include "logger.h"
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-model.h"
@@ -62,21 +63,10 @@ std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
   return stream;
 }
 //
-// FILE IO
+// end FILE IO
 
-// ensure proper folders exist and create file names for In and Output
-void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
-{
-  // show used paths
-  TextTable output_files;
-  for (auto kv : paths)
-  {
-    auto row = { kv.first, kv.second.string() };
-    output_files.addRow(row);
-  }
-  os << output_files << std::endl;
-}
-
+// CLI
+//
 struct ArgumentList
 {
   bool verbose;
@@ -155,6 +145,36 @@ ArgumentList parse_cl(int argc, char* argv[])
 
   return clargs;
 }
+//
+// end CLI
+
+// OUTPUT
+////
+void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
+{
+  // show used paths
+  TextTable output_files;
+  for (auto kv : paths)
+  {
+    auto row = { kv.first, kv.second.string() };
+    output_files.addRow(row);
+  }
+  os << output_files << std::endl;
+}
+
+void show_header(const ArgumentList& clargs)
+{
+  std::cout << std::endl
+            << fmt::format("Finding {}-pebble strategy for {}",
+                           clargs.max_pebbles, clargs.model_name)
+            << std::endl
+            << (clargs.optimize ? "Using dynamic cardinality. " : "")
+            << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
+}
+//
+// end OUTPUT
+
+////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
@@ -183,38 +203,25 @@ int main(int argc, char* argv[])
   // read input model
   dag::Graph G       = dag::hoperator(2, 3);
   clargs.max_pebbles = G.nodes.size();
-  std::cout << fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}",
-                           G.input.size(), G.output.size(), G.nodes.size())
-            << std::endl;
-  model_descr << G;
-  // G.export_digraph(BENCH_FOLDER.string());
-
-  // init z3
-  z3::config settings;
-  settings.set("unsat_core", true);
-  settings.set("model", true);
+  std::cout << G.summary() << std::endl;
+  model_descr << G.summary() << std::endl << G;
+  G.show_image(model_dir / "dag");
 
   // create model from DAG graph and set up algorithm
-  PDRModel model(settings);
+  PDRModel model;
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
   model.show(std::cout);
 
   // initialize logger and other bookkeeping
-  fs::path log_file = base_dir / fmt::format("{}.{}", filename, ".log");
+  fs::path log_file      = base_dir / fmt::format("{}.{}", filename, ".log");
   fs::path progress_file = base_dir / fmt::format("{}.{}", filename, ".log");
 
   pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
                          OutLvl::verbose);
   pdr::PDResults res(model);
 
-  std::cout << std::endl
-            << fmt::format("Finding {}-pebble strategy for {}",
-                           clargs.max_pebbles, clargs.model_name)
-            << std::endl
-            << (clargs.optimize ? "Using dynamic cardinality. " : "")
-            << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
-
   // run pdr and write output
+  show_header(clargs);
   if (clargs.optimize)
   {
     pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);

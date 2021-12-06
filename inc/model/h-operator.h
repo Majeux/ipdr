@@ -83,7 +83,8 @@ namespace dag
     my_dot_drawer<xmg_network> drawer;
     write_dot(build_hoperator(bitwidth, modulus), dot_string, drawer);
 
-    return parse::parse_dot(dot_string.str(), true);
+    return parse::parse_dot(dot_string.str(),
+                            fmt::format("hoperator_{}_{}", bitwidth, modulus));
   }
 } // namespace dag
 

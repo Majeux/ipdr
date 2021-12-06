@@ -1,5 +1,5 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef PDR_LOGGER_H
+#define PDR_LOGGER_H
 
 #include "dag.h"
 #include "stats.h"

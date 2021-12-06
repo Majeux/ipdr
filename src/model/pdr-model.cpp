@@ -2,15 +2,16 @@
 #include <z3++.h>
 
 PDRModel::PDRModel()
-    : ctx(), literals(ctx), property(ctx), n_property(ctx), initial(ctx),
+    : conf(), ctx(set_config(conf)), literals(ctx), property(ctx), n_property(ctx), initial(ctx),
       transition(ctx), cardinality(ctx)
 {
 }
 
-PDRModel::PDRModel(z3::config& settings)
-    : ctx(settings), literals(ctx), property(ctx), n_property(ctx),
-      initial(ctx), transition(ctx), cardinality(ctx)
+z3::config& PDRModel::set_config(z3::config& settings)
 {
+    settings.set("unsat_core", true);
+    settings.set("model", true);
+    return settings;
 }
 
 const z3::expr_vector& PDRModel::get_transition() const { return transition; }

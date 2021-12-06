@@ -1,5 +1,5 @@
-#ifndef SOLVER
-#define SOLVER
+#ifndef SOLVER_H
+#define SOLVER_H
 #include "z3-ext.h"
 
 #include <fmt/core.h>
@@ -110,4 +110,4 @@ namespace pdr
     return z3ext::convert(core);
   }
 } // namespace pdr
-#endif // SOLVER
+#endif // SOLVER_H

@@ -1,5 +1,5 @@
-#ifndef PDR_OBL
-#define PDR_OBL
+#ifndef PDR_OBL_H
+#define PDR_OBL_H
 
 #include "TextTable.h"
 #include "z3-ext.h"

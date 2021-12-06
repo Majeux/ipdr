@@ -1,6 +1,7 @@
-#ifndef DAG
-#define DAG
+#ifndef DAG_H
+#define DAG_H
 
+#include "graphvizgraph.h"
 #include "string-ext.h"
 
 #include <cassert>
@@ -15,7 +16,6 @@
 
 namespace dag
 {
-
   struct Edge
   {
     std::string from;
@@ -49,6 +49,7 @@ namespace dag
     std::map<std::string, std::vector<std::string>> children; // nodes X nodes
     std::set<Edge> input_edges;                               // nodes X nodes
     std::vector<std::string> empty_vec;
+    std::unique_ptr<graphviz::Graph> image;
 
    public:
     std::string name;
@@ -62,6 +63,10 @@ namespace dag
     std::string node(std::string name) { return prefix + name; }
 
     Graph(const std::string& s) : name(s) {}
+    Graph(const std::string& s, const std::string& dot)
+        : name(s), image(std::make_unique<graphviz::Graph>(dot))
+    {
+    }
 
     void add_input(std::string name) { input.insert(node(name)); }
 
@@ -101,6 +106,12 @@ namespace dag
       children.emplace(to, std::move(to_children));
     }
 
+    std::string summary() const
+    {
+      return fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}", input.size(),
+                         output.size(), nodes.size());
+    }
+
     friend std::ostream& operator<<(std::ostream& stream, Graph const& g)
     {
       stream << "DAG \{" << std::endl
@@ -113,9 +124,15 @@ namespace dag
       return stream;
     }
 
-    void export_digraph(const ghc::filesystem::path& folder)
+    void show_image(const std::string& destination)
     {
-      // make dot representation
+      if (!image)
+        image = std::make_unique<graphviz::Graph>(dot());
+      image->render(destination);
+    }
+
+    std::string dot()
+    {
       std::stringstream ss;
       ss << "digraph G {" << std::endl;
 
@@ -130,18 +147,7 @@ namespace dag
         ss << fmt::format("{} [shape=doublecircle];", o) << std::endl;
 
       ss << "}" << std::endl;
-
-      // export to svg
-      GVC_t* gvc             = gvContext();
-      Agraph_t* g            = agmemread(ss.str().c_str());
-      std::string image_file = (folder / "graphs" / (name + ".svg")).string();
-
-      gvLayout(gvc, g, "dot");
-      gvRenderFilename(gvc, g, "svg", image_file.c_str());
-
-      gvFreeLayout(gvc, g);
-      agclose(g);
-      gvFreeContext(gvc);
+      return ss.str();
     }
 
     bool is_output(const std::string& name) const
@@ -161,4 +167,4 @@ namespace dag
   };
 } // namespace dag
 
-#endif
+#endif // DAG_H
