@@ -28,6 +28,34 @@ namespace fs = ghc::filesystem;
 
 const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
 
+struct hop_arg
+{
+  unsigned bitwidth;
+  unsigned modulus;
+};
+
+enum ModelType
+{
+  none,
+  file,
+  hoperator
+};
+
+struct ArgumentList
+{
+  bool verbose;
+  bool whisper;
+  ModelType model;
+  std::string model_name;
+  hop_arg hop;
+  fs::path bench_folder;
+  unsigned max_pebbles;
+  bool optimize;
+  bool delta;
+
+  bool _failed = false;
+};
+
 // FILE IO
 //
 // "{model}-{n pebbles}[_opt?][_delta?]"
@@ -42,16 +70,18 @@ std::string folder_name(unsigned n, bool opt, bool delta)
   return fmt::format("{}{}{}", n, opt ? "-opt" : "", delta ? "-delta" : "");
 }
 
-std::array<fs::path, 2> paths(const std::string& model_name, unsigned n_pebbles,
-                              bool optimize, bool delta)
+std::array<fs::path, 2> output_paths(const ArgumentList& clargs)
 {
   fs::path results_folder = fs::current_path() / "output";
-  std::string opts        = folder_name(n_pebbles, optimize, delta);
+  std::string opts =
+      folder_name(clargs.max_pebbles, clargs.optimize, clargs.delta);
   fs::create_directory(results_folder);
-  fs::create_directory(results_folder / model_name);
-  fs::create_directory(results_folder / model_name / opts);
+  fs::path model_dir = results_folder / clargs.model_name;
+  fs::create_directory(model_dir);
+  fs::path run_dir = results_folder / clargs.model_name / opts;
+  fs::create_directory(run_dir);
 
-  return { results_folder / model_name, results_folder / model_name / opts };
+  return { model_dir, run_dir };
 }
 
 std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
@@ -67,19 +97,6 @@ std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
 
 // CLI
 //
-struct ArgumentList
-{
-  bool verbose;
-  bool whisper;
-  std::string model_name;
-  fs::path bench_folder;
-  unsigned max_pebbles;
-  bool optimize;
-  bool delta;
-
-  bool _failed = false;
-};
-
 cxxopts::Options make_options(std::string name, ArgumentList& clargs)
 {
   cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
@@ -91,20 +108,26 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
     ("w,wisper", "Output only minor info during pdr iterations",
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
+
     ("o, optimize", "Multiple runs that find a strategy with minimum pebbles",
       cxxopts::value<bool>(clargs.optimize))
     ("d, delta", "Use delta-encoded frames",
       cxxopts::value<bool>(clargs.delta))
+
     ("model", "Name of the graph to pebble",
       cxxopts::value<std::string>(clargs.model_name))
+    ("hop", "Construct h-operator model from provided <bitwidth,modulus>",
+      cxxopts::value<std::vector<unsigned>>())
     ("pebbles", "Maximum number of pebbles for a strategy",
       cxxopts::value<unsigned>(clargs.max_pebbles))
+
     ("b,benchfolder","Folder than contains runable .tfc benchmarks",
       cxxopts::value<fs::path>()->default_value(BENCH_FOLDER))
+
     ("h,help", "Show usage");
   // clang-format on
-  clopt.parse_positional({ "model", "pebbles" });
-  clopt.positional_help("<model name> <max pebbles>").show_positional_help();
+  clopt.parse_positional({ "pebbles" });
+  clopt.positional_help("<max pebbles>").show_positional_help();
 
   return clopt;
 }
@@ -123,11 +146,33 @@ ArgumentList parse_cl(int argc, char* argv[])
       exit(0);
     }
 
+    // read { model | hop }
+    clargs.model = ModelType::none;
     if (clresult.count("model"))
+    {
+      clargs.model      = ModelType::file;
       clargs.model_name = clresult["model"].as<std::string>();
-    else
-      throw std::invalid_argument("<model name> is required");
+    }
 
+    if (clresult.count("hop"))
+    {
+      if (clargs.model == ModelType::file)
+        throw std::invalid_argument("specify either { model | hop }, not both");
+      clargs.model = ModelType::hoperator;
+
+      const auto hop_list = clresult["hop"].as<std::vector<unsigned>>();
+      if (hop_list.size() != 2)
+        throw std::invalid_argument(
+            "hop requires two positive integers: bitwidth,modulus");
+      clargs.hop.bitwidth = hop_list[0];
+      clargs.hop.modulus  = hop_list[1];
+      clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
+    }
+
+    if (clargs.model == ModelType::none)
+      throw std::invalid_argument("specify either { model | hop }");
+
+    // read no pebbles
     if (clresult.count("pebbles"))
       clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
     else
@@ -180,32 +225,38 @@ int main(int argc, char* argv[])
 {
   ArgumentList clargs = parse_cl(argc, argv);
 
-  // bench model
-  // fs::path bench_folder =
-  //     fs::current_path() / "benchmark" / "iscas85" / "bench";
-  // fs::path model_file = fs::current_path() /
-  //                                    "benchmark" / "iscas85" / "bench" /
-  //                                    (clargs.model_name + ".bench");
-
-  // tfc model
-  fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
-
-  const auto [model_dir, base_dir] = paths(
-      clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
+  const auto [model_dir, base_dir] = output_paths(clargs);
+  // clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
   std::string filename = file_name(clargs.model_name, clargs.max_pebbles,
                                    clargs.optimize, clargs.delta);
+
+  std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
+  // read input model
+  dag::Graph G;
+  switch (clargs.model)
+  {
+    case ModelType::hoperator:
+    {
+      G = dag::hoperator(clargs.hop.bitwidth, clargs.hop.modulus);
+      clargs.max_pebbles = G.nodes.size();
+      std::cout << G.summary() << std::endl;
+      model_descr << G.summary() << std::endl << G;
+      G.show_image(model_dir / "dag");
+    }
+    break;
+    case ModelType::file:
+    {
+      parse::TFCParser parser;
+      fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
+      G = parser.parse_file(model_file.string(), clargs.model_name);
+    }
+    break;
+    default: break;
+  }
 
   std::ofstream stats       = trunc_file(base_dir, filename, "stats");
   std::ofstream strategy    = trunc_file(base_dir, filename, "strategy");
   std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
-  std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
-
-  // read input model
-  dag::Graph G       = dag::hoperator(2, 3);
-  clargs.max_pebbles = G.nodes.size();
-  std::cout << G.summary() << std::endl;
-  model_descr << G.summary() << std::endl << G;
-  G.show_image(model_dir / "dag");
 
   // create model from DAG graph and set up algorithm
   PDRModel model;

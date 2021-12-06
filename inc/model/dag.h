@@ -62,6 +62,7 @@ namespace dag
 
     std::string node(std::string name) { return prefix + name; }
 
+    Graph() {}
     Graph(const std::string& s) : name(s) {}
     Graph(const std::string& s, const std::string& dot)
         : name(s), image(std::make_unique<graphviz::Graph>(dot))
