@@ -52,6 +52,7 @@ struct ArgumentList
   unsigned max_pebbles;
   bool optimize;
   bool delta;
+  bool onlyshow;
 
   bool _failed = false;
 };
@@ -108,17 +109,19 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
     ("w,wisper", "Output only minor info during pdr iterations",
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
+    ("showonly", "Only write the given model to its output file, does not run the algorithm",
+     cxxopts::value<bool>(clargs.onlyshow))
 
-    ("o, optimize", "Multiple runs that find a strategy with minimum pebbles",
+    ("o,optimize", "Multiple runs that find a strategy with minimum pebbles",
       cxxopts::value<bool>(clargs.optimize))
-    ("d, delta", "Use delta-encoded frames",
+    ("d,delta", "Use delta-encoded frames",
       cxxopts::value<bool>(clargs.delta))
 
-    ("model", "Name of the graph to pebble",
+    ("model", "arg=<string>. Name of the graph to pebble",
       cxxopts::value<std::string>(clargs.model_name))
-    ("hop", "Construct h-operator model from provided <bitwidth,modulus>",
+    ("hop", "arg=<unsinged,unsigned>. Construct h-operator model from provided <bitwidth,modulus>",
       cxxopts::value<std::vector<unsigned>>())
-    ("pebbles", "Maximum number of pebbles for a strategy",
+    ("p,pebbles", "arg=<unsigned>. Starting maximum number of pebbles for the strategy search",
       cxxopts::value<unsigned>(clargs.max_pebbles))
 
     ("b,benchfolder","Folder than contains runable .tfc benchmarks",
@@ -126,8 +129,8 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
 
     ("h,help", "Show usage");
   // clang-format on
-  clopt.parse_positional({ "pebbles" });
-  clopt.positional_help("<max pebbles>").show_positional_help();
+  // clopt.parse_positional({ "pebbles" });
+  // clopt.positional_help("<max pebbles>").show_positional_help();
 
   return clopt;
 }
@@ -230,6 +233,7 @@ int main(int argc, char* argv[])
   std::string filename = file_name(clargs.model_name, clargs.max_pebbles,
                                    clargs.optimize, clargs.delta);
 
+  std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
   // read input model
   dag::Graph G;
@@ -240,7 +244,7 @@ int main(int argc, char* argv[])
       G = dag::hoperator(clargs.hop.bitwidth, clargs.hop.modulus);
       clargs.max_pebbles = G.nodes.size();
       std::cout << G.summary() << std::endl;
-      model_descr << G.summary() << std::endl << G;
+      graph_descr << G.summary() << std::endl << G;
       G.show_image(model_dir / "dag");
     }
     break;
@@ -254,14 +258,17 @@ int main(int argc, char* argv[])
     default: break;
   }
 
-  std::ofstream stats       = trunc_file(base_dir, filename, "stats");
-  std::ofstream strategy    = trunc_file(base_dir, filename, "strategy");
-  std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
-
   // create model from DAG graph and set up algorithm
   PDRModel model;
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
-  model.show(std::cout);
+  model.show(model_descr);
+
+  if (clargs.onlyshow)
+    return 0;
+
+  std::ofstream stats       = trunc_file(base_dir, filename, "stats");
+  std::ofstream strategy    = trunc_file(base_dir, filename, "strategy");
+  std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
 
   // initialize logger and other bookkeeping
   fs::path log_file      = base_dir / fmt::format("{}.{}", filename, ".log");

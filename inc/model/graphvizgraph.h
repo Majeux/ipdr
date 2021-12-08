@@ -58,8 +58,9 @@ namespace graphviz
       gvFreeContext(context);
     }
 
-    void render(const std::string& dest_file) const
+    void render(std::string dest_file) const
     {
+      dest_file += ".svg";
       gvRenderFilename(context, graph, "svg", dest_file.c_str());
     }
 
