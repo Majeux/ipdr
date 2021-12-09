@@ -51,3 +51,5 @@ output/*
 !output/compare_run.sh
 !output/compare_all_runs.sh
 pebbling-pdr
+
+perf.data*

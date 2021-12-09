@@ -13,7 +13,7 @@ set( EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../ )
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX)
     message(STATUS "GCC detected, adding compile flags")
-    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas")
+    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas -O3")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
 find_package(fmt CONFIG REQUIRED)
@@ -26,12 +26,7 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 
-# file(GLOB MODEL_HEADERS "inc/model/*.h")
-# file(GLOB AUX_HEADERS "inc/auxiliary/*.h")
-# file(GLOB ALGO_HEADERS "inc/algo/*.h")
-# file(GLOB ALGO_HEADERS "inc/testing/*.h")
-
-add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES})#  ${MODEL_HEADERS} ${AUX_HEADERS} ${ALGO_HEADERS})
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES})
 
 if (DO_LOG)
 	target_compile_definitions(pebbling-pdr PRIVATE LOG)

@@ -1,12 +1,11 @@
 NOW
-	- Remove verbose output
-	- Add file with progress
+	- actually useful progress file (skip verbose obligation timing output)
+	- profiling
 
 TODO
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
 	- proof/disprove minimal traces (heuristic?)
-	- continue from last known cardinality
 	- get HIF from act variable
 	- doubles and not deleted clauses in final solver output
 	- remember queue between iterations??

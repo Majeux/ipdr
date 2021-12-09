@@ -30,8 +30,8 @@ const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
 
 struct hop_arg
 {
-  unsigned bitwidth;
-  unsigned modulus;
+  unsigned bits;
+  unsigned mod;
 };
 
 enum ModelType
@@ -45,14 +45,19 @@ struct ArgumentList
 {
   bool verbose;
   bool whisper;
+
   ModelType model;
   std::string model_name;
   hop_arg hop;
   fs::path bench_folder;
-  unsigned max_pebbles;
-  bool optimize;
+
+  int max_pebbles;
+
+  // run options
+  bool opt;
   bool delta;
   bool onlyshow;
+  bool one;
 
   bool _failed = false;
 };
@@ -60,26 +65,26 @@ struct ArgumentList
 // FILE IO
 //
 // "{model}-{n pebbles}[_opt?][_delta?]"
-std::string file_name(const std::string& name, unsigned n, bool opt, bool delta)
+std::string file_name(const ArgumentList& args)
 {
-  return fmt::format("{}-{}pebbles{}{}", name, n, opt ? "_opt" : "",
-                     delta ? "_delta" : "");
+  return fmt::format("{}-{}pebbles{}{}", args.model_name, args.max_pebbles,
+                     args.opt ? "_opt" : "", args.delta ? "_delta" : "");
 }
 
-std::string folder_name(unsigned n, bool opt, bool delta)
+std::string folder_name(const ArgumentList& args)
 {
-  return fmt::format("{}{}{}", n, opt ? "-opt" : "", delta ? "-delta" : "");
+  return fmt::format("{}{}{}", args.max_pebbles, args.opt ? "-opt" : "",
+                     args.delta ? "-delta" : "");
 }
 
-std::array<fs::path, 2> output_paths(const ArgumentList& clargs)
+std::array<fs::path, 2> output_paths(const ArgumentList& args)
 {
   fs::path results_folder = fs::current_path() / "output";
-  std::string opts =
-      folder_name(clargs.max_pebbles, clargs.optimize, clargs.delta);
+  std::string opts        = folder_name(args);
   fs::create_directory(results_folder);
-  fs::path model_dir = results_folder / clargs.model_name;
+  fs::path model_dir = results_folder / args.model_name;
   fs::create_directory(model_dir);
-  fs::path run_dir = results_folder / clargs.model_name / opts;
+  fs::path run_dir = results_folder / args.model_name / opts;
   fs::create_directory(run_dir);
 
   return { model_dir, run_dir };
@@ -102,30 +107,33 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
 {
   cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                "amount of pebbles through PDR");
-  clargs.optimize = clargs.delta = false;
+  clargs.opt = clargs.delta = false;
   // clang-format off
   clopt.add_options()
     ("v,verbose", "Remove all output during pdr iterations",
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
-    ("w,wisper", "Output only minor info during pdr iterations",
+    ("w,wisper", "Output only minor info during pdr iterations.",
       cxxopts::value<bool>(clargs.verbose)->default_value("false"))
-    ("showonly", "Only write the given model to its output file, does not run the algorithm",
+    ("showonly", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
 
-    ("o,optimize", "Multiple runs that find a strategy with minimum pebbles",
-      cxxopts::value<bool>(clargs.optimize))
-    ("d,delta", "Use delta-encoded frames",
+    ("o,optimize", "Multiple runs that find a strategy with minimum pebbles.",
+      cxxopts::value<bool>(clargs.opt))
+    ("d,delta", "Use delta-encoded frames.",
       cxxopts::value<bool>(clargs.delta))
+    ("one", "Only run one iteration of pdr, which verifies if there is a strategy for the number of pebbles.",
+      cxxopts::value<bool>(clargs.one))
 
-    ("model", "arg=<string>. Name of the graph to pebble",
-      cxxopts::value<std::string>(clargs.model_name))
-    ("hop", "arg=<unsinged,unsigned>. Construct h-operator model from provided <bitwidth,modulus>",
-      cxxopts::value<std::vector<unsigned>>())
-    ("p,pebbles", "arg=<unsigned>. Starting maximum number of pebbles for the strategy search",
-      cxxopts::value<unsigned>(clargs.max_pebbles))
+    ("model", "Name of the graph to pebble.",
+      cxxopts::value<std::string>(clargs.model_name), "string:NAME")
+    ("hop", "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
+      cxxopts::value<std::vector<unsigned>>(), "uint:BITS,uint:MOD")
+    ("p,pebbles", "Starting maximum number of pebbles for the strategy search"
+      "Defaults to the highest possible if omitted.",
+      cxxopts::value<int>(clargs.max_pebbles), "uint:N")
 
-    ("b,benchfolder","Folder than contains runable .tfc benchmarks",
-      cxxopts::value<fs::path>()->default_value(BENCH_FOLDER))
+    ("b,benchfolder","Folder than contains runable .tfc benchmarks.",
+      cxxopts::value<fs::path>()->default_value(BENCH_FOLDER), "string:F")
 
     ("h,help", "Show usage");
   // clang-format on
@@ -167,8 +175,8 @@ ArgumentList parse_cl(int argc, char* argv[])
       if (hop_list.size() != 2)
         throw std::invalid_argument(
             "hop requires two positive integers: bitwidth,modulus");
-      clargs.hop.bitwidth = hop_list[0];
-      clargs.hop.modulus  = hop_list[1];
+      clargs.hop.bits   = hop_list[0];
+      clargs.hop.mod    = hop_list[1];
       clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
     }
 
@@ -177,9 +185,13 @@ ArgumentList parse_cl(int argc, char* argv[])
 
     // read no pebbles
     if (clresult.count("pebbles"))
-      clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
+    {
+      clargs.max_pebbles = clresult["pebbles"].as<int>();
+      if (clargs.max_pebbles == 0)
+        throw new std::invalid_argument("pebbles must be greater than 0.");
+    }
     else
-      throw std::invalid_argument("<max pebbles> is required");
+      clargs.max_pebbles = -1;
 
     clargs.bench_folder = BENCH_FOLDER / clresult["benchfolder"].as<fs::path>();
   }
@@ -216,7 +228,7 @@ void show_header(const ArgumentList& clargs)
             << fmt::format("Finding {}-pebble strategy for {}",
                            clargs.max_pebbles, clargs.model_name)
             << std::endl
-            << (clargs.optimize ? "Using dynamic cardinality. " : "")
+            << (clargs.opt ? "Using dynamic cardinality. " : "")
             << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
 }
 //
@@ -230,8 +242,7 @@ int main(int argc, char* argv[])
 
   const auto [model_dir, base_dir] = output_paths(clargs);
   // clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
-  std::string filename = file_name(clargs.model_name, clargs.max_pebbles,
-                                   clargs.optimize, clargs.delta);
+  std::string filename             = file_name(clargs);
 
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
@@ -241,11 +252,7 @@ int main(int argc, char* argv[])
   {
     case ModelType::hoperator:
     {
-      G = dag::hoperator(clargs.hop.bitwidth, clargs.hop.modulus);
-      clargs.max_pebbles = G.nodes.size();
-      std::cout << G.summary() << std::endl;
-      graph_descr << G.summary() << std::endl << G;
-      G.show_image(model_dir / "dag");
+      G = dag::hoperator(clargs.hop.bits, clargs.hop.mod);
     }
     break;
     case ModelType::file:
@@ -257,8 +264,14 @@ int main(int argc, char* argv[])
     break;
     default: break;
   }
+  G.show_image(model_dir / "dag");
+  std::cout << G.summary() << std::endl;
+  graph_descr << G.summary() << std::endl << G;
 
   // create model from DAG graph and set up algorithm
+  if (clargs.max_pebbles < 0)
+    clargs.max_pebbles = G.nodes.size();
+
   PDRModel model;
   model.load_model(clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
@@ -280,17 +293,17 @@ int main(int argc, char* argv[])
 
   // run pdr and write output
   show_header(clargs);
-  if (clargs.optimize)
+  if (clargs.opt)
   {
     pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
 
     while (true)
     {
-      bool found_strategy = !algorithm.run(clargs.optimize);
+      bool found_strategy = !algorithm.run(clargs.opt);
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
-      if (!found_strategy)
+      if (!found_strategy || clargs.one)
         break;
 
       if (algorithm.decrement(true))
@@ -305,11 +318,14 @@ int main(int argc, char* argv[])
     while (true)
     {
       pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
-      bool found_strategy = !algorithm.run(clargs.optimize);
+      bool found_strategy = !algorithm.run(clargs.opt);
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
       algorithm.show_solver(solver_dump, model.get_max_pebbles());
+
+      if (clargs.one)
+        break;
 
       if (!found_strategy && algorithm.decrement(true))
       {

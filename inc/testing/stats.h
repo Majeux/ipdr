@@ -1,5 +1,5 @@
-#ifndef STAT
-#define STAT
+#ifndef STATS_H
+#define STATS_H
 
 #include <cassert>
 #include <cstddef>
@@ -146,4 +146,4 @@ namespace pdr
     }
   };
 } // namespace pdr
-#endif // STAT
+#endif // STATS_H
