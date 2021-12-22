@@ -1,7 +1,8 @@
 ﻿# CMakeList.txt : CMake project for pebbling-pdr, include source and define
 # project specific logic here.
 #
-OPTION(DO_LOG "Produce logs in logs/ folder" OFF) # Enabled by default
+OPTION(DO_LOG "Produce logs in logs/ folder" OFF)
+OPTION(PERF "compile optimized for performance" OFF)
 
 cmake_minimum_required (VERSION 3.8)
 project ("pebbling-pdr")
@@ -9,12 +10,6 @@ project ("pebbling-pdr")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set( EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../ )
-
-# Set default compile flags for GCC
-if(CMAKE_COMPILER_IS_GNUCXX)
-    message(STATUS "GCC detected, adding compile flags")
-    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas -O3")
-endif(CMAKE_COMPILER_IS_GNUCXX)
 
 find_package(fmt CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)
@@ -27,6 +22,21 @@ file(GLOB MODEL_SOURCES "src/model/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 
 add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES})
+
+# Set default compile flags for GCC
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    message(STATUS "GCC detected, adding compile flags")
+    if (PERF)
+        target_compile_definitions(pebbling-pdr PRIVATE )
+        message(STATUS "! compiling with -O3")
+        set(OPT "-O3")
+    else ()
+        message(STATUS "! compiling without -O3")
+        set(OPT "")
+    endif (PERF)
+
+    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT}")
+endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if (DO_LOG)
 	target_compile_definitions(pebbling-pdr PRIVATE LOG)

@@ -43,9 +43,7 @@ enum ModelType
 
 struct ArgumentList
 {
-  bool verbose;
-  bool whisper;
-
+  OutLvl verbosity;
   ModelType model;
   std::string model_name;
   hop_arg hop;
@@ -110,10 +108,10 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   clargs.opt = clargs.delta = false;
   // clang-format off
   clopt.add_options()
-    ("v,verbose", "Remove all output during pdr iterations",
-      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
+    ("v,verbose", "Output all during pdr iterations",
+      cxxopts::value<bool>()->default_value("false"))
     ("w,wisper", "Output only minor info during pdr iterations.",
-      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
+      cxxopts::value<bool>()->default_value("false"))
     ("showonly", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
 
@@ -156,6 +154,13 @@ ArgumentList parse_cl(int argc, char* argv[])
       std::cerr << clopt.help() << std::endl;
       exit(0);
     }
+
+    clargs.verbosity = OutLvl::silent;
+    if (clresult.count("verbose"))
+      clargs.verbosity = OutLvl::verbose;
+
+    if (clresult.count("whisper"))
+      clargs.verbosity = OutLvl::whisper;
 
     // read { model | hop }
     clargs.model = ModelType::none;
@@ -284,11 +289,11 @@ int main(int argc, char* argv[])
   std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
 
   // initialize logger and other bookkeeping
-  fs::path log_file      = base_dir / fmt::format("{}.{}", filename, ".log");
-  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, ".log");
+  fs::path log_file      = base_dir / fmt::format("{}.{}", filename, "log");
+  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "log");
 
   pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
-                         OutLvl::verbose);
+                         clargs.verbosity);
   pdr::PDResults res(model);
 
   // run pdr and write output
