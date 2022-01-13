@@ -138,8 +138,7 @@ namespace pdr
 
   bool PDR::iterate()
   {
-    logger.out() << SEP3 << std::endl;
-    logger.out() << "Start iteration" << std::endl;
+    logger.out() << SEP3 << std::endl << "Start iteration" << std::endl;
 
     // I => P and I & T ⇒ P' (from init)
     while (true) // iterate over k, if dynamic this continues from last k
@@ -153,7 +152,7 @@ namespace pdr
 
         if (cti)
         {
-          // F_i leads to violation, strengthen
+          // a F_i state leads to violation
           z3::expr_vector cti_current = Solver::filter_witness(
               *cti, [this](const z3::expr& e)
               { return model.literals.atom_is_current(e); });
@@ -165,8 +164,7 @@ namespace pdr
               highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
           assert(n >= 0);
 
-          // F_n & T & !s => !s
-          // F_n & T => F_n+1
+          // !s is inductive relative to F_n
           z3::expr_vector smaller_cti = generalize(core, n);
           frames.remove_state(smaller_cti, n + 1);
 
@@ -186,16 +184,16 @@ namespace pdr
       frames.extend();
 
       sub_timer.reset();
-      int invariant = frames.propagate(k);
-      double time   = sub_timer.elapsed().count();
+      int invariant_level = frames.propagate(k);
+      double time         = sub_timer.elapsed().count();
       log_propagation(k, time);
 
       k++;
       frames.log_solvers();
 
-      if (invariant >= 0)
+      if (invariant_level >= 0)
       {
-        results.current().invariant_index = invariant;
+        results.current().invariant_index = invariant_level;
         return true;
       }
     }
@@ -233,10 +231,10 @@ namespace pdr
         std::shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
         log_pred(pred->cube);
 
-        // state is at least inductive relative to F[n-2]
+        // state is at least inductive relative to F_n-2
         z3::expr_vector core(ctx);
         int m = highest_inductive_frame(pred->cube, n - 1, level, core);
-        // m in [n-1, level]
+        // n-1 <= m <= level
         if (m >= 0)
         {
           z3::expr_vector smaller_pred = generalize(core, m);
@@ -260,14 +258,14 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
-        // see if !state is also inductive relative to some m >= n
         z3::expr_vector core(ctx);
         int m = highest_inductive_frame(state->cube, n + 1, level, core);
-        // m in [n-1, level]
+        // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m >= 0)
         {
+          // !s is inductive to F_m
           z3::expr_vector smaller_state = generalize(core, m);
           // expr_vector smaller_state = generalize(state->cube, m);
           frames.remove_state(smaller_state, m + 1);

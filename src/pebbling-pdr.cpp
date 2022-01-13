@@ -1,11 +1,13 @@
 ﻿#include "dag.h"
 #include "h-operator.h"
 #include "logger.h"
+#include "mockturtle/networks/klut.hpp"
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-model.h"
 #include "pdr.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -16,6 +18,7 @@
 #include <fstream>
 #include <ghc/filesystem.hpp>
 #include <iostream>
+#include <lorina/bench.hpp>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -37,7 +40,8 @@ struct hop_arg
 enum ModelType
 {
   none,
-  file,
+  tfc,
+  bench,
   hoperator
 };
 
@@ -122,7 +126,9 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
     ("one", "Only run one iteration of pdr, which verifies if there is a strategy for the number of pebbles.",
       cxxopts::value<bool>(clargs.one))
 
-    ("model", "Name of the graph to pebble.",
+    ("bench", "Graph in .bench format.",
+      cxxopts::value<std::string>(clargs.model_name), "string:NAME")
+    ("tfc", "Graph in .tfc format.",
       cxxopts::value<std::string>(clargs.model_name), "string:NAME")
     ("hop", "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
       cxxopts::value<std::vector<unsigned>>(), "uint:BITS,uint:MOD")
@@ -130,13 +136,11 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       "Defaults to the highest possible if omitted.",
       cxxopts::value<int>(clargs.max_pebbles), "uint:N")
 
-    ("b,benchfolder","Folder than contains runable .tfc benchmarks.",
+    ("b,benchfolder","Folder than contains runable benchmarks.",
       cxxopts::value<fs::path>()->default_value(BENCH_FOLDER), "string:F")
 
     ("h,help", "Show usage");
   // clang-format on
-  // clopt.parse_positional({ "pebbles" });
-  // clopt.positional_help("<max pebbles>").show_positional_help();
 
   return clopt;
 }
@@ -155,47 +159,51 @@ ArgumentList parse_cl(int argc, char* argv[])
       exit(0);
     }
 
-    clargs.verbosity = OutLvl::silent;
     if (clresult.count("verbose"))
       clargs.verbosity = OutLvl::verbose;
-
-    if (clresult.count("whisper"))
+    else if (clresult.count("whisper"))
       clargs.verbosity = OutLvl::whisper;
+    else
+      clargs.verbosity = OutLvl::silent;
 
     // read { model | hop }
-    clargs.model = ModelType::none;
-    if (clresult.count("model"))
-    {
-      clargs.model      = ModelType::file;
-      clargs.model_name = clresult["model"].as<std::string>();
-    }
+    unsigned n_models =
+        clresult.count("hop") + clresult.count("tfc") + clresult.count("bench");
+    if (n_models != 1)
+      throw std::invalid_argument("specify one of tfc, bench, or hop.");
 
     if (clresult.count("hop"))
     {
-      if (clargs.model == ModelType::file)
-        throw std::invalid_argument("specify either { model | hop }, not both");
       clargs.model = ModelType::hoperator;
 
       const auto hop_list = clresult["hop"].as<std::vector<unsigned>>();
       if (hop_list.size() != 2)
         throw std::invalid_argument(
             "hop requires two positive integers: bitwidth,modulus");
-      clargs.hop.bits   = hop_list[0];
-      clargs.hop.mod    = hop_list[1];
+      clargs.hop        = { hop_list[0], hop_list[1] };
       clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
     }
 
-    if (clargs.model == ModelType::none)
-      throw std::invalid_argument("specify either { model | hop }");
+    if (clresult.count("tfc"))
+    {
+      clargs.model      = ModelType::tfc;
+      clargs.model_name = clresult["tfc"].as<std::string>();
+    }
 
-    // read no pebbles
+    if (clresult.count("bench"))
+    {
+      clargs.model      = ModelType::bench;
+      clargs.model_name = clresult["bench"].as<std::string>();
+    }
+
+    // read starting no. pebbles
     if (clresult.count("pebbles"))
     {
       clargs.max_pebbles = clresult["pebbles"].as<int>();
-      if (clargs.max_pebbles == 0)
+      if (clargs.max_pebbles < 1)
         throw new std::invalid_argument("pebbles must be greater than 0.");
     }
-    else
+    else // begin
       clargs.max_pebbles = -1;
 
     clargs.bench_folder = BENCH_FOLDER / clresult["benchfolder"].as<fs::path>();
@@ -246,7 +254,6 @@ int main(int argc, char* argv[])
   ArgumentList clargs = parse_cl(argc, argv);
 
   const auto [model_dir, base_dir] = output_paths(clargs);
-  // clargs.model_name, clargs.max_pebbles, clargs.optimize, clargs.delta);
   std::string filename             = file_name(clargs);
 
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
@@ -256,29 +263,38 @@ int main(int argc, char* argv[])
   switch (clargs.model)
   {
     case ModelType::hoperator:
-    {
       G = dag::hoperator(clargs.hop.bits, clargs.hop.mod);
-    }
-    break;
-    case ModelType::file:
-    {
-      parse::TFCParser parser;
-      fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
-      G = parser.parse_file(model_file.string(), clargs.model_name);
-    }
-    break;
+      break;
+
+    case ModelType::tfc:
+      {
+        parse::TFCParser parser;
+        fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
+        G = parser.parse_file(model_file.string(), clargs.model_name);
+      }
+      break;
+
+    case ModelType::bench:
+      {
+        fs::path model_file = clargs.bench_folder / (clargs.model_name + ".bench");
+        mockturtle::klut_network klut;
+        auto const result = lorina::read_bench(model_file.string(), mockturtle::bench_reader(klut));
+        if (result != lorina::return_code::success)
+          throw new std::invalid_argument(model_file.string() + " is not a valid .bench file");
+
+        G = dag::from_dot(klut, clargs.model_name); // TODO continue
+      }
+      break;
+
     default: break;
   }
+
   G.show_image(model_dir / "dag");
   std::cout << G.summary() << std::endl;
   graph_descr << G.summary() << std::endl << G;
 
   // create model from DAG graph and set up algorithm
-  if (clargs.max_pebbles < 0)
-    clargs.max_pebbles = G.nodes.size();
-
-  PDRModel model;
-  model.load_model(clargs.model_name, G, clargs.max_pebbles);
+  PDRModel model(clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
 
   if (clargs.onlyshow)

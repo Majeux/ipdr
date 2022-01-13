@@ -1,17 +1,34 @@
 #include "pdr-model.h"
 #include <z3++.h>
 
-PDRModel::PDRModel()
-    : conf(), ctx(set_config(conf)), literals(ctx), property(ctx), n_property(ctx), initial(ctx),
-      transition(ctx), cardinality(ctx)
+PDRModel::PDRModel(const std::string& model_name, const dag::Graph& G,
+                   int pebbles)
+    : conf(), ctx(set_config(conf)), literals(ctx), property(ctx),
+      n_property(ctx), initial(ctx), transition(ctx), cardinality(ctx)
 {
+  name = model_name;
+
+  for (std::string node : G.nodes)
+    literals.add_literal(node);
+  literals.finish();
+
+  for (const z3::expr& e : literals.currents())
+    initial.push_back(!e);
+
+  // load_pebble_transition_raw2(G);
+  load_pebble_transition(G);
+
+  final_pebbles = G.output.size();
+  set_max_pebbles(pebbles);
+
+  load_property(G);
 }
 
 z3::config& PDRModel::set_config(z3::config& settings)
 {
-    settings.set("unsat_core", true);
-    settings.set("model", true);
-    return settings;
+  settings.set("unsat_core", true);
+  settings.set("model", true);
+  return settings;
 }
 
 const z3::expr_vector& PDRModel::get_transition() const { return transition; }
@@ -28,7 +45,7 @@ void PDRModel::load_pebble_transition(const dag::Graph& G)
     for (const std::string& child : G.get_children(name))
     {
       z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
+      int child_i         = literals.indexof(child_node);
 
       transition.push_back(literals(i) || !literals.p(i) || literals(child_i));
       transition.push_back(!literals(i) || literals.p(i) || literals(child_i));
@@ -44,14 +61,14 @@ void PDRModel::load_pebble_transition_raw1(const dag::Graph& G)
 {
   for (int i = 0; i < literals.size(); i++) // every node has a transition
   {
-    std::string name = literals(i).to_string();
+    std::string name     = literals(i).to_string();
     z3::expr parent_flip = literals(i) ^ literals.p(i);
     // pebble if all children are pebbled now and next
     // or unpebble if all children are pebbled now and next
     for (const std::string& child : G.get_children(name))
     {
-      z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
+      z3::expr child_node    = ctx.bool_const(child.c_str());
+      int child_i            = literals.indexof(child_node);
       z3::expr child_pebbled = literals(child_i) & literals.p(child_i);
 
       transition.push_back(z3::implies(parent_flip, child_pebbled));
@@ -63,7 +80,7 @@ void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
 {
   for (int i = 0; i < literals.size(); i++) // every node has a transition
   {
-    std::string name = literals(i).to_string();
+    std::string name     = literals(i).to_string();
     z3::expr parent_flip = literals(i) ^ literals.p(i);
     // pebble if all children are pebbled now and next
     // or unpebble if all children are pebbled now and next
@@ -71,7 +88,7 @@ void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
     for (const std::string& child : G.get_children(name))
     {
       z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
+      int child_i         = literals.indexof(child_node);
       children_pebbled.push_back(literals(child_i));
       children_pebbled.push_back(literals.p(child_i));
     }
@@ -105,27 +122,6 @@ void PDRModel::load_property(const dag::Graph& G)
   property.finish();
 }
 
-void PDRModel::load_model(const std::string& model_name, const dag::Graph& G,
-                          int pebbles)
-{
-  name = model_name;
-
-  for (std::string node : G.nodes)
-    literals.add_literal(node);
-  literals.finish();
-
-  for (const z3::expr& e : literals.currents())
-    initial.push_back(!e);
-
-  // load_pebble_transition_raw2(G);
-  load_pebble_transition(G);
-
-  final_pebbles = G.output.size();
-  set_max_pebbles(pebbles);
-
-  load_property(G);
-}
-
 int PDRModel::get_max_pebbles() const { return max_pebbles; }
 
 bool PDRModel::set_max_pebbles(int x)
@@ -136,7 +132,6 @@ bool PDRModel::set_max_pebbles(int x)
   cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
   cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
   return x >= final_pebbles;
-
 }
 
 int PDRModel::get_f_pebbles() const { return final_pebbles; }

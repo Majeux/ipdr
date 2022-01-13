@@ -19,8 +19,8 @@ class PDRModel
   ExpressionCache property;
   ExpressionCache n_property;
 
-  PDRModel();
-  PDRModel(z3::config& settings);
+  PDRModel(const std::string& model_name, const dag::Graph& G,
+                          int pebbles);
   void load_model(const std::string& model_name, const dag::Graph& G,
                   int max_pebbles);
   const z3::expr_vector& get_transition() const;
@@ -33,8 +33,8 @@ class PDRModel
   void show(std::ostream& out) const;
 
  private:
-  int max_pebbles   = -1;
-  int final_pebbles = -1;
+  int max_pebbles;
+  int final_pebbles;
 
   z3::expr_vector initial;
   z3::expr_vector transition; // vector of clauses (cnf)

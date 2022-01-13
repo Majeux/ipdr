@@ -6,14 +6,13 @@
 #include <sstream>
 #include <vector>
 
+#include <mockturtle/algorithms/klut_to_graph.hpp>
 #include <mockturtle/io/write_dot.hpp>
 #include <mockturtle/mockturtle.hpp>
 #include <mockturtle/networks/klut.hpp>
-#include <mockturtle/networks/mig.hpp>
 #include <mockturtle/networks/xmg.hpp>
 
 #include "dag.h"
-#include "parse_dot.h"
 
 using namespace mockturtle;
 
@@ -77,15 +76,27 @@ inline xmg_network build_hoperator(uint64_t bitwidth, uint64_t modulus)
 
 namespace dag
 {
-  inline Graph hoperator(uint64_t bitwidth, uint64_t modulus)
+  inline Graph from_dot(const xmg_network& network, const std::string& name)
   {
     std::stringstream dot_string;
     my_dot_drawer<xmg_network> drawer;
-    write_dot(build_hoperator(bitwidth, modulus), dot_string, drawer);
+    write_dot(network, dot_string, drawer);
 
-    return parse::parse_dot(dot_string.str(),
-                            fmt::format("hoperator_{}_{}", bitwidth, modulus));
+    return dag::Graph(dot_string.str(), name);
   }
+
+  inline Graph from_dot(const klut_network& network, const std::string& name)
+  {
+    xmg_network xmg = convert_klut_to_graph<xmg_network>(network);
+    return from_dot(xmg, name);
+  }
+
+  inline Graph hoperator(uint64_t bitwidth, uint64_t modulus)
+  {
+    xmg_network h = build_hoperator(bitwidth, modulus);
+    return from_dot(h, fmt::format("hoperator_{}_{}", bitwidth, modulus));
+  }
+
 } // namespace dag
 
 #endif // H_OP

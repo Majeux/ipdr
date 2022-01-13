@@ -4,9 +4,30 @@ namespace dag
 {
   Graph::Graph() {}
   Graph::Graph(const std::string& s) : name(s) {}
-  Graph::Graph(const std::string& s, const std::string& dot)
-      : image(std::make_unique<graphviz::Graph>(dot)), name(s)
+  Graph::Graph(const std::string& name, const std::string& dot)
+      : image(std::make_unique<graphviz::Graph>(dot)), name(name)
   {
+    image->foreach_node(
+        [this](Agnode_t* node)
+        {
+          auto [name, type] = image->name_of(node);
+          switch (type)
+          {
+            case graphviz::XMGnode::pi: add_input(name); break;
+            case graphviz::XMGnode::po: break;
+            case graphviz::XMGnode::node: add_node(name);
+          }
+
+          std::vector<std::string> c = image->children_of(node);
+
+          if (type == graphviz::XMGnode::po)
+          {
+            assert(c.size() == 1);
+            add_output(c[0]);
+          }
+          else
+            add_edges_to(c, name);
+        });
   }
 
   void Graph::add_input(std::string iname) { input.insert(node(iname)); }

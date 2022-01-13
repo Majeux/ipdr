@@ -87,7 +87,7 @@ namespace pdr
       return null;
     }
 
-    // output an important update if it is not silenced
+    // output an important update unless completely silent
     std::ostream& whisper() 
     {
       if (level != OutLvl::silent)
