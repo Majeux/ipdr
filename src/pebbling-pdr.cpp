@@ -29,7 +29,8 @@
 
 namespace fs = ghc::filesystem;
 
-const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
+// const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
+const fs::path BENCH_FOLDER = fs::current_path();
 
 struct hop_arg
 {
@@ -126,18 +127,20 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
     ("one", "Only run one iteration of pdr, which verifies if there is a strategy for the number of pebbles.",
       cxxopts::value<bool>(clargs.one))
 
-    ("bench", "Graph in .bench format.",
-      cxxopts::value<std::string>(clargs.model_name), "string:NAME")
-    ("tfc", "Graph in .tfc format.",
-      cxxopts::value<std::string>(clargs.model_name), "string:NAME")
+    ("dir","Directory (relative to ./) than contains runable benchmarks.",
+      cxxopts::value<fs::path>()->default_value(BENCH_FOLDER), "string:F")
+    ("bench", "File in in .bench format.",
+      cxxopts::value<std::string>(clargs.model_name), "string:FILE")
+    ("tfc", "File in in .tfc format.",
+      cxxopts::value<std::string>(clargs.model_name), "string:FILE")
+
     ("hop", "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
       cxxopts::value<std::vector<unsigned>>(), "uint:BITS,uint:MOD")
+    
     ("p,pebbles", "Starting maximum number of pebbles for the strategy search"
       "Defaults to the highest possible if omitted.",
       cxxopts::value<int>(clargs.max_pebbles), "uint:N")
 
-    ("b,benchfolder","Folder than contains runable benchmarks.",
-      cxxopts::value<fs::path>()->default_value(BENCH_FOLDER), "string:F")
 
     ("h,help", "Show usage");
   // clang-format on
@@ -206,7 +209,7 @@ ArgumentList parse_cl(int argc, char* argv[])
     else // begin
       clargs.max_pebbles = -1;
 
-    clargs.bench_folder = BENCH_FOLDER / clresult["benchfolder"].as<fs::path>();
+    clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
   }
   catch (const std::exception& e)
   {
