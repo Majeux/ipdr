@@ -42,11 +42,11 @@ if (DO_LOG)
 	target_compile_definitions(pebbling-pdr PRIVATE LOG)
   message(STATUS "! logging turned on")
 else ()
-    message(STATUS "! logging turned off")
+  message(STATUS "! logging turned off")
 endif (DO_LOG)
 
 target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/testing)
-target_include_directories(pebbling-pdr PRIVATE inc/ext/text-table inc/ext/mockturtle/include)
+target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/mockturtle/include)
 add_subdirectory(inc/ext/mockturtle/include)
 add_subdirectory(inc/ext/mockturtle/lib)
 
