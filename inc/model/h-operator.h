@@ -82,7 +82,7 @@ namespace dag
     my_dot_drawer<xmg_network> drawer;
     write_dot(network, dot_string, drawer);
 
-    return dag::Graph(dot_string.str(), name);
+    return dag::Graph(name, dot_string.str());
   }
 
   inline Graph from_dot(const klut_network& network, const std::string& name)

@@ -45,8 +45,8 @@ namespace graphviz
     Agraph_t* graph;
 
    public:
-    Graph(const std::string& dot)
-        : context(gvContext()), graph(agmemread(dot.c_str()))
+    Graph(const std::string& dotstring)
+        : context(gvContext()), graph(agmemread(dotstring.c_str()))
     {
       gvLayout(context, graph, "dot");
     }

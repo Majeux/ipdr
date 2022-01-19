@@ -29,7 +29,8 @@
 
 namespace fs = ghc::filesystem;
 
-// const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
+// const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" /
+// "tfc";
 const fs::path BENCH_FOLDER = fs::current_path();
 
 struct hop_arg
@@ -250,6 +251,54 @@ void show_header(const ArgumentList& clargs)
 //
 // end OUTPUT
 
+dag::Graph build_dag(const ArgumentList& args)
+{
+  dag::Graph G;
+  // read input model
+  switch (args.model)
+  {
+    case ModelType::hoperator:
+      G = dag::hoperator(args.hop.bits, args.hop.mod);
+      break;
+
+    case ModelType::tfc:
+    {
+      parse::TFCParser parser;
+      fs::path model_file = args.bench_folder / (args.model_name + ".tfc");
+      G = parser.parse_file(model_file.string(), args.model_name);
+    }
+    break;
+
+    case ModelType::bench:
+    {
+      fs::path model_file = args.bench_folder / (args.model_name + ".bench");
+      mockturtle::klut_network klut;
+      auto const result = lorina::read_bench(model_file.string(),
+                                             mockturtle::bench_reader(klut));
+      if (result != lorina::return_code::success)
+        throw new std::invalid_argument(model_file.string() +
+                                        " is not a valid .bench file");
+
+      G = dag::from_dot(klut, args.model_name); // TODO continue
+    }
+    break;
+
+    default: break;
+  }
+
+  return G;
+}
+
+std::ostream& operator<<(std::ostream& o, std::exception const& e)
+{
+  o << fmt::format(
+           "terminated after throwing an \'std::exception\', typeid: {}",
+           typeid(e).name())
+    << std::endl
+    << fmt::format("  what():  {}", e.what()) << std::endl;
+  return o;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
@@ -261,35 +310,18 @@ int main(int argc, char* argv[])
 
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
-  // read input model
+
   dag::Graph G;
-  switch (clargs.model)
+  try { G = build_dag(clargs); }
+  catch (std::exception const& e)
   {
-    case ModelType::hoperator:
-      G = dag::hoperator(clargs.hop.bits, clargs.hop.mod);
-      break;
-
-    case ModelType::tfc:
-      {
-        parse::TFCParser parser;
-        fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
-        G = parser.parse_file(model_file.string(), clargs.model_name);
-      }
-      break;
-
-    case ModelType::bench:
-      {
-        fs::path model_file = clargs.bench_folder / (clargs.model_name + ".bench");
-        mockturtle::klut_network klut;
-        auto const result = lorina::read_bench(model_file.string(), mockturtle::bench_reader(klut));
-        if (result != lorina::return_code::success)
-          throw new std::invalid_argument(model_file.string() + " is not a valid .bench file");
-
-        G = dag::from_dot(klut, clargs.model_name); // TODO continue
-      }
-      break;
-
-    default: break;
+    std::cerr << "Error reading model." << std::endl << e << std::endl;
+    return 0;
+  }
+  catch (std::exception* e)
+  {
+    std::cerr << "Error reading model." << std::endl << *e << std::endl;
+    return 0;
   }
 
   G.show_image(model_dir / "dag");
@@ -297,6 +329,9 @@ int main(int argc, char* argv[])
   graph_descr << G.summary() << std::endl << G;
 
   // create model from DAG graph and set up algorithm
+  if (clargs.max_pebbles < 1)
+    clargs.max_pebbles = G.nodes.size();
+
   PDRModel model(clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
 
