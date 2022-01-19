@@ -4,8 +4,8 @@ namespace dag
 {
   Graph::Graph() {}
   Graph::Graph(const std::string& s) : name(s) {}
-  Graph::Graph(const std::string& name, const std::string& dot)
-      : image(std::make_unique<graphviz::Graph>(dot)), name(name)
+  Graph::Graph(const std::string& name, const std::string& dotstring)
+      : image(std::make_unique<graphviz::Graph>(dotstring)), name(name)
   {
     image->foreach_node(
         [this](Agnode_t* node)
