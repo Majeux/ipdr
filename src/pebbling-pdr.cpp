@@ -205,7 +205,7 @@ ArgumentList parse_cl(int argc, char* argv[])
     {
       clargs.max_pebbles = clresult["pebbles"].as<int>();
       if (clargs.max_pebbles < 1)
-        throw new std::invalid_argument("pebbles must be greater than 0.");
+        throw std::invalid_argument("pebbles must be greater than 0.");
     }
     else // begin
       clargs.max_pebbles = -1;
@@ -276,7 +276,7 @@ dag::Graph build_dag(const ArgumentList& args)
       auto const result = lorina::read_bench(model_file.string(),
                                              mockturtle::bench_reader(klut));
       if (result != lorina::return_code::success)
-        throw new std::invalid_argument(model_file.string() +
+        throw std::invalid_argument(model_file.string() +
                                         " is not a valid .bench file");
 
       G = dag::from_dot(klut, args.model_name); // TODO continue
@@ -311,18 +311,7 @@ int main(int argc, char* argv[])
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
 
-  dag::Graph G;
-  try { G = build_dag(clargs); }
-  catch (std::exception const& e)
-  {
-    std::cerr << "Error reading model." << std::endl << e << std::endl;
-    return 0;
-  }
-  catch (std::exception* e)
-  {
-    std::cerr << "Error reading model." << std::endl << *e << std::endl;
-    return 0;
-  }
+  dag::Graph G = build_dag(clargs);
 
   G.show_image(model_dir / "dag");
   std::cout << G.summary() << std::endl;
