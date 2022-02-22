@@ -13,6 +13,7 @@ namespace pdr
     void Solver::init()
     {
         internal_solver.set("sat.cardinality.solver", true);
+        //  TODO sat.core.minimize
         internal_solver.set("cardinality.solver", true);
         // consecution_solver.set("lookahead_simplify", true);
         for (const z3::expr_vector& v : base_assertions)

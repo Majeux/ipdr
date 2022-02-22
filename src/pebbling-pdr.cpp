@@ -58,6 +58,7 @@ struct ArgumentList
   int max_pebbles;
 
   // run options
+  bool rand;
   bool opt;
   bool delta;
   bool onlyshow;
@@ -121,6 +122,8 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
     ("showonly", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
 
+    ("r,randomize", "Use a randomized seed for the SAT solver",
+      cxxopts::value<bool>(clargs.rand))
     ("o,optimize", "Multiple runs that find a strategy with minimum pebbles.",
       cxxopts::value<bool>(clargs.opt))
     ("d,delta", "Use delta-encoded frames.",

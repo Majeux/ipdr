@@ -1,5 +1,7 @@
 #include "pdr-model.h"
+#include <TextTable.h>
 #include <z3++.h>
+#include <z3_api.h>
 
 PDRModel::PDRModel(const std::string& model_name, const dag::Graph& G,
                    int pebbles)
@@ -22,12 +24,26 @@ PDRModel::PDRModel(const std::string& model_name, const dag::Graph& G,
   set_max_pebbles(pebbles);
 
   load_property(G);
+
+  // z3::solver s(ctx);
+  // z3::param_descrs p = s.get_param_descrs();
+  // TextTable param_out(' ');
+  // for (unsigned i = 0; i < p.size(); i++)
+  // {
+  //   z3::symbol sym = p.name(i);
+  //   Z3_param_kind kind = p.kind(sym);
+  //   std::string doc = p.documentation(sym);
+  //   std::vector<std::string> row = {sym.str(), doc};
+  //   param_out.addRow(row);
+  // }
+  //   std::cout << param_out << std::endl;
 }
 
 z3::config& PDRModel::set_config(z3::config& settings)
 {
   settings.set("unsat_core", true);
   settings.set("model", true);
+
   return settings;
 }
 
