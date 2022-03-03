@@ -23,6 +23,11 @@
 
 namespace pdr
 {
+  context::context(PDRModel& m, bool d, bool random_seed)
+      : _model(m), delta(d), seed(random_seed ? time(0) : 0u)
+  {
+  }
+
   PDR::PDR(PDRModel& m, bool d, Logger& l, PDResults& r)
       : ctx(m.ctx), model(m), delta(d), logger(l),
         frames(delta, ctx, m, logger), results(r)

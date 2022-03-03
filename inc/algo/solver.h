@@ -15,16 +15,18 @@ namespace pdr
   {
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
-  private:
+   private:
     z3::context& ctx;
     z3::solver internal_solver;
+    uint32_t seed;
     bool core_available = false;
     unsigned cubes_start; // point where base_assertions ends and other
                           // assertions begin
 
-  public:
+   public:
     std::vector<z3::expr_vector> base_assertions;
-    Solver(z3::context& c, std::vector<z3::expr_vector> base);
+    Solver(z3::context& c, std::vector<z3::expr_vector> base,
+           uint32_t seed = 0u);
 
     void init();
     void reset();
@@ -76,7 +78,7 @@ namespace pdr
     v.reserve(m.num_consts());
     for (unsigned i = 0; i < m.size(); i++)
     {
-      z3::func_decl f = m[i];
+      z3::func_decl f  = m[i];
       z3::expr b_value = m.get_const_interp(f);
       z3::expr literal = f();
       if (p(literal))

@@ -9,6 +9,7 @@
 #include "z3-ext.h"
 
 #include <climits>
+#include <cstdint>
 #include <memory>
 #include <ostream>
 #include <queue>
@@ -16,12 +17,26 @@
 #include <string>
 #include <vector>
 #include <z3++.h>
+#include <z3_fpa.h>
 
 // type arguments for ascending priority queue
 #define MIN_ORDERING(T) T, std::vector<T>, std::greater<T>
 
 namespace pdr
 {
+  class context
+  {
+   public:
+    context(PDRModel& m, bool d, bool r);
+    z3::context& get_ctx() const { return _model.ctx; }
+    const PDRModel& get_model() const { return _model; }
+    
+   private:
+    PDRModel& _model;
+    const bool delta;
+    const uint32_t seed;
+  }; // class PDRcontext
+
   class PDR
   {
    private:

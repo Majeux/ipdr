@@ -324,8 +324,13 @@ int main(int argc, char* argv[])
   if (clargs.max_pebbles < 1)
     clargs.max_pebbles = G.nodes.size();
 
-  PDRModel model(clargs.model_name, G, clargs.max_pebbles);
+  z3::config ctx_settings;
+  ctx_settings.set("unsat_core", true);
+  ctx_settings.set("model", true);
+  PDRModel model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
+
+  pdr::context context(model, clargs.delta, clargs.rand);
 
   if (clargs.onlyshow)
     return 0;

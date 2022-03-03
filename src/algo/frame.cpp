@@ -16,9 +16,8 @@ namespace pdr
 {
   Frame::Frame(unsigned i, Logger& l) : level(i), logger(l) {}
 
-  Frame::Frame(unsigned i, z3::context& c,
-               const std::vector<z3::expr_vector>& assertions, Logger& l)
-      : level(i), logger(l), solver(std::make_unique<Solver>(c, assertions))
+  Frame::Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l)
+      : level(i), logger(l), solver(std::move(s))
   {
   }
 

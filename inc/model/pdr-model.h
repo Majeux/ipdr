@@ -13,13 +13,12 @@ class PDRModel
 {
  public:
   std::string name;
-  z3::config conf;
   z3::context ctx;
   ExpressionCache literals;
   ExpressionCache property;
   ExpressionCache n_property;
 
-  PDRModel(const std::string& model_name, const dag::Graph& G,
+  PDRModel(z3::config& settings, const std::string& model_name, const dag::Graph& G,
                           int pebbles);
   void load_model(const std::string& model_name, const dag::Graph& G,
                   int max_pebbles);

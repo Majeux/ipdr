@@ -36,8 +36,7 @@ namespace pdr
         // Delta frame, without logger
         Frame(unsigned i, Logger& l);
         // Fat frame, with its own logger
-        Frame(unsigned i, z3::context& c,
-              const std::vector<z3::expr_vector>& assertions, Logger& l);
+        Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l);
 
         void clean_solver();
         void set_stats(Statistics& s);

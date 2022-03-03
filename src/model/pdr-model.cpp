@@ -3,10 +3,10 @@
 #include <z3++.h>
 #include <z3_api.h>
 
-PDRModel::PDRModel(const std::string& model_name, const dag::Graph& G,
-                   int pebbles)
-    : conf(), ctx(set_config(conf)), literals(ctx), property(ctx),
-      n_property(ctx), initial(ctx), transition(ctx), cardinality(ctx)
+PDRModel::PDRModel(z3::config& settings, const std::string& model_name,
+                   const dag::Graph& G, int pebbles)
+    : ctx(settings), literals(ctx), property(ctx), n_property(ctx), initial(ctx),
+      transition(ctx), cardinality(ctx)
 {
   name = model_name;
 
@@ -37,14 +37,6 @@ PDRModel::PDRModel(const std::string& model_name, const dag::Graph& G,
   //   param_out.addRow(row);
   // }
   //   std::cout << param_out << std::endl;
-}
-
-z3::config& PDRModel::set_config(z3::config& settings)
-{
-  settings.set("unsat_core", true);
-  settings.set("model", true);
-
-  return settings;
 }
 
 const z3::expr_vector& PDRModel::get_transition() const { return transition; }

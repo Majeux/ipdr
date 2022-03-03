@@ -1,8 +1,12 @@
 NOW
+  - pdr_context {ctx, model, delta, seed}
 	- actually useful progress file (skip verbose obligation timing output)
 	- profiling
+	- random seed experiments
+	- replicate pebbling paper
 
 TODO
+	- sat.core.minimize setting
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
 	- proof/disprove minimal traces (heuristic?)

@@ -29,10 +29,13 @@ namespace pdr
       delta_solver = std::make_unique<Solver>(ctx, base_assertions);
 
     std::vector<z3::expr_vector> initial_assertions = {
-        model.get_initial(), model.get_transition(), model.get_cardinality()};
+      model.get_initial(), model.get_transition(), model.get_cardinality()
+    };
     act.push_back(ctx.bool_const("__actI__")); // unused
-    frames.push_back(std::make_unique<Frame>(frames.size(), ctx,
-                                             initial_assertions, logger));
+    auto new_frame = std::make_unique<Frame>(
+        frames.size(), std::make_unique<Solver>(ctx, initial_assertions, seed),
+        logger);
+    frames.push_back(std::move(new_frame));
   }
 
   // frame interface
@@ -48,8 +51,12 @@ namespace pdr
       frames.push_back(std::make_unique<Frame>(frames.size(), logger));
     }
     else
-      frames.push_back(
-          std::make_unique<Frame>(frames.size(), ctx, base_assertions, logger));
+    {
+      auto new_frame = std::make_unique<Frame>(
+          frames.size(), std::make_unique<Solver>(ctx, base_assertions, seed),
+          logger);
+      frames.push_back(std::move(new_frame));
+    }
   }
 
   // prepare frames for a new run:
@@ -173,7 +180,7 @@ namespace pdr
         if (frames.at(i)->empty())
         {
           logger.out() << fmt::format("F[{}] \\ F[{}] == 0", i, i + 1)
-                    << std::endl;
+                       << std::endl;
           return i;
         }
       }
@@ -225,7 +232,7 @@ namespace pdr
     if (diff.size() == 0 || frames.at(level)->equals(*frames.at(level + 1)))
     {
       logger.out() << fmt::format("F_{} \\ F_{} == 0", level, level + 1)
-                << std::endl;
+                   << std::endl;
       rv = level;
     }
 
