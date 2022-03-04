@@ -351,7 +351,7 @@ int main(int argc, char* argv[])
   show_header(clargs);
   if (clargs.opt)
   {
-    pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
+    pdr::PDR algorithm(context, pdr_logger, res);
 
     while (true)
     {
@@ -373,7 +373,7 @@ int main(int argc, char* argv[])
     // TODO multiple normal runs from comparision
     while (true)
     {
-      pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
+      pdr::PDR algorithm(context, pdr_logger, res);
       bool found_strategy = !algorithm.run(clargs.opt);
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;

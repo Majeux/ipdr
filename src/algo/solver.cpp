@@ -4,8 +4,8 @@
 
 namespace pdr
 {
-  Solver::Solver(z3::context& c, std::vector<z3::expr_vector> base, uint32_t s)
-      : ctx(c), internal_solver(ctx), seed(s), base_assertions(std::move(base))
+  Solver::Solver(context& c, std::vector<z3::expr_vector> base)
+      : ctx(c), internal_solver(ctx()), base_assertions(std::move(base))
   {
     init();
   }
@@ -15,7 +15,7 @@ namespace pdr
     internal_solver.set("sat.cardinality.solver", true);
     //  TODO sat.core.minimize
     internal_solver.set("cardinality.solver", true);
-    internal_solver.set("sat.random_seed", seed);
+    internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
     for (const z3::expr_vector& v : base_assertions)
       internal_solver.add(v);
@@ -74,6 +74,35 @@ namespace pdr
     z3::expr_vector core = internal_solver.unsat_core();
     core_available       = false;
     return core;
+  }
+
+  z3::expr_vector Solver::witness_current() const 
+  {
+    z3::model m = internal_solver.get_model(); 
+    std::vector<z3::expr> std_vec;
+    std_vec.reserve(m.num_consts());
+
+    for (unsigned i = 0; i < m.size(); i++)
+    {
+      z3::func_decl f = m[i];
+      z3::expr boolean_value = m.get_const_interp(f);
+      z3::expr literal = f();
+
+      if (ctx.const_model().literals.atom_is_current(literal)) 
+      {
+        if (boolean_value.is_true())
+          std_vec.push_back(literal);
+        else if (boolean_value.is_false())
+          std_vec.push_back(!literal);
+        else
+          throw std::runtime_error("model contains non-constant");
+      }
+    }
+    std::sort(std_vec.begin(), std_vec.end(), z3ext::expr_less());
+    z3::expr_vector v(ctx());
+    for (const z3::expr& e : std_vec)
+      v.push_back(e);
+    return v;
   }
 
   std::string Solver::as_str(const std::string& header) const

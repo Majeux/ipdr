@@ -1,5 +1,6 @@
 #ifndef SOLVER_H
 #define SOLVER_H
+#include "pdr-context.h"
 #include "z3-ext.h"
 
 #include <fmt/core.h>
@@ -16,17 +17,15 @@ namespace pdr
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
    private:
-    z3::context& ctx;
+    context& ctx;
     z3::solver internal_solver;
-    uint32_t seed;
     bool core_available = false;
     unsigned cubes_start; // point where base_assertions ends and other
                           // assertions begin
 
    public:
     std::vector<z3::expr_vector> base_assertions;
-    Solver(z3::context& c, std::vector<z3::expr_vector> base,
-           uint32_t seed = 0u);
+    Solver(context& c, std::vector<z3::expr_vector> base);
 
     void init();
     void reset();
@@ -37,6 +36,9 @@ namespace pdr
 
     bool SAT(const z3::expr_vector& assumptions);
     z3::model get_model() const;
+    z3::expr_vector witness_current() const;
+    z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
+
     std::string as_str(const std::string& header = "") const;
 
     // function to extract a cube representing a satisfying assignment to

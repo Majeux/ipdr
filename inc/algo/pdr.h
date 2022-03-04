@@ -4,6 +4,7 @@
 #include "_logging.h"
 #include "frames.h"
 #include "pdr-model.h"
+#include "pdr-context.h"
 #include "result.h"
 #include "stats.h"
 #include "z3-ext.h"
@@ -24,25 +25,10 @@
 
 namespace pdr
 {
-  class context
-  {
-   public:
-    context(PDRModel& m, bool d, bool r);
-    z3::context& get_ctx() const { return _model.ctx; }
-    const PDRModel& get_model() const { return _model; }
-    
-   private:
-    PDRModel& _model;
-    const bool delta;
-    const uint32_t seed;
-  }; // class PDRcontext
-
   class PDR
   {
    private:
-    z3::context& ctx;
-    PDRModel& model;
-    bool delta; // use a delta encoding for the frames
+    context& ctx;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
@@ -97,7 +83,7 @@ namespace pdr
     std::string frames_string  = "";
     std::string solvers_string = "";
 
-    PDR(PDRModel& m, bool d, Logger& l, PDResults& r);
+    PDR(context& c, Logger& l, PDResults& r);
     void reset();
     bool run(bool optimize = false);
     void show_solver(std::ostream& out, unsigned it) const;

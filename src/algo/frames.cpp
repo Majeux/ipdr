@@ -17,23 +17,23 @@
 
 namespace pdr
 {
-  Frames::Frames(bool d, z3::context& c, const PDRModel& m, Logger& l)
-      : delta(d), ctx(c), model(m), logger(l), init_solver(ctx)
+  Frames::Frames(context& c, Logger& l) : ctx(c), logger(l), init_solver(ctx())
   {
-    init_solver.add(model.get_initial());
-    base_assertions.push_back(model.property.currents());
-    base_assertions.push_back(model.get_transition());
-    base_assertions.push_back(model.get_cardinality());
+    init_solver.add(ctx.const_model().get_initial());
+    base_assertions.push_back(ctx.const_model().property.currents());
+    base_assertions.push_back(ctx.const_model().get_transition());
+    base_assertions.push_back(ctx.const_model().get_cardinality());
 
-    if (delta)
+    if (ctx.delta)
       delta_solver = std::make_unique<Solver>(ctx, base_assertions);
 
     std::vector<z3::expr_vector> initial_assertions = {
-      model.get_initial(), model.get_transition(), model.get_cardinality()
+      ctx.const_model().get_initial(), ctx.const_model().get_transition(),
+      ctx.const_model().get_cardinality()
     };
-    act.push_back(ctx.bool_const("__actI__")); // unused
+    act.push_back(ctx().bool_const("__actI__")); // unused
     auto new_frame = std::make_unique<Frame>(
-        frames.size(), std::make_unique<Solver>(ctx, initial_assertions, seed),
+        frames.size(), std::make_unique<Solver>(ctx, initial_assertions),
         logger);
     frames.push_back(std::move(new_frame));
   }
@@ -44,16 +44,16 @@ namespace pdr
   void Frames::extend()
   {
     assert(frames.size() > 0);
-    if (delta)
+    if (ctx.delta)
     {
       std::string acti = fmt::format("__act{}__", frames.size());
-      act.push_back(ctx.bool_const(acti.c_str()));
+      act.push_back(ctx().bool_const(acti.c_str()));
       frames.push_back(std::make_unique<Frame>(frames.size(), logger));
     }
     else
     {
       auto new_frame = std::make_unique<Frame>(
-          frames.size(), std::make_unique<Solver>(ctx, base_assertions, seed),
+          frames.size(), std::make_unique<Solver>(ctx, base_assertions),
           logger);
       frames.push_back(std::move(new_frame));
     }
@@ -66,14 +66,14 @@ namespace pdr
   void Frames::reset_frames(Statistics& s,
                             const std::vector<z3::expr_vector>& assertions)
   {
-    if (delta)
+    if (ctx.delta)
       delta_solver->base_assertions = assertions;
 
     for (size_t i = 1; i < frames.size(); i++)
     {
       frames[i]->set_stats(s);
-      if (!delta)
-        solver(i)->base_assertions = assertions;
+      if (!ctx.delta)
+        get_solver(i).base_assertions = assertions;
     }
 
     clean_solvers();
@@ -86,7 +86,7 @@ namespace pdr
     {
       auto& f = frames[i];
 
-      if (delta)
+      if (ctx.delta)
       {
         if (i == 1)
           delta_solver->reset();
@@ -95,7 +95,7 @@ namespace pdr
       }
       else
       {
-        solver(i)->reset(f->get_blocked());
+        get_solver(i).reset(f->get_blocked());
       }
     }
   }
@@ -109,7 +109,7 @@ namespace pdr
     logger.indent++;
 
     bool result;
-    if (delta) // a cube is only stored in the last frame it holds
+    if (ctx.delta) // a cube is only stored in the last frame it holds
       result = delta_remove_state(cube, level);
     else
       result = fat_remove_state(cube, level);
@@ -168,13 +168,13 @@ namespace pdr
 
     for (unsigned i = 1; i <= level; i++)
     {
-      if (delta)
+      if (ctx.delta)
         push_forward_delta(i, repeat);
       else if (push_forward_fat(i, repeat))
         return i;
     }
 
-    if (delta)
+    if (ctx.delta)
       for (unsigned i = 1; i <= level; i++)
       {
         if (frames.at(i)->empty())
@@ -199,7 +199,7 @@ namespace pdr
     CubeSet blocked = frames.at(level)->get_blocked();
     for (const z3::expr_vector& cube : blocked)
     {
-      if (!trans_from_to(level, cube))
+      if (!trans_source(level, cube))
       {
         if (remove_state(cube, level + 1))
           if (repeat)
@@ -221,7 +221,7 @@ namespace pdr
         frames.at(level)->diff(*frames.at(level + 1));
     for (const z3::expr_vector& cube : diff)
     {
-      if (!trans_from_to(level, cube))
+      if (!trans_source(level, cube))
       {
         if (remove_state(cube, level + 1))
           if (repeat)
@@ -259,7 +259,7 @@ namespace pdr
                         logger.tab(), frame);
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
-    z3::expr_vector assumptions = model.literals.p(cube); // cube in next state
+    z3::expr_vector assumptions = ctx.const_model().literals.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -292,27 +292,33 @@ namespace pdr
   }
 
   // if primed: cube is already in next state, else first convert it
-  bool Frames::trans_from_to(size_t frame, const z3::expr_vector& cube,
-                             bool primed) const
+  bool Frames::trans_source(size_t frame, const z3::expr_vector& dest_cube,
+                            bool primed) const
   {
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition check, frame {}",
                         logger.tab(), frame);
     if (!primed) // cube is in current, bring to next
-      return SAT(frame, model.literals.p(cube));
+      return SAT(frame, ctx.const_model().literals.p(dest_cube));
 
-    return SAT(frame, cube); // there is a transition from Fi to s'
+    return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
 
-  Witness Frames::get_trans_from_to(size_t frame, const z3::expr_vector& cube,
-                                    bool primed) const
-  {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition query, frame {}",
-                        logger.tab(), frame);
-    if (!primed) // cube is in current, bring to next
-      return SAT_model(frame, model.literals.p(cube));
+  // std::unique_ptr<z3::expr_vector> Frames::get_trans_source(size_t frame,
+  //                                          const z3::expr_vector& dest_cube,
+  //                                          bool primed) const
+  // {
+  //   SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition query, frame {}",
+  //                       logger.tab(), frame);
+  //   Witness witness;
+  //   if (!primed) // cube is in current, bring to next
+  //     if (!SAT(frame, ctx.get_model().literals.p(dest_cube)))
+  //       return std::unique_ptr<z3::expr_vector>();
 
-    return SAT_model(frame, cube); // there is a transition from Fi to s'
-  }
+  //   if (!SAT(frame, dest_cube))
+  //     return std::unique_ptr<z3::expr_vector>();    
+  //   // else there exists a source -T-> dest'
+  //   return get_solver(frame).witness_current();
+  // }
 
   //
   // end queries
@@ -331,29 +337,24 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
-    Solver* solver = nullptr;
-    if (delta && frame > 0)
+    Solver& solver = get_solver(frame);
+    if (ctx.delta && frame > 0)
     {
       SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Delta check", logger.tab());
 
       assert(frames.size() == act.size());
       for (unsigned i = frame; i <= frontier(); i++)
         assumptions.push_back(act.at(i));
-
-      solver = delta_solver.get();
     }
     else
-    {
       SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Fat check", logger.tab());
-      solver = frames.at(frame)->get_solver();
-    }
 
     logger.indent++;
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| assumps: [ {} ]", logger.tab(),
                         z3ext::join_expr_vec(assumptions, false));
     logger.indent--;
 
-    bool result = solver->SAT(assumptions);
+    bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
     logger.stats.solver_calls.add_timed(frontier(), diff.count());
 
@@ -377,10 +378,10 @@ namespace pdr
 
   const z3::model Frames::get_model(size_t frame) const
   {
-    if (delta && frame > 0)
+    if (ctx.delta && frame > 0)
       return delta_solver->get_model();
     else
-      return frames.at(frame)->get_solver()->get_model();
+      return frames.at(frame)->get_solver().get_model();
   }
 
   //
@@ -394,11 +395,18 @@ namespace pdr
     return frames.size() - 1;
   }
 
-  Solver* Frames::solver(size_t frame)
+  Solver& Frames::get_solver(size_t frame) const
   {
-    if (delta && frame > 0)
-      return delta_solver.get();
+    if (ctx.delta && frame > 0)
+      return *delta_solver;
     return frames.at(frame)->get_solver();
+  }
+
+  const Solver& Frames::get_const_solver(size_t frame) const
+  {
+    if (ctx.delta && frame > 0)
+      return *delta_solver;
+    return frames.at(frame)->get_const_solver();
   }
 
   const Frame& Frames::operator[](size_t i) { return *frames.at(i); }
@@ -409,13 +417,12 @@ namespace pdr
   void Frames::log_solvers() const
   {
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
-    if (delta)
+    if (ctx.delta)
       SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", delta_solver->as_str());
     else
       for (const std::unique_ptr<Frame>& f : frames)
       {
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}",
-                            (*f).get_solver()->as_str());
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", f->get_solver()->as_str());
       }
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
   }
@@ -433,13 +440,13 @@ namespace pdr
   std::string Frames::solvers_str() const
   {
     std::string str;
-    if (delta)
+    if (ctx.delta)
       str += delta_solver->as_str();
     else
     {
       for (auto& f : frames)
       {
-        str += f->get_solver()->as_str();
+        str += f->get_solver().as_str();
         str += '\n';
       }
     }

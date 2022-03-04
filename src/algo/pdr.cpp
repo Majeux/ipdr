@@ -23,14 +23,8 @@
 
 namespace pdr
 {
-  context::context(PDRModel& m, bool d, bool random_seed)
-      : _model(m), delta(d), seed(random_seed ? time(0) : 0u)
-  {
-  }
-
-  PDR::PDR(PDRModel& m, bool d, Logger& l, PDResults& r)
-      : ctx(m.ctx), model(m), delta(d), logger(l),
-        frames(delta, ctx, m, logger), results(r)
+  PDR::PDR(context& c, Logger& l, PDResults& r)
+      : ctx(c), logger(l), frames(ctx, logger), results(r)
   {
   }
 
@@ -110,25 +104,26 @@ namespace pdr
   {
     assert(frames.frontier() == 0);
 
-    z3::expr_vector notP = model.n_property.currents();
+    z3::expr_vector notP = ctx.const_model().n_property.currents();
     if (frames.init_solver.check(notP))
     {
       logger.out() << "I =/> P" << std::endl;
-      z3::model counter = frames.solver(0)->get_model();
+      z3::model counter = frames.get_solver(0).get_model();
       print_model(counter);
       // TODO TRACE
-      results.current().trace = std::make_shared<State>(model.get_initial());
+      results.current().trace =
+          std::make_shared<State>(ctx.const_model().get_initial());
       return false;
     }
 
-    z3::expr_vector notP_next = model.n_property.nexts();
+    z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
       logger.out() << "I & T =/> P'" << std::endl;
-      z3::model witness = frames.solver(0)->get_model();
-      z3::expr_vector bad_cube =
-          Solver::filter_witness(witness, [this](const z3::expr& e)
-                                 { return model.literals.atom_is_current(e); });
+      z3::model witness        = frames.get_solver(0).get_model();
+      z3::expr_vector bad_cube = Solver::filter_witness(
+          witness, [this](const z3::expr& e)
+          { return ctx.const_model().literals.atom_is_current(e); });
       results.current().trace = std::make_shared<State>(bad_cube);
 
       return false;
@@ -151,40 +146,27 @@ namespace pdr
       log_iteration();
       assert(k == frames.frontier());
       // exhaust all counters to the inductiveness of !P
-      while (Witness cti =
-                 frames.get_trans_from_to(k, model.n_property.nexts(), true))
+      while (frames.trans_source(k, ctx.const_model().n_property.nexts(), true))
       {
+        // a F_i state leads to violation
+        z3::expr_vector cti = frames.get_solver(k).witness_current();
+        log_cti(cti);
 
-        if (cti)
-        {
-          // a F_i state leads to violation
-          z3::expr_vector cti_current = Solver::filter_witness(
-              *cti, [this](const z3::expr& e)
-              { return model.literals.atom_is_current(e); });
+        z3::expr_vector core(ctx());
+        int n = highest_inductive_frame(cti, (int)k - 1, (int)k, core);
+        assert(n >= 0);
 
-          log_cti(cti_current);
+        // !s is inductive relative to F_n
+        z3::expr_vector smaller_cti = generalize(core, n);
+        frames.remove_state(smaller_cti, n + 1);
 
-          z3::expr_vector core(ctx);
-          int n =
-              highest_inductive_frame(cti_current, (int)k - 1, (int)k, core);
-          assert(n >= 0);
+        if (not block(cti, n + 1, k))
+          return false;
 
-          // !s is inductive relative to F_n
-          z3::expr_vector smaller_cti = generalize(core, n);
-          frames.remove_state(smaller_cti, n + 1);
-
-          if (not block(cti_current, n + 1, k))
-            return false;
-
-          logger.out() << std::endl;
-        }
-        else // no more counter examples
-        {
-          SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| no more counters at F_{}",
-                              logger.tab(), k);
-          break;
-        }
+        logger.out() << std::endl;
       }
+      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| no more counters at F_{}",
+                          logger.tab(), k);
 
       frames.extend();
 
@@ -226,18 +208,17 @@ namespace pdr
       assert(n <= level);
       log_top_obligation(obligations.size(), n, state->cube);
 
-      if (Witness w = frames.counter_to_inductiveness(state->cube, n))
+      // !state -> !state
+      if (!frames.inductive(state->cube, n))
       {
-        // get predecessor from the witness
-        auto extract_current = [this](const z3::expr& e)
-        { return model.literals.atom_is_current(e); };
-        z3::expr_vector pred_cube = Solver::filter_witness(*w, extract_current);
+        // get predecessor to state
+        z3::expr_vector pred_cube = frames.get_solver(n).witness_current();
 
         std::shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2
-        z3::expr_vector core(ctx);
+        z3::expr_vector core(ctx());
         int m = highest_inductive_frame(pred->cube, n - 1, level, core);
         // n-1 <= m <= level
         if (m >= 0)
@@ -263,7 +244,7 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
-        z3::expr_vector core(ctx);
+        z3::expr_vector core(ctx());
         int m = highest_inductive_frame(state->cube, n + 1, level, core);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
@@ -372,13 +353,15 @@ namespace pdr
 
       std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
 
-      std::string initial = z3ext::join_expr_vec(model.get_initial());
-      std::string final   = z3ext::join_expr_vec(model.n_property.currents());
+      std::string initial = z3ext::join_expr_vec(ctx.const_model().get_initial());
+      std::string final =
+          z3ext::join_expr_vec(ctx.const_model().n_property.currents());
 
       ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
       for (const auto& [num, vec, count] : steps)
         ss << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
-      ss << fmt::format(line_form, 'F', i_padding, final, model.get_f_pebbles())
+      ss << fmt::format(line_form, 'F', i_padding, final,
+                        ctx.const_model().get_f_pebbles())
          << std::endl;
 
       results.current().trace_string = ss.str();
@@ -412,7 +395,7 @@ namespace pdr
     unsigned i_padding = i / 10 + 1;
 
     out << fmt::format("{:>{}} |\t [ {} ]", 'I', i_padding,
-                       z3ext::join_expr_vec(model.get_initial()))
+                       z3ext::join_expr_vec(ctx.const_model().get_initial()))
         << std::endl;
 
     for (const auto& [num, vec, count] : steps)
@@ -420,8 +403,9 @@ namespace pdr
                          vec, count)
           << std::endl;
 
-    out << fmt::format("{:>{}} |\t [ {} ]", 'F', i_padding,
-                       z3ext::join_expr_vec(model.n_property.currents()))
+    out << fmt::format(
+               "{:>{}} |\t [ {} ]", 'F', i_padding,
+               z3ext::join_expr_vec(ctx.const_model().n_property.currents()))
         << std::endl;
   }
 

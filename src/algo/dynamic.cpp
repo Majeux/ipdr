@@ -7,12 +7,12 @@ namespace pdr
 {
   bool PDR::decrement(bool reuse)
   {
-    int max_pebbles = model.get_max_pebbles();
+    int max_pebbles = ctx.const_model().get_max_pebbles();
     int new_pebbles = shortest_strategy - 1;
     assert(new_pebbles > 0);
     assert(new_pebbles < max_pebbles);
 
-    if (!model.set_max_pebbles(new_pebbles))
+    if (!ctx.model().set_max_pebbles(new_pebbles))
       return false;
 
     reset();
@@ -23,8 +23,8 @@ namespace pdr
 
     // TODO separate staistics from dyn runs?
     frames.reset_frames(logger.stats,
-                        { model.property.currents(), model.get_transition(),
-                          model.get_cardinality() });
+                        { ctx.const_model().property.currents(), ctx.const_model().get_transition(),
+                          ctx.const_model().get_cardinality() });
 
     log_and_show("Dynamic: skip initiation. k = " + std::to_string(k));
     // if we are repeating, the last propagation was k-1, repeat this

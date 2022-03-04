@@ -53,7 +53,8 @@ namespace pdr
         // getters
         const CubeSet& get_blocked() const;
         bool empty() const;
-        Solver* get_solver() const;
+        Solver& get_solver() const;
+        const Solver& get_const_solver() const;
 
         // string representations
         std::string blocked_str() const;
