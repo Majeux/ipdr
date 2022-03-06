@@ -3,6 +3,8 @@
 #
 OPTION(DO_LOG "Produce logs in logs/ folder" OFF)
 OPTION(PERF "compile optimized for performance" OFF)
+# option(SPDLOG_FMT_EXTERNAL "Use external fmt library instead of bundled" ON)
+# option(FMT_HEADER_ONLY "Use external fmt library instead of bundled" ON)
 
 cmake_minimum_required (VERSION 3.8)
 project ("pebbling-pdr")

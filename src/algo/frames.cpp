@@ -422,7 +422,7 @@ namespace pdr
     else
       for (const std::unique_ptr<Frame>& f : frames)
       {
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", f->get_solver()->as_str());
+        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", f->get_solver().as_str());
       }
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
   }

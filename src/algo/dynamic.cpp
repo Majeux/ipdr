@@ -5,6 +5,10 @@
 
 namespace pdr
 {
+  /*
+    returns true if the property is invariant.
+    returns false if the incremental algorithm must continue
+  */ 
   bool PDR::decrement(bool reuse)
   {
     int max_pebbles = ctx.const_model().get_max_pebbles();

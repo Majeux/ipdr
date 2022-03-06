@@ -4,12 +4,11 @@
 #include "dag.h"
 #include "stats.h"
 
+#include "_logging.h"
 #include <fstream>
 #include <memory>
 #include <ostream>
-#include <spdlog/logger.h>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/spdlog.h>
 #include <string>
 
 enum OutLvl
@@ -88,7 +87,7 @@ namespace pdr
     }
 
     // output an important update unless completely silent
-    std::ostream& whisper() 
+    std::ostream& whisper()
     {
       if (level != OutLvl::silent)
         return _out;
