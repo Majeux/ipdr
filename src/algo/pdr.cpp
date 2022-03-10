@@ -41,10 +41,10 @@ namespace pdr
 
   void PDR::print_model(const z3::model& m)
   {
-    logger.out() << "model consts \{" << std::endl;
+    logger("model consts \{");
     for (unsigned i = 0; i < m.num_consts(); i++)
       logger.out() << "\t" << m.get_const_interp(m.get_const_decl(i));
-    logger.out() << "}" << std::endl;
+    logger("}");
   }
 
   bool PDR::run(bool optimize)
@@ -58,7 +58,7 @@ namespace pdr
     bool failed = false;
     if (!optimize || k == 0)
     {
-      log_and_show("Start initiation");
+      logger.show("Start initiation");
       logger.indent++;
       failed = !init();
       logger.indent--;
@@ -66,30 +66,30 @@ namespace pdr
 
     if (failed)
     {
-      log_and_show("Failed initiation");
+      logger.show("Failed initiation");
       return finish(false);
     }
 
-    log_and_show("Survived Initiation");
-    log_and_show("Start iteration");
+    logger.show("Survived Initiation");
+    logger.show("Start iteration");
     logger.indent++;
     failed = !iterate();
     logger.indent--;
 
     if (failed)
     {
-      log_and_show("Failed iteration");
+      logger.show("Failed iteration");
       return finish(false);
     }
 
-    log_and_show("Property verified");
+    logger.show("Property verified");
     return finish(true);
   }
 
   bool PDR::finish(bool rv)
   {
     double final_time = timer.elapsed().count();
-    log_and_show(fmt::format("Total elapsed time {}", final_time));
+    logger.show(fmt::format("Total elapsed time {}", final_time));
     results.current().total_time = final_time;
     logger.stats.elapsed         = final_time;
     store_result();
@@ -119,7 +119,7 @@ namespace pdr
     z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
-      logger.out() << "I & T =/> P'" << std::endl;
+      logger("I & T =/> P'");
       z3::model witness        = frames.get_solver(0).get_model();
       z3::expr_vector bad_cube = Solver::filter_witness(
           witness, [this](const z3::expr& e)
@@ -138,7 +138,7 @@ namespace pdr
 
   bool PDR::iterate()
   {
-    logger.out() << SEP3 << std::endl << "Start iteration" << std::endl;
+    logger(SEP3); logger("Start iteration");
 
     // I => P and I & T ⇒ P' (from init)
     while (true) // iterate over k, if dynamic this continues from last k
@@ -411,103 +411,5 @@ namespace pdr
 
   Statistics& PDR::stats() { return logger.stats; }
   int PDR::length_shortest_strategy() const { return shortest_strategy; }
-
-  // LOGGING AND STAT COLLECTION SHORTHANDS
-  //
-  void PDR::log_and_show(const std::string& str) const
-  {
-    logger.out() << str << std::endl;
-    SPDLOG_LOGGER_INFO(logger.spd_logger, str);
-  }
-
-  void PDR::log_start() const
-  {
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "");
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
-    logger.out() << std::endl;
-    log_and_show("PDR start:");
-  }
-
-  void PDR::log_iteration()
-  {
-    logger.out() << "###############" << std::endl;
-    logger.out() << "iterate frame " << k << std::endl;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
-  }
-
-  void PDR::log_cti(const z3::expr_vector& cti)
-  {
-    (void)cti; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| cti at frame {}", logger.tab(),
-                        k);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(cti));
-  }
-
-  void PDR::log_propagation(unsigned level, double time)
-  {
-    std::string msg = fmt::format("Propagation elapsed {}", time);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    logger.out() << msg << std::endl;
-    logger.stats.propagation_it.add_timed(level, time);
-  }
-
-  void PDR::log_top_obligation(size_t queue_size, unsigned top_level,
-                               const z3::expr_vector& top)
-  {
-    (void)queue_size; // ignore unused warning when logging is off
-    (void)top_level;  // ignore unused warning when logging is off
-    (void)top;        // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| obligations pending: {}",
-                        logger.tab(), queue_size);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation", logger.tab());
-    logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(),
-                        top_level, str::extend::join(top));
-    logger.indent--;
-  }
-
-  void PDR::log_pred(const z3::expr_vector& p)
-  {
-    (void)p; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor:", logger.tab());
-    logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(p));
-    logger.indent--;
-  }
-
-  void PDR::log_state_push(unsigned frame, const z3::expr_vector& p)
-  {
-    (void)frame; // ignore unused warning when logging is off
-    (void)p;     // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| pred is inductive until F_{}",
-                        frame - 1, logger.tab());
-    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                        "{}| push predecessor to level {}: [{}]", logger.tab(),
-                        frame, str::extend::join(p));
-  }
-
-  void PDR::log_finish(const z3::expr_vector& s)
-  {
-    (void)s; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state", logger.tab());
-    logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(s));
-    logger.indent--;
-  }
-
-  void PDR::log_obligation(const std::string& type, unsigned l, double time)
-  {
-    logger.stats.obligations_handled.add_timed(l, time);
-    std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    logger.out() << msg << std::endl;
-  }
 
 } // namespace pdr

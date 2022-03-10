@@ -65,7 +65,6 @@ namespace pdr
     bool finish(bool);
     void store_frame_strings();
 
-    void log_and_show(const std::string& str) const;
     void log_start() const;
     void log_iteration();
     void log_cti(const z3::expr_vector& cti);
@@ -75,7 +74,7 @@ namespace pdr
     void log_pred(const z3::expr_vector& p);
     void log_state_push(unsigned frame, const z3::expr_vector& p);
     void log_finish(const z3::expr_vector& s);
-    void log_obligation(const std::string& type, unsigned l, double time);
+    void log_obligation(std::string_view type, unsigned l, double time);
 
    public:
     // bool dynamic_cardinality = true;

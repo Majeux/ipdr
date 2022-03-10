@@ -78,7 +78,7 @@ namespace pdr
       stats.model.emplace("outputs", G.output.size());
     }
 
-    // output a message if output is verbose
+    // stream that outputs a message if output is verbose
     std::ostream& out()
     {
       if (level == OutLvl::verbose)
@@ -86,13 +86,22 @@ namespace pdr
       return null;
     }
 
-    // output an important update unless completely silent
+    // stream that outputs an important update unless completely silent
     std::ostream& whisper()
     {
       if (level != OutLvl::silent)
         return _out;
       return null;
     }
+
+    void show(std::string_view message) // TODO rename to operator
+    {
+      out() << message << std::endl;
+      SPDLOG_LOGGER_INFO(spd_logger, message);
+    }
+
+    // TODO rename into show (only)
+    void operator()(std::string_view message) { out() << message << std::endl; }
   };
 } // namespace pdr
 #endif // LOGGER_H
