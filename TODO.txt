@@ -14,6 +14,7 @@ TODO
 	- doubles and not deleted clauses in final solver output
 	- remember queue between iterations??
 	- tseitin transition
+	- pebbling paper maybe used older mockturtle
 	
 	DELTA
 		- terminates later than original (maybe ok)

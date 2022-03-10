@@ -6,6 +6,7 @@ OPTION(PERF "compile optimized for performance" OFF)
 # option(SPDLOG_FMT_EXTERNAL "Use external fmt library instead of bundled" ON)
 # option(FMT_HEADER_ONLY "Use external fmt library instead of bundled" ON)
 
+include(ExternalProject)
 cmake_minimum_required (VERSION 3.8)
 project ("pebbling-pdr")
 
@@ -37,7 +38,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         set(OPT "")
     endif (PERF)
 
-    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT}")
+    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} -ferror-limit=0")
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if (DO_LOG)
@@ -49,12 +50,15 @@ endif (DO_LOG)
 
 target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/testing)
 target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/mockturtle/include)
+
+add_library(fmt INTERFACE) # override mockturtle's local version with current
+target_link_libraries(fmt INTERFACE fmt::fmt)
 add_subdirectory(inc/ext/mockturtle/include)
 add_subdirectory(inc/ext/mockturtle/lib)
 
 target_link_libraries(pebbling-pdr PRIVATE mockturtle)
 target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
-target_link_libraries(pebbling-pdr PRIVATE fmt::fmt-header-only)
+target_link_libraries(pebbling-pdr INTERFACE fmt)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
 target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
 target_link_libraries(pebbling-pdr PRIVATE cxxopts::cxxopts)
