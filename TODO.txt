@@ -1,4 +1,7 @@
 NOW
+  - add commentary: act_i means i is the highest level at which clause is included
+		to get frame i: activate all i ... k. (for every frame, all clauses with a higher level are included)
+  - double check cleanup
 	- actually useful progress file (skip verbose obligation timing output)
 	- profiling
 
