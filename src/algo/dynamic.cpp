@@ -30,7 +30,7 @@ namespace pdr
                         { ctx.const_model().property.currents(), ctx.const_model().get_transition(),
                           ctx.const_model().get_cardinality() });
 
-    log_and_show("Dynamic: skip initiation. k = " + std::to_string(k));
+    logger.show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are repeating, the last propagation was k-1, repeat this
     int invariant = frames.propagate(k - 1, true);
     if (invariant >= 0)

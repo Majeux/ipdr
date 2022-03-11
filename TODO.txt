@@ -1,4 +1,6 @@
 NOW
+  - reported strategy only prints last three times (empty)
+	- final solver dump is empty
   - pdr_context {ctx, model, delta, seed}
 	- actually useful progress file (skip verbose obligation timing output)
 	- profiling
