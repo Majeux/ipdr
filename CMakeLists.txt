@@ -23,8 +23,9 @@ find_package(ghc_filesystem CONFIG REQUIRED)
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
+file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
 
-add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES})
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_SOURCES})
 
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

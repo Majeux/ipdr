@@ -65,41 +65,42 @@ namespace pdr
 
       for (const PDResult& res : vec)
       {
-        if (res.trace)
-        {
-          out << fmt::format("Strategy for {} pebbles", res.pebbles_used)
-              << std::endl;
-          out << fmt::format("Target: [ {} ]",
-                             z3ext::join_expr_vec(model.n_property.currents()))
-              << std::endl
-              << std::endl;
+        out << res.trace_string << std::endl;
+        // if (res.trace)
+        // {
+          // out << fmt::format("Strategy for {} pebbles", res.pebbles_used)
+          //     << std::endl;
+          // out << fmt::format("Target: [ {} ]",
+          //                    z3ext::join_expr_vec(model.n_property.currents()))
+          //     << std::endl
+          //     << std::endl;
 
-          std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
-          std::string initial = z3ext::join_expr_vec(model.get_initial());
-          std::string final = z3ext::join_expr_vec(model.n_property.currents());
+          // std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
+          // std::string initial = z3ext::join_expr_vec(model.get_initial());
+          // std::string final = z3ext::join_expr_vec(model.n_property.currents());
 
-          TextTable trace_table;
-          trace_table.setAlignment(0, TextTable::Alignment::RIGHT);
-          trace_table.setAlignment(1, TextTable::Alignment::RIGHT);
-          trace_table.setAlignment(2, TextTable::Alignment::RIGHT);
+          // TextTable trace_table;
+          // trace_table.setAlignment(0, TextTable::Alignment::RIGHT);
+          // trace_table.setAlignment(1, TextTable::Alignment::RIGHT);
+          // trace_table.setAlignment(2, TextTable::Alignment::RIGHT);
 
-          std::vector<std::string> header = {"step", "state", "No. pebbled"};
-          trace_table.addRow(header);
-          std::vector<std::string> I_row = {"I", initial, "0"};
-          std::vector<std::string> F_row = {
-              "F", final, std::to_string(model.get_max_pebbles())};
-          trace_table.addRow(I_row);
-          res.trace->show(trace_table);
-          trace_table.addRow(F_row);
-          out << "Trace:" << std::endl << trace_table << std::endl;
-        }
-        else
-        {
-          out << fmt::format("No strategy for {} pebbles",
-                             model.get_max_pebbles())
-              << std::endl
-              << std::endl;
-        }
+          // std::vector<std::string> header = {"step", "state", "No. pebbled"};
+          // trace_table.addRow(header);
+          // std::vector<std::string> I_row = {"I", initial, "0"};
+          // std::vector<std::string> F_row = {
+          //     "F", final, std::to_string(model.get_max_pebbles())};
+          // trace_table.addRow(I_row);
+          // res.trace->show(trace_table);
+          // trace_table.addRow(F_row);
+          // out << "Trace:" << std::endl << trace_table << std::endl;
+        // }
+        // else
+        // {
+        //   out << fmt::format("No strategy for {} pebbles",
+        //                      model.get_max_pebbles())
+        //       << std::endl
+        //       << std::endl;
+        // }
       }
     }
   };

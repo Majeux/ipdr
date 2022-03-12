@@ -138,7 +138,8 @@ namespace pdr
 
   bool PDR::iterate()
   {
-    logger(SEP3); logger("Start iteration");
+    logger(SEP3);
+    logger("Start iteration");
 
     // I => P and I & T ⇒ P' (from init)
     while (true) // iterate over k, if dynamic this continues from last k
@@ -325,8 +326,7 @@ namespace pdr
     if (std::shared_ptr<State> current = results.current().trace)
     {
       std::stringstream ss("Strategy:\n");
-
-      std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
+      TextTable t(' ');
 
       auto count_pebbled = [](const z3::expr_vector& vec)
       {
@@ -338,6 +338,12 @@ namespace pdr
         return count;
       };
 
+      std::vector<std::string> initial_row =
+          z3ext::to_strings(ctx.const_model().get_initial());
+      initial_row.insert(initial_row.begin(), "No. pebbled = 0 |");
+      initial_row.insert(initial_row.begin(), "I |");
+      t.addRow(initial_row);
+
       unsigned i = 0;
       while (current)
       {
@@ -345,25 +351,28 @@ namespace pdr
         int pebbles = count_pebbled(current->cube);
         results.current().pebbles_used =
             std::max(results.current().pebbles_used, pebbles);
-        steps.emplace_back(i, z3ext::join_expr_vec(current->cube), pebbles);
+
+        std::vector<std::string> row = z3ext::to_strings(current->cube);
+        row.insert(row.begin(), fmt::format("No. pebbled = {} |", pebbles));
+        row.insert(row.begin(), std::to_string(i) + " |");
+        t.addRow(row);
+
         current = current->prev;
       }
+
+      std::vector<std::string> final_row =
+          z3ext::to_strings(ctx.const_model().n_property.currents());
+      final_row.insert(
+          final_row.begin(),
+          fmt::format("No. pebbled = {} |", ctx.const_model().get_f_pebbles()));
+      final_row.insert(final_row.begin(), "F |");
+      t.addRow(final_row);
+
       results.current().trace_length = i + 1;
-      unsigned i_padding             = i / 10 + 1;
 
-      std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
-
-      std::string initial = z3ext::join_expr_vec(ctx.const_model().get_initial());
-      std::string final =
-          z3ext::join_expr_vec(ctx.const_model().n_property.currents());
-
-      ss << fmt::format(line_form, 'I', i_padding, initial, 0) << std::endl;
-      for (const auto& [num, vec, count] : steps)
-        ss << fmt::format(line_form, num, i_padding, vec, count) << std::endl;
-      ss << fmt::format(line_form, 'F', i_padding, final,
-                        ctx.const_model().get_f_pebbles())
-         << std::endl;
-
+      for (unsigned i = 0; i < t.rows()[0].size(); i++)
+        t.setAlignment(i, TextTable::Alignment::RIGHT);
+      ss << t;
       results.current().trace_string = ss.str();
     }
   }
