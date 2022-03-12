@@ -40,4 +40,25 @@ namespace pdr
     }
     return false;
   }
+
+  bool PDR::increment_strategy(bool reuse)
+  {
+    int N = ctx.const_model().get_f_pebbles(); //need at least this many pebbles
+    while (true)
+    {
+      bool found_strategy = run(true);
+      if (found_strategy)
+      {
+        // N is minimal
+        // write strategy
+        // terminate
+      }
+      else 
+      {
+        // perform old F_1 propagation
+          // for all cubes in old F_1 if no I -T-> cube, add to new F_1
+        // start pdr again
+      }
+    }
+  }
 } // namespace pdr

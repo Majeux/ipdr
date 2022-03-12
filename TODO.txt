@@ -1,5 +1,5 @@
 NOW
-  - reported strategy only prints last three times (empty)
+  - only 1st frame needed? propagation fizes everything
 	- final solver dump is empty
   - pdr_context {ctx, model, delta, seed}
 	- actually useful progress file (skip verbose obligation timing output)
