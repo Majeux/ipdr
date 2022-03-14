@@ -7,13 +7,19 @@
 
 namespace pdr
 {
+  enum class Run
+  {
+    basic, increment, decrement
+  };
+
   class context
   {
    public:
     const bool delta;
     const uint32_t seed;
+    const Run type;
 
-    context(Model& m, bool d, bool r);
+    context(Model& m, bool d, bool random_seed, Run t);
     z3::context& operator()() const;    
     Model& model() const;
     const Model& const_model() const;

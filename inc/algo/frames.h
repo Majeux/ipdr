@@ -39,10 +39,16 @@ namespace pdr
 
     // frame interface
     //
+    void clear();
     void extend();
     void reset_frames(Statistics& s,
                       const std::vector<z3::expr_vector>& assertions);
     void repopulate_solvers();
+    // assumes: 
+    // - a run of PDR has finished
+    // - base assertions have been changed and are a superset of the previous
+    // copy all old cubes that are not reachable from I into a new F_1
+    void repopulate_first();
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);

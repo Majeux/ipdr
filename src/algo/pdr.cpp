@@ -33,7 +33,7 @@ namespace pdr
   {
     logger.indent = 0;
     // trace is already converted into string, discard states
-    assert(results.current().trace_string != "");
+    assert(results.current().trace_string != ""); //should be stored
     results.current().trace.reset();
     frames_string     = "None";
     solvers_string    = "None";

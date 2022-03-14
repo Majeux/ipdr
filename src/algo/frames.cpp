@@ -40,6 +40,12 @@ namespace pdr
 
   // frame interface
   //
+  void Frames::clear() 
+  {
+    frames.clear();
+    if (ctx.delta)
+      act.clear();
+  }
 
   void Frames::extend()
   {
@@ -98,6 +104,35 @@ namespace pdr
       }
       else
         get_solver(i).reset(frames[i]->get_blocked());
+    }
+  }
+
+  void Frames::repopulate_first()
+  {
+    assert(ctx.type == Run::increment);
+    assert(frames.size() > 0);
+    CubeSet old;
+
+    if (ctx.delta)
+    {
+      delta_solver->reset();
+      // all cubes in all delta-level belong to F_1
+      for (unsigned i = 0; i < frames.size(); i++)
+      {
+        // TODO non-const getter allows std::move
+        const CubeSet& Fi = frames[i]->get_blocked();
+        old.insert(Fi.begin(), Fi.end());
+      }
+    }
+    else
+      old = frames[1]->get_blocked();
+
+    clear();
+
+    for (const z3::expr_vector cube : old)
+    {
+      // if !SAT( I -T-> cube)
+      //   frames[1].block(cube)
     }
   }
 

@@ -84,6 +84,7 @@ namespace pdr
     std::string solvers_string = "";
 
     PDR(context& c, Logger& l, Results& r);
+    // prepare PDR for new run. discards old trace
     void reset();
 
     // execute the PDR algorithm 
