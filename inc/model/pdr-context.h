@@ -13,13 +13,13 @@ namespace pdr
     const bool delta;
     const uint32_t seed;
 
-    context(PDRModel& m, bool d, bool r);
+    context(Model& m, bool d, bool r);
     z3::context& operator()() const;    
-    PDRModel& model() const;
-    const PDRModel& const_model() const;
+    Model& model() const;
+    const Model& const_model() const;
 
    private:
-    PDRModel& _model;
+    Model& _model;
   }; // class PDRcontext
 
 } // namespace pdr

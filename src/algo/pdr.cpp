@@ -1,6 +1,7 @@
 #include "pdr.h"
 #include "TextTable.h"
 #include "output.h"
+#include "result.h"
 #include "solver.h"
 #include "stats.h"
 #include "string-ext.h"
@@ -23,7 +24,7 @@
 
 namespace pdr
 {
-  PDR::PDR(context& c, Logger& l, PDResults& r)
+  PDR::PDR(context& c, Logger& l, Results& r)
       : ctx(c), logger(l), frames(ctx, logger), results(r)
   {
   }
@@ -311,9 +312,8 @@ namespace pdr
     solvers_string = ss.str();
   }
 
-  void PDR::show_solver(std::ostream& out, unsigned it) const
+  void PDR::show_solver(std::ostream& out) const // TODO 
   {
-    out << SEP3 << " iteration " << it << std::endl;
     out << frames_string << std::endl;
     out << SEP2 << std::endl;
     out << solvers_string << std::endl;
@@ -323,9 +323,12 @@ namespace pdr
 
   void PDR::store_result()
   {
-    if (std::shared_ptr<State> current = results.current().trace)
+    const Model& model = ctx.const_model();
+    Result& result      = results.current();
+
+    if (std::shared_ptr<State> current = result.trace)
     {
-      std::stringstream ss("Strategy:\n");
+      std::stringstream ss;
       TextTable t(' ');
 
       auto count_pebbled = [](const z3::expr_vector& vec)
@@ -338,19 +341,20 @@ namespace pdr
         return count;
       };
 
+      // Write initial state
       std::vector<std::string> initial_row =
-          z3ext::to_strings(ctx.const_model().get_initial());
+          z3ext::to_strings(model.get_initial());
       initial_row.insert(initial_row.begin(), "No. pebbled = 0 |");
       initial_row.insert(initial_row.begin(), "I |");
       t.addRow(initial_row);
 
+      // Write strategy states
       unsigned i = 0;
       while (current)
       {
         i++;
-        int pebbles = count_pebbled(current->cube);
-        results.current().pebbles_used =
-            std::max(results.current().pebbles_used, pebbles);
+        int pebbles         = count_pebbled(current->cube);
+        result.pebbles_used = std::max(result.pebbles_used, pebbles);
 
         std::vector<std::string> row = z3ext::to_strings(current->cube);
         row.insert(row.begin(), fmt::format("No. pebbled = {} |", pebbles));
@@ -360,21 +364,27 @@ namespace pdr
         current = current->prev;
       }
 
+      // Write final state
       std::vector<std::string> final_row =
-          z3ext::to_strings(ctx.const_model().n_property.currents());
-      final_row.insert(
-          final_row.begin(),
-          fmt::format("No. pebbled = {} |", ctx.const_model().get_f_pebbles()));
+          z3ext::to_strings(model.n_property.currents());
+      final_row.insert(final_row.begin(), fmt::format("No. pebbled = {} |",
+                                                      model.get_f_pebbles()));
       final_row.insert(final_row.begin(), "F |");
       t.addRow(final_row);
 
-      results.current().trace_length = i + 1;
+      result.trace_length = i + 1;
 
+      // combine into ss
       for (unsigned i = 0; i < t.rows()[0].size(); i++)
         t.setAlignment(i, TextTable::Alignment::RIGHT);
+
+      ss << "Strategy for " << result.pebbles_used << " pebbles" << std::endl;
       ss << t;
-      results.current().trace_string = ss.str();
+      result.trace_string = ss.str();
     }
+    else
+      result.trace_string =
+          fmt::format("No strategy for {}\n", model.get_max_pebbles());
   }
 
   void PDR::show_trace(const std::shared_ptr<State> trace_root,

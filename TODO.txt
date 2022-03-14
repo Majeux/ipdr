@@ -8,6 +8,7 @@ NOW
 	- replicate pebbling paper
 
 TODO
+	- decrement: continue from last k or copy only first
 	- sat.core.minimize setting
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
@@ -17,6 +18,7 @@ TODO
 	- remember queue between iterations??
 	- tseitin transition
 	- pebbling paper maybe used older mockturtle
+	- format pebbling strategy
 	
 	DELTA
 		- terminates later than original (maybe ok)

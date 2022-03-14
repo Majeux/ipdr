@@ -9,6 +9,7 @@
 #include <memory>
 #include <ostream>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/spdlog.h>
 #include <string>
 
 enum OutLvl
@@ -72,6 +73,8 @@ namespace pdr
       spd_logger->set_level(spdlog::level::trace);
       // spdlog::flush_every(std::chrono::seconds(20));
       spdlog::flush_on(spdlog::level::trace);
+      // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%# %!()]");
+      spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%#]");
 
       stats.model.emplace("nodes", G.nodes.size());
       stats.model.emplace("edges", G.edges.size());

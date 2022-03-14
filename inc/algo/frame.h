@@ -33,9 +33,9 @@ namespace pdr
         void init_solver();
 
       public:
-        // Delta frame, without logger
+        // Delta frame, without solver
         Frame(unsigned i, Logger& l);
-        // Fat frame, with its own logger
+        // Fat frame, with its own solver
         Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l);
 
         void clean_solver();

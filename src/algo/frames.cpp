@@ -67,36 +67,37 @@ namespace pdr
                             const std::vector<z3::expr_vector>& assertions)
   {
     if (ctx.delta)
-      delta_solver->base_assertions = assertions;
-
-    for (size_t i = 1; i < frames.size(); i++)
     {
-      frames[i]->set_stats(s);
-      if (!ctx.delta)
+      delta_solver->base_assertions = assertions;
+      for (size_t i = 1; i < frames.size(); i++)
+        frames[i]->set_stats(s);
+    }
+    else
+    {
+      for (size_t i = 1; i < frames.size(); i++)
+      {
+        frames[i]->set_stats(s);
         get_solver(i).base_assertions = assertions;
+      }
     }
 
-    clean_solvers();
+    repopulate_solvers();
   }
 
   // reset solvers and repopulate with current blocked cubes
-  void Frames::clean_solvers()
+  void Frames::repopulate_solvers()
   {
     for (size_t i = 1; i < frames.size(); i++)
     {
-      auto& f = frames[i];
-
       if (ctx.delta)
       {
         if (i == 1)
           delta_solver->reset();
-        for (const z3::expr_vector& cube : f->get_blocked())
+        for (const z3::expr_vector& cube : frames[i]->get_blocked())
           delta_solver->block(cube, act.at(i));
       }
       else
-      {
-        get_solver(i).reset(f->get_blocked());
-      }
+        get_solver(i).reset(frames[i]->get_blocked());
     }
   }
 
@@ -185,7 +186,7 @@ namespace pdr
         }
       }
 
-    clean_solvers();
+    repopulate_solvers();
     logger.indent--;
 
     return -1;

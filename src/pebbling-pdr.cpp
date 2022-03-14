@@ -327,7 +327,7 @@ int main(int argc, char* argv[])
   z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
-  PDRModel model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
+  pdr::Model model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
 
   pdr::context context(model, clargs.delta, clargs.rand);
@@ -345,7 +345,7 @@ int main(int argc, char* argv[])
 
   pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
                          clargs.verbosity);
-  pdr::PDResults res(model);
+  pdr::Results res(model);
 
   // run pdr and write output
   show_header(clargs);
@@ -366,7 +366,8 @@ int main(int argc, char* argv[])
         break;
     }
     algorithm.show_results(strategy);
-    algorithm.show_solver(solver_dump, clargs.max_pebbles);
+    solver_dump << SEP3 << " iteration " << clargs.max_pebbles << std::endl;
+    algorithm.show_solver(solver_dump);
   }
   else
   {
@@ -378,7 +379,7 @@ int main(int argc, char* argv[])
       stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
       stats << pdr_logger.stats << std::endl;
 
-      algorithm.show_solver(solver_dump, model.get_max_pebbles());
+      algorithm.show_solver(solver_dump);
 
       if (clargs.one)
         break;

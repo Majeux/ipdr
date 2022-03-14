@@ -37,7 +37,7 @@ namespace pdr
     unsigned k = 0;
     Frames frames;
 
-    PDResults& results;
+    Results& results;
     int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
@@ -65,6 +65,7 @@ namespace pdr
     bool finish(bool);
     void store_frame_strings();
 
+    // logging shorthands 
     void log_start() const;
     void log_iteration();
     void log_cti(const z3::expr_vector& cti);
@@ -82,16 +83,21 @@ namespace pdr
     std::string frames_string  = "";
     std::string solvers_string = "";
 
-    PDR(context& c, Logger& l, PDResults& r);
+    PDR(context& c, Logger& l, Results& r);
     void reset();
+
+    // execute the PDR algorithm 
+    // returns true if the property is invariant
+    // returns false if there is a trace to a violation
     bool run(bool optimize = false);
-    void show_solver(std::ostream& out, unsigned it) const;
+    void show_solver(std::ostream& out) const;
     void show_results(std::ostream& out) const;
 
     // reduces the max pebbles of the model to 1 lower than the previous
     // strategy length. returns true if the is already proven invariant by this.
     // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
+    bool increment_strategy(std::ofstream& strategy, std::ofstream& solver_dump);
 
     Statistics& stats();
     int length_shortest_strategy() const;

@@ -42,7 +42,7 @@ namespace pdr
     void extend();
     void reset_frames(Statistics& s,
                       const std::vector<z3::expr_vector>& assertions);
-    void clean_solvers();
+    void repopulate_solvers();
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);
