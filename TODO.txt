@@ -1,5 +1,6 @@
 NOW
   - only 1st frame needed? propagation fizes everything
+	- track initial cti and regeneralize
 	- final solver dump is empty
   - pdr_context {ctx, model, delta, seed}
 	- actually useful progress file (skip verbose obligation timing output)

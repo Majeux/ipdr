@@ -111,7 +111,6 @@ namespace pdr
       logger.out() << "I =/> P" << std::endl;
       z3::model counter = frames.get_solver(0).get_model();
       print_model(counter);
-      // TODO TRACE
       results.current().trace =
           std::make_shared<State>(ctx.const_model().get_initial());
       return false;

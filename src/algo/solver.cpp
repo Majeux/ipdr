@@ -4,8 +4,9 @@
 
 namespace pdr
 {
-  Solver::Solver(context& c, std::vector<z3::expr_vector> base)
-      : ctx(c), internal_solver(ctx()), base_assertions(std::move(base))
+  Solver::Solver(const context& c, const z3::expr_vector& b,
+                 const z3::expr_vector& t, const z3::expr_vector& con)
+      : ctx(c), internal_solver(ctx()), base(b), transition(t), constraint(con)
   {
     init();
   }
@@ -17,12 +18,11 @@ namespace pdr
     internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
-    for (const z3::expr_vector& v : base_assertions)
-      internal_solver.add(v);
+    internal_solver.add(base);
+    internal_solver.add(transition);
+    internal_solver.add(constraint);
 
-    cubes_start = std::accumulate(
-        base_assertions.begin(), base_assertions.end(), 0,
-        [](int agg, const z3::expr_vector& v) { return agg + v.size(); });
+    cubes_start = base.size() + transition.size() + constraint.size();
   }
 
   void Solver::reset()
@@ -76,19 +76,19 @@ namespace pdr
     return core;
   }
 
-  z3::expr_vector Solver::witness_current() const 
+  z3::expr_vector Solver::witness_current() const
   {
-    z3::model m = internal_solver.get_model(); 
+    z3::model m = internal_solver.get_model();
     std::vector<z3::expr> std_vec;
     std_vec.reserve(m.num_consts());
 
     for (unsigned i = 0; i < m.size(); i++)
     {
-      z3::func_decl f = m[i];
+      z3::func_decl f        = m[i];
       z3::expr boolean_value = m.get_const_interp(f);
-      z3::expr literal = f();
+      z3::expr literal       = f();
 
-      if (ctx.const_model().literals.atom_is_current(literal)) 
+      if (ctx.const_model().literals.atom_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);

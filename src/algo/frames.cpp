@@ -17,75 +17,82 @@
 
 namespace pdr
 {
-  Frames::Frames(context& c, Logger& l) : ctx(c), logger(l), init_solver(ctx())
+  Frames::Frames(context& c, Logger& l)
+      : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    init_solver.add(ctx.const_model().get_initial());
-    base_assertions.push_back(ctx.const_model().property.currents());
-    base_assertions.push_back(ctx.const_model().get_transition());
-    base_assertions.push_back(ctx.const_model().get_cardinality());
+    const Model& m = ctx.const_model();
+    init_solver.add(m.get_initial());
+    frame_base = m.property.currents(); // all frames are initialized to P
+
+    const z3::expr_vector& t      = m.get_transition();
+    const z3::expr_vector& constr = m.get_cardinality();
+    if (ctx.delta)
+      delta_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
+
+    init_frame_I();
+  }
+
+  void Frames::init_frame_I()
+  {
+    const Model& m = ctx.const_model();
+    const z3::expr_vector& t      = m.get_transition();
+    const z3::expr_vector& constr = m.get_cardinality();
 
     if (ctx.delta)
-      delta_solver = std::make_unique<Solver>(ctx, base_assertions);
+      act.push_back(ctx().bool_const("__actI__")); // unused
 
-    std::vector<z3::expr_vector> initial_assertions = {
-      ctx.const_model().get_initial(), ctx.const_model().get_transition(),
-      ctx.const_model().get_cardinality()
-    };
-    act.push_back(ctx().bool_const("__actI__")); // unused
-    auto new_frame = std::make_unique<Frame>(
-        frames.size(), std::make_unique<Solver>(ctx, initial_assertions),
-        logger);
+    // make F_0 = I transition solver
+    auto frame_solver =
+        std::make_unique<Solver>(ctx, m.get_initial(), t, constr);
+    auto new_frame =
+        std::make_unique<Frame>(0, std::move(frame_solver), logger);
     frames.push_back(std::move(new_frame));
   }
 
   // frame interface
   //
-  void Frames::clear() 
+  void Frames::clear()
   {
-    frames.clear();
-    if (ctx.delta)
-      act.clear();
+    assert(frames.size() == act.size());
+    while (frames.size() > 1) // F_0 always remains the same, can be kept
+    {
+      frames.pop_back();
+      if (ctx.delta)
+        act.pop_back();
+    }
   }
 
   void Frames::extend()
   {
     assert(frames.size() > 0);
     if (ctx.delta)
-    {
+    { // frame with its own solver
       std::string acti = fmt::format("__act{}__", frames.size());
       act.push_back(ctx().bool_const(acti.c_str()));
       frames.push_back(std::make_unique<Frame>(frames.size(), logger));
     }
     else
-    {
-      auto new_frame = std::make_unique<Frame>(
-          frames.size(), std::make_unique<Solver>(ctx, base_assertions),
-          logger);
+    { // frame with its own solver
+      const Model& m = ctx.const_model();
+      const z3::expr_vector& t      = m.get_transition();
+      const z3::expr_vector& constr = m.get_cardinality();
+      auto frame_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
+      auto new_frame    = std::make_unique<Frame>(frames.size(),
+                                               std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
     }
   }
 
-  // prepare frames for a new run:
-  // - possibly define new statistics
-  // - provide new {property, transition, cardinality} to the solvers
-  // then clean all solvers from old assertions
-  void Frames::reset_frames(Statistics& s,
-                            const std::vector<z3::expr_vector>& assertions)
+  // redefine constraint in the model
+  // existing and future frames have a reference to this
+  // then clean all solvers from old assertions and reblock all its cubes
+  // TODO only really re-adjusts constraint for incremental/decremental
+  void Frames::reset_constraint(Statistics& s, int x)
   {
-    if (ctx.delta)
-    {
-      delta_solver->base_assertions = assertions;
-      for (size_t i = 1; i < frames.size(); i++)
-        frames[i]->set_stats(s);
-    }
-    else
-    {
-      for (size_t i = 1; i < frames.size(); i++)
-      {
-        frames[i]->set_stats(s);
-        get_solver(i).base_assertions = assertions;
-      }
-    }
+    ctx.model().set_max_pebbles(x); 
+
+    for (size_t i = 1; i < frames.size(); i++)
+      frames[i]->set_stats(s);
 
     repopulate_solvers();
   }
@@ -107,33 +114,52 @@ namespace pdr
     }
   }
 
-  void Frames::repopulate_first()
+  void Frames::increase_constraint(Statistics& s, int x)
   {
     assert(ctx.type == Run::increment);
     assert(frames.size() > 0);
-    CubeSet old;
+    assert(x > ctx.model().get_max_pebbles());
+    ctx.model().set_max_pebbles(x); 
+
+    for (size_t i = 1; i < frames.size(); i++)
+      frames[i]->set_stats(s);
+
+    CubeSet old = get_blocked(1); // store all cubes in F_1
+    clear(); // reset sequence to { F_0 }
+    extend(); //reinstate level 1
+
+    for (const z3::expr_vector& cube : old)
+    {
+      if (SAT(0, cube))
+      {
+        // TODO regeneralize cti from this cube (must be possible or counter)
+        // else it will be reconsidered next iteration
+      }
+      else
+        remove_state(cube, 1);
+    }
+  }
+
+  CubeSet Frames::get_blocked(size_t i) const
+  {
+    assert(i < frames.size());
+    CubeSet blocked;
 
     if (ctx.delta)
     {
       delta_solver->reset();
       // all cubes in all delta-level belong to F_1
-      for (unsigned i = 0; i < frames.size(); i++)
+      for (; i < frames.size(); i++)
       {
         // TODO non-const getter allows std::move
         const CubeSet& Fi = frames[i]->get_blocked();
-        old.insert(Fi.begin(), Fi.end());
+        blocked.insert(Fi.begin(), Fi.end());
       }
     }
     else
-      old = frames[1]->get_blocked();
+      blocked = frames[1]->get_blocked();
 
-    clear();
-
-    for (const z3::expr_vector cube : old)
-    {
-      // if !SAT( I -T-> cube)
-      //   frames[1].block(cube)
-    }
+    return blocked;
   }
 
   bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
@@ -162,8 +188,8 @@ namespace pdr
       logger.stats.subsumed_cubes.add(level, n_removed);
     }
 
-    assert(level > 0);
-    if (frames.at(level)->block(cube))
+    assert(level > 0 && level < frames.size());
+    if (frames[level]->block(cube))
     {
       delta_solver->block(cube, act.at(level));
       SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}", logger.tab(),
@@ -175,16 +201,16 @@ namespace pdr
 
   bool Frames::fat_remove_state(const z3::expr_vector& cube, size_t level)
   {
-    assert(level > 0);
+    assert(level > 0 && level < frames.size());
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
       unsigned n_removed = frames.at(i)->remove_subsumed(cube);
       logger.stats.subsumed_cubes.add(level, n_removed);
 
-      if (frames.at(i)->block(cube))
+      if (frames[i]->block(cube))
       {
-        frames.at(i)->block_in_solver(cube);
+        frames[i]->block_in_solver(cube);
         SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}",
                             logger.tab(), i);
       }
@@ -295,7 +321,8 @@ namespace pdr
                         logger.tab(), frame);
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
-    z3::expr_vector assumptions = ctx.const_model().literals.p(cube); // cube in next state
+    z3::expr_vector assumptions =
+        ctx.const_model().literals.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -351,7 +378,7 @@ namespace pdr
   //       return std::unique_ptr<z3::expr_vector>();
 
   //   if (!SAT(frame, dest_cube))
-  //     return std::unique_ptr<z3::expr_vector>();    
+  //     return std::unique_ptr<z3::expr_vector>();
   //   // else there exists a source -T-> dest'
   //   return get_solver(frame).witness_current();
   // }
@@ -433,19 +460,25 @@ namespace pdr
 
   Solver& Frames::get_solver(size_t frame) const
   {
+    assert(frame < frames.size());
     if (ctx.delta && frame > 0)
       return *delta_solver;
-    return frames.at(frame)->get_solver();
+    return frames[frame]->get_solver();
   }
 
   const Solver& Frames::get_const_solver(size_t frame) const
   {
+    assert(frame < frames.size());
     if (ctx.delta && frame > 0)
       return *delta_solver;
-    return frames.at(frame)->get_const_solver();
+    return frames[frame]->get_const_solver();
   }
 
-  const Frame& Frames::operator[](size_t i) { return *frames.at(i); }
+  const Frame& Frames::operator[](size_t i)
+  {
+    assert(i < frames.size());
+    return *frames[i];
+  }
 
   //
   // end getters
@@ -454,7 +487,9 @@ namespace pdr
   {
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
     if (ctx.delta)
+    {
       SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", delta_solver->as_str());
+    }
     else
       for (const std::unique_ptr<Frame>& f : frames)
       {

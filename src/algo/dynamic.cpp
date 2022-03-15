@@ -1,6 +1,7 @@
 #include "pdr-model.h"
 #include "pdr.h"
 #include <bits/types/FILE.h>
+#include <cassert>
 #include <cstddef>
 #include <string>
 
@@ -19,7 +20,6 @@ namespace pdr
     assert(new_pebbles > 0);
     assert(new_pebbles < max_pebbles);
 
-    ctx.model().set_max_pebbles(new_pebbles);
     if (new_pebbles < m.get_f_pebbles()) // not enough to pebble final state
       return false;
 
@@ -29,10 +29,8 @@ namespace pdr
     if (!reuse)
       return true;
 
-    // TODO separate staistics from dyn runs?
-    frames.reset_frames(
-        logger.stats,
-        { m.property.currents(), m.get_transition(), m.get_cardinality() });
+    // TODO separate statstics from dyn runs?
+    frames.reset_constraint(logger.stats, new_pebbles);
 
     logger.show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are reusing frames, the last propagation was k-1, repeat this
@@ -45,8 +43,10 @@ namespace pdr
     return false;
   }
 
-  bool PDR::increment_strategy(std::ofstream& strategy, std::ofstream& solver_dump)
+  bool PDR::increment_strategy(std::ofstream& strategy,
+                               std::ofstream& solver_dump)
   {
+    assert(ctx.type == Run::increment);
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
     while (true)
@@ -69,6 +69,10 @@ namespace pdr
         ctx.model().set_max_pebbles(newp);
         if (newp > m.get_max_pebbles())
           return false;
+        reset();
+        results.extend();
+        logger.whisper() << "Incremental run " << maxp << " -> " << newp
+                         << " pebbles" << std::endl;
         // perform old F_1 propagation
         // for all cubes in old F_1 if no I -T-> cube, add to new F_1
         // start pdr again

@@ -62,6 +62,7 @@ namespace pdr
   //
   // cube is sorted by id()
   // block cube unless it, or a stronger version, is already blocked
+  // TODO redundant, make void or make useful
   bool Frame::block(const z3::expr_vector& cube)
   {
     bool inserted = blocked_cubes.insert(cube).second;

@@ -4,8 +4,8 @@
 #include "_logging.h"
 #include "frame.h"
 #include "logger.h"
-#include "pdr-model.h"
 #include "pdr-context.h"
+#include "pdr-model.h"
 #include "solver.h"
 #include "stats.h"
 #include "z3-ext.h"
@@ -27,28 +27,32 @@ namespace pdr
    private:
     context& ctx;
     Logger& logger;
-    std::vector<z3::expr_vector> base_assertions;
-    std::unique_ptr<Solver> delta_solver;
-    std::vector<std::unique_ptr<Frame>> frames;
-    std::vector<z3::expr> act;
 
+    z3::expr_vector frame_base;
+    
+    std::vector<std::unique_ptr<Frame>> frames;
+    // in delta encoding, all frames are managed by a single solver
+    std::unique_ptr<Solver> delta_solver;
+    std::vector<z3::expr> act; // activation variables for each frame
+
+    // prepare the sequence { F_0 } from an empty {} sequence
+    void init_frame_I();
    public:
-    z3::solver init_solver;
+    // solver containing only the intial state
+    z3::solver init_solver; // TODO non-mutable interface
 
     Frames(context& c, Logger& l);
-
     // frame interface
     //
     void clear();
     void extend();
-    void reset_frames(Statistics& s,
-                      const std::vector<z3::expr_vector>& assertions);
+    void reset_constraint(Statistics& s, int x);
     void repopulate_solvers();
-    // assumes: 
+    // assumes:
     // - a run of PDR has finished
     // - base assertions have been changed and are a superset of the previous
     // copy all old cubes that are not reachable from I into a new F_1
-    void repopulate_first();
+    void increase_constraint(Statistics& s, int x);
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);
@@ -70,9 +74,9 @@ namespace pdr
     // allows collection of witness from solver(frame) if true.
     bool trans_source(size_t frame, const z3::expr_vector& dest_cube,
                       bool primed = false) const;
-    z3::expr_vector
-        get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                         bool primed = false) const;
+    z3::expr_vector get_trans_source(size_t frame,
+                                     const z3::expr_vector& dest_cube,
+                                     bool primed = false) const;
 
     // Solver calls
     //
@@ -91,6 +95,8 @@ namespace pdr
     Solver& get_solver(size_t frame) const;
     const Solver& get_const_solver(size_t frame) const;
     const Frame& operator[](size_t i);
+    // returns all cubes blocked in Frame 1. adjusted for delta encoding.
+    CubeSet get_blocked(size_t i) const;
 
     void log_solvers() const;
     std::string blocked_str() const;

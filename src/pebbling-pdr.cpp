@@ -4,6 +4,7 @@
 #include "mockturtle/networks/klut.hpp"
 #include "parse_bench.h"
 #include "parse_tfc.h"
+#include "pdr-context.h"
 #include "pdr-model.h"
 #include "pdr.h"
 
@@ -330,7 +331,9 @@ int main(int argc, char* argv[])
   pdr::Model model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
 
-  pdr::context context(model, clargs.delta, clargs.rand);
+  pdr::Run pdr_type = pdr::Run::decrement; // TODO for testing, parametrize later
+
+  pdr::context context(model, clargs.delta, clargs.rand, pdr_type);
 
   if (clargs.onlyshow)
     return 0;

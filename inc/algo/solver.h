@@ -17,15 +17,19 @@ namespace pdr
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
    private:
-    context& ctx;
+    const context& ctx;
     z3::solver internal_solver;
     bool core_available = false;
     unsigned cubes_start; // point where base_assertions ends and other
                           // assertions begin
 
    public:
-    std::vector<z3::expr_vector> base_assertions;
-    Solver(context& c, std::vector<z3::expr_vector> base);
+    const z3::expr_vector base;
+    const z3::expr_vector& transition;
+    const z3::expr_vector& constraint;
+
+    Solver(const context& c, const z3::expr_vector& b, const z3::expr_vector& t,
+           const z3::expr_vector& con);
 
     void init();
     void reset();
