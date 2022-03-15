@@ -33,7 +33,7 @@ namespace pdr
   {
     logger.indent = 0;
     // trace is already converted into string, discard states
-    assert(results.current().trace_string != ""); //should be stored
+    assert(results.current().trace_string != ""); // should be stored
     results.current().trace.reset();
     frames_string     = "None";
     solvers_string    = "None";
@@ -311,7 +311,7 @@ namespace pdr
     solvers_string = ss.str();
   }
 
-  void PDR::show_solver(std::ostream& out) const // TODO 
+  void PDR::show_solver(std::ostream& out) const // TODO
   {
     out << frames_string << std::endl;
     out << SEP2 << std::endl;
@@ -323,7 +323,7 @@ namespace pdr
   void PDR::store_result()
   {
     const Model& model = ctx.const_model();
-    Result& result      = results.current();
+    Result& result     = results.current();
 
     if (std::shared_ptr<State> current = result.trace)
     {

@@ -66,13 +66,13 @@ namespace pdr
         int newp = maxp + 1;
         assert(newp > 0);
         assert(maxp < newp);
-        ctx.model().set_max_pebbles(newp);
         if (newp > m.get_max_pebbles())
           return false;
         reset();
         results.extend();
         logger.whisper() << "Incremental run " << maxp << " -> " << newp
                          << " pebbles" << std::endl;
+
         // perform old F_1 propagation
         // for all cubes in old F_1 if no I -T-> cube, add to new F_1
         // start pdr again
