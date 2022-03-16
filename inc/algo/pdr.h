@@ -52,6 +52,7 @@ namespace pdr
     bool block_short(z3::expr_vector& counter, unsigned o_level,
                      unsigned level);
     // generalization
+    // todo return [n, cti ptr]
     int highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
     int highest_inductive_frame(const z3::expr_vector& cube, int min, int max,
                                 z3::expr_vector& core);
@@ -62,6 +63,8 @@ namespace pdr
     void store_result();
     void show_trace(const std::shared_ptr<State> trace_root,
                     std::ostream& out) const;
+    // to replace return value in run()
+    // stores final logs, stats and result and returns its argument
     bool finish(bool);
     void store_frame_strings();
 
@@ -78,8 +81,6 @@ namespace pdr
     void log_obligation(std::string_view type, unsigned l, double time);
 
    public:
-    // bool dynamic_cardinality = true;
-    bool dynamic_cardinality   = false;
     std::string frames_string  = "";
     std::string solvers_string = "";
 
@@ -90,7 +91,7 @@ namespace pdr
     // execute the PDR algorithm 
     // returns true if the property is invariant
     // returns false if there is a trace to a violation
-    bool run(bool optimize = false);
+    bool run(Run pdr_type = Run::basic);
     void show_solver(std::ostream& out) const;
     void show_results(std::ostream& out) const;
 
@@ -98,6 +99,9 @@ namespace pdr
     // strategy length. returns true if the is already proven invariant by this.
     // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
+    // Start at max pebbles and decrement until (at the lowest) final pebbles
+    bool decrement_strategy(std::ofstream& strategy, std::ofstream& solver_dump);
+    // start at final pebbles and increment until (at the most) max pebbles
     bool increment_strategy(std::ofstream& strategy, std::ofstream& solver_dump);
 
     Statistics& stats();

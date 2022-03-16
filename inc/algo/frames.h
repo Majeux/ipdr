@@ -52,7 +52,7 @@ namespace pdr
     // - a run of PDR has finished
     // - base assertions have been changed and are a superset of the previous
     // copy all old cubes that are not reachable from I into a new F_1
-    void increase_constraint(Statistics& s, int x);
+    void increment_reset(Statistics& s, int x);
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);

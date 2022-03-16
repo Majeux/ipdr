@@ -2,8 +2,8 @@
 
 namespace pdr
 {
-  context::context(Model& m, bool d, bool random_seed, Run t)
-      : delta(d), seed(random_seed ? time(0) : 0u), type(t), _model(m)
+  context::context(Model& m, bool d, bool random_seed)
+      : delta(d), seed(random_seed ? time(0) : 0u), type(Run::undef), _model(m)
   {
   }
 

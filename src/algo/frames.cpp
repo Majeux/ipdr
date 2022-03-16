@@ -114,7 +114,7 @@ namespace pdr
     }
   }
 
-  void Frames::increase_constraint(Statistics& s, int x)
+  void Frames::increment_reset(Statistics& s, int x)
   {
     assert(ctx.type == Run::increment);
     assert(frames.size() > 0);

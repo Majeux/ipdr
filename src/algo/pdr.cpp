@@ -48,42 +48,37 @@ namespace pdr
     logger("}");
   }
 
-  bool PDR::run(bool optimize)
+  bool PDR::run(Run pdr_type)
   {
-    dynamic_cardinality = optimize;
+    ctx.type = pdr_type;
     timer.reset();
-
-    assert(k == frames.frontier());
+    // TODO run type preparation logic here
+    assert(k == frames.frontier()); // pdr should expand the last frame
     log_start();
 
-    bool failed = false;
-    if (!optimize || k == 0)
+    if (k == 0)
     {
       logger.show("Start initiation");
       logger.indent++;
-      failed = !init();
+      if (!init())
+      {
+        logger.show("Failed initiation");
+        return finish(false);
+      }
+      logger.show("Survived Initiation");
       logger.indent--;
     }
 
-    if (failed)
-    {
-      logger.show("Failed initiation");
-      return finish(false);
-    }
-
-    logger.show("Survived Initiation");
     logger.show("Start iteration");
     logger.indent++;
-    failed = !iterate();
-    logger.indent--;
-
-    if (failed)
+    if (!iterate())
     {
       logger.show("Failed iteration");
       return finish(false);
     }
-
     logger.show("Property verified");
+    logger.indent--;
+
     return finish(true);
   }
 
@@ -96,6 +91,7 @@ namespace pdr
     store_result();
     store_frame_strings();
     shortest_strategy = results.current().pebbles_used;
+    logger.indent     = 0;
 
     return rv;
   }
@@ -104,27 +100,22 @@ namespace pdr
   bool PDR::init()
   {
     assert(frames.frontier() == 0);
+    const Model& m       = ctx.const_model();
+    z3::expr_vector notP = m.n_property.currents();
 
-    z3::expr_vector notP = ctx.const_model().n_property.currents();
     if (frames.init_solver.check(notP))
     {
       logger.out() << "I =/> P" << std::endl;
-      z3::model counter = frames.get_solver(0).get_model();
-      print_model(counter);
-      results.current().trace =
-          std::make_shared<State>(ctx.const_model().get_initial());
+      results.current().trace = std::make_shared<State>(m.get_initial());
       return false;
     }
 
-    z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
+    z3::expr_vector notP_next = m.n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
       logger("I & T =/> P'");
-      z3::model witness        = frames.get_solver(0).get_model();
-      z3::expr_vector bad_cube = Solver::filter_witness(
-          witness, [this](const z3::expr& e)
-          { return ctx.const_model().literals.atom_is_current(e); });
-      results.current().trace = std::make_shared<State>(bad_cube);
+      z3::expr_vector bad_cube = frames.get_solver(0).witness_current();
+      results.current().trace  = std::make_shared<State>(bad_cube);
 
       return false;
     }

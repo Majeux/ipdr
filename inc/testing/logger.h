@@ -97,6 +97,7 @@ namespace pdr
       return null;
     }
 
+    // output a verbose message and log it
     void show(std::string_view message) // TODO rename to operator
     {
       out() << message << std::endl;
@@ -104,6 +105,7 @@ namespace pdr
     }
 
     // TODO rename into show (only)
+    // output a message to verbose stream
     void operator()(std::string_view message) { out() << message << std::endl; }
   };
 } // namespace pdr

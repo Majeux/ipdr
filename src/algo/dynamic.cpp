@@ -43,40 +43,62 @@ namespace pdr
     return false;
   }
 
+  bool PDR::decrement_strategy(std::ofstream& strategy,
+                               std::ofstream& solver_dump)
+  {
+    const Model& m = ctx.const_model();
+    int N          = m.get_max_pebbles(); // cannot pebble more than this
+    bool found_strategy = !run(Run::basic);
+    while (!found_strategy)
+    {
+      int maxp = m.get_max_pebbles();
+      int newp = maxp - 1;
+      assert(newp > 0);
+      assert(newp < maxp);
+      if (newp > m.get_max_pebbles())
+        return false;
+      reset();
+      results.extend();
+      logger.whisper() << "Incremental run " << maxp << " -> " << newp
+                       << " pebbles" << std::endl;
+
+      // perform old F_1 propagation
+      // for all cubes in old F_1 if no I -T-> cube, add to new F_1
+      // start pdr again
+      found_strategy = !run(Run::increment);
+    }
+    // N is minimal
+    show_results(strategy);
+    solver_dump << SEP3 << " final iteration " << N << std::endl;
+    show_solver(solver_dump);
+    return true;
+  }
+
   bool PDR::increment_strategy(std::ofstream& strategy,
                                std::ofstream& solver_dump)
   {
-    assert(ctx.type == Run::increment);
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
-    while (true)
+    bool found_strategy = !run(Run::basic);
+    while (!found_strategy)
     {
-      bool found_strategy = !run(true);
-      if (found_strategy)
-      {
-        // N is minimal
-        show_results(strategy);
-        solver_dump << SEP3 << " iteration " << N << std::endl;
-        show_solver(solver_dump);
-        return true;
-      }
-      else
-      {
-        int maxp = m.get_max_pebbles();
-        int newp = maxp + 1;
-        assert(newp > 0);
-        assert(maxp < newp);
-        if (newp > m.get_max_pebbles())
-          return false;
-        reset();
-        results.extend();
-        logger.whisper() << "Incremental run " << maxp << " -> " << newp
-                         << " pebbles" << std::endl;
+      int maxp = m.get_max_pebbles();
+      int newp = maxp + 1;
+      assert(newp > 0);
+      assert(maxp < newp);
+      if (newp > m.get_max_pebbles())
+        return false;
+      reset();
+      results.extend();
+      logger.whisper() << "Incremental run " << maxp << " -> " << newp
+                       << " pebbles" << std::endl;
 
-        // perform old F_1 propagation
-        // for all cubes in old F_1 if no I -T-> cube, add to new F_1
-        // start pdr again
-      }
+      found_strategy = !run(Run::increment);
     }
+    // N is minimal
+    show_results(strategy);
+    solver_dump << SEP3 << " final iteration " << N << std::endl;
+    show_solver(solver_dump);
+    return true;
   }
 } // namespace pdr
