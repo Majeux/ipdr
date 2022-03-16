@@ -27,6 +27,7 @@ namespace pdr
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_cardinality() const;
+    size_t n_nodes() const;
     int get_max_pebbles() const;
     // sets the new constraint, returns false if final state cannot be pebbled
     void set_max_pebbles(int x);

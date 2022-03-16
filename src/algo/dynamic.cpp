@@ -47,25 +47,27 @@ namespace pdr
                                std::ofstream& solver_dump)
   {
     const Model& m = ctx.const_model();
-    int N          = m.get_max_pebbles(); // cannot pebble more than this
+    int N          = m.n_nodes(); // cannot pebble more than this
+    ctx.model().set_max_pebbles(N);
     bool found_strategy = !run(Run::basic);
-    while (!found_strategy)
+    while (found_strategy)
     {
       int maxp = m.get_max_pebbles();
-      int newp = maxp - 1;
+      int newp = shortest_strategy - 1;
       assert(newp > 0);
       assert(newp < maxp);
       if (newp > m.get_max_pebbles())
         return false;
       reset();
       results.extend();
-      logger.whisper() << "Incremental run " << maxp << " -> " << newp
+      logger.whisper() << "Decremental run " << maxp << " -> " << newp
                        << " pebbles" << std::endl;
 
+      frames.reset_constraint(stats(), newp);
       // perform old F_1 propagation
       // for all cubes in old F_1 if no I -T-> cube, add to new F_1
       // start pdr again
-      found_strategy = !run(Run::increment);
+      found_strategy = !run(Run::decrement);
     }
     // N is minimal
     show_results(strategy);
@@ -79,6 +81,7 @@ namespace pdr
   {
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
+    ctx.model().set_max_pebbles(N);
     bool found_strategy = !run(Run::basic);
     while (!found_strategy)
     {

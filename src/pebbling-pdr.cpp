@@ -389,8 +389,16 @@ int main(int argc, char* argv[])
   // run pdr and write output
   show_header(clargs);
 
-    pdr::PDR algorithm(context, pdr_logger, res);
+  pdr::PDR algorithm(context, pdr_logger, res);
 
+  if (clargs.pdr_type == pdr::Run::decrement)
+    algorithm.decrement_strategy(strategy, solver_dump);
+
+  if (clargs.pdr_type == pdr::Run::increment)
+    assert(false && "TODO implement rest increment");
+
+  if (clargs.pdr_type == pdr::Run::basic)
+    algorithm.run();
   // while (true)
   // {
   //   bool found_strategy = !algorithm.run(clargs.opt);

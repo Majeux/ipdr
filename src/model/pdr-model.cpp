@@ -44,6 +44,7 @@ namespace pdr
   const z3::expr_vector& Model::get_transition() const { return transition; }
   const z3::expr_vector& Model::get_initial() const { return initial; }
   const z3::expr_vector& Model::get_cardinality() const { return cardinality; }
+  size_t Model::n_nodes() const { return initial.size(); }
 
   void Model::load_pebble_transition(const dag::Graph& G)
   {
