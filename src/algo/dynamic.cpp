@@ -66,7 +66,6 @@ namespace pdr
                        << " pebbles" << std::endl;
 
       frames.reset_constraint(stats(), newp);
-      k = 1;
       // perform old F_1 propagation
       // for all cubes in old F_1 if no I -T-> cube, add to new F_1
       // start pdr again
@@ -101,6 +100,7 @@ namespace pdr
                        << " pebbles" << std::endl;
 
       frames.increment_reset(stats(), newp);
+      k = 1;
       found_strategy = !run(Run::increment);
     }
     // N is minimal

@@ -53,7 +53,6 @@ namespace pdr
     ctx.type = pdr_type;
     timer.reset();
     // TODO run type preparation logic here
-    assert(k == frames.frontier()); // pdr should expand the last frame
     log_start();
 
     if (k == 0)
@@ -72,6 +71,7 @@ namespace pdr
     logger.out("\n");
     logger.show("Start iteration");
     logger.indent++;
+    assert(k == frames.frontier()); // pdr should expand the last frame
     if (!iterate())
     {
       logger.show("Failed iteration");
