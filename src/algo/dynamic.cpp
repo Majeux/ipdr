@@ -15,6 +15,7 @@ namespace pdr
   bool PDR::decrement(bool reuse)
   {
     const Model& m = ctx.const_model();
+    unsigned k = frames.frontier();
 
     int max_pebbles = m.get_max_pebbles();
     int new_pebbles = shortest_strategy - 1;
@@ -35,7 +36,7 @@ namespace pdr
 
     logger.show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are reusing frames, the last propagation was k-1, repeat this
-    int invariant = frames.propagate(k - 1, true);
+    int invariant = frames.propagate(true);
     if (invariant >= 0)
     {
       results.current().invariant_index = invariant;
@@ -66,9 +67,6 @@ namespace pdr
                        << " pebbles" << std::endl;
 
       frames.reset_constraint(stats(), newp);
-      // perform old F_1 propagation
-      // for all cubes in old F_1 if no I -T-> cube, add to new F_1
-      // start pdr again
       found_strategy = !run(Run::decrement);
     }
     // N is minimal
@@ -100,7 +98,6 @@ namespace pdr
                        << " pebbles" << std::endl;
 
       frames.increment_reset(stats(), newp);
-      k = 1;
       found_strategy = !run(Run::increment);
     }
     // N is minimal

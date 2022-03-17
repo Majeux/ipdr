@@ -55,7 +55,7 @@ namespace pdr
     // TODO run type preparation logic here
     log_start();
 
-    if (k == 0)
+    if (frames.frontier() == 0)
     {
       logger.show("Start initiation");
       logger.indent++;
@@ -71,7 +71,6 @@ namespace pdr
     logger.out("\n");
     logger.show("Start iteration");
     logger.indent++;
-    assert(k == frames.frontier()); // pdr should expand the last frame
     if (!iterate())
     {
       logger.show("Failed iteration");
@@ -122,8 +121,6 @@ namespace pdr
     }
 
     frames.extend();
-    k = 1;
-    assert(k == frames.frontier());
 
     return true;
   }
@@ -135,23 +132,23 @@ namespace pdr
     while (true) // iterate over k, if dynamic this continues from last k
     {
       log_iteration();
-      assert(k == frames.frontier());
       // exhaust all counters to the inductiveness of !P
+      int k = frames.frontier();
       while (frames.trans_source(k, ctx.const_model().n_property.nexts(), true))
       {
         // a F_i state leads to violation
         z3::expr_vector cti = frames.get_solver(k).witness_current();
-        log_cti(cti);
+        log_cti(cti, k);
 
         z3::expr_vector core(ctx());
-        int n = highest_inductive_frame(cti, (int)k - 1, (int)k, core);
+        int n = highest_inductive_frame(cti, k - 1, k, core);
         assert(n >= 0);
 
         // !s is inductive relative to F_n
         z3::expr_vector smaller_cti = generalize(core, n);
         frames.remove_state(smaller_cti, n + 1);
 
-        if (not block(cti, n + 1, k))
+        if (not block(cti, n + 1))
           return false;
 
         logger.out() << std::endl;
@@ -159,13 +156,11 @@ namespace pdr
       logger.tabbed("no more counters at F_{}", k);
 
       frames.extend();
-
       sub_timer.reset();
-      int invariant_level = frames.propagate(k);
-      double time         = sub_timer.elapsed().count();
-      log_propagation(k, time);
 
-      k++;
+      int invariant_level = frames.propagate();
+      double time         = sub_timer.elapsed().count();
+      log_propagation(frames.frontier() - 1, time);
       frames.log_solvers();
 
       if (invariant_level >= 0)
@@ -176,14 +171,15 @@ namespace pdr
     }
   }
 
-  bool PDR::block(z3::expr_vector& cti, unsigned n, unsigned level)
+  bool PDR::block(z3::expr_vector cti, unsigned n)
   {
+    unsigned k = frames.frontier();
     logger.tabbed("block");
     logger.indent++;
 
     unsigned period = 0;
     std::set<Obligation, std::less<Obligation>> obligations;
-    if ((n + 1) <= level)
+    if ((n + 1) <= k)
       obligations.emplace(n + 1, std::move(cti), 0);
 
     // forall (n, state) in obligations: !state->cube is inductive
@@ -195,7 +191,7 @@ namespace pdr
       std::string branch;
 
       auto [n, state, depth] = *(obligations.begin());
-      assert(n <= level);
+      assert(n <= k);
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> !state
@@ -209,14 +205,14 @@ namespace pdr
 
         // state is at least inductive relative to F_n-2
         z3::expr_vector core(ctx());
-        int m = highest_inductive_frame(pred->cube, n - 1, level, core);
+        int m = highest_inductive_frame(pred->cube, n - 1, k, core);
         // n-1 <= m <= level
         if (m >= 0)
         {
           z3::expr_vector smaller_pred = generalize(core, m);
           frames.remove_state(smaller_pred, m + 1);
 
-          if (static_cast<unsigned>(m + 1) <= level)
+          if (static_cast<unsigned>(m + 1) <= k)
           {
             log_state_push(m + 1, pred->cube);
             obligations.emplace(m + 1, pred, depth + 1);
@@ -235,7 +231,7 @@ namespace pdr
         log_finish(state->cube);
         //! s is now inductive to at least F_n
         z3::expr_vector core(ctx());
-        int m = highest_inductive_frame(state->cube, n + 1, level, core);
+        int m = highest_inductive_frame(state->cube, n + 1, k, core);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
 
@@ -247,7 +243,7 @@ namespace pdr
           frames.remove_state(smaller_state, m + 1);
           obligations.erase(obligations.begin());
 
-          if (static_cast<unsigned>(m + 1) <= level)
+          if (static_cast<unsigned>(m + 1) <= k)
           {
             // push upwards until inductive relative to F_level
             log_state_push(m + 1, state->cube);
@@ -262,7 +258,7 @@ namespace pdr
         elapsed = sub_timer.elapsed().count();
         branch  = "(finish)";
       }
-      log_obligation(branch, level, elapsed);
+      log_obligation(branch, k, elapsed);
       elapsed = -1.0;
 
       // periodically write stats in case of long runs

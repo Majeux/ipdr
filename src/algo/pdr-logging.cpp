@@ -15,17 +15,17 @@ namespace pdr
   void PDR::log_iteration()
   {
     logger.out("###############");
-    logger.out(fmt::format("iterate frame {}", k));
+    logger.out(fmt::format("iterate frame {}", frames.frontier()));
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
-    logger.tabbed("iterate frame {}", k);
+    logger.tabbed("iterate frame {}", frames.frontier());
   }
 
-  void PDR::log_cti(const z3::expr_vector& cti)
+  void PDR::log_cti(z3::expr_vector cti, unsigned level)
   {
     (void)cti; // ignore unused warning when logging is off
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
-    logger.tabbed("cti at frame {}", k);
+    logger.tabbed("cti at frame {}", level);
     logger.tabbed("[{}]", str::extend::join(cti));
   }
 
@@ -38,7 +38,7 @@ namespace pdr
   }
 
   void PDR::log_top_obligation(size_t queue_size, unsigned top_level,
-                               const z3::expr_vector& top)
+                               z3::expr_vector top)
   {
     (void)queue_size; // ignore unused warning when logging is off
     (void)top_level;  // ignore unused warning when logging is off
@@ -51,7 +51,7 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_pred(const z3::expr_vector& p)
+  void PDR::log_pred(z3::expr_vector p)
   {
     (void)p; // ignore unused warning when logging is off
     logger.tabbed("predecessor:");
@@ -60,7 +60,7 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_state_push(unsigned frame, const z3::expr_vector& p)
+  void PDR::log_state_push(unsigned frame, z3::expr_vector p)
   {
     (void)frame; // ignore unused warning when logging is off
     (void)p;     // ignore unused warning when logging is off
@@ -68,7 +68,7 @@ namespace pdr
     logger.tabbed("push predecessor to level {}: [{}]", frame, str::extend::join(p));
   }
 
-  void PDR::log_finish(const z3::expr_vector& s)
+  void PDR::log_finish(z3::expr_vector s)
   {
     (void)s; // ignore unused warning when logging is off
     logger.tabbed("finishing state");

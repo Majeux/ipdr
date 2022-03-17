@@ -34,7 +34,7 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    const Model& m = ctx.const_model();
+    const Model& m                = ctx.const_model();
     const z3::expr_vector& t      = m.get_transition();
     const z3::expr_vector& constr = m.get_cardinality();
 
@@ -73,7 +73,7 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      const Model& m = ctx.const_model();
+      const Model& m                = ctx.const_model();
       const z3::expr_vector& t      = m.get_transition();
       const z3::expr_vector& constr = m.get_cardinality();
       auto frame_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
@@ -89,7 +89,7 @@ namespace pdr
   // TODO only really re-adjusts constraint for incremental/decremental
   void Frames::reset_constraint(Statistics& s, int x)
   {
-    ctx.model().set_max_pebbles(x); 
+    ctx.model().set_max_pebbles(x);
 
     for (size_t i = 1; i < frames.size(); i++)
       frames[i]->set_stats(s);
@@ -119,14 +119,14 @@ namespace pdr
     logger.show("Preparing for an incrementation");
     assert(frames.size() > 0);
     assert(x > ctx.model().get_max_pebbles());
-    ctx.model().set_max_pebbles(x); 
+    ctx.model().set_max_pebbles(x);
 
     for (size_t i = 1; i < frames.size(); i++)
       frames[i]->set_stats(s);
 
     CubeSet old = get_blocked(1); // store all cubes in F_1
-    clear(); // reset sequence to { F_0 }
-    extend(); //reinstate level 1
+    clear();                      // reset sequence to { F_0 }
+    extend();                     // reinstate level 1
 
     for (const z3::expr_vector& cube : old)
     {
@@ -220,15 +220,18 @@ namespace pdr
     return true;
   }
 
-  int Frames::propagate(unsigned level, bool repeat)
+  int Frames::propagate(bool repeat)
   {
-    assert(level == frontier() - 1); // k == |F|-1
-    logger.out() << "propagate level " << level << std::endl;
+    unsigned k = frontier() - 1;
+    // last iteration was not finished, repeat previous propagation
+    if (repeat) 
+      k--; 
+    logger.out() << "propagate level " << k << std::endl;
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| propagate frame {} to {}",
-                        logger.tab(), 1, level);
+                        logger.tab(), 1, k);
     logger.indent++;
 
-    for (unsigned i = 1; i <= level; i++)
+    for (unsigned i = 1; i <= k; i++)
     {
       if (ctx.delta)
         push_forward_delta(i, repeat);
@@ -237,7 +240,7 @@ namespace pdr
     }
 
     if (ctx.delta)
-      for (unsigned i = 1; i <= level; i++)
+      for (unsigned i = 1; i <= k; i++)
       {
         if (frames.at(i)->empty())
         {

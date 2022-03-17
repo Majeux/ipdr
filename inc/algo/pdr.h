@@ -3,8 +3,8 @@
 
 #include "_logging.h"
 #include "frames.h"
-#include "pdr-model.h"
 #include "pdr-context.h"
+#include "pdr-model.h"
 #include "result.h"
 #include "stats.h"
 #include "z3-ext.h"
@@ -34,7 +34,6 @@ namespace pdr
     spdlog::stopwatch sub_timer;
     Logger& logger;
 
-    unsigned k = 0;
     Frames frames;
 
     Results& results;
@@ -48,7 +47,7 @@ namespace pdr
     bool init();
     bool iterate();
     bool iterate_short();
-    bool block(z3::expr_vector& counter, unsigned o_level, unsigned level);
+    bool block(z3::expr_vector cti, unsigned n);
     bool block_short(z3::expr_vector& counter, unsigned o_level,
                      unsigned level);
     // generalization
@@ -68,16 +67,16 @@ namespace pdr
     bool finish(bool);
     void store_frame_strings();
 
-    // logging shorthands 
+    // logging shorthands
     void log_start() const;
     void log_iteration();
-    void log_cti(const z3::expr_vector& cti);
+    void log_cti(z3::expr_vector cti, unsigned level);
     void log_propagation(unsigned level, double time);
     void log_top_obligation(size_t queue_size, unsigned top_level,
-                            const z3::expr_vector& top);
-    void log_pred(const z3::expr_vector& p);
-    void log_state_push(unsigned frame, const z3::expr_vector& p);
-    void log_finish(const z3::expr_vector& s);
+                            z3::expr_vector top);
+    void log_pred(z3::expr_vector p);
+    void log_state_push(unsigned frame, z3::expr_vector p);
+    void log_finish(z3::expr_vector s);
     void log_obligation(std::string_view type, unsigned l, double time);
 
    public:
@@ -88,7 +87,7 @@ namespace pdr
     // prepare PDR for new run. discards old trace
     void reset();
 
-    // execute the PDR algorithm 
+    // execute the PDR algorithm
     // returns true if the property is invariant
     // returns false if there is a trace to a violation
     bool run(Run pdr_type = Run::basic);
@@ -100,9 +99,11 @@ namespace pdr
     // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
     // Start at max pebbles and decrement until (at the lowest) final pebbles
-    bool decrement_strategy(std::ofstream& strategy, std::ofstream& solver_dump);
+    bool decrement_strategy(std::ofstream& strategy,
+                            std::ofstream& solver_dump);
     // start at final pebbles and increment until (at the most) max pebbles
-    bool increment_strategy(std::ofstream& strategy, std::ofstream& solver_dump);
+    bool increment_strategy(std::ofstream& strategy,
+                            std::ofstream& solver_dump);
 
     Statistics& stats();
     int length_shortest_strategy() const;
