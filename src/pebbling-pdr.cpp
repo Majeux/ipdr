@@ -86,23 +86,23 @@ std::string file_name(const ArgumentList& args)
 {
   std::string pebble_str;
   if (args.pdr_type == pdr::Run::basic)
-    pebble_str = std::to_string(args.max_pebbles);
+    pebble_str = "-" + std::to_string(args.max_pebbles);
   else
     pebble_str = "";
 
-  return fmt::format("{}-{}-{}{}", args.model_name, run_str(args.pdr_type),
-                     pebble_str, args.delta ? "_delta" : "");
+  return fmt::format("{}-{}{}{}", args.model_name, run_str(args.pdr_type),
+                     pebble_str, args.delta ? "-delta" : "");
 }
 
 std::string folder_name(const ArgumentList& args)
 {
   std::string pebble_str;
   if (args.pdr_type == pdr::Run::basic)
-    pebble_str = std::to_string(args.max_pebbles);
+    pebble_str = "-" + std::to_string(args.max_pebbles);
   else
     pebble_str = "";
 
-  return fmt::format("{}-{}{}", args.max_pebbles, run_str(args.pdr_type),
+  return fmt::format("{}{}{}", run_str(args.pdr_type), pebble_str,
                      args.delta ? "-delta" : "");
 }
 
@@ -139,9 +139,9 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   clargs.delta = false;
   // clang-format off
   clopt.add_options()
-    ("v,verbose", "Output all during pdr iterations",
+    ("v,verbose", "Output all messages during pdr iterations",
       cxxopts::value<bool>()->default_value("false"))
-    ("w,wisper", "Output only minor info during pdr iterations.",
+    ("w,wisper", "Output only minor messages during pdr iterations.",
       cxxopts::value<bool>()->default_value("false"))
     ("showonly", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
@@ -284,7 +284,8 @@ void show_header(const ArgumentList& clargs)
                            clargs.max_pebbles, clargs.model_name)
             << std::endl;
   if (clargs.pdr_type != pdr::Run::basic)
-    std::cout << fmt::format("Using dynamic cardinality ({}). ", run_str(clargs.pdr_type));
+    std::cout << fmt::format("Using finding minimal cardinality ({}). ",
+                             run_str(clargs.pdr_type));
   if (clargs.delta)
     std::cout << "Using delta-encoded frames.";
   std::cout << std::endl;
@@ -398,7 +399,12 @@ int main(int argc, char* argv[])
     assert(false && "TODO implement rest increment");
 
   if (clargs.pdr_type == pdr::Run::basic)
+  {
     algorithm.run();
+    algorithm.show_results(strategy);
+    algorithm.show_solver(solver_dump);
+
+  }
   // while (true)
   // {
   //   bool found_strategy = !algorithm.run(clargs.opt);
@@ -414,6 +420,6 @@ int main(int argc, char* argv[])
   // algorithm.show_results(strategy);
   // solver_dump << SEP3 << " iteration " << clargs.max_pebbles << std::endl;
   // algorithm.show_solver(solver_dump);
-  
+
   return 0;
 }
