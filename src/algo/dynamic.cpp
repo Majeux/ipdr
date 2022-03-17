@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <dbg.h>
 
 namespace pdr
 {
@@ -46,6 +47,7 @@ namespace pdr
   bool PDR::decrement_strategy(std::ofstream& strategy,
                                std::ofstream& solver_dump)
   {
+    logger.show("NEW DEC RUN");
     const Model& m = ctx.const_model();
     int N          = m.n_nodes(); // cannot pebble more than this
     ctx.model().set_max_pebbles(N);
@@ -56,7 +58,7 @@ namespace pdr
       int newp = shortest_strategy - 1;
       assert(newp > 0);
       assert(newp < maxp);
-      if (newp > m.get_max_pebbles())
+      if (newp > (int)m.n_nodes())
         return false;
       reset();
       results.extend();
@@ -64,6 +66,7 @@ namespace pdr
                        << " pebbles" << std::endl;
 
       frames.reset_constraint(stats(), newp);
+      k = 1;
       // perform old F_1 propagation
       // for all cubes in old F_1 if no I -T-> cube, add to new F_1
       // start pdr again
@@ -79,6 +82,7 @@ namespace pdr
   bool PDR::increment_strategy(std::ofstream& strategy,
                                std::ofstream& solver_dump)
   {
+    logger.show("NEW INC RUN");
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
     ctx.model().set_max_pebbles(N);
@@ -89,13 +93,14 @@ namespace pdr
       int newp = maxp + 1;
       assert(newp > 0);
       assert(maxp < newp);
-      if (newp > m.get_max_pebbles())
+      if (newp > (int)m.n_nodes())
         return false;
       reset();
       results.extend();
       logger.whisper() << "Incremental run " << maxp << " -> " << newp
                        << " pebbles" << std::endl;
 
+      frames.increment_reset(stats(), newp);
       found_strategy = !run(Run::increment);
     }
     // N is minimal

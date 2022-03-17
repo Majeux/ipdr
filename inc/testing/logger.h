@@ -101,12 +101,19 @@ namespace pdr
     void show(std::string_view message) // TODO rename to operator
     {
       out() << message << std::endl;
-      SPDLOG_LOGGER_INFO(spd_logger, message);
+      SPDLOG_LOGGER_TRACE(spd_logger, "{}| {}", tab(), message);
+    }
+    
+    template <typename... Args>
+    void tabbed(const std::string& message_fmt, Args&&... a)
+    {
+      std::string full_format = "{}| " + message_fmt;
+      SPDLOG_LOGGER_TRACE(spd_logger, full_format, tab(), std::forward<Args>(a)...);
     }
 
     // TODO rename into show (only)
     // output a message to verbose stream
-    void operator()(std::string_view message) { out() << message << std::endl; }
+    void out(std::string_view message) { out() << message << std::endl; }
   };
 } // namespace pdr
 #endif // LOGGER_H

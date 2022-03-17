@@ -7,35 +7,33 @@ namespace pdr
   void PDR::log_start() const
   {
     SPDLOG_LOGGER_INFO(logger.spd_logger, "");
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "NEW RUN\n");
+    SPDLOG_LOGGER_INFO(logger.spd_logger, "PDR start:");
     logger.out() << std::endl;
     logger.show("PDR start:");
   }
 
   void PDR::log_iteration()
   {
-    logger("###############");
-    logger(fmt::format("iterate frame {}", k));
+    logger.out("###############");
+    logger.out(fmt::format("iterate frame {}", k));
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| frame {}", logger.tab(), k);
+    logger.tabbed("iterate frame {}", k);
   }
 
   void PDR::log_cti(const z3::expr_vector& cti)
   {
     (void)cti; // ignore unused warning when logging is off
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| cti at frame {}", logger.tab(),
-                        k);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(cti));
+    logger.tabbed("cti at frame {}", k);
+    logger.tabbed("[{}]", str::extend::join(cti));
   }
 
   void PDR::log_propagation(unsigned level, double time)
   {
     std::string msg = fmt::format("Propagation elapsed {}", time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    logger(msg);
+    logger.out(msg);
     logger.stats.propagation_it.add_timed(level, time);
   }
 
@@ -46,22 +44,19 @@ namespace pdr
     (void)top_level;  // ignore unused warning when logging is off
     (void)top;        // ignore unused warning when logging is off
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| obligations pending: {}",
-                        logger.tab(), queue_size);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| top obligation", logger.tab());
+    logger.tabbed("obligations pending: {}", queue_size);
+    logger.tabbed("top obligation");
     logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| {}, [{}]", logger.tab(),
-                        top_level, str::extend::join(top));
+    logger.tabbed("{}, [{}]", top_level, str::extend::join(top));
     logger.indent--;
   }
 
   void PDR::log_pred(const z3::expr_vector& p)
   {
     (void)p; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| predecessor:", logger.tab());
+    logger.tabbed("predecessor:");
     logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(p));
+    logger.tabbed("[{}]", str::extend::join(p));
     logger.indent--;
   }
 
@@ -69,20 +64,16 @@ namespace pdr
   {
     (void)frame; // ignore unused warning when logging is off
     (void)p;     // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| pred is inductive until F_{}",
-                        frame - 1, logger.tab());
-    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                        "{}| push predecessor to level {}: [{}]", logger.tab(),
-                        frame, str::extend::join(p));
+    logger.tabbed("pred is inductive until F_{}", frame - 1);
+    logger.tabbed("push predecessor to level {}: [{}]", frame, str::extend::join(p));
   }
 
   void PDR::log_finish(const z3::expr_vector& s)
   {
     (void)s; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| finishing state", logger.tab());
+    logger.tabbed("finishing state");
     logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| [{}]", logger.tab(),
-                        str::extend::join(s));
+    logger.tabbed("[{}]", str::extend::join(s));
     logger.indent--;
   }
 
@@ -90,7 +81,7 @@ namespace pdr
   {
     logger.stats.obligations_handled.add_timed(l, time);
     std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    logger(msg);
+    SPDLOG_LOGGER_TRACE(logger.spd_logger, "Obligation {} elapsed {}");
+    logger.out(msg);
   }
 } // namespace pdr

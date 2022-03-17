@@ -116,7 +116,7 @@ namespace pdr
 
   void Frames::increment_reset(Statistics& s, int x)
   {
-    assert(ctx.type == Run::increment);
+    logger.show("Preparing for an incrementation");
     assert(frames.size() > 0);
     assert(x > ctx.model().get_max_pebbles());
     ctx.model().set_max_pebbles(x); 

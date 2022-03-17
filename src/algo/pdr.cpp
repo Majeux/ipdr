@@ -42,10 +42,10 @@ namespace pdr
 
   void PDR::print_model(const z3::model& m)
   {
-    logger("model consts \{");
+    logger.out("model consts \{");
     for (unsigned i = 0; i < m.num_consts(); i++)
       logger.out() << "\t" << m.get_const_interp(m.get_const_decl(i));
-    logger("}");
+    logger.out("}");
   }
 
   bool PDR::run(Run pdr_type)
@@ -69,6 +69,7 @@ namespace pdr
       logger.indent--;
     }
 
+    logger.out("\n");
     logger.show("Start iteration");
     logger.indent++;
     if (!iterate())
@@ -113,7 +114,7 @@ namespace pdr
     z3::expr_vector notP_next = m.n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
-      logger("I & T =/> P'");
+      logger.out("I & T =/> P'");
       z3::expr_vector bad_cube = frames.get_solver(0).witness_current();
       results.current().trace  = std::make_shared<State>(bad_cube);
 
@@ -129,8 +130,6 @@ namespace pdr
 
   bool PDR::iterate()
   {
-    logger(SEP3);
-    logger("Start iteration");
 
     // I => P and I & T ⇒ P' (from init)
     while (true) // iterate over k, if dynamic this continues from last k
@@ -157,8 +156,7 @@ namespace pdr
 
         logger.out() << std::endl;
       }
-      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| no more counters at F_{}",
-                          logger.tab(), k);
+      logger.tabbed("no more counters at F_{}", k);
 
       frames.extend();
 
@@ -180,7 +178,7 @@ namespace pdr
 
   bool PDR::block(z3::expr_vector& cti, unsigned n, unsigned level)
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| block", logger.tab());
+    logger.tabbed("block");
     logger.indent++;
 
     unsigned period = 0;

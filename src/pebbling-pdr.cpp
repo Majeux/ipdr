@@ -381,7 +381,7 @@ int main(int argc, char* argv[])
 
   // initialize logger and other bookkeeping
   fs::path log_file      = base_dir / fmt::format("{}.{}", filename, "log");
-  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "log");
+  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "out");
 
   pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
                          clargs.verbosity);
@@ -396,7 +396,7 @@ int main(int argc, char* argv[])
     algorithm.decrement_strategy(strategy, solver_dump);
 
   if (clargs.pdr_type == pdr::Run::increment)
-    assert(false && "TODO implement rest increment");
+    algorithm.increment_strategy(strategy, solver_dump);
 
   if (clargs.pdr_type == pdr::Run::basic)
   {
