@@ -402,10 +402,10 @@ int main(int argc, char* argv[])
   show_header(clargs);
 
   if (clargs.pdr_type == pdr::Run::decrement)
-    algorithm.decrement_strategy(strategy, solver_dump);
+    algorithm.dec_tactic(strategy, solver_dump);
 
   if (clargs.pdr_type == pdr::Run::increment)
-    algorithm.increment_strategy(strategy, solver_dump);
+    algorithm.inc_tactic(strategy, solver_dump);
 
   if (clargs.pdr_type == pdr::Run::basic)
   {

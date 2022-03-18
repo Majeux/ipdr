@@ -3,8 +3,8 @@
 #include <bits/types/FILE.h>
 #include <cassert>
 #include <cstddef>
-#include <string>
 #include <dbg.h>
+#include <string>
 
 namespace pdr
 {
@@ -15,7 +15,7 @@ namespace pdr
   bool PDR::decrement(bool reuse)
   {
     const Model& m = ctx.const_model();
-    unsigned k = frames.frontier();
+    unsigned k     = frames.frontier();
 
     int max_pebbles = m.get_max_pebbles();
     int new_pebbles = shortest_strategy - 1;
@@ -45,8 +45,7 @@ namespace pdr
     return false;
   }
 
-  bool PDR::decrement_strategy(std::ofstream& strategy,
-                               std::ofstream& solver_dump)
+  bool PDR::dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
     logger.and_show("NEW DEC RUN");
     const Model& m = ctx.const_model();
@@ -75,8 +74,7 @@ namespace pdr
     return true;
   }
 
-  bool PDR::increment_strategy(std::ofstream& strategy,
-                               std::ofstream& solver_dump)
+  bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
     logger.and_show("NEW INC RUN");
     const Model& m = ctx.const_model();
@@ -103,4 +101,34 @@ namespace pdr
     show_solver(solver_dump);
     return true;
   }
+
+  bool PDR::inc_jump_test(int start, std::ofstream& strategy,
+                          std::ofstream& solver_dump)
+  {
+    logger.and_show("NEW INC JUMP TEST RUN");
+    const Model& m = ctx.const_model();
+    int N          = start;
+    ctx.model().set_max_pebbles(N);
+    bool found_strategy = !run(Run::basic);
+    if (!found_strategy)
+    {
+      int maxp = m.get_max_pebbles();
+      int newp = maxp + 10;
+      assert(newp > 0);
+      assert(maxp < newp);
+      if (newp > (int)m.n_nodes())
+        return false;
+      reset();
+      results.extend();
+
+      frames.increment_reset(stats(), newp);
+      found_strategy = !run(Run::increment);
+    }
+    // N is minimal
+    show_results(strategy);
+    solver_dump << SEP3 << " final iteration " << N << std::endl;
+    show_solver(solver_dump);
+    return true;
+  }
+} // namespace pdr
 } // namespace pdr

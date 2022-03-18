@@ -99,11 +99,11 @@ namespace pdr
     // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
     // Start at max pebbles and decrement until (at the lowest) final pebbles
-    bool decrement_strategy(std::ofstream& strategy,
-                            std::ofstream& solver_dump);
+    bool dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
     // start at final pebbles and increment until (at the most) max pebbles
-    bool increment_strategy(std::ofstream& strategy,
-                            std::ofstream& solver_dump);
+    bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
+    bool inc_jump_test(int start, std::ofstream& strategy,
+                       std::ofstream& solver_dump);
 
     Statistics& stats();
     int length_shortest_strategy() const;
