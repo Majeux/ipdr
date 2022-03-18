@@ -27,14 +27,14 @@ namespace pdr
 
     reset();
     results.extend();
-    logger.whisper() << "retrying with " << new_pebbles << std::endl;
+    logger.whisper("retrying with {}", new_pebbles);
     if (!reuse)
       return true;
 
     // TODO separate statstics from dyn runs?
     frames.reset_constraint(logger.stats, new_pebbles);
 
-    logger.show(fmt::format("Dynamic: skip initiation. k = {}", k));
+    logger.and_show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are reusing frames, the last propagation was k-1, repeat this
     int invariant = frames.propagate(true);
     if (invariant >= 0)
@@ -48,7 +48,7 @@ namespace pdr
   bool PDR::decrement_strategy(std::ofstream& strategy,
                                std::ofstream& solver_dump)
   {
-    logger.show("NEW DEC RUN");
+    logger.and_show("NEW DEC RUN");
     const Model& m = ctx.const_model();
     int N          = m.n_nodes(); // cannot pebble more than this
     ctx.model().set_max_pebbles(N);
@@ -63,8 +63,7 @@ namespace pdr
         return false;
       reset();
       results.extend();
-      logger.whisper() << "Decremental run " << maxp << " -> " << newp
-                       << " pebbles" << std::endl;
+      logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
 
       frames.reset_constraint(stats(), newp);
       found_strategy = !run(Run::decrement);
@@ -79,7 +78,7 @@ namespace pdr
   bool PDR::increment_strategy(std::ofstream& strategy,
                                std::ofstream& solver_dump)
   {
-    logger.show("NEW INC RUN");
+    logger.and_show("NEW INC RUN");
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
     ctx.model().set_max_pebbles(N);
@@ -94,8 +93,6 @@ namespace pdr
         return false;
       reset();
       results.extend();
-      logger.whisper() << "Incremental run " << maxp << " -> " << newp
-                       << " pebbles" << std::endl;
 
       frames.increment_reset(stats(), newp);
       found_strategy = !run(Run::increment);

@@ -6,16 +6,15 @@ namespace pdr
 {
   void PDR::log_start() const
   {
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "");
-    SPDLOG_LOGGER_INFO(logger.spd_logger, "PDR start:");
-    logger.out() << std::endl;
-    logger.show("PDR start:");
+    logger("");
+    logger.and_whisper("PDR start:");
+    logger("");
   }
 
   void PDR::log_iteration()
   {
-    logger.out("###############");
-    logger.out(fmt::format("iterate frame {}", frames.frontier()));
+    logger.show("###############");
+    logger.show(fmt::format("iterate frame {}", frames.frontier()));
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
     SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
     logger.tabbed("iterate frame {}", frames.frontier());
@@ -33,7 +32,7 @@ namespace pdr
   {
     std::string msg = fmt::format("Propagation elapsed {}", time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, msg);
-    logger.out(msg);
+    logger.show(msg);
     logger.stats.propagation_it.add_timed(level, time);
   }
 
@@ -82,6 +81,6 @@ namespace pdr
     logger.stats.obligations_handled.add_timed(l, time);
     std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
     SPDLOG_LOGGER_TRACE(logger.spd_logger, "Obligation {} elapsed {}");
-    logger.out(msg);
+    logger.show(msg);
   }
 } // namespace pdr

@@ -42,10 +42,10 @@ namespace pdr
 
   void PDR::print_model(const z3::model& m)
   {
-    logger.out("model consts \{");
+    logger.show("model consts \{");
     for (unsigned i = 0; i < m.num_consts(); i++)
-      logger.out() << "\t" << m.get_const_interp(m.get_const_decl(i));
-    logger.out("}");
+      logger.show("\t{}", m.get_const_interp(m.get_const_decl(i)).to_string());
+    logger.show("}");
   }
 
   bool PDR::run(Run pdr_type)
@@ -57,26 +57,26 @@ namespace pdr
 
     if (frames.frontier() == 0)
     {
-      logger.show("Start initiation");
+      logger.and_show("Start initiation");
       logger.indent++;
       if (!init())
       {
-        logger.show("Failed initiation");
+        logger.and_show("Failed initiation");
         return finish(false);
       }
-      logger.show("Survived Initiation");
+      logger.and_show("Survived Initiation");
       logger.indent--;
     }
 
-    logger.out("\n");
-    logger.show("Start iteration");
+    logger.show("\n");
+    logger.and_show("Start iteration");
     logger.indent++;
     if (!iterate())
     {
-      logger.show("Failed iteration");
+      logger.and_show("Failed iteration");
       return finish(false);
     }
-    logger.show("Property verified");
+    logger.and_show("Property verified");
     logger.indent--;
 
     return finish(true);
@@ -85,7 +85,7 @@ namespace pdr
   bool PDR::finish(bool rv)
   {
     double final_time = timer.elapsed().count();
-    logger.show(fmt::format("Total elapsed time {}", final_time));
+    logger.and_show(fmt::format("Total elapsed time {}", final_time));
     results.current().total_time = final_time;
     logger.stats.elapsed         = final_time;
     store_result();
@@ -105,7 +105,7 @@ namespace pdr
 
     if (frames.init_solver.check(notP))
     {
-      logger.out() << "I =/> P" << std::endl;
+      logger.whisper("I =/> P");
       results.current().trace = std::make_shared<State>(m.get_initial());
       return false;
     }
@@ -113,7 +113,7 @@ namespace pdr
     z3::expr_vector notP_next = m.n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
-      logger.out("I & T =/> P'");
+      logger.show("I & T =/> P'");
       z3::expr_vector bad_cube = frames.get_solver(0).witness_current();
       results.current().trace  = std::make_shared<State>(bad_cube);
 
@@ -151,7 +151,7 @@ namespace pdr
         if (not block(cti, n + 1))
           return false;
 
-        logger.out() << std::endl;
+        logger.show("");
       }
       logger.tabbed("no more counters at F_{}", k);
 

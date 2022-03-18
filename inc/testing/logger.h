@@ -5,6 +5,7 @@
 #include "stats.h"
 
 #include "_logging.h"
+#include <fmt/core.h>
 #include <fstream>
 #include <memory>
 #include <ostream>
@@ -81,39 +82,66 @@ namespace pdr
       stats.model.emplace("outputs", G.output.size());
     }
 
-    // stream that outputs a message if output is verbose
-    std::ostream& out()
+    // LOGGING OUTPUT
+    //
+    // log a message
+    template <typename... Args>
+    void operator()(std::string_view message_fmt, Args&&... a)
     {
-      if (level == OutLvl::verbose)
-        return _out;
-      return null;
+      SPDLOG_LOGGER_TRACE(spd_logger, message_fmt, std::forward<Args>(a)...);
     }
 
-    // stream that outputs an important update unless completely silent
-    std::ostream& whisper()
+    template <typename... Args>
+    void log(std::string_view message_fmt, Args&&... a)
     {
-      if (level != OutLvl::silent)
-        return _out;
-      return null;
+      operator()(message_fmt, std::forward<Args>(a)...);
     }
 
-    // output a verbose message and log it
-    void show(std::string_view message) // TODO rename to operator
-    {
-      out() << message << std::endl;
-      SPDLOG_LOGGER_TRACE(spd_logger, "{}| {}", tab(), message);
-    }
-    
+    // log a message with indent
     template <typename... Args>
     void tabbed(const std::string& message_fmt, Args&&... a)
     {
-      std::string full_format = "{}| " + message_fmt;
-      SPDLOG_LOGGER_TRACE(spd_logger, full_format, tab(), std::forward<Args>(a)...);
+      std::string fmt = "{}| " + message_fmt;
+      SPDLOG_LOGGER_TRACE(spd_logger, fmt, tab(), std::forward<Args>(a)...);
     }
 
-    // TODO rename into show (only)
-    // output a message to verbose stream
-    void out(std::string_view message) { out() << message << std::endl; }
+    // NON-LOGGING OUTPUT
+    //
+    // output a verbose message (does not log)
+    template <typename... Args>
+    void show(std::string_view message_fmt, Args&&... a)
+    {
+      if (level == OutLvl::verbose)
+        _out << fmt::format(message_fmt, std::forward<Args>(a)...) << std::endl;
+    }
+
+    // output non-verbose message. only supressed if silent
+    template <typename... Args>
+    void whisper(std::string_view message_fmt, Args&&... a)
+    {
+      if (level != OutLvl::silent)
+        _out << fmt::format(message_fmt, std::forward<Args>(a)...) << std::endl;
+    }
+
+    // COMBINED
+    //
+    // output a verbose message and log it
+    template <typename... Args>
+    void and_show(std::string_view message,
+                  Args&&... a) // TODO rename to operator
+    {
+      show(message, std::forward<Args>(a)...);
+      SPDLOG_LOGGER_TRACE(spd_logger, message, std::forward<Args>(a)...);
+    }
+
+    // output a whisper message and log it
+    template <typename... Args>
+    void and_whisper(std::string_view message,
+                     Args&&... a) // TODO rename to operator
+    {
+      whisper(message, std::forward<Args>(a)...);
+      SPDLOG_LOGGER_TRACE(spd_logger, message, std::forward<Args>(a)...);
+    }
   };
 } // namespace pdr
 #endif // LOGGER_H

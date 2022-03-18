@@ -55,6 +55,7 @@ struct ArgumentList
   std::string model_name;
   hop_arg hop;
   fs::path bench_folder;
+  std::string out = "";
 
   int max_pebbles;
 
@@ -145,6 +146,8 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<bool>()->default_value("false"))
     ("showonly", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
+    ("out-file", "Write to an output file instead of standard output", 
+      cxxopts::value<std::string>(), "(string:FILE.out)")
 
     ("optimize", fmt::format("Find a strategy requiring the minimum number of pebbles."
                              "Value is {} or {}", increment_str, decrement_str), 
@@ -193,6 +196,11 @@ ArgumentList parse_cl(int argc, char* argv[])
       clargs.verbosity = OutLvl::whisper;
     else
       clargs.verbosity = OutLvl::silent;
+
+    if (clresult.count("out-file"))
+      clargs.out = clresult["out-file"].as<std::string>();
+    else
+      clargs.out = "";
 
     if (clresult.count("optimize"))
     {
@@ -383,14 +391,15 @@ int main(int argc, char* argv[])
   fs::path log_file      = base_dir / fmt::format("{}.{}", filename, "log");
   fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "out");
 
-  pdr::Logger pdr_logger(log_file.string(), G, progress_file.string(),
-                         clargs.verbosity);
+  pdr::Logger pdr_logger =
+      clargs.out == ""
+          ? pdr::Logger(log_file.string(), G, clargs.verbosity)
+          : pdr::Logger(log_file.string(), G, clargs.out, clargs.verbosity);
+
   pdr::Results res(model);
 
-  // run pdr and write output
-  show_header(clargs);
-
   pdr::PDR algorithm(context, pdr_logger, res);
+  show_header(clargs);
 
   if (clargs.pdr_type == pdr::Run::decrement)
     algorithm.decrement_strategy(strategy, solver_dump);
@@ -403,7 +412,6 @@ int main(int argc, char* argv[])
     algorithm.run();
     algorithm.show_results(strategy);
     algorithm.show_solver(solver_dump);
-
   }
   // while (true)
   // {

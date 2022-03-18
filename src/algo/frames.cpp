@@ -116,9 +116,11 @@ namespace pdr
 
   void Frames::increment_reset(Statistics& s, int x)
   {
-    logger.show("Preparing for an incrementation");
     assert(frames.size() > 0);
-    assert(x > ctx.model().get_max_pebbles());
+    int oldx = ctx.const_model().get_max_pebbles();
+    assert(x > oldx);
+    logger.and_show("increment from {} -> {} pebbles", oldx, x);
+
     ctx.model().set_max_pebbles(x);
 
     for (size_t i = 1; i < frames.size(); i++)
@@ -128,6 +130,7 @@ namespace pdr
     clear();                      // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
+    unsigned count = 0;
     for (const z3::expr_vector& cube : old)
     {
       if (SAT(0, cube))
@@ -136,8 +139,13 @@ namespace pdr
         // else it will be reconsidered next iteration
       }
       else
+      {
+        count++;
         remove_state(cube, 1);
+      }
     }
+    logger.and_show("pre-INC: {} cubes carried over, out of {}", count,
+                    old.size());
   }
 
   CubeSet Frames::get_blocked(size_t i) const
@@ -165,9 +173,7 @@ namespace pdr
   bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
   {
     level = std::min(level, frames.size() - 1);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                        "{}| removing cube from level [1..{}]: [{}]",
-                        logger.tab(), level, str::extend::join(cube));
+    logger.tabbed("removing cube from level [1..{}]: [{}]", level, str::extend::join(cube));
     logger.indent++;
 
     bool result;
@@ -192,8 +198,7 @@ namespace pdr
     if (frames[level]->block(cube))
     {
       delta_solver->block(cube, act.at(level));
-      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}", logger.tab(),
-                          level);
+      logger.tabbed("blocked in {}", level);
       return true;
     }
     return false;
@@ -211,8 +216,7 @@ namespace pdr
       if (frames[i]->block(cube))
       {
         frames[i]->block_in_solver(cube);
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| blocked in {}",
-                            logger.tab(), i);
+        logger.tabbed("blocked in {}", i);
       }
       else
         return false;
@@ -224,11 +228,10 @@ namespace pdr
   {
     unsigned k = frontier() - 1;
     // last iteration was not finished, repeat previous propagation
-    if (repeat) 
-      k--; 
-    logger.out() << "propagate level " << k << std::endl;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| propagate frame {} to {}",
-                        logger.tab(), 1, k);
+    if (repeat)
+      k--;
+    logger.show("propagate level {}", k);
+    logger.tabbed("propagate frame {} to {}", 1, k);
     logger.indent++;
 
     for (unsigned i = 1; i <= k; i++)
@@ -244,8 +247,7 @@ namespace pdr
       {
         if (frames.at(i)->empty())
         {
-          logger.out() << fmt::format("F[{}] \\ F[{}] == 0", i, i + 1)
-                       << std::endl;
+          logger.and_whisper("F[{}] \\ F[{}] == 0", i, i + 1);
           return i;
         }
       }
@@ -261,6 +263,7 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
+    unsigned count = 0;
     CubeSet blocked = frames.at(level)->get_blocked();
     for (const z3::expr_vector& cube : blocked)
     {
@@ -268,9 +271,11 @@ namespace pdr
       {
         if (remove_state(cube, level + 1))
           if (repeat)
-            logger.out() << "new blocked in repeat" << std::endl;
+            count++;
       }
     }
+    if (repeat)
+      logger.and_show("{} blocked in repeat", count);
 
     std::chrono::duration<double> dt(steady_clock::now() - start);
     logger.stats.propagation_level.add_timed(level, dt.count());
@@ -282,6 +287,7 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
+    unsigned count = 0;
     std::vector<z3::expr_vector> diff =
         frames.at(level)->diff(*frames.at(level + 1));
     for (const z3::expr_vector& cube : diff)
@@ -290,14 +296,15 @@ namespace pdr
       {
         if (remove_state(cube, level + 1))
           if (repeat)
-            logger.out() << "new blocked in repeat" << std::endl;
+            count++;
       }
     }
+    if (repeat)
+      logger.and_show("{} blocked in repeat", count);
 
     if (diff.size() == 0 || frames.at(level)->equals(*frames.at(level + 1)))
     {
-      logger.out() << fmt::format("F_{} \\ F_{} == 0", level, level + 1)
-                   << std::endl;
+      logger.and_whisper("F[{}] \\ F[{}] == 0", level, level + 1);
       rv = level;
     }
 
@@ -319,9 +326,8 @@ namespace pdr
   // query: Fi & !s & T /=> !s'
   bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                        "{}| check relative inductiveness, frame {}",
-                        logger.tab(), frame);
+    logger.tabbed("check relative inductiveness, frame {}", frame);
+
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
     z3::expr_vector assumptions =
@@ -339,9 +345,8 @@ namespace pdr
   Witness Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
                                            size_t frame) const
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger,
-                        "{}| counter to relative inductiveness, frame {}",
-                        logger.tab(), frame);
+    logger.tabbed("counter to relative inductiveness, frame {}", frame);
+
     if (!inductive(cube, frame))
       return std::make_unique<z3::model>(get_model(frame));
 
@@ -361,8 +366,7 @@ namespace pdr
   bool Frames::trans_source(size_t frame, const z3::expr_vector& dest_cube,
                             bool primed) const
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition check, frame {}",
-                        logger.tab(), frame);
+    logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
       return SAT(frame, ctx.const_model().literals.p(dest_cube));
 
@@ -406,18 +410,17 @@ namespace pdr
     Solver& solver = get_solver(frame);
     if (ctx.delta && frame > 0)
     {
-      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Delta check", logger.tab());
+      logger.tabbed("Delta check");
 
       assert(frames.size() == act.size());
       for (unsigned i = frame; i <= frontier(); i++)
         assumptions.push_back(act.at(i));
     }
     else
-      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| Fat check", logger.tab());
+      logger.tabbed("Fat check");
 
     logger.indent++;
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| assumps: [ {} ]", logger.tab(),
-                        z3ext::join_expr_vec(assumptions, false));
+    logger.tabbed("assumps: [ {} ]", z3ext::join_expr_vec(assumptions, false));
     logger.indent--;
 
     bool result = solver.SAT(assumptions);
@@ -488,17 +491,17 @@ namespace pdr
 
   void Frames::log_solvers() const
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+    logger(SEP3);
     if (ctx.delta)
     {
-      SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", delta_solver->as_str());
+      logger(delta_solver->as_str());
     }
     else
       for (const std::unique_ptr<Frame>& f : frames)
       {
-        SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}", f->get_solver().as_str());
+        logger(f->get_solver().as_str());
       }
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+    logger(SEP3);
   }
 
   std::string Frames::blocked_str() const

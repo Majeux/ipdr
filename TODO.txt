@@ -1,8 +1,10 @@
 NOW
+	- check difference inc 1 and inc more
+	- fixing "finding x strategy" message
 	- duplicate cubes in solver (including activation). maybe search goes wrong with act literal
-  - only 1st frame needed? propagation fizes everything
+  - only 1st frame needed? propagation fixes everything
+		- continuing from last k (dec) maybe increases strategy length 
 	- track initial cti and regeneralize
-  - pdr_context {ctx, model, delta, seed}
 	- actually useful progress file (skip verbose obligation timing output)
 	- profiling
 	- random seed experiments
@@ -30,3 +32,4 @@ TODO
 		- Determine comparisons to pebbling paper
 		- Compare speed of iterations between --optimize and not
 		- Determine speedup for reusing
+		- cleaner format for strategy (on/off)
