@@ -1,8 +1,5 @@
-﻿# CMakeList.txt : CMake project for pebbling-pdr, include source and define
-# project specific logic here.
-#
-OPTION(DO_LOG "Produce logs in logs/ folder" OFF)
-OPTION(PERF "compile optimized for performance" OFF)
+﻿OPTION(DO_LOG "Produce logs in logs/ folder" OFF)
+OPTION(PERFORMANCE "compile optimized for performance with O3" OFF)
 # option(SPDLOG_FMT_EXTERNAL "Use external fmt library instead of bundled" ON)
 # option(FMT_HEADER_ONLY "Use external fmt library instead of bundled" ON)
 
@@ -30,14 +27,14 @@ add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_S
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(STATUS "GCC detected, adding compile flags")
-    if (PERF)
+    if (PERFORMANCE)
         target_compile_definitions(pebbling-pdr PRIVATE )
         message(STATUS "! compiling with -O3")
         set(OPT "-O3")
     else ()
         message(STATUS "! compiling without -O3")
         set(OPT "")
-    endif (PERF)
+    endif (PERFORMANCE)
 
     set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} -ferror-limit=0")
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

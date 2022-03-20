@@ -40,12 +40,18 @@ struct hop_arg
   unsigned mod;
 };
 
-enum ModelType
+enum class ModelType
 {
   none,
   tfc,
   bench,
   hoperator
+};
+
+enum class Test
+{
+  none,
+  inc_jump
 };
 
 struct ArgumentList
@@ -63,21 +69,31 @@ struct ArgumentList
   bool rand;
   bool delta;
   bool onlyshow;
-  pdr::Run pdr_type;
+  pdr::Tactic pdr_type;
+
+  Test test = Test::none;
 
   bool _failed = false;
 };
 
 const std::string decrement_str("dec");
 const std::string increment_str("inc");
-std::string run_str(pdr::Run r)
+std::string to_string(pdr::Tactic r)
 {
   switch (r)
   {
-    case pdr::Run::basic: return "basic";
-    case pdr::Run::decrement: return decrement_str;
-    case pdr::Run::increment: return increment_str;
+    case pdr::Tactic::basic: return "basic";
+    case pdr::Tactic::decrement: return decrement_str;
+    case pdr::Tactic::increment: return increment_str;
     default: throw std::invalid_argument("pdr::Run is undefined");
+  }
+}
+std::string to_string(Test t)
+{
+  switch (t)
+  {
+    case Test::inc_jump: return "inc-jump-test";
+    case Test::none: return "no-test";
   }
 }
 
@@ -86,24 +102,33 @@ std::string run_str(pdr::Run r)
 std::string file_name(const ArgumentList& args)
 {
   std::string pebble_str;
-  if (args.pdr_type == pdr::Run::basic)
+  if (args.pdr_type == pdr::Tactic::basic)
     pebble_str = "-" + std::to_string(args.max_pebbles);
   else
     pebble_str = "";
 
-  return fmt::format("{}-{}{}{}", args.model_name, run_str(args.pdr_type),
-                     pebble_str, args.delta ? "-delta" : "");
+  std::string file_string =
+      fmt::format("{}-{}", args.model_name, to_string(args.pdr_type));
+
+  if (args.pdr_type == pdr::Tactic::basic)
+    file_string += fmt::format("-{}", args.max_pebbles);
+  if (args.delta)
+    file_string += "-delta";
+  if (args.test != Test::none)
+    file_string += fmt::format("-{}", to_string(args.test));
+
+  return file_string;
 }
 
 std::string folder_name(const ArgumentList& args)
 {
   std::string pebble_str;
-  if (args.pdr_type == pdr::Run::basic)
+  if (args.pdr_type == pdr::Tactic::basic)
     pebble_str = "-" + std::to_string(args.max_pebbles);
   else
     pebble_str = "";
 
-  return fmt::format("{}{}{}", run_str(args.pdr_type), pebble_str,
+  return fmt::format("{}{}{}", to_string(args.pdr_type), pebble_str,
                      args.delta ? "-delta" : "");
 }
 
@@ -169,6 +194,8 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
      "Ignored during optimize runs.", 
       cxxopts::value<int>(clargs.max_pebbles), "(uint:N)")
 
+    ("inc-jump", "Test two runs: one with pebbles 10 higher than the other.")
+
 
     ("h,help", "Show usage");
   // clang-format on
@@ -206,15 +233,15 @@ ArgumentList parse_cl(int argc, char* argv[])
     {
       std::string tactic = clresult["optimize"].as<std::string>();
       if (tactic == "inc")
-        clargs.pdr_type = pdr::Run::increment;
+        clargs.pdr_type = pdr::Tactic::increment;
       else if (tactic == "dec")
-        clargs.pdr_type = pdr::Run::decrement;
+        clargs.pdr_type = pdr::Tactic::decrement;
       else
         throw std::invalid_argument(fmt::format(
             "optimize must be either {} or {}.", increment_str, decrement_str));
     }
     else
-      clargs.pdr_type = pdr::Run::basic;
+      clargs.pdr_type = pdr::Tactic::basic;
 
     // read { model | hop }
     unsigned n_models =
@@ -256,6 +283,9 @@ ArgumentList parse_cl(int argc, char* argv[])
     else // begin
       clargs.max_pebbles = -1;
 
+    if (clresult.count("inc-jump-test"))
+      clargs.test = Test::inc_jump;
+
     clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
   }
   catch (const std::exception& e)
@@ -291,9 +321,9 @@ void show_header(const ArgumentList& clargs)
             << fmt::format("Finding {}-pebble strategy for {}",
                            clargs.max_pebbles, clargs.model_name)
             << std::endl;
-  if (clargs.pdr_type != pdr::Run::basic)
+  if (clargs.pdr_type != pdr::Tactic::basic)
     std::cout << fmt::format("Using finding minimal cardinality ({}). ",
-                             run_str(clargs.pdr_type));
+                             to_string(clargs.pdr_type));
   if (clargs.delta)
     std::cout << "Using delta-encoded frames.";
   std::cout << std::endl;
@@ -401,17 +431,33 @@ int main(int argc, char* argv[])
   pdr::PDR algorithm(context, pdr_logger, res);
   show_header(clargs);
 
-  if (clargs.pdr_type == pdr::Run::decrement)
-    algorithm.dec_tactic(strategy, solver_dump);
-
-  if (clargs.pdr_type == pdr::Run::increment)
-    algorithm.inc_tactic(strategy, solver_dump);
-
-  if (clargs.pdr_type == pdr::Run::basic)
+  if (clargs.test != Test::none)
   {
-    algorithm.run();
-    algorithm.show_results(strategy);
-    algorithm.show_solver(solver_dump);
+    switch (clargs.test)
+    {
+      case Test::inc_jump:
+        algorithm.inc_jump_test(clargs.max_pebbles, strategy, solver_dump);
+        break;
+      default: break;
+    }
+
+    return 0;
+  }
+
+  switch (clargs.pdr_type)
+  {
+    case pdr::Tactic::decrement:
+      algorithm.dec_tactic(strategy, solver_dump);
+      break;
+    case pdr::Tactic::increment:
+      algorithm.inc_tactic(strategy, solver_dump);
+      break;
+    case pdr::Tactic::basic:
+      algorithm.run();
+      algorithm.show_results(strategy);
+      algorithm.show_solver(solver_dump);
+      break;
+    default: throw std::invalid_argument("No pdr tactic has been selected.");
   }
   // while (true)
   // {

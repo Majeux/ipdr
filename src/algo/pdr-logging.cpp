@@ -79,8 +79,6 @@ namespace pdr
   void PDR::log_obligation(std::string_view type, unsigned l, double time)
   {
     logger.stats.obligations_handled.add_timed(l, time);
-    std::string msg = fmt::format("Obligation {} elapsed {}", type, time);
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "Obligation {} elapsed {}");
-    logger.show(msg);
+    logger.and_show("Obligation {} elapsed {}", type, time);
   }
 } // namespace pdr

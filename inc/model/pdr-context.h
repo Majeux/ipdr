@@ -7,7 +7,7 @@
 
 namespace pdr
 {
-  enum class Run
+  enum class Tactic
   {
     undef, basic, increment, decrement
   };
@@ -17,7 +17,7 @@ namespace pdr
    public:
     const bool delta;
     const uint32_t seed;
-    Run type; // algorithm may switch between runs types
+    Tactic type; // algorithm may switch between runs types
 
     context(Model& m, bool d, bool random_seed);
     z3::context& operator()() const;    

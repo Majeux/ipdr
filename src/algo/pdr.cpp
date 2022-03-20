@@ -48,7 +48,7 @@ namespace pdr
     logger.show("}");
   }
 
-  bool PDR::run(Run pdr_type)
+  bool PDR::run(Tactic pdr_type)
   {
     ctx.type = pdr_type;
     timer.reset();

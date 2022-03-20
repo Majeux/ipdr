@@ -51,7 +51,7 @@ namespace pdr
     const Model& m = ctx.const_model();
     int N          = m.n_nodes(); // cannot pebble more than this
     ctx.model().set_max_pebbles(N);
-    bool found_strategy = !run(Run::basic);
+    bool found_strategy = !run(Tactic::basic);
     while (found_strategy)
     {
       int maxp = m.get_max_pebbles();
@@ -65,7 +65,7 @@ namespace pdr
       logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
 
       frames.reset_constraint(stats(), newp);
-      found_strategy = !run(Run::decrement);
+      found_strategy = !run(Tactic::decrement);
     }
     // N is minimal
     show_results(strategy);
@@ -80,7 +80,7 @@ namespace pdr
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
     ctx.model().set_max_pebbles(N);
-    bool found_strategy = !run(Run::basic);
+    bool found_strategy = !run(Tactic::basic);
     while (!found_strategy)
     {
       int maxp = m.get_max_pebbles();
@@ -93,7 +93,7 @@ namespace pdr
       results.extend();
 
       frames.increment_reset(stats(), newp);
-      found_strategy = !run(Run::increment);
+      found_strategy = !run(Tactic::increment);
     }
     // N is minimal
     show_results(strategy);
@@ -109,8 +109,8 @@ namespace pdr
     const Model& m = ctx.const_model();
     int N          = start;
     ctx.model().set_max_pebbles(N);
-    bool found_strategy = !run(Run::basic);
-    if (!found_strategy)
+    bool found_strategy = !run(Tactic::basic);
+    if (true)
     {
       int maxp = m.get_max_pebbles();
       int newp = maxp + 10;
@@ -122,7 +122,7 @@ namespace pdr
       results.extend();
 
       frames.increment_reset(stats(), newp);
-      found_strategy = !run(Run::increment);
+      found_strategy = !run(Tactic::increment);
     }
     // N is minimal
     show_results(strategy);
@@ -130,5 +130,4 @@ namespace pdr
     show_solver(solver_dump);
     return true;
   }
-} // namespace pdr
 } // namespace pdr

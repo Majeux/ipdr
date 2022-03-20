@@ -3,7 +3,7 @@
 namespace pdr
 {
   context::context(Model& m, bool d, bool random_seed)
-      : delta(d), seed(random_seed ? time(0) : 0u), type(Run::undef), _model(m)
+      : delta(d), seed(random_seed ? time(0) : 0u), type(Tactic::undef), _model(m)
   {
   }
 

@@ -90,7 +90,7 @@ namespace pdr
     // execute the PDR algorithm
     // returns true if the property is invariant
     // returns false if there is a trace to a violation
-    bool run(Run pdr_type = Run::basic);
+    bool run(Tactic pdr_type = Tactic::basic);
     void show_solver(std::ostream& out) const;
     void show_results(std::ostream& out) const;
 
