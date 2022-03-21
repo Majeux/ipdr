@@ -27,6 +27,7 @@ namespace pdr
    private:
     context& ctx;
     Logger& logger;
+	const bool LOG_SAT_CALLS = false;
 
     z3::expr_vector frame_base;
     

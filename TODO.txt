@@ -1,4 +1,5 @@
 NOW
+	- ham7tc: 10 basic is 6 seconds faster than 7->8->9->10
 	- check difference inc 1 and inc more
 	- check difference small inc step at high level
 	- fixing "finding x strategy" message

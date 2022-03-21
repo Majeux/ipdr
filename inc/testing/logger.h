@@ -35,6 +35,13 @@ class nullstream : public std::ostream
   nullbuffer null;
 };
 
+// to discard parameter list when logging is turned off
+// https://stackoverflow.com/questions/19532475/casting-a-variadic-parameter-pack-to-void
+struct sink
+{
+  template <typename... Args> sink(Args const&...) {}
+};
+
 namespace pdr
 {
   class Logger
@@ -88,6 +95,8 @@ namespace pdr
     template <typename... Args>
     void operator()(std::string_view message_fmt, Args&&... a)
     {
+      (void)message_fmt;
+	  sink{std::forward<Args>(a)...};
       SPDLOG_LOGGER_TRACE(spd_logger, message_fmt, std::forward<Args>(a)...);
     }
 
@@ -102,6 +111,8 @@ namespace pdr
     void tabbed(const std::string& message_fmt, Args&&... a)
     {
       std::string fmt = "{}| " + message_fmt;
+      (void)message_fmt;
+	  sink{std::forward<Args>(a)...};
       SPDLOG_LOGGER_TRACE(spd_logger, fmt, tab(), std::forward<Args>(a)...);
     }
 

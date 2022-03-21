@@ -3,7 +3,6 @@
 #include <bits/types/FILE.h>
 #include <cassert>
 #include <cstddef>
-#include <dbg.h>
 #include <string>
 
 namespace pdr
@@ -102,7 +101,7 @@ namespace pdr
     return true;
   }
 
-  bool PDR::inc_jump_test(int start, std::ofstream& strategy,
+  bool PDR::inc_jump_test(int start, int step, std::ofstream& strategy,
                           std::ofstream& solver_dump)
   {
     logger.and_show("NEW INC JUMP TEST RUN");
@@ -113,7 +112,7 @@ namespace pdr
     if (true)
     {
       int maxp = m.get_max_pebbles();
-      int newp = maxp + 10;
+      int newp = maxp + step;
       assert(newp > 0);
       assert(maxp < newp);
       if (newp > (int)m.n_nodes())

@@ -51,7 +51,8 @@ enum class ModelType
 enum class Test
 {
   none,
-  inc_jump
+  inc_jump,
+  inc_one,
 };
 
 struct ArgumentList
@@ -72,6 +73,7 @@ struct ArgumentList
   pdr::Tactic pdr_type;
 
   Test test = Test::none;
+  unsigned test_one_start;
 
   bool _failed = false;
 };
@@ -93,7 +95,9 @@ std::string to_string(Test t)
   switch (t)
   {
     case Test::inc_jump: return "inc-jump-test";
+    case Test::inc_one: return "inc-one-test";
     case Test::none: return "no-test";
+    default: throw std::invalid_argument("Test is undefined");
   }
 }
 
@@ -101,12 +105,6 @@ std::string to_string(Test t)
 //
 std::string file_name(const ArgumentList& args)
 {
-  std::string pebble_str;
-  if (args.pdr_type == pdr::Tactic::basic)
-    pebble_str = "-" + std::to_string(args.max_pebbles);
-  else
-    pebble_str = "";
-
   std::string file_string =
       fmt::format("{}-{}", args.model_name, to_string(args.pdr_type));
 
@@ -122,14 +120,16 @@ std::string file_name(const ArgumentList& args)
 
 std::string folder_name(const ArgumentList& args)
 {
-  std::string pebble_str;
-  if (args.pdr_type == pdr::Tactic::basic)
-    pebble_str = "-" + std::to_string(args.max_pebbles);
-  else
-    pebble_str = "";
+  std::string folder_string = to_string(args.pdr_type);
 
-  return fmt::format("{}{}{}", to_string(args.pdr_type), pebble_str,
-                     args.delta ? "-delta" : "");
+  if (args.pdr_type == pdr::Tactic::basic)
+    folder_string += fmt::format("-{}", args.max_pebbles);
+  if (args.delta)
+    folder_string += "-delta";
+  if (args.test != Test::none)
+    folder_string += fmt::format("-{}", to_string(args.test));
+
+  return folder_string;
 }
 
 std::array<fs::path, 2> output_paths(const ArgumentList& args)
@@ -169,7 +169,7 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<bool>()->default_value("false"))
     ("w,wisper", "Output only minor messages during pdr iterations.",
       cxxopts::value<bool>()->default_value("false"))
-    ("showonly", "Only write the given model to its output file, does not run the algorithm.",
+    ("show-only", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
     ("out-file", "Write to an output file instead of standard output", 
       cxxopts::value<std::string>(), "(string:FILE.out)")
@@ -194,7 +194,9 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
      "Ignored during optimize runs.", 
       cxxopts::value<int>(clargs.max_pebbles), "(uint:N)")
 
-    ("inc-jump", "Test two runs: one with pebbles 10 higher than the other.")
+    (to_string(Test::inc_jump), "Test two runs: one with pebbles 10 higher than the other.")
+    (to_string(Test::inc_one), "Test two runs: one with P pebbles and the other with P+1.",
+	  cxxopts::value<unsigned>(), "(uint:P)")
 
 
     ("h,help", "Show usage");
@@ -283,8 +285,20 @@ ArgumentList parse_cl(int argc, char* argv[])
     else // begin
       clargs.max_pebbles = -1;
 
-    if (clresult.count("inc-jump-test"))
+    unsigned n_tests = clresult.count(to_string(Test::inc_jump)) +
+                       clresult.count(to_string(Test::inc_one));
+
+    if (n_tests > 1)
+      throw std::invalid_argument("specify at most one test");
+
+    if (clresult.count(to_string(Test::inc_jump)))
       clargs.test = Test::inc_jump;
+
+    if (clresult.count(to_string(Test::inc_one)))
+    {
+      clargs.test           = Test::inc_one;
+      clargs.test_one_start = clresult[to_string(Test::inc_one)].as<unsigned>();
+    }
 
     clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
   }
@@ -436,8 +450,11 @@ int main(int argc, char* argv[])
     switch (clargs.test)
     {
       case Test::inc_jump:
-        algorithm.inc_jump_test(clargs.max_pebbles, strategy, solver_dump);
+        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump);
         break;
+	  case Test::inc_one:
+        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump);
+		break;
       default: break;
     }
 

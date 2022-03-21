@@ -53,7 +53,8 @@ namespace pdr
   //
   void Frames::clear()
   {
-    assert(frames.size() == act.size());
+	if (ctx.delta)
+	  assert(frames.size() == act.size());
     while (frames.size() > 1) // F_0 always remains the same, can be kept
     {
       frames.pop_back();
@@ -326,7 +327,8 @@ namespace pdr
   // query: Fi & !s & T /=> !s'
   bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
   {
-    logger.tabbed("check relative inductiveness, frame {}", frame);
+	if (ctx.delta)
+      logger.tabbed("check relative inductiveness, frame {}", frame);
 
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
@@ -345,7 +347,8 @@ namespace pdr
   Witness Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
                                            size_t frame) const
   {
-    logger.tabbed("counter to relative inductiveness, frame {}", frame);
+	if (ctx.delta)
+	  logger.tabbed("counter to relative inductiveness, frame {}", frame);
 
     if (!inductive(cube, frame))
       return std::make_unique<z3::model>(get_model(frame));
@@ -366,7 +369,8 @@ namespace pdr
   bool Frames::trans_source(size_t frame, const z3::expr_vector& dest_cube,
                             bool primed) const
   {
-    logger.tabbed("transition check, frame {}", frame);
+	if (LOG_SAT_CALLS)
+      logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
       return SAT(frame, ctx.const_model().literals.p(dest_cube));
 
@@ -410,18 +414,22 @@ namespace pdr
     Solver& solver = get_solver(frame);
     if (ctx.delta && frame > 0)
     {
-      logger.tabbed("Delta check");
-
       assert(frames.size() == act.size());
       for (unsigned i = frame; i <= frontier(); i++)
         assumptions.push_back(act.at(i));
+
+	  if (LOG_SAT_CALLS)
+        logger.tabbed("Delta check");
     }
-    else
+    else if (LOG_SAT_CALLS)
       logger.tabbed("Fat check");
 
-    logger.indent++;
-    logger.tabbed("assumps: [ {} ]", z3ext::join_expr_vec(assumptions, false));
-    logger.indent--;
+	if (LOG_SAT_CALLS)
+	{
+      logger.indent++;
+      logger.tabbed("assumps: [ {} ]", z3ext::join_expr_vec(assumptions, false));
+      logger.indent--;
+	}
 
     bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
