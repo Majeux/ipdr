@@ -52,9 +52,9 @@ namespace pdr
                      unsigned level);
     // generalization
     // todo return [n, cti ptr]
-    int highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
-    int highest_inductive_frame(const z3::expr_vector& cube, int min, int max,
-                                z3::expr_vector& core);
+    int hif_(const z3::expr_vector& cube, int min, int max);
+    std::tuple<int, z3::expr_vector>
+        highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
     z3::expr_vector generalize(const z3::expr_vector& cube, int level);
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
@@ -103,7 +103,7 @@ namespace pdr
     // start at final pebbles and increment until (at the most) max pebbles
     bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
     bool inc_jump_test(int start, int step, std::ofstream& strategy,
-                       std::ofstream& solver_dump);
+                       std::ofstream& solver_dump, std::ofstream& stats);
 
     Statistics& stats();
     int length_shortest_strategy() const;

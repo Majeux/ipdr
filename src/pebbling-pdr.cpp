@@ -443,6 +443,9 @@ int main(int argc, char* argv[])
   pdr::Results res(model);
 
   pdr::PDR algorithm(context, pdr_logger, res);
+  std::vector<pdr::Statistics> statistics;
+  std::vector<pdr::Result> results;
+
   show_header(clargs);
 
   if (clargs.test != Test::none)
@@ -450,10 +453,10 @@ int main(int argc, char* argv[])
     switch (clargs.test)
     {
       case Test::inc_jump:
-        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump);
+        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump, stats);
         break;
 	  case Test::inc_one:
-        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump);
+        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump, stats);
 		break;
       default: break;
     }

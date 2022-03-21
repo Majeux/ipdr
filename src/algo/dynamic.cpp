@@ -63,7 +63,7 @@ namespace pdr
       results.extend();
       logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
 
-      frames.reset_constraint(stats(), newp);
+      frames.reset_constraint(logger.stats, newp);
       found_strategy = !run(Tactic::decrement);
     }
     // N is minimal
@@ -91,7 +91,7 @@ namespace pdr
       reset();
       results.extend();
 
-      frames.increment_reset(stats(), newp);
+      frames.increment_reset(logger.stats, newp);
       found_strategy = !run(Tactic::increment);
     }
     // N is minimal
@@ -102,7 +102,7 @@ namespace pdr
   }
 
   bool PDR::inc_jump_test(int start, int step, std::ofstream& strategy,
-                          std::ofstream& solver_dump)
+                          std::ofstream& solver_dump, std::ofstream& stats)
   {
     logger.and_show("NEW INC JUMP TEST RUN");
     const Model& m = ctx.const_model();
@@ -111,6 +111,8 @@ namespace pdr
     bool found_strategy = !run(Tactic::basic);
     if (true)
     {
+	  stats << "Cardinality: " << ctx.const_model().get_max_pebbles() << std::endl;
+	  stats << logger.stats << std::endl;
       int maxp = m.get_max_pebbles();
       int newp = maxp + step;
       assert(newp > 0);
@@ -120,7 +122,7 @@ namespace pdr
       reset();
       results.extend();
 
-      frames.increment_reset(stats(), newp);
+      frames.increment_reset(logger.stats, newp);
       found_strategy = !run(Tactic::increment);
     }
     // N is minimal

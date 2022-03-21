@@ -105,7 +105,7 @@ namespace pdr
     {
     }
 
-    std::string to_string() const
+    std::string str() const
     {
       std::stringstream ss;
       ss << *this << std::endl;

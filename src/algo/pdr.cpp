@@ -140,13 +140,12 @@ namespace pdr
         z3::expr_vector cti = frames.get_solver(k).witness_current();
         log_cti(cti, k);
 
-        z3::expr_vector core(ctx());
-        int n = highest_inductive_frame(cti, k - 1, k, core);
+        auto[n, core] = highest_inductive_frame(cti, k - 1, k);
         assert(n >= 0);
 
         // !s is inductive relative to F_n
-        z3::expr_vector smaller_cti = generalize(core, n);
-        frames.remove_state(smaller_cti, n + 1);
+        z3::expr_vector sub_cube = generalize(core, n);
+        frames.remove_state(sub_cube, n + 1);
 
         if (not block(cti, n + 1))
           return false;
@@ -204,8 +203,8 @@ namespace pdr
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2
-        z3::expr_vector core(ctx());
-        int m = highest_inductive_frame(pred->cube, n - 1, k, core);
+        // z3::expr_vector core(ctx());
+        auto[m, core] = highest_inductive_frame(pred->cube, n - 1, k);
         // n-1 <= m <= level
         if (m >= 0)
         {
@@ -230,8 +229,7 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
-        z3::expr_vector core(ctx());
-        int m = highest_inductive_frame(state->cube, n + 1, k, core);
+        auto[m, core] = highest_inductive_frame(state->cube, n + 1, k);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
 
@@ -412,7 +410,6 @@ namespace pdr
         << std::endl;
   }
 
-  Statistics& PDR::stats() { return logger.stats; }
   int PDR::length_shortest_strategy() const { return shortest_strategy; }
 
 } // namespace pdr
