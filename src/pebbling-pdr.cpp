@@ -416,6 +416,9 @@ int main(int argc, char* argv[])
   if (clargs.max_pebbles < 1)
     clargs.max_pebbles = G.nodes.size();
 
+  if (clargs.test == Test::inc_one)
+    clargs.max_pebbles = clargs.test_one_start;
+
   z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
@@ -453,11 +456,13 @@ int main(int argc, char* argv[])
     switch (clargs.test)
     {
       case Test::inc_jump:
-        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump, stats);
+        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump,
+                                stats);
         break;
-	  case Test::inc_one:
-        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump, stats);
-		break;
+      case Test::inc_one:
+        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump,
+                                stats);
+        break;
       default: break;
     }
 

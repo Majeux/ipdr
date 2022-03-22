@@ -51,11 +51,13 @@ namespace pdr
 
   // frame interface
   //
-  void Frames::clear()
+  void Frames::clear(size_t until_index)
   {
-	if (ctx.delta)
-	  assert(frames.size() == act.size());
-    while (frames.size() > 1) // F_0 always remains the same, can be kept
+    if (ctx.delta)
+      assert(frames.size() == act.size());
+
+    // pop until given index is the highest
+    while (frames.size() > until_index+1)
     {
       frames.pop_back();
       if (ctx.delta)
@@ -88,34 +90,42 @@ namespace pdr
   // existing and future frames have a reference to this
   // then clean all solvers from old assertions and reblock all its cubes
   // TODO only really re-adjusts constraint for incremental/decremental
-  void Frames::reset_constraint(Statistics& s, int x)
+  void Frames::reset_constraint(int x)
   {
     ctx.model().set_max_pebbles(x);
-
-    for (size_t i = 1; i < frames.size(); i++)
-      frames[i]->set_stats(s);
-
-    repopulate_solvers();
+    z3::expr_vector constraint = ctx.const_model().get_cardinality();
+    if (ctx.delta)
+    {
+      delta_solver->reconstrain(constraint);
+      for (size_t i = 1; i < frames.size(); i++)
+        for (const z3::expr_vector& cube : frames[i]->get_blocked())
+          delta_solver->block(cube, act.at(i));
+    }
+    else
+    {
+      for (size_t i = 1; i < frames.size(); i++)
+        get_solver(i).reconstrain(constraint, frames[i]->get_blocked());
+    }
   }
 
   // reset solvers and repopulate with current blocked cubes
   void Frames::repopulate_solvers()
   {
-    for (size_t i = 1; i < frames.size(); i++)
+    if (ctx.delta)
     {
-      if (ctx.delta)
-      {
-        if (i == 1)
-          delta_solver->reset();
+      delta_solver->reset();
+      for (size_t i = 1; i < frames.size(); i++)
         for (const z3::expr_vector& cube : frames[i]->get_blocked())
           delta_solver->block(cube, act.at(i));
-      }
-      else
+    }
+    else
+    {
+      for (size_t i = 1; i < frames.size(); i++)
         get_solver(i).reset(frames[i]->get_blocked());
     }
   }
 
-  void Frames::increment_reset(Statistics& s, int x)
+  void Frames::increment_reset(int x)
   {
     assert(frames.size() > 0);
     int oldx = ctx.const_model().get_max_pebbles();
@@ -123,14 +133,12 @@ namespace pdr
     logger.and_show("increment from {} -> {} pebbles", oldx, x);
 
     ctx.model().set_max_pebbles(x);
-
-    for (size_t i = 1; i < frames.size(); i++)
-      frames[i]->set_stats(s);
-
+    delta_solver->reconstrain(ctx.const_model().get_cardinality());
     CubeSet old = get_blocked(1); // store all cubes in F_1
     clear();                      // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
+    logger("delta solver after reconstrain to {}\n{}", x, delta_solver->as_str("", false));
     unsigned count = 0;
     for (const z3::expr_vector& cube : old)
     {
@@ -174,7 +182,8 @@ namespace pdr
   bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
   {
     level = std::min(level, frames.size() - 1);
-    logger.tabbed("removing cube from level [1..{}]: [{}]", level, str::extend::join(cube));
+    logger.tabbed("removing cube from level [1..{}]: [{}]", level,
+                  str::extend::join(cube));
     logger.indent++;
 
     bool result;
@@ -264,7 +273,7 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
-    unsigned count = 0;
+    unsigned count  = 0;
     CubeSet blocked = frames.at(level)->get_blocked();
     for (const z3::expr_vector& cube : blocked)
     {
@@ -327,7 +336,7 @@ namespace pdr
   // query: Fi & !s & T /=> !s'
   bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
   {
-	if (ctx.delta)
+    if (ctx.delta)
       logger.tabbed("check relative inductiveness, frame {}", frame);
 
     z3::expr clause =
@@ -347,8 +356,8 @@ namespace pdr
   Witness Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
                                            size_t frame) const
   {
-	if (ctx.delta)
-	  logger.tabbed("counter to relative inductiveness, frame {}", frame);
+    if (ctx.delta)
+      logger.tabbed("counter to relative inductiveness, frame {}", frame);
 
     if (!inductive(cube, frame))
       return std::make_unique<z3::model>(get_model(frame));
@@ -369,7 +378,7 @@ namespace pdr
   bool Frames::trans_source(size_t frame, const z3::expr_vector& dest_cube,
                             bool primed) const
   {
-	if (LOG_SAT_CALLS)
+    if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
       return SAT(frame, ctx.const_model().literals.p(dest_cube));
@@ -418,18 +427,19 @@ namespace pdr
       for (unsigned i = frame; i <= frontier(); i++)
         assumptions.push_back(act.at(i));
 
-	  if (LOG_SAT_CALLS)
+      if (LOG_SAT_CALLS)
         logger.tabbed("Delta check");
     }
     else if (LOG_SAT_CALLS)
       logger.tabbed("Fat check");
 
-	if (LOG_SAT_CALLS)
-	{
+    if (LOG_SAT_CALLS)
+    {
       logger.indent++;
-      logger.tabbed("assumps: [ {} ]", z3ext::join_expr_vec(assumptions, false));
+      logger.tabbed("assumps: [ {} ]",
+                    z3ext::join_expr_vec(assumptions, false));
       logger.indent--;
-	}
+    }
 
     bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);

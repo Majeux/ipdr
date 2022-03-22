@@ -31,7 +31,7 @@ namespace pdr
       return true;
 
     // TODO separate statstics from dyn runs?
-    frames.reset_constraint(logger.stats, new_pebbles);
+    frames.reset_constraint(new_pebbles);
 
     logger.and_show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are reusing frames, the last propagation was k-1, repeat this
@@ -63,7 +63,7 @@ namespace pdr
       results.extend();
       logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
 
-      frames.reset_constraint(logger.stats, newp);
+      frames.reset_constraint(newp);
       found_strategy = !run(Tactic::decrement);
     }
     // N is minimal
@@ -91,7 +91,7 @@ namespace pdr
       reset();
       results.extend();
 
-      frames.increment_reset(logger.stats, newp);
+      frames.increment_reset(newp);
       found_strategy = !run(Tactic::increment);
     }
     // N is minimal
@@ -105,6 +105,7 @@ namespace pdr
                           std::ofstream& solver_dump, std::ofstream& stats)
   {
     logger.and_show("NEW INC JUMP TEST RUN");
+    logger.and_show("start {}. step {}", start, step);
     const Model& m = ctx.const_model();
     int N          = start;
     ctx.model().set_max_pebbles(N);
@@ -122,7 +123,7 @@ namespace pdr
       reset();
       results.extend();
 
-      frames.increment_reset(logger.stats, newp);
+      frames.increment_reset(newp);
       found_strategy = !run(Tactic::increment);
     }
     // N is minimal

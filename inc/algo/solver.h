@@ -20,20 +20,17 @@ namespace pdr
     const context& ctx;
     z3::solver internal_solver;
     bool core_available = false;
-    unsigned cubes_start; // point where base_assertions ends and other
-                          // assertions begin
+    unsigned clauses_start; // point where base_assertions ends and other
+                            // assertions begin
 
    public:
-    const z3::expr_vector base;
-    const z3::expr_vector& transition;
-    const z3::expr_vector& constraint;
+    Solver(const context& c, z3::expr_vector base, z3::expr_vector t,
+           z3::expr_vector con);
 
-    Solver(const context& c, const z3::expr_vector& b, const z3::expr_vector& t,
-           const z3::expr_vector& con);
-
-    void init();
     void reset();
     void reset(const CubeSet& cubes);
+    void reconstrain(z3::expr_vector constraint);
+    void reconstrain(z3::expr_vector constraint, const CubeSet& cubes);
     void block(const z3::expr_vector& cube);
     void block(const z3::expr_vector& cube, const z3::expr& act);
     void add(const z3::expr& e);
@@ -43,7 +40,7 @@ namespace pdr
     z3::expr_vector witness_current() const;
     z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
 
-    std::string as_str(const std::string& header = "") const;
+    std::string as_str(const std::string& header = "", bool clauses_only = true) const;
 
     // function to extract a cube representing a satisfying assignment to
     // the last SAT call to the solver. the resulting vector or expr_vector

@@ -4,31 +4,33 @@
 
 namespace pdr
 {
-  Solver::Solver(const context& c, const z3::expr_vector& b,
-                 const z3::expr_vector& t, const z3::expr_vector& con)
-      : ctx(c), internal_solver(ctx()), base(b), transition(t), constraint(con)
-  {
-    init();
-  }
-
-  void Solver::init()
+  Solver::Solver(const context& c, z3::expr_vector base,
+                 z3::expr_vector transition, z3::expr_vector constraint)
+      : ctx(c), internal_solver(ctx())
   {
     internal_solver.set("sat.cardinality.solver", true);
     //  TODO sat.core.minimize
     internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
+
+    // backtracking point to solver without constraints or blocked states
     internal_solver.add(base);
     internal_solver.add(transition);
+    internal_solver.push();
+    // backtracking point to solver without blocked states
     internal_solver.add(constraint);
+    internal_solver.push();
 
-    cubes_start = base.size() + transition.size() + constraint.size();
+    clauses_start = base.size() + transition.size() + constraint.size();
   }
 
   void Solver::reset()
   {
-    internal_solver.reset();
-    init();
+    internal_solver.pop();  // remove all blocked states
+    internal_solver.push(); // remake backtracking point
+    // internal_solver.reset();
+    // init();
   }
 
   // reset and automatically repopulate by blocking cubes
@@ -36,6 +38,23 @@ namespace pdr
   void Solver::reset(const CubeSet& cubes)
   {
     reset();
+    for (const z3::expr_vector& cube : cubes)
+      block(cube);
+  }
+
+  void Solver::reconstrain(z3::expr_vector constraint)
+  {
+    internal_solver.pop(2);          // remove all blocked cubes and constraint
+    internal_solver.push();          // remake constraintless backtracking point
+    internal_solver.add(constraint);
+    internal_solver.push();          // remake stateless backtracking point
+    clauses_start = internal_solver.assertions().size();
+    
+  }
+
+  void Solver::reconstrain(z3::expr_vector constraint, const CubeSet& cubes)
+  {
+    reconstrain(constraint);
     for (const z3::expr_vector& cube : cubes)
       block(cube);
   }
@@ -105,14 +124,17 @@ namespace pdr
     return v;
   }
 
-  std::string Solver::as_str(const std::string& header) const
+  std::string Solver::as_str(const std::string& header, bool clauses_only) const
   {
     std::string str(header);
     const z3::expr_vector asserts = internal_solver.assertions();
 
     auto it = asserts.begin();
-    for (unsigned i = 0; i < cubes_start && it != asserts.end(); i++)
-      it++;
+    if (clauses_only) // skip base, transition and constraint
+    {
+      for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)
+        it++;
+    }
 
     for (; it != asserts.end(); it++)
       str += fmt::format("- {}\n", (*it).to_string());
