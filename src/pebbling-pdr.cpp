@@ -48,13 +48,6 @@ enum class ModelType
   hoperator
 };
 
-enum class Test
-{
-  none,
-  inc_jump,
-  inc_one,
-};
-
 struct ArgumentList
 {
   OutLvl verbosity;
@@ -64,22 +57,21 @@ struct ArgumentList
   fs::path bench_folder;
   std::string out = "";
 
-  int max_pebbles;
+  int max_pebbles = -1;
 
   // run options
   bool rand;
   bool delta;
   bool onlyshow;
-  pdr::Tactic pdr_type;
-
-  Test test = Test::none;
-  unsigned test_one_start;
+  pdr::Tactic tactic;
 
   bool _failed = false;
 };
 
 const std::string decrement_str("dec");
 const std::string increment_str("inc");
+const std::string inc_jump_str("inc-jump-test");
+const std::string inc_one_str("inc-one-test");
 std::string to_string(pdr::Tactic r)
 {
   switch (r)
@@ -87,47 +79,36 @@ std::string to_string(pdr::Tactic r)
     case pdr::Tactic::basic: return "basic";
     case pdr::Tactic::decrement: return decrement_str;
     case pdr::Tactic::increment: return increment_str;
-    default: throw std::invalid_argument("pdr::Run is undefined");
+    case pdr::Tactic::inc_jump_test: return inc_jump_str;
+    case pdr::Tactic::inc_one_test: return inc_one_str;
+    default: throw std::invalid_argument("pdr::Tactic is undefined");
   }
 }
-std::string to_string(Test t)
-{
-  switch (t)
-  {
-    case Test::inc_jump: return "inc-jump-test";
-    case Test::inc_one: return "inc-one-test";
-    case Test::none: return "no-test";
-    default: throw std::invalid_argument("Test is undefined");
-  }
-}
-
 // FILE IO
 //
 std::string file_name(const ArgumentList& args)
 {
   std::string file_string =
-      fmt::format("{}-{}", args.model_name, to_string(args.pdr_type));
+      fmt::format("{}-{}", args.model_name, to_string(args.tactic));
 
-  if (args.pdr_type == pdr::Tactic::basic)
+  if (!(args.tactic == pdr::Tactic::increment ||
+        args.tactic == pdr::Tactic::decrement))
     file_string += fmt::format("-{}", args.max_pebbles);
   if (args.delta)
     file_string += "-delta";
-  if (args.test != Test::none)
-    file_string += fmt::format("-{}", to_string(args.test));
 
   return file_string;
 }
 
 std::string folder_name(const ArgumentList& args)
 {
-  std::string folder_string = to_string(args.pdr_type);
+  std::string folder_string = to_string(args.tactic);
 
-  if (args.pdr_type == pdr::Tactic::basic)
+  if (!(args.tactic == pdr::Tactic::increment ||
+        args.tactic == pdr::Tactic::decrement))
     folder_string += fmt::format("-{}", args.max_pebbles);
   if (args.delta)
     folder_string += "-delta";
-  if (args.test != Test::none)
-    folder_string += fmt::format("-{}", to_string(args.test));
 
   return folder_string;
 }
@@ -194,9 +175,10 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
      "Ignored during optimize runs.", 
       cxxopts::value<int>(clargs.max_pebbles), "(uint:N)")
 
-    (to_string(Test::inc_jump), "Test two runs: one with pebbles 10 higher than the other.")
-    (to_string(Test::inc_one), "Test two runs: one with P pebbles and the other with P+1.",
-	  cxxopts::value<unsigned>(), "(uint:P)")
+    (inc_jump_str, "Test two runs: one with pebbles 10 higher than the other.",
+	   cxxopts::value<unsigned>(), "(uint:P)")
+    (inc_one_str, "Test two runs: one with P pebbles and the other with P+1.",
+	   cxxopts::value<unsigned>(), "(uint:P)")
 
 
     ("h,help", "Show usage");
@@ -235,17 +217,40 @@ ArgumentList parse_cl(int argc, char* argv[])
     {
       std::string tactic = clresult["optimize"].as<std::string>();
       if (tactic == "inc")
-        clargs.pdr_type = pdr::Tactic::increment;
+        clargs.tactic = pdr::Tactic::increment;
       else if (tactic == "dec")
-        clargs.pdr_type = pdr::Tactic::decrement;
+        clargs.tactic = pdr::Tactic::decrement;
       else
         throw std::invalid_argument(fmt::format(
             "optimize must be either {} or {}.", increment_str, decrement_str));
     }
+    else if (clresult.count(inc_jump_str))
+    {
+      clargs.tactic      = pdr::Tactic::inc_jump_test;
+      clargs.max_pebbles = clresult[inc_jump_str].as<unsigned>();
+    }
+    else if (clresult.count(inc_one_str))
+    {
+      clargs.tactic      = pdr::Tactic::inc_one_test;
+      clargs.max_pebbles = clresult[inc_one_str].as<unsigned>();
+    }
     else
-      clargs.pdr_type = pdr::Tactic::basic;
+    {
+      clargs.tactic = pdr::Tactic::basic;
+      if (!clresult.count("pebbles"))
+        throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
 
-    // read { model | hop }
+      clargs.max_pebbles = clresult["pebbles"].as<int>();
+      if (clargs.max_pebbles < 0)
+        throw std::invalid_argument("pebbles must be positive.");
+    }
+
+    unsigned n_tests = clresult.count(to_string(pdr::Tactic::inc_jump_test)) +
+                       clresult.count(to_string(pdr::Tactic::inc_one_test));
+    if (n_tests > 1)
+      throw std::invalid_argument("specify at most one test");
+
+    // read model
     unsigned n_models =
         clresult.count("hop") + clresult.count("tfc") + clresult.count("bench");
     if (n_models != 1)
@@ -262,42 +267,15 @@ ArgumentList parse_cl(int argc, char* argv[])
       clargs.hop        = { hop_list[0], hop_list[1] };
       clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
     }
-
     if (clresult.count("tfc"))
     {
       clargs.model      = ModelType::tfc;
       clargs.model_name = clresult["tfc"].as<std::string>();
     }
-
     if (clresult.count("bench"))
     {
       clargs.model      = ModelType::bench;
       clargs.model_name = clresult["bench"].as<std::string>();
-    }
-
-    // read starting no. pebbles
-    if (clresult.count("pebbles"))
-    {
-      clargs.max_pebbles = clresult["pebbles"].as<int>();
-      if (clargs.max_pebbles < 1)
-        throw std::invalid_argument("pebbles must be greater than 0.");
-    }
-    else // begin
-      clargs.max_pebbles = -1;
-
-    unsigned n_tests = clresult.count(to_string(Test::inc_jump)) +
-                       clresult.count(to_string(Test::inc_one));
-
-    if (n_tests > 1)
-      throw std::invalid_argument("specify at most one test");
-
-    if (clresult.count(to_string(Test::inc_jump)))
-      clargs.test = Test::inc_jump;
-
-    if (clresult.count(to_string(Test::inc_one)))
-    {
-      clargs.test           = Test::inc_one;
-      clargs.test_one_start = clresult[to_string(Test::inc_one)].as<unsigned>();
     }
 
     clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
@@ -316,7 +294,7 @@ ArgumentList parse_cl(int argc, char* argv[])
 // end CLI
 
 // OUTPUT
-////
+//
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
   // show used paths
@@ -331,13 +309,35 @@ void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 
 void show_header(const ArgumentList& clargs)
 {
-  std::cout << std::endl
-            << fmt::format("Finding {}-pebble strategy for {}",
-                           clargs.max_pebbles, clargs.model_name)
-            << std::endl;
-  if (clargs.pdr_type != pdr::Tactic::basic)
-    std::cout << fmt::format("Using finding minimal cardinality ({}). ",
-                             to_string(clargs.pdr_type));
+  switch (clargs.tactic)
+  {
+    case pdr::Tactic::basic:
+      std::cout << fmt::format("Finding {}-pebble strategy for {}",
+                               clargs.max_pebbles, clargs.model_name);
+      break;
+    case pdr::Tactic::decrement:
+      std::cout << fmt::format(
+          "Finding minimal pebble strategy for {} by decrementing",
+          clargs.model_name);
+      break;
+    case pdr::Tactic::increment:
+      std::cout << fmt::format(
+          "Finding minimal pebble strategy for {} by incrementing",
+          clargs.model_name);
+      break;
+    case pdr::Tactic::inc_jump_test:
+      std::cout << fmt::format(
+          "{} and +10 step jump test for {} by incrementing",
+          clargs.max_pebbles, clargs.model_name);
+      break;
+    case pdr::Tactic::inc_one_test:
+      std::cout << fmt::format(
+          "{} and +1 step jump test for {} by incrementing",
+          clargs.max_pebbles, clargs.model_name);
+      break;
+    default: throw std::invalid_argument("pdr::Tactic is undefined");
+  }
+  std::cout << std::endl;
   if (clargs.delta)
     std::cout << "Using delta-encoded frames.";
   std::cout << std::endl;
@@ -412,13 +412,6 @@ int main(int argc, char* argv[])
   std::cout << G.summary() << std::endl;
   graph_descr << G.summary() << std::endl << G;
 
-  // create model from DAG graph and set up algorithm
-  if (clargs.max_pebbles < 1)
-    clargs.max_pebbles = G.nodes.size();
-
-  if (clargs.test == Test::inc_one)
-    clargs.max_pebbles = clargs.test_one_start;
-
   z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
@@ -451,25 +444,7 @@ int main(int argc, char* argv[])
 
   show_header(clargs);
 
-  if (clargs.test != Test::none)
-  {
-    switch (clargs.test)
-    {
-      case Test::inc_jump:
-        algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump,
-                                stats);
-        break;
-      case Test::inc_one:
-        algorithm.inc_jump_test(clargs.test_one_start, 1, strategy, solver_dump,
-                                stats);
-        break;
-      default: break;
-    }
-
-    return 0;
-  }
-
-  switch (clargs.pdr_type)
+  switch (clargs.tactic)
   {
     case pdr::Tactic::decrement:
       algorithm.dec_tactic(strategy, solver_dump);
@@ -481,6 +456,14 @@ int main(int argc, char* argv[])
       algorithm.run();
       algorithm.show_results(strategy);
       algorithm.show_solver(solver_dump);
+      break;
+    case pdr::Tactic::inc_jump_test:
+      algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump,
+                              stats);
+      break;
+    case pdr::Tactic::inc_one_test:
+      algorithm.inc_jump_test(clargs.max_pebbles, 1, strategy, solver_dump,
+                              stats);
       break;
     default: throw std::invalid_argument("No pdr tactic has been selected.");
   }

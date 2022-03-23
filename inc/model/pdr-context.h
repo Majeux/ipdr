@@ -9,7 +9,9 @@ namespace pdr
 {
   enum class Tactic
   {
-    undef, basic, increment, decrement
+    undef, 
+    basic, increment, decrement, 
+    inc_jump_test, inc_one_test,
   };
 
   class context

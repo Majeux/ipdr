@@ -140,8 +140,11 @@ namespace pdr
     max_pebbles = x;
 
     cardinality = z3::expr_vector(ctx);
-    cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
-    cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
+    if (max_pebbles >= 0)
+    {
+      cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
+      cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
+    }
   }
 
   int Model::get_f_pebbles() const { return final_pebbles; }
