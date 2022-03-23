@@ -24,10 +24,7 @@
 
 namespace pdr
 {
-  PDR::PDR(context& c, Logger& l, Results& r)
-      : ctx(c), logger(l), frames(ctx, logger), results(r)
-  {
-  }
+  PDR::PDR(context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
 
   void PDR::reset()
   {
@@ -88,6 +85,9 @@ namespace pdr
     logger.and_show(fmt::format("Total elapsed time {}", final_time));
     results.current().total_time = final_time;
     logger.stats.elapsed         = final_time;
+    logger.stats.write("Cardinality: {}", ctx.const_model().get_max_pebbles());
+    logger.stats.write();
+    logger.stats.clear();
     store_result();
     store_frame_strings();
     shortest_strategy = results.current().pebbles_used;
@@ -140,7 +140,7 @@ namespace pdr
         z3::expr_vector cti = frames.get_solver(k).witness_current();
         log_cti(cti, k);
 
-        auto[n, core] = highest_inductive_frame(cti, k - 1, k);
+        auto [n, core] = highest_inductive_frame(cti, k - 1, k);
         assert(n >= 0);
 
         // !s is inductive relative to F_n
@@ -204,7 +204,7 @@ namespace pdr
 
         // state is at least inductive relative to F_n-2
         // z3::expr_vector core(ctx());
-        auto[m, core] = highest_inductive_frame(pred->cube, n - 1, k);
+        auto [m, core] = highest_inductive_frame(pred->cube, n - 1, k);
         // n-1 <= m <= level
         if (m >= 0)
         {
@@ -229,7 +229,7 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
-        auto[m, core] = highest_inductive_frame(state->cube, n + 1, k);
+        auto [m, core] = highest_inductive_frame(state->cube, n + 1, k);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
 

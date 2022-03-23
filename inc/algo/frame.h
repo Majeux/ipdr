@@ -39,7 +39,6 @@ namespace pdr
         Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l);
 
         void clean_solver();
-        void set_stats(Statistics& s);
 
         unsigned remove_subsumed(const z3::expr_vector& cube);
         bool blocked(const z3::expr_vector& cube);

@@ -46,6 +46,7 @@ namespace pdr
 
   bool PDR::dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
+#warning "dec_tactic not yet fixed for new resets"
     logger.and_show("NEW DEC RUN");
     const Model& m = ctx.const_model();
     int N          = m.n_nodes(); // cannot pebble more than this
@@ -75,6 +76,7 @@ namespace pdr
 
   bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
+#warning "inc_tactic not yet fixed for new resets"
     logger.and_show("NEW INC RUN");
     const Model& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
@@ -101,9 +103,10 @@ namespace pdr
     return true;
   }
 
-  bool PDR::inc_jump_test(int start, int step, std::ofstream& strategy,
-                          std::ofstream& solver_dump, std::ofstream& stats)
+  bool PDR::inc_jump_test(int start, int step, std::ofstream& strategy_file,
+                          std::ofstream& solver_dump)
   {
+    std::vector<pdr::Statistics> statistics;
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
     const Model& m = ctx.const_model();
@@ -112,8 +115,6 @@ namespace pdr
     bool found_strategy = !run(Tactic::basic);
     if (true)
     {
-	  stats << "Cardinality: " << ctx.const_model().get_max_pebbles() << std::endl;
-	  stats << logger.stats << std::endl;
       int maxp = m.get_max_pebbles();
       int newp = maxp + step;
       assert(newp > 0);
@@ -127,7 +128,7 @@ namespace pdr
       found_strategy = !run(Tactic::increment);
     }
     // N is minimal
-    show_results(strategy);
+    show_results(strategy_file);
     solver_dump << SEP3 << " final iteration " << N << std::endl;
     show_solver(solver_dump);
     return true;

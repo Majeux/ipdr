@@ -36,7 +36,7 @@ namespace pdr
 
     Frames frames;
 
-    Results& results;
+    Results results;
     int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
@@ -83,7 +83,7 @@ namespace pdr
     std::string frames_string  = "";
     std::string solvers_string = "";
 
-    PDR(context& c, Logger& l, Results& r);
+    PDR(context& c, Logger& l);
     // prepare PDR for new run. discards old trace
     void reset();
 
@@ -103,7 +103,7 @@ namespace pdr
     // start at final pebbles and increment until (at the most) max pebbles
     bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
     bool inc_jump_test(int start, int step, std::ofstream& strategy,
-                       std::ofstream& solver_dump, std::ofstream& stats);
+                       std::ofstream& solver_dump);
 
     Statistics& stats();
     int length_shortest_strategy() const;

@@ -332,8 +332,8 @@ void show_header(const ArgumentList& clargs)
       break;
     case pdr::Tactic::inc_one_test:
       std::cout << fmt::format(
-          "{} and +1 step jump test for {} by incrementing",
-          clargs.max_pebbles, clargs.model_name);
+          "{} and +1 step jump test for {} by incrementing", clargs.max_pebbles,
+          clargs.model_name);
       break;
     default: throw std::invalid_argument("pdr::Tactic is undefined");
   }
@@ -431,16 +431,13 @@ int main(int argc, char* argv[])
   fs::path log_file      = base_dir / fmt::format("{}.{}", filename, "log");
   fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "out");
 
-  pdr::Logger pdr_logger =
-      clargs.out == ""
-          ? pdr::Logger(log_file.string(), G, clargs.verbosity)
-          : pdr::Logger(log_file.string(), G, clargs.out, clargs.verbosity);
+  pdr::Logger pdr_logger = clargs.out == ""
+                             ? pdr::Logger(log_file.string(), G,
+                                           clargs.verbosity, std::move(stats))
+                             : pdr::Logger(log_file.string(), G, clargs.out,
+                                           clargs.verbosity, std::move(stats));
 
-  pdr::Results res(model);
-
-  pdr::PDR algorithm(context, pdr_logger, res);
-  std::vector<pdr::Statistics> statistics;
-  std::vector<pdr::Result> results;
+  pdr::PDR algorithm(context, pdr_logger);
 
   show_header(clargs);
 
@@ -458,12 +455,10 @@ int main(int argc, char* argv[])
       algorithm.show_solver(solver_dump);
       break;
     case pdr::Tactic::inc_jump_test:
-      algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump,
-                              stats);
+      algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump);
       break;
     case pdr::Tactic::inc_one_test:
-      algorithm.inc_jump_test(clargs.max_pebbles, 1, strategy, solver_dump,
-                              stats);
+      algorithm.inc_jump_test(clargs.max_pebbles, 1, strategy, solver_dump);
       break;
     default: throw std::invalid_argument("No pdr tactic has been selected.");
   }

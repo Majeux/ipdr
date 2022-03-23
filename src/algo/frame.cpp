@@ -21,8 +21,6 @@ namespace pdr
   {
   }
 
-  void Frame::set_stats(Statistics& s) { logger.stats = s; }
-
   bool Frame::blocked(const z3::expr_vector& cube)
   {
     for (const z3::expr_vector& blocked_cube : blocked_cubes)

@@ -35,10 +35,9 @@ namespace pdr
 
   struct Results
   {
-    const Model& model;
     std::vector<Result> vec;
 
-    Results(const Model& m) : model(m), vec(1) {}
+    Results() : vec(1) {}
 
     Result& current() { return vec.back(); }
     void extend() { vec.emplace_back(); }
@@ -46,10 +45,6 @@ namespace pdr
     void show(std::ostream& out) const
     {
       TextTable t;
-
-      out << fmt::format("Pebbling strategies for {}:", model.name) << std::endl
-          << std::endl;
-      out << SEP2 << std::endl;
 
       std::vector<std::string> header = { "pebbles", "invariant index",
                                           "strategy length", "Total time" };

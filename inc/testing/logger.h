@@ -59,23 +59,23 @@ namespace pdr
 
     std::string tab() const { return std::string(indent, '\t'); }
 
-    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l)
-        : _out(std::cout), stats(), level(l)
+    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l, std::ofstream&& stat_file)
+        : _out(std::cout), stats(std::move(stat_file), G), level(l)
     {
-      init(log_file, G);
+      init(log_file);
     }
 
     Logger(const std::string& log_file, const dag::Graph& G,
-           const std::string& pfilename, OutLvl l)
+           const std::string& pfilename, OutLvl l, std::ofstream&& stat_file)
         : progress_file(pfilename, std::fstream::out | std::fstream::trunc),
-          _out(progress_file), stats(), level(l)
+          _out(progress_file), stats(std::move(stat_file), G), level(l)
     {
-      init(log_file, G);
+      init(log_file);
       if (!progress_file.is_open())
         throw std::runtime_error("Failed to open " + std::string(pfilename));
     }
 
-    void init(const std::string& log_file, const dag::Graph& G)
+    void init(const std::string& log_file)
     {
       spd_logger = spdlog::basic_logger_mt("pdr_logger", log_file);
       spd_logger->set_level(spdlog::level::trace);
@@ -83,10 +83,6 @@ namespace pdr
       spdlog::flush_on(spdlog::level::trace);
       // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%# %!()]");
       spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%#]");
-
-      stats.model.emplace("nodes", G.nodes.size());
-      stats.model.emplace("edges", G.edges.size());
-      stats.model.emplace("outputs", G.output.size());
     }
 
     // LOGGING OUTPUT

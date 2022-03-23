@@ -1,6 +1,7 @@
 #ifndef STATS_H
 #define STATS_H
 
+#include "dag.h"
 #include <cassert>
 #include <cstddef>
 #include <fmt/core.h>
@@ -17,14 +18,21 @@ namespace pdr
   struct Statistic
   {
     bool timed;
-
-    Statistic(bool t = false) : timed(t) {}
-
     unsigned total_count = 0;
     std::vector<unsigned> count;
     // optional
-    double total_time = 0;
+    double total_time = 0.0;
     std::vector<double> time;
+
+    Statistic(bool t = false) : timed(t) {}
+
+    void clear()
+    {
+      count.clear();
+      time.clear();
+      total_count = 0;
+      total_time  = 0.0;
+    }
 
     void add(size_t i, size_t amount = 1)
     {
@@ -87,6 +95,8 @@ namespace pdr
 
   class Statistics
   {
+   private:
+    std::ofstream file;
 
    public:
     Statistic solver_calls;
@@ -99,10 +109,22 @@ namespace pdr
     double elapsed = -1.0;
     std::map<std::string, unsigned> model;
 
-    Statistics()
-        : solver_calls(true), propagation_it(true), propagation_level(true),
-          obligations_handled(true), subsumed_cubes(false)
+    Statistics(std::ofstream&& f, const dag::Graph& G)
+        : file(std::move(f)), solver_calls(true), propagation_it(true),
+          propagation_level(true), obligations_handled(true),
+          subsumed_cubes(false)
     {
+      model.emplace("nodes", G.nodes.size());
+      model.emplace("edges", G.edges.size());
+      model.emplace("outputs", G.output.size());
+    }
+
+    void clear()
+    {
+      solver_calls.clear();
+      propagation_it.clear();
+      propagation_level.clear();
+      obligations_handled.clear();
     }
 
     std::string str() const
@@ -112,16 +134,20 @@ namespace pdr
       return ss.str();
     }
 
+    template <typename... Args> void write(std::string_view s, Args&&... a)
+    {
+      file << fmt::format(s, std::forward<Args>(a)...) << std::endl;
+    }
+
+    void write() { file << *this << std::endl; }
+
     friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
     {
-      assert(!s.model.empty());
-      if (!s.model.empty())
-      {
-        out << "Model: " << std::endl << "--------" << std::endl;
-        for (auto name_value : s.model)
-          out << name_value.first << " = " << name_value.second << ", ";
-        out << std::endl;
-      }
+      assert(not s.model.empty());
+      out << "Model: " << std::endl << "--------" << std::endl;
+      for (auto name_value : s.model)
+        out << name_value.first << " = " << name_value.second << ", ";
+      out << std::endl;
       out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
 
       out << std::endl;
@@ -133,14 +159,17 @@ namespace pdr
           << "# Statistics" << std::endl
           << "######################" << std::endl;
 
-      out << "# Solver" << std::endl << s.solver_calls << std::endl;
-      out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
-      out << "# Propagation per iteration" << std::endl
-          << s.propagation_it << std::endl;
-      out << "# Propagation per level" << std::endl
-          << s.propagation_level << std::endl;
-      out << "# Subsumed clauses" << std::endl << s.subsumed_cubes << std::endl;
-      out << "#" << std::endl;
+      out << "# Solver" << std::endl
+          << s.solver_calls << std::endl
+          << "# Obligations" << std::endl
+          << s.obligations_handled << std::endl
+          << "# Propagation per iteration" << std::endl
+          << s.propagation_it << std::endl
+          << "# Propagation per level" << std::endl
+          << s.propagation_level << std::endl
+          << "# Subsumed clauses" << std::endl
+          << s.subsumed_cubes << std::endl
+          << "#" << std::endl;
 
       return out << "######################" << std::endl;
     }
