@@ -242,8 +242,7 @@ namespace pdr
     // last iteration was not finished, repeat previous propagation
     if (repeat)
       k--;
-    logger.show("propagate level {}", k);
-    logger.tabbed("propagate frame {} to {}", 1, k);
+    logger.tabbed_and_whisper("propagate levels {} - {}", 1, k);
     logger.indent++;
 
     for (unsigned i = 1; i <= k; i++)
@@ -338,7 +337,7 @@ namespace pdr
   // query: Fi & !s & T /=> !s'
   bool Frames::inductive(const z3::expr_vector& cube, size_t frame) const
   {
-    if (ctx.delta)
+    if (LOG_SAT_CALLS && ctx.delta)
       logger.tabbed("check relative inductiveness, frame {}", frame);
 
     z3::expr clause =
@@ -359,7 +358,7 @@ namespace pdr
       Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
                                        size_t frame) const
   {
-    if (ctx.delta)
+    if (LOG_SAT_CALLS && ctx.delta)
       logger.tabbed("counter to relative inductiveness, frame {}", frame);
 
     if (!inductive(cube, frame))

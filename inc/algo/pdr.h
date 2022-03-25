@@ -70,19 +70,16 @@ namespace pdr
     // logging shorthands
     void log_start() const;
     void log_iteration();
-    void log_cti(z3::expr_vector cti, unsigned level);
+    void log_cti(const z3::expr_vector& cti, unsigned level);
     void log_propagation(unsigned level, double time);
     void log_top_obligation(size_t queue_size, unsigned top_level,
-                            z3::expr_vector top);
-    void log_pred(z3::expr_vector p);
-    void log_state_push(unsigned frame, z3::expr_vector p);
-    void log_finish(z3::expr_vector s);
+                            const z3::expr_vector& top);
+    void log_pred(const z3::expr_vector& p);
+    void log_state_push(unsigned frame);
+    void log_finish(const z3::expr_vector& s);
     void log_obligation_done(std::string_view type, unsigned l, double time);
 
    public:
-    std::string frames_string  = "";
-    std::string solvers_string = "";
-
     PDR(context& c, Logger& l);
     // prepare PDR for new run. discards old trace
     void reset();
@@ -93,6 +90,7 @@ namespace pdr
     bool run(Tactic pdr_type = Tactic::basic);
     void show_solver(std::ostream& out) const;
     void show_results(std::ostream& out) const;
+    std::vector<std::string> trace_row(const z3::expr_vector& v);
 
     // reduces the max pebbles of the model to 1 lower than the previous
     // strategy length. returns true if the is already proven invariant by this.

@@ -59,7 +59,8 @@ namespace pdr
 
     std::string tab() const { return std::string(indent, '\t'); }
 
-    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l, std::ofstream&& stat_file)
+    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l,
+           std::ofstream&& stat_file)
         : _out(std::cout), stats(std::move(stat_file), G), level(l)
     {
       init(log_file);
@@ -82,7 +83,8 @@ namespace pdr
       // spdlog::flush_every(std::chrono::seconds(20));
       spdlog::flush_on(spdlog::level::trace);
       // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%# %!()]");
-      spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%#]");
+      // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%#]");
+      spdlog::set_pattern("[%C-%m-%d %T:%e] %v");
     }
 
     // LOGGING OUTPUT
@@ -92,7 +94,7 @@ namespace pdr
     void operator()(std::string_view message_fmt, Args&&... a)
     {
       (void)message_fmt;
-	  sink{std::forward<Args>(a)...};
+      sink{ std::forward<Args>(a)... };
       SPDLOG_LOGGER_TRACE(spd_logger, message_fmt, std::forward<Args>(a)...);
     }
 
@@ -104,12 +106,13 @@ namespace pdr
 
     // log a message with indent
     template <typename... Args>
-    void tabbed(const std::string& message_fmt, Args&&... a)
+    void tabbed(std::string_view message_fmt, Args&&... a)
     {
-      std::string fmt = "{}| " + message_fmt;
+      std::string fmt = "{}| "; // + message_fmt;
       (void)message_fmt;
-	  sink{std::forward<Args>(a)...};
-      SPDLOG_LOGGER_TRACE(spd_logger, fmt, tab(), std::forward<Args>(a)...);
+      sink{ std::forward<Args>(a)... };
+      SPDLOG_LOGGER_TRACE(spd_logger, fmt.append(message_fmt), tab(),
+                          std::forward<Args>(a)...);
     }
 
     // NON-LOGGING OUTPUT
@@ -148,6 +151,23 @@ namespace pdr
     {
       whisper(message, std::forward<Args>(a)...);
       SPDLOG_LOGGER_TRACE(spd_logger, message, std::forward<Args>(a)...);
+    }
+
+    template <typename... Args>
+    void tabbed_and_show(std::string_view message,
+                         Args&&... a) // TODO rename to operator
+    {
+      show(message, std::forward<Args>(a)...);
+      tabbed(message, std::forward<Args>(a)...);
+    }
+
+    // output a whisper message and log it
+    template <typename... Args>
+    void tabbed_and_whisper(std::string_view message,
+                            Args&&... a) // TODO rename to operator
+    {
+      whisper(message, std::forward<Args>(a)...);
+      tabbed(message, std::forward<Args>(a)...);
     }
   };
 } // namespace pdr

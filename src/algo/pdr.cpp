@@ -32,8 +32,6 @@ namespace pdr
     // trace is already converted into string, discard states
     assert(results.current().trace_string != ""); // should be stored
     results.current().trace.reset();
-    frames_string     = "None";
-    solvers_string    = "None";
     shortest_strategy = UINT_MAX;
   }
 
@@ -199,7 +197,8 @@ namespace pdr
       if (std::optional<z3::expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        std::shared_ptr<State> pred = std::make_shared<State>(*pred_cube, state);
+        std::shared_ptr<State> pred =
+            std::make_shared<State>(*pred_cube, state);
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2
@@ -213,7 +212,7 @@ namespace pdr
 
           if (static_cast<unsigned>(m + 1) <= k)
           {
-            log_state_push(m + 1, pred->cube);
+            log_state_push(m + 1);
             obligations.emplace(m + 1, pred, depth + 1);
           }
         }
@@ -244,7 +243,7 @@ namespace pdr
           if (static_cast<unsigned>(m + 1) <= k)
           {
             // push upwards until inductive relative to F_level
-            log_state_push(m + 1, state->cube);
+            log_state_push(m + 1);
             obligations.emplace(m + 1, state, depth);
           }
         }
@@ -281,27 +280,51 @@ namespace pdr
   {
     std::stringstream ss;
 
-    ss << "Frames" << std::endl;
-    ss << frames.blocked_str() << std::endl;
+    ss << SEP3 << std::endl
+       << "# Cardinality: " << ctx.const_model().get_max_pebbles() << std::endl
+       << "Frames" << std::endl
+       << frames.blocked_str() << std::endl
+       << SEP2 << std::endl
+       << "Solvers" << std::endl
+       << frames.solvers_str() << std::endl;
 
-    frames_string = ss.str();
-
-    ss = std::stringstream();
-
-    ss << "Solvers" << std::endl;
-    ss << frames.solvers_str() << std::endl;
-
-    solvers_string = ss.str();
+    logger.stats.solver_dumps.push_back(ss.str());
   }
 
   void PDR::show_solver(std::ostream& out) const // TODO
   {
-    out << frames_string << std::endl;
-    out << SEP2 << std::endl;
-    out << solvers_string << std::endl;
+    for (const std::string& s : logger.stats.solver_dumps)
+      out << s << std::endl << std::endl;
   }
 
   void PDR::show_results(std::ostream& out) const { results.show(out); }
+
+  std::vector<std::string> PDR::trace_row(const z3::expr_vector& v)
+  {
+    std::map<std::string_view, bool> assignments;
+    for (auto l : ctx.const_model().literals.currents())
+      assignments.emplace(l.to_string(), false);
+
+    assert(v.size() == assignments.size());
+    for (const z3::expr& e : v)
+    {
+      if (e.is_not())
+      {
+        std::string l     = e.arg(0).to_string();
+        assignments.at(l) = false;
+      }
+      else
+      {
+        std::string l                 = e.to_string();
+        assignments.at(e.to_string()) = true;
+      }
+    }
+    std::vector<std::string> rv;
+    rv.reserve(v.size());
+    for (auto& [lit, b] : assignments)
+      rv.push_back(b ? "" : "X");
+    return rv;
+  }
 
   void PDR::store_result()
   {

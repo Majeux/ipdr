@@ -20,7 +20,7 @@ namespace pdr
     logger.tabbed("iterate frame {}", frames.frontier());
   }
 
-  void PDR::log_cti(z3::expr_vector cti, unsigned level)
+  void PDR::log_cti(const z3::expr_vector& cti, unsigned level)
   {
     (void)cti; // ignore unused warning when logging is off
     logger(SEP2);
@@ -38,7 +38,7 @@ namespace pdr
   }
 
   void PDR::log_top_obligation(size_t queue_size, unsigned top_level,
-                               z3::expr_vector top)
+                               const z3::expr_vector& top)
   {
     (void)queue_size; // ignore unused warning when logging is off
     (void)top_level;  // ignore unused warning when logging is off
@@ -51,7 +51,7 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_pred(z3::expr_vector p)
+  void PDR::log_pred(const z3::expr_vector& p)
   {
     (void)p; // ignore unused warning when logging is off
     logger.tabbed("predecessor:");
@@ -60,15 +60,14 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_state_push(unsigned frame, z3::expr_vector p)
+  void PDR::log_state_push(unsigned frame)
   {
     (void)frame; // ignore unused warning when logging is off
-    (void)p;     // ignore unused warning when logging is off
-    logger.tabbed("pred is inductive until F_{}", frame - 1);
-    logger.tabbed("push predecessor to level {}: [{}]", frame, str::extend::join(p));
+    logger.tabbed("predecessor is inductive until F_{}", frame - 1);
+    logger.tabbed("push predecessor to level {}", frame);
   }
 
-  void PDR::log_finish(z3::expr_vector s)
+  void PDR::log_finish(const z3::expr_vector& s)
   {
     (void)s; // ignore unused warning when logging is off
     logger.tabbed("finishing state");

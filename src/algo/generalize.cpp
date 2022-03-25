@@ -57,20 +57,19 @@ namespace pdr
     else
       core = cube; // no core produced
 
-    logger.tabbed("reduction by unsat core: {} -> {}", cube.size(),
+    logger.tabbed("cube reduction: {} -> {}", cube.size(),
                   core.size());
     return { result, core };
   }
 
   z3::expr_vector PDR::generalize(const z3::expr_vector& state, int level)
   {
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| generalize", logger.tab());
+    logger.tabbed("generalize cube");
     logger.indent++;
     z3::expr_vector smaller_cube = MIC(state, level);
     logger.indent--;
 
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| reduction by MIC: {} -> {}",
-                        logger.tab(), state.size(), smaller_cube.size());
+    logger.tabbed("reduction by MIC: {} -> {}", state.size(), smaller_cube.size());
     // SPDLOG_LOGGER_TRACE(log, "{}| final reduced cube = [{}]", TAB,
     // join(smaller_cube));
     return smaller_cube;

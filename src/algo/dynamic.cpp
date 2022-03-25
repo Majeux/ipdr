@@ -59,7 +59,7 @@ namespace pdr
       assert(newp > 0);
       assert(newp < maxp);
       if (newp > (int)m.n_nodes())
-        return false;
+        break;
       reset();
       results.extend();
       logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
@@ -89,7 +89,7 @@ namespace pdr
       assert(newp > 0);
       assert(maxp < newp);
       if (newp > (int)m.n_nodes())
-        return false;
+        break;
       reset();
       results.extend();
 
@@ -119,13 +119,14 @@ namespace pdr
       int newp = maxp + step;
       assert(newp > 0);
       assert(maxp < newp);
-      if (newp > (int)m.n_nodes())
-        return false;
-      reset();
-      results.extend();
+      if (newp <= (int)m.n_nodes())
+      {
+        reset();
+        results.extend();
 
-      frames.increment_reset(newp);
-      found_strategy = !run(Tactic::increment);
+        frames.increment_reset(newp);
+        found_strategy = !run(Tactic::increment);
+      }
     }
     // N is minimal
     show_results(strategy_file);

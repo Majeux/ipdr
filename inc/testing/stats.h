@@ -103,12 +103,13 @@ namespace pdr
     Statistic propagation_it;
     Statistic propagation_level;
     Statistic obligations_handled;
-    Statistic ctis;
 
+    Statistic ctis;
     Statistic subsumed_cubes;
 
     double elapsed = -1.0;
     std::map<std::string, unsigned> model;
+    std::vector<std::string> solver_dumps;
 
     Statistics(std::ofstream&& f, const dag::Graph& G)
         : file(std::move(f)), solver_calls(true), propagation_it(true),
@@ -163,6 +164,8 @@ namespace pdr
 
       out << "# Solver" << std::endl
           << s.solver_calls << std::endl
+          << "# CTIs" << std::endl
+          << s.ctis << std::endl
           << "# Obligations" << std::endl
           << s.obligations_handled << std::endl
           << "# Propagation per iteration" << std::endl
