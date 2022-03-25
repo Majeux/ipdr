@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <vector>
@@ -57,7 +58,7 @@ namespace pdr
       assert(frames.size() == act.size());
 
     // pop until given index is the highest
-    while (frames.size() > until_index+1)
+    while (frames.size() > until_index + 1)
     {
       frames.pop_back();
       if (ctx.delta)
@@ -138,7 +139,8 @@ namespace pdr
     clear();                      // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
-    logger("delta solver after reconstrain to {}\n{}", x, delta_solver->as_str("", false));
+    logger("delta solver after reconstrain to {}\n{}", x,
+           delta_solver->as_str("", false));
     unsigned count = 0;
     for (const z3::expr_vector& cube : old)
     {
@@ -353,25 +355,27 @@ namespace pdr
     return true;
   }
 
-  Witness Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
-                                           size_t frame) const
+  std::optional<z3::expr_vector>
+      Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
+                                       size_t frame) const
   {
     if (ctx.delta)
       logger.tabbed("counter to relative inductiveness, frame {}", frame);
 
     if (!inductive(cube, frame))
-      return std::make_unique<z3::model>(get_model(frame));
+      return get_solver(frame).witness_current();
 
-    return std::unique_ptr<z3::model>();
+    return {};
   }
 
-  Witness Frames::counter_to_inductiveness(const z3::expr_vector& cube,
-                                           size_t frame) const
+  std::optional<z3::expr_vector>
+      Frames::counter_to_inductiveness(const z3::expr_vector& cube,
+                                       size_t frame) const
   {
     if (!inductive(cube, frame))
-      return std::make_unique<z3::model>(get_model(frame));
+      return get_solver(frame).witness_current();
 
-    return std::unique_ptr<z3::model>();
+    return {};
   }
 
   // if primed: cube is already in next state, else first convert it
@@ -386,22 +390,22 @@ namespace pdr
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
 
-  // std::unique_ptr<z3::expr_vector> Frames::get_trans_source(size_t frame,
-  //                                          const z3::expr_vector& dest_cube,
-  //                                          bool primed) const
-  // {
-  //   SPDLOG_LOGGER_TRACE(logger.spd_logger, "{}| transition query, frame {}",
-  //                       logger.tab(), frame);
-  //   Witness witness;
-  //   if (!primed) // cube is in current, bring to next
-  //     if (!SAT(frame, ctx.get_model().literals.p(dest_cube)))
-  //       return std::unique_ptr<z3::expr_vector>();
+  std::optional<z3::expr_vector>
+      Frames::get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
+                               bool primed) const
+  {
+    if (LOG_SAT_CALLS)
+      logger.tabbed("transition query, frame {}", frame);
 
-  //   if (!SAT(frame, dest_cube))
-  //     return std::unique_ptr<z3::expr_vector>();
-  //   // else there exists a source -T-> dest'
-  //   return get_solver(frame).witness_current();
-  // }
+    if (!primed) // cube is in current, bring to next
+      if (!SAT(frame, ctx.const_model().literals.p(dest_cube)))
+        return {};
+
+    if (!SAT(frame, dest_cube))
+      return {};
+    // else there exists a source -T-> dest'
+    return get_solver(frame).witness_current();
+  }
 
   //
   // end queries
@@ -446,21 +450,6 @@ namespace pdr
     logger.stats.solver_calls.add_timed(frontier(), diff.count());
 
     return result;
-  }
-
-  Witness Frames::SAT_model(size_t frame,
-                            const z3::expr_vector& assumptions) const
-  {
-    if (SAT(frame, assumptions))
-      return std::make_unique<z3::model>(get_model(frame));
-    return std::unique_ptr<z3::model>();
-  }
-
-  Witness Frames::SAT_model(size_t frame, z3::expr_vector&& assumptions) const
-  {
-    if (SAT(frame, assumptions))
-      return std::make_unique<z3::model>(get_model(frame));
-    return std::unique_ptr<z3::model>();
   }
 
   const z3::model Frames::get_model(size_t frame) const

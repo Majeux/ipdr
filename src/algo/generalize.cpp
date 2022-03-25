@@ -126,13 +126,14 @@ namespace pdr
       if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
         return false;
 
-      if (Witness w = frames.counter_to_inductiveness(state, level))
+      if (!frames.inductive(state, level))
       {
         // intersect the current states from the model with state
+        z3::model witness = frames.get_solver(level).get_model();
         std::vector<z3::expr> cti_intersect =
-            Solver::filter_witness_vector(*w, is_current_in_state);
+            Solver::filter_witness_vector(witness, is_current_in_state);
 
-        state = move(cti_intersect);
+        state = std::move(cti_intersect);
       }
       else
         return true;

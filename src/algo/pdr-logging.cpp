@@ -15,15 +15,16 @@ namespace pdr
   {
     logger.show("###############");
     logger.show(fmt::format("iterate frame {}", frames.frontier()));
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, "");
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP3);
+    logger("");
+    logger(SEP3);
     logger.tabbed("iterate frame {}", frames.frontier());
   }
 
   void PDR::log_cti(z3::expr_vector cti, unsigned level)
   {
     (void)cti; // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP2);
+    logger(SEP2);
+    logger.stats.ctis.add(level);
     logger.tabbed("cti at frame {}", level);
     logger.tabbed("[{}]", str::extend::join(cti));
   }
@@ -42,7 +43,7 @@ namespace pdr
     (void)queue_size; // ignore unused warning when logging is off
     (void)top_level;  // ignore unused warning when logging is off
     (void)top;        // ignore unused warning when logging is off
-    SPDLOG_LOGGER_TRACE(logger.spd_logger, SEP);
+    logger.tabbed(SEP);
     logger.tabbed("obligations pending: {}", queue_size);
     logger.tabbed("top obligation");
     logger.indent++;
@@ -76,7 +77,7 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_obligation(std::string_view type, unsigned l, double time)
+  void PDR::log_obligation_done(std::string_view type, unsigned l, double time)
   {
     logger.stats.obligations_handled.add_timed(l, time);
     logger.and_show("Obligation {} elapsed {}", type, time);

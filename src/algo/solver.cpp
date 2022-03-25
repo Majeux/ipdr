@@ -6,7 +6,7 @@ namespace pdr
 {
   Solver::Solver(const context& c, z3::expr_vector base,
                  z3::expr_vector transition, z3::expr_vector constraint)
-      : ctx(c), internal_solver(ctx())
+      : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
     //  TODO sat.core.minimize

@@ -129,25 +129,27 @@ namespace pdr
   {
 
     // I => P and I & T ⇒ P' (from init)
+    z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
     while (true) // iterate over k, if dynamic this continues from last k
     {
       log_iteration();
       // exhaust all counters to the inductiveness of !P
       int k = frames.frontier();
-      while (frames.trans_source(k, ctx.const_model().n_property.nexts(), true))
+      // std::optional<z3::expr_vector> cti;
+      while (std::optional<z3::expr_vector> cti =
+                 frames.get_trans_source(k, notP_next, true))
       {
         // a F_i state leads to violation
-        z3::expr_vector cti = frames.get_solver(k).witness_current();
-        log_cti(cti, k);
+        log_cti(*cti, k);
 
-        auto [n, core] = highest_inductive_frame(cti, k - 1, k);
+        auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
         assert(n >= 0);
 
         // !s is inductive relative to F_n
         z3::expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
-        if (not block(cti, n + 1))
+        if (not block(*cti, n + 1))
           return false;
 
         logger.show("");
@@ -194,12 +196,10 @@ namespace pdr
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> !state
-      if (!frames.inductive(state->cube, n))
+      if (std::optional<z3::expr_vector> pred_cube =
+              frames.counter_to_inductiveness(state->cube, n))
       {
-        // get predecessor to state
-        z3::expr_vector pred_cube = frames.get_solver(n).witness_current();
-
-        std::shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
+        std::shared_ptr<State> pred = std::make_shared<State>(*pred_cube, state);
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2
@@ -256,7 +256,7 @@ namespace pdr
         elapsed = sub_timer.elapsed().count();
         branch  = "(finish)";
       }
-      log_obligation(branch, k, elapsed);
+      log_obligation_done(branch, k, elapsed);
       elapsed = -1.0;
 
       // periodically write stats in case of long runs

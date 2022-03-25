@@ -103,6 +103,7 @@ namespace pdr
     Statistic propagation_it;
     Statistic propagation_level;
     Statistic obligations_handled;
+    Statistic ctis;
 
     Statistic subsumed_cubes;
 
@@ -111,7 +112,7 @@ namespace pdr
 
     Statistics(std::ofstream&& f, const dag::Graph& G)
         : file(std::move(f)), solver_calls(true), propagation_it(true),
-          propagation_level(true), obligations_handled(true),
+          propagation_level(true), obligations_handled(true), ctis(true),
           subsumed_cubes(false)
     {
       model.emplace("nodes", G.nodes.size());
@@ -125,6 +126,7 @@ namespace pdr
       propagation_it.clear();
       propagation_level.clear();
       obligations_handled.clear();
+      ctis.clear();
     }
 
     std::string str() const

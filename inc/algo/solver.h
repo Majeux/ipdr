@@ -12,6 +12,13 @@
 
 namespace pdr
 {
+  enum class SolverState
+  {
+    neutral,
+    witness_avaible,
+    core_available,
+  };
+
   class Solver
   {
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
@@ -19,6 +26,7 @@ namespace pdr
    private:
     const context& ctx;
     z3::solver internal_solver;
+    SolverState state;
     bool core_available = false;
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
@@ -40,7 +48,8 @@ namespace pdr
     z3::expr_vector witness_current() const;
     z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
 
-    std::string as_str(const std::string& header = "", bool clauses_only = true) const;
+    std::string as_str(const std::string& header = "",
+                       bool clauses_only         = true) const;
 
     // function to extract a cube representing a satisfying assignment to
     // the last SAT call to the solver. the resulting vector or expr_vector

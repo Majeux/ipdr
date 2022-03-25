@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <fmt/format.h>
 #include <memory>
+#include <optional>
 #include <set>
 #include <vector>
 #include <z3++.h>
@@ -20,17 +21,16 @@
 namespace pdr
 {
   using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
-  using Witness = std::unique_ptr<z3::model>;
 
   class Frames
   {
    private:
     context& ctx;
     Logger& logger;
-	const bool LOG_SAT_CALLS = false;
+    const bool LOG_SAT_CALLS = false;
 
     z3::expr_vector frame_base;
-    
+
     std::vector<std::unique_ptr<Frame>> frames;
     // in delta encoding, all frames are managed by a single solver
     std::unique_ptr<Solver> delta_solver;
@@ -38,6 +38,7 @@ namespace pdr
 
     // prepare the sequence { F_0 } from an empty {} sequence
     void init_frame_I();
+
    public:
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
@@ -45,7 +46,7 @@ namespace pdr
     Frames(context& c, Logger& l);
     // frame interface
     //
-    // 
+    //
     void clear(size_t until_index = 0);
     void extend();
     void reset_constraint(int x);
@@ -65,29 +66,29 @@ namespace pdr
     // queries
     //
     bool init_implies(const z3::expr_vector& formula) const;
-    // returns if the negation of cube is inductive relative to F_frame
+    // returns if the clause of the given cube is inductive relative to F_frame
     bool inductive(const std::vector<z3::expr>& cube, size_t frame) const;
     bool inductive(const z3::expr_vector& cube, size_t frame) const;
-    Witness counter_to_inductiveness(const std::vector<z3::expr>& cube,
-                                     size_t frame) const;
-    Witness counter_to_inductiveness(const z3::expr_vector& cube,
-                                     size_t frame) const;
+    std::optional<z3::expr_vector>
+        counter_to_inductiveness(const std::vector<z3::expr>& cube,
+                                 size_t frame) const;
+    std::optional<z3::expr_vector>
+        counter_to_inductiveness(const z3::expr_vector& cube,
+                                 size_t frame) const;
     // returns if there exists a transition from frame to cube,
     // allows collection of witness from solver(frame) if true.
     bool trans_source(size_t frame, const z3::expr_vector& dest_cube,
                       bool primed = false) const;
-    z3::expr_vector get_trans_source(size_t frame,
-                                     const z3::expr_vector& dest_cube,
-                                     bool primed = false) const;
+    std::optional<z3::expr_vector>
+        get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
+                         bool primed = false) const;
 
     // Solver calls
     //
     // returns if there exists a satisfying assignment
     bool SAT(size_t frame, const z3::expr_vector& assumptions) const;
     bool SAT(size_t frame, z3::expr_vector&& assumptions) const;
-    // returns a satisfying assignment if it exists
-    Witness SAT_model(size_t frame, const z3::expr_vector& assumptions) const;
-    Witness SAT_model(size_t frame, z3::expr_vector&& assumptions) const;
+
     const z3::model get_model(size_t frame) const;
     void reset_solver(size_t frame);
 

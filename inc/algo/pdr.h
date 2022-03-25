@@ -77,7 +77,7 @@ namespace pdr
     void log_pred(z3::expr_vector p);
     void log_state_push(unsigned frame, z3::expr_vector p);
     void log_finish(z3::expr_vector s);
-    void log_obligation(std::string_view type, unsigned l, double time);
+    void log_obligation_done(std::string_view type, unsigned l, double time);
 
    public:
     std::string frames_string  = "";

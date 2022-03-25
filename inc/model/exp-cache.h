@@ -156,7 +156,7 @@ class ExpressionCache
     {
         out << "Lits:      " << str::extend::join(current)
                   << std::endl;
-        out << "Next Lits: " << str::extend::join(next) << std::endl;
+        std::cout << "Next Lits: " << str::extend::join(next) << std::endl;
     }
 };
 
