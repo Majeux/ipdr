@@ -24,6 +24,8 @@ TODO
 	- tseitin transition
 	- pebbling paper maybe used older mockturtle
 	- format pebbling strategy
+	- alternative block
+	- pushing subsumed clauses
 	
 	DELTA
 		- terminates later than original (maybe ok)

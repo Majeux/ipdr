@@ -46,9 +46,7 @@ namespace pdr
     for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
     {
       if (z3ext::subsumes(cube, *it))
-      {
         it = blocked_cubes.erase(it);
-      }
       else
         it++;
     }

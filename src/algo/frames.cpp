@@ -25,10 +25,10 @@ namespace pdr
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
-    const z3::expr_vector& t      = m.get_transition();
+    const z3::expr_vector& T      = m.get_transition();
     const z3::expr_vector& constr = m.get_cardinality();
     if (ctx.delta)
-      delta_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
+      delta_solver = std::make_unique<Solver>(ctx, frame_base, T, constr);
 
     init_frame_I();
   }

@@ -63,8 +63,7 @@ namespace pdr
       logger.indent--;
     }
 
-    logger.show("\n");
-    logger.and_show("Start iteration");
+    logger.and_show("\nStart iteration");
     logger.indent++;
     if (!iterate())
     {
