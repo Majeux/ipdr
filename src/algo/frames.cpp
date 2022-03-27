@@ -48,6 +48,8 @@ namespace pdr
     auto new_frame =
         std::make_unique<Frame>(0, std::move(frame_solver), logger);
     frames.push_back(std::move(new_frame));
+    logger("solver after init {}",
+           delta_solver->as_str("", false));
   }
 
   // frame interface
@@ -157,6 +159,8 @@ namespace pdr
     }
     logger.and_show("pre-INC: {} cubes carried over, out of {}", count,
                     old.size());
+    logger("delta solver after repop1 to {}\n{}", x,
+           delta_solver->as_str("", false));
   }
 
   CubeSet Frames::get_blocked(size_t i) const

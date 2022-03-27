@@ -78,7 +78,8 @@ namespace pdr
 
     void init(const std::string& log_file)
     {
-      spd_logger = spdlog::basic_logger_mt("pdr_logger", log_file);
+#warning log file truncates
+      spd_logger = spdlog::basic_logger_mt("pdr_logger", log_file, true);
       spd_logger->set_level(spdlog::level::trace);
       // spdlog::flush_every(std::chrono::seconds(20));
       spdlog::flush_on(spdlog::level::trace);

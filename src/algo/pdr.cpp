@@ -139,14 +139,14 @@ namespace pdr
         // a F_i state leads to violation
         log_cti(*cti, k);
 
-        auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
-        assert(n >= 0);
+        // auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
+        // assert(n >= 0);
 
         // !s is inductive relative to F_n
-        z3::expr_vector sub_cube = generalize(core, n);
-        frames.remove_state(sub_cube, n + 1);
+        // z3::expr_vector sub_cube = generalize(core, n);
+        // frames.remove_state(sub_cube, n + 1);
 
-        if (not block(*cti, n + 1))
+        if (not block(*cti, k-1))
           return false;
 
         logger.show("");
