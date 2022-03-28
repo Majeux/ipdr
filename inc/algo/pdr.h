@@ -60,6 +60,7 @@ namespace pdr
     bool down(std::vector<z3::expr>& cube, int level);
     // results
     void store_result();
+    void store_result2();
     void show_trace(const std::shared_ptr<State> trace_root,
                     std::ostream& out) const;
     // to replace return value in run()
