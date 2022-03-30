@@ -13,6 +13,7 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
 AlignConsecutiveAssignments: AcrossComments
 AlignEscapedNewlines: Left
+AlignAfterOpenBracket: DontAlign
 
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true

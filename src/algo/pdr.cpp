@@ -85,7 +85,7 @@ namespace pdr
     logger.stats.write("Cardinality: {}", ctx.const_model().get_max_pebbles());
     logger.stats.write();
     logger.stats.clear();
-    store_result();
+    store_result2();
     store_frame_strings();
     shortest_strategy = results.current().pebbles_used;
     logger.indent     = 0;
@@ -124,7 +124,6 @@ namespace pdr
 
   bool PDR::iterate()
   {
-
     // I => P and I & T ⇒ P' (from init)
     z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
     while (true) // iterate over k, if dynamic this continues from last k
@@ -146,7 +145,7 @@ namespace pdr
         // z3::expr_vector sub_cube = generalize(core, n);
         // frames.remove_state(sub_cube, n + 1);
 
-        if (not block(*cti, k-1))
+        if (not block(*cti, k - 1))
           return false;
 
         logger.show("");
@@ -298,33 +297,92 @@ namespace pdr
 
   void PDR::show_results(std::ostream& out) const { results.show(out); }
 
-  std::vector<std::string> PDR::trace_row(const z3::expr_vector& v)
+  void PDR::store_result2()
   {
-    std::map<std::string_view, bool> assignments;
-    for (auto l : ctx.const_model().literals.currents())
-      assignments.emplace(l.to_string(), false);
+    const Model& model = ctx.const_model();
+    Result& result     = results.current();
+    std::vector<std::string> lits;
+    auto v = ctx.const_model().literals.currents();
+    for (const z3::expr& l : v)
+      lits.push_back(l.to_string());
+    std::sort(lits.begin(), lits.end());
 
-    assert(v.size() == assignments.size());
-    for (const z3::expr& e : v)
+    auto trace_row = [&lits](
+                         const z3::expr_vector& v) -> std::vector<std::string>
     {
-      if (e.is_not())
+      std::vector<std::string> rv(lits.size(), "?");
+      for (const z3::expr& e : v)
       {
-        std::string l     = e.arg(0).to_string();
-        assignments.at(l) = false;
+        std::string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
+        auto it       = std::lower_bound(lits.begin(), lits.end(), s);
+        if (it != lits.end() && *it == s) // it points to s
+          rv[it - lits.begin()] = e.is_not() ? " " : "X";
       }
-      else
-      {
-        std::string l                 = e.to_string();
-        assignments.at(e.to_string()) = true;
-      }
-    }
-    std::vector<std::string> rv;
-    rv.reserve(v.size());
-    for (auto& [lit, b] : assignments)
-      rv.push_back(b ? "" : "X");
-    return rv;
-  }
 
+      return rv;
+    };
+
+    if (std::shared_ptr<State> current = result.trace)
+    {
+      std::stringstream ss;
+      TextTable t(' ');
+
+      auto count_pebbled = [](const z3::expr_vector& vec)
+      {
+        unsigned count = 0;
+        for (const z3::expr& e : vec)
+          if (!e.is_not())
+            count++;
+        return count;
+      };
+      std::vector<std::string> header = { "", "" };
+      header.insert(header.end(), lits.begin(), lits.end());
+      t.addRow(header);
+
+      // Write initial state
+      std::vector<std::string> initial_row = { "I |", "No. pebbled = 0 |" };
+      for (auto s : trace_row(model.get_initial()))
+        initial_row.push_back(s);
+      t.addRow(initial_row);
+
+      // Write strategy states
+      unsigned i = 0;
+      while (current)
+      {
+        i++;
+        int pebbles         = count_pebbled(current->cube);
+        result.pebbles_used = std::max(result.pebbles_used, pebbles);
+
+        std::vector<std::string> row = { fmt::format("{} |", i),
+          fmt::format("No. pebbled = {} |", pebbles) };
+        for (auto s : trace_row(current->cube))
+          row.push_back(s);
+        t.addRow(row);
+
+        current = current->prev;
+      }
+
+      // Write final state
+      std::vector<std::string> final_row = { "F |",
+        fmt::format("No. pebbled = {} |", model.get_f_pebbles()) };
+      for (auto s : trace_row(model.n_property.currents()))
+        final_row.push_back(s);
+      t.addRow(final_row);
+
+      result.trace_length = i + 1;
+
+      // combine into ss
+      for (unsigned i = 0; i < t.rows()[0].size(); i++)
+        t.setAlignment(i, TextTable::Alignment::RIGHT);
+
+      ss << "Strategy for " << result.pebbles_used << " pebbles" << std::endl;
+      ss << t;
+      result.trace_string = ss.str();
+    }
+    else
+      result.trace_string =
+          fmt::format("No strategy for {}\n", model.get_max_pebbles());
+  }
   void PDR::store_result()
   {
     const Model& model = ctx.const_model();
@@ -371,8 +429,8 @@ namespace pdr
       // Write final state
       std::vector<std::string> final_row =
           z3ext::to_strings(model.n_property.currents());
-      final_row.insert(final_row.begin(), fmt::format("No. pebbled = {} |",
-                                                      model.get_f_pebbles()));
+      final_row.insert(final_row.begin(),
+          fmt::format("No. pebbled = {} |", model.get_f_pebbles()));
       final_row.insert(final_row.begin(), "F |");
       t.addRow(final_row);
 
@@ -391,8 +449,8 @@ namespace pdr
           fmt::format("No strategy for {}\n", model.get_max_pebbles());
   }
 
-  void PDR::show_trace(const std::shared_ptr<State> trace_root,
-                       std::ostream& out) const
+  void PDR::show_trace(
+      const std::shared_ptr<State> trace_root, std::ostream& out) const
   {
     std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
 
@@ -411,23 +469,22 @@ namespace pdr
     while (current)
     {
       i++;
-      steps.emplace_back(i, z3ext::join_expr_vec(current->cube),
-                         count_pebbled(current->cube));
+      steps.emplace_back(
+          i, z3ext::join_expr_vec(current->cube), count_pebbled(current->cube));
       current = current->prev;
     }
     unsigned i_padding = i / 10 + 1;
 
     out << fmt::format("{:>{}} |\t [ {} ]", 'I', i_padding,
-                       z3ext::join_expr_vec(ctx.const_model().get_initial()))
+               z3ext::join_expr_vec(ctx.const_model().get_initial()))
         << std::endl;
 
     for (const auto& [num, vec, count] : steps)
       out << fmt::format("{:>{}} |\t [ {} ] No. pebbled = {}", num, i_padding,
-                         vec, count)
+                 vec, count)
           << std::endl;
 
-    out << fmt::format(
-               "{:>{}} |\t [ {} ]", 'F', i_padding,
+    out << fmt::format("{:>{}} |\t [ {} ]", 'F', i_padding,
                z3ext::join_expr_vec(ctx.const_model().n_property.currents()))
         << std::endl;
   }
