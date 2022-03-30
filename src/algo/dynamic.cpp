@@ -13,7 +13,7 @@ namespace pdr
   */
   bool PDR::decrement(bool reuse)
   {
-    const Model& m = ctx.const_model();
+    const PebblingModel& m = ctx.const_model();
     unsigned k     = frames.frontier();
 
     int max_pebbles = m.get_max_pebbles();
@@ -48,7 +48,7 @@ namespace pdr
   {
 #warning "dec_tactic not yet fixed for new resets"
     logger.and_show("NEW DEC RUN");
-    const Model& m = ctx.const_model();
+    const PebblingModel& m = ctx.const_model();
     int N          = m.n_nodes(); // cannot pebble more than this
     ctx.model().set_max_pebbles(N);
     bool found_strategy = !run(Tactic::basic);
@@ -78,7 +78,7 @@ namespace pdr
   {
 #warning "inc_tactic not yet fixed for new resets"
     logger.and_show("NEW INC RUN");
-    const Model& m = ctx.const_model();
+    const PebblingModel& m = ctx.const_model();
     int N          = m.get_f_pebbles(); // need at least this many pebbles
     ctx.model().set_max_pebbles(N);
     bool found_strategy = !run(Tactic::basic);
@@ -109,7 +109,7 @@ namespace pdr
     std::vector<pdr::Statistics> statistics;
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
-    const Model& m = ctx.const_model();
+    const PebblingModel& m = ctx.const_model();
     int N          = start;
     ctx.model().set_max_pebbles(N);
     bool found_strategy = !run(Tactic::basic);

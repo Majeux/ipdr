@@ -21,13 +21,13 @@ namespace pdr
     const uint32_t seed;
     Tactic type; // algorithm may switch between runs types
 
-    context(Model& m, bool d, bool random_seed);
+    context(PebblingModel& m, bool d, bool random_seed);
     z3::context& operator()() const;    
-    Model& model() const;
-    const Model& const_model() const;
+    PebblingModel& model() const;
+    const PebblingModel& const_model() const;
 
    private:
-    Model& _model;
+    PebblingModel& _model;
   }; // class PDRcontext
 
 } // namespace pdr

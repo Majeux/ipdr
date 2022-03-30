@@ -20,9 +20,6 @@
 #include <z3++.h>
 #include <z3_fpa.h>
 
-// type arguments for ascending priority queue
-#define MIN_ORDERING(T) T, std::vector<T>, std::greater<T>
-
 namespace pdr
 {
   class PDR
@@ -35,6 +32,7 @@ namespace pdr
     Logger& logger;
 
     Frames frames;
+    std::set<Obligation, std::less<Obligation>> obligations;
 
     Results results;
     int shortest_strategy;

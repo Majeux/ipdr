@@ -74,6 +74,11 @@ class ExpressionCache
     return current[index];
   }
   z3::expr operator()(int index) const { return current[index]; }
+  z3::expr operator()(const std::string& s) const 
+  { 
+    z3::expr e = ctx.bool_const(s.c_str());
+    return current[indexof(e)]; 
+  }
 
   z3::expr_vector operator()(const z3::expr_vector& vec) const
   {
@@ -97,6 +102,11 @@ class ExpressionCache
     return next[index];
   }
   z3::expr p(int index) const { return next[index]; }
+  z3::expr p(const std::string& s) const 
+  { 
+    z3::expr e = ctx.bool_const(s.c_str());
+    return next[indexof(e)]; 
+  }
 
   // converts a vector of literals into a vector of literals in the next state
   // assumes vec is a vector of consts in current

@@ -415,7 +415,7 @@ int main(int argc, char* argv[])
   z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
-  pdr::Model model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
+  pdr::PebblingModel model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
 
   pdr::context context(model, clargs.delta, clargs.rand);

@@ -21,7 +21,7 @@ namespace pdr
   Frames::Frames(context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    const Model& m = ctx.const_model();
+    const PebblingModel& m = ctx.const_model();
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
@@ -35,7 +35,7 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    const Model& m                = ctx.const_model();
+    const PebblingModel& m                = ctx.const_model();
     const z3::expr_vector& t      = m.get_transition();
     const z3::expr_vector& constr = m.get_cardinality();
 
@@ -79,7 +79,7 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      const Model& m                = ctx.const_model();
+      const PebblingModel& m                = ctx.const_model();
       const z3::expr_vector& t      = m.get_transition();
       const z3::expr_vector& constr = m.get_cardinality();
       auto frame_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
@@ -347,7 +347,7 @@ namespace pdr
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
     z3::expr_vector assumptions =
-        ctx.const_model().literals.p(cube); // cube in next state
+        ctx.const_model().lits.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -388,7 +388,7 @@ namespace pdr
     if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
-      return SAT(frame, ctx.const_model().literals.p(dest_cube));
+      return SAT(frame, ctx.const_model().lits.p(dest_cube));
 
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
@@ -401,7 +401,7 @@ namespace pdr
       logger.tabbed("transition query, frame {}", frame);
 
     if (!primed) // cube is in current, bring to next
-      if (!SAT(frame, ctx.const_model().literals.p(dest_cube)))
+      if (!SAT(frame, ctx.const_model().lits.p(dest_cube)))
         return {};
 
     if (!SAT(frame, dest_cube))

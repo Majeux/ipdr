@@ -44,9 +44,9 @@ namespace pdr
       // F_result & !cube & T & cube' = UNSAT
       // => F_result & !cube & T & core' = UNSAT
       auto next_lits = [this](const z3::expr& e)
-      { return ctx.const_model().literals.literal_is_p(e); };
+      { return ctx.const_model().lits.literal_is_p(e); };
       auto to_current = [this](const z3::expr& e)
-      { return ctx.const_model().literals(e); };
+      { return ctx.const_model().lits(e); };
 
       core = frames.get_solver(result).unsat_core(next_lits, to_current);
 
@@ -114,7 +114,7 @@ namespace pdr
     assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
     auto is_current_in_state = [this, &state](const z3::expr& e)
     {
-      return ctx.const_model().literals.literal_is_current(e) &&
+      return ctx.const_model().lits.literal_is_current(e) &&
              std::binary_search(state.begin(), state.end(), e,
                                 z3ext::expr_less());
     };

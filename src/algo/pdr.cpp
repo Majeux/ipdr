@@ -97,7 +97,7 @@ namespace pdr
   bool PDR::init()
   {
     assert(frames.frontier() == 0);
-    const Model& m       = ctx.const_model();
+    const PebblingModel& m       = ctx.const_model();
     z3::expr_vector notP = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
@@ -175,7 +175,7 @@ namespace pdr
     logger.indent++;
 
     unsigned period = 0;
-    std::set<Obligation, std::less<Obligation>> obligations;
+    obligations.clear();
     if ((n + 1) <= k)
       obligations.emplace(n + 1, std::move(cti), 0);
 
@@ -299,10 +299,10 @@ namespace pdr
 
   void PDR::store_result2()
   {
-    const Model& model = ctx.const_model();
+    const PebblingModel& model = ctx.const_model();
     Result& result     = results.current();
     std::vector<std::string> lits;
-    auto v = ctx.const_model().literals.currents();
+    auto v = ctx.const_model().lits.currents();
     for (const z3::expr& l : v)
       lits.push_back(l.to_string());
     std::sort(lits.begin(), lits.end());
@@ -385,7 +385,7 @@ namespace pdr
   }
   void PDR::store_result()
   {
-    const Model& model = ctx.const_model();
+    const PebblingModel& model = ctx.const_model();
     Result& result     = results.current();
 
     if (std::shared_ptr<State> current = result.trace)
