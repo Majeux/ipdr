@@ -340,6 +340,8 @@ void show_header(const ArgumentList& clargs)
   std::cout << std::endl;
   if (clargs.delta)
     std::cout << "Using delta-encoded frames.";
+  if (clargs.rand)
+    std::cout << "Randomized seed.";
   std::cout << std::endl;
 }
 //

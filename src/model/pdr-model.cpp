@@ -81,7 +81,7 @@ namespace pdr
     std::map<std::string, z3::expr> stay_expr;
     for (const std::string& n : G.nodes)
     {
-      std::string stay_name = fmt::format("__stay({})", n);
+      std::string stay_name = fmt::format("__stay[{}]__", n);
       z3::expr stay = tseytin_and(transition, stay_name, lits(n), lits.p(n));
       stay_expr.emplace(n, stay);
     }
@@ -89,14 +89,14 @@ namespace pdr
     for (int i = 0; i < lits.size(); i++) // every node has a transition
     {
       std::string name      = lits(i).to_string();
-      std::string flip_name = fmt::format("__flip({})", name);
+      std::string flip_name = fmt::format("__flip[{}]__", name);
       z3::expr flip = tseytin_xor(transition, flip_name, lits(i), lits.p(i));
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const std::string& child : G.get_children(name))
       {
         z3::expr child_stay  = stay_expr.at(child);
-        std::string move_str = fmt::format("__move({}, {})", name, child);
+        std::string move_str = fmt::format("__move[{}, {}]__", name, child);
         z3::expr move = tseytin_implies(transition, move_str, flip, child_stay);
         transition.push_back(move);
       }
@@ -203,9 +203,9 @@ namespace pdr
       const std::string& name, const z3::expr& a, const z3::expr& b)
   {
     z3::expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(!a || !b || c);
-    sub_defs.push_back(a || !c);
-    sub_defs.push_back(b || !c);
+    sub_defs.push_back(c || !a || !b );
+    sub_defs.push_back(!c || a);
+    sub_defs.push_back(!c || b);
     return c;
   }
 
@@ -214,9 +214,9 @@ namespace pdr
       const std::string& name, const z3::expr& a, const z3::expr& b)
   {
     z3::expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(a || b || !c);
-    sub_defs.push_back(!a || c);
-    sub_defs.push_back(!b || c);
+    sub_defs.push_back(!c || a || b);
+    sub_defs.push_back(c || !a);
+    sub_defs.push_back(c || !b);
     return c;
   }
 
@@ -232,10 +232,10 @@ namespace pdr
       const std::string& name, const z3::expr& a, const z3::expr& b)
   {
     z3::expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(!a || !b || !c);
-    sub_defs.push_back(a || b || !c);
-    sub_defs.push_back(a || !b || c);
-    sub_defs.push_back(!a || b || c);
+    sub_defs.push_back(!c || !a || !b);
+    sub_defs.push_back(!c || a || b);
+    sub_defs.push_back(c || a || !b);
+    sub_defs.push_back(c || !a || b);
     return c;
   }
 } // namespace pdr

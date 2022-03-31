@@ -2,6 +2,7 @@
 #define Z3_EXT
 
 #include <algorithm>
+#include <fmt/core.h>
 #include <sstream>
 #include <vector>
 #include <z3++.h>
@@ -95,9 +96,7 @@ namespace z3ext
       if (!first)
         ss << delimiter;
       first = false;
-      if (align)
-        ss << string(largest - s.length(), ' ');
-      ss << s;
+      ss << fmt::format("{: ^{}}", s, align ? largest : 0);
     }
     return ss.str();
   }

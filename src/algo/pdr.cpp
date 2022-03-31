@@ -138,12 +138,12 @@ namespace pdr
         // a F_i state leads to violation
         log_cti(*cti, k);
 
-        // auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
+        auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
-        // z3::expr_vector sub_cube = generalize(core, n);
-        // frames.remove_state(sub_cube, n + 1);
+        z3::expr_vector sub_cube = generalize(core, n);
+        frames.remove_state(sub_cube, n + 1);
 
         if (not block(*cti, k - 1))
           return false;
@@ -174,8 +174,15 @@ namespace pdr
     logger.tabbed("block");
     logger.indent++;
 
+    if (ctx.type != Tactic::increment)
+    {
+      logger.tabbed_and_whisper("Cleared obligations.");
+      obligations.clear();
+    }
+    else
+      logger.tabbed_and_whisper("Reused obligations.");
+
     unsigned period = 0;
-    obligations.clear();
     if ((n + 1) <= k)
       obligations.emplace(n + 1, std::move(cti), 0);
 
@@ -301,13 +308,18 @@ namespace pdr
   {
     const PebblingModel& model = ctx.const_model();
     Result& result     = results.current();
+
     std::vector<std::string> lits;
     auto v = ctx.const_model().lits.currents();
+    size_t largest = 0;
     for (const z3::expr& l : v)
+    {
       lits.push_back(l.to_string());
+      largest = std::max(largest, l.to_string().size());
+    }
     std::sort(lits.begin(), lits.end());
 
-    auto trace_row = [&lits](
+    auto trace_row = [&lits, largest](
                          const z3::expr_vector& v) -> std::vector<std::string>
     {
       std::vector<std::string> rv(lits.size(), "?");
@@ -316,7 +328,10 @@ namespace pdr
         std::string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
         auto it       = std::lower_bound(lits.begin(), lits.end(), s);
         if (it != lits.end() && *it == s) // it points to s
-          rv[it - lits.begin()] = e.is_not() ? " " : "X";
+        {
+          std::string fill_X = fmt::format("{:X^{}}", "", largest);
+          rv[it - lits.begin()] = e.is_not() ? "" : fill_X;
+        }
       }
 
       return rv;
@@ -325,7 +340,7 @@ namespace pdr
     if (std::shared_ptr<State> current = result.trace)
     {
       std::stringstream ss;
-      TextTable t(' ');
+      TextTable t('|');
 
       auto count_pebbled = [](const z3::expr_vector& vec)
       {
@@ -340,7 +355,7 @@ namespace pdr
       t.addRow(header);
 
       // Write initial state
-      std::vector<std::string> initial_row = { "I |", "No. pebbled = 0 |" };
+      std::vector<std::string> initial_row = { "I", "No. pebbled = 0" };
       for (auto s : trace_row(model.get_initial()))
         initial_row.push_back(s);
       t.addRow(initial_row);
@@ -353,8 +368,8 @@ namespace pdr
         int pebbles         = count_pebbled(current->cube);
         result.pebbles_used = std::max(result.pebbles_used, pebbles);
 
-        std::vector<std::string> row = { fmt::format("{} |", i),
-          fmt::format("No. pebbled = {} |", pebbles) };
+        std::vector<std::string> row = { std::to_string(i),
+          fmt::format("No. pebbled = {}", pebbles) };
         for (auto s : trace_row(current->cube))
           row.push_back(s);
         t.addRow(row);
@@ -363,8 +378,8 @@ namespace pdr
       }
 
       // Write final state
-      std::vector<std::string> final_row = { "F |",
-        fmt::format("No. pebbled = {} |", model.get_f_pebbles()) };
+      std::vector<std::string> final_row = { "F",
+        fmt::format("No. pebbled = {}", model.get_f_pebbles()) };
       for (auto s : trace_row(model.n_property.currents()))
         final_row.push_back(s);
       t.addRow(final_row);
