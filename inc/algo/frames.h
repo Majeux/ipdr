@@ -25,7 +25,7 @@ namespace pdr
   class Frames
   {
    private:
-    context& ctx;
+    Context& ctx;
     Logger& logger;
     const bool LOG_SAT_CALLS = false;
 
@@ -43,7 +43,7 @@ namespace pdr
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
 
-    Frames(context& c, Logger& l);
+    Frames(Context& c, Logger& l);
     // frame interface
     //
     //

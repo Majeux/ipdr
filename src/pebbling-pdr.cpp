@@ -92,7 +92,7 @@ std::string file_name(const ArgumentList& args)
       fmt::format("{}-{}", args.model_name, to_string(args.tactic));
 
   if (!(args.tactic == pdr::Tactic::increment ||
-        args.tactic == pdr::Tactic::decrement))
+          args.tactic == pdr::Tactic::decrement))
     file_string += fmt::format("-{}", args.max_pebbles);
   if (args.delta)
     file_string += "-delta";
@@ -105,7 +105,7 @@ std::string folder_name(const ArgumentList& args)
   std::string folder_string = to_string(args.tactic);
 
   if (!(args.tactic == pdr::Tactic::increment ||
-        args.tactic == pdr::Tactic::decrement))
+          args.tactic == pdr::Tactic::decrement))
     folder_string += fmt::format("-{}", args.max_pebbles);
   if (args.delta)
     folder_string += "-delta";
@@ -113,21 +113,28 @@ std::string folder_name(const ArgumentList& args)
   return folder_string;
 }
 
-std::array<fs::path, 2> output_paths(const ArgumentList& args)
+fs::path setup_model_path(const ArgumentList& args)
 {
   fs::path results_folder = fs::current_path() / "output";
-  std::string opts        = folder_name(args);
   fs::create_directory(results_folder);
   fs::path model_dir = results_folder / args.model_name;
   fs::create_directory(model_dir);
-  fs::path run_dir = results_folder / args.model_name / opts;
-  fs::create_directory(run_dir);
 
-  return { model_dir, run_dir };
+  return model_dir;
 }
 
-std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
-                         const std::string& ext)
+fs::path setup_run_path(const ArgumentList& args)
+{
+  fs::path results_folder = fs::current_path() / "output";
+  fs::create_directory(results_folder);
+  fs::path run_dir = results_folder / args.model_name / folder_name(args);
+  fs::create_directory(run_dir);
+
+  return run_dir;
+}
+
+std::ofstream trunc_file(
+    const fs::path& folder, const std::string& filename, const std::string& ext)
 {
   fs::path file = folder / fmt::format("{}.{}", filename, ext);
   std::ofstream stream(file.string(), std::fstream::out | std::fstream::trunc);
@@ -146,10 +153,9 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   clargs.delta = false;
   // clang-format off
   clopt.add_options()
-    ("v,verbose", "Output all messages during pdr iterations",
-      cxxopts::value<bool>()->default_value("false"))
-    ("w,wisper", "Output only minor messages during pdr iterations.",
-      cxxopts::value<bool>()->default_value("false"))
+    ("v,verbose", "Output all messages during pdr iterations")
+    ("w,wisper", "Output only minor messages during pdr iterations. (default)")
+    ("s,silent", "Output no messages during pdr iterations.")
     ("show-only", "Only write the given model to its output file, does not run the algorithm.",
      cxxopts::value<bool>(clargs.onlyshow))
     ("out-file", "Write to an output file instead of standard output", 
@@ -187,13 +193,97 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   return clopt;
 }
 
+void parse_verbosity(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
+{
+  if (clresult.count("verbose"))
+    clargs.verbosity = OutLvl::verbose;
+  else if (clresult.count("whisper"))
+    clargs.verbosity = OutLvl::whisper;
+  else if (clresult.count("silent"))
+    clargs.verbosity = OutLvl::silent;
+  else
+    clargs.verbosity = OutLvl::whisper;
+}
+
+void parse_tactic(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
+{
+  if (clresult.count("optimize"))
+  {
+    std::string tactic = clresult["optimize"].as<std::string>();
+    if (tactic == "inc")
+      clargs.tactic = pdr::Tactic::increment;
+    else if (tactic == "dec")
+      clargs.tactic = pdr::Tactic::decrement;
+    else
+      throw std::invalid_argument(fmt::format(
+          "optimize must be either {} or {}.", increment_str, decrement_str));
+  }
+  else if (clresult.count(inc_jump_str))
+  {
+    clargs.tactic      = pdr::Tactic::inc_jump_test;
+    clargs.max_pebbles = clresult[inc_jump_str].as<unsigned>();
+  }
+  else if (clresult.count(inc_one_str))
+  {
+    clargs.tactic      = pdr::Tactic::inc_one_test;
+    clargs.max_pebbles = clresult[inc_one_str].as<unsigned>();
+  }
+  else
+  {
+    clargs.tactic = pdr::Tactic::basic;
+    if (!clresult.count("pebbles"))
+      throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
+
+    clargs.max_pebbles = clresult["pebbles"].as<int>();
+    if (clargs.max_pebbles < 0)
+      throw std::invalid_argument("pebbles must be positive.");
+  }
+
+  unsigned n_tests = clresult.count(to_string(pdr::Tactic::inc_jump_test)) +
+                     clresult.count(to_string(pdr::Tactic::inc_one_test));
+  if (n_tests > 1)
+    throw std::invalid_argument("specify at most one test");
+}
+
+void parse_model(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
+{
+  unsigned n_models =
+      clresult.count("hop") + clresult.count("tfc") + clresult.count("bench");
+  if (n_models != 1)
+    throw std::invalid_argument("specify one of tfc, bench, or hop.");
+
+  if (clresult.count("hop"))
+  {
+    clargs.model = ModelType::hoperator;
+
+    const auto hop_list = clresult["hop"].as<std::vector<unsigned>>();
+    if (hop_list.size() != 2)
+      throw std::invalid_argument(
+          "hop requires two positive integers: bitwidth,modulus");
+    clargs.hop        = { hop_list[0], hop_list[1] };
+    clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
+  }
+  if (clresult.count("tfc"))
+  {
+    clargs.model      = ModelType::tfc;
+    clargs.model_name = clresult["tfc"].as<std::string>();
+  }
+  if (clresult.count("bench"))
+  {
+    clargs.model      = ModelType::bench;
+    clargs.model_name = clresult["bench"].as<std::string>();
+  }
+
+  clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
+}
+
 ArgumentList parse_cl(int argc, char* argv[])
 {
   ArgumentList clargs;
   cxxopts::Options clopt = make_options(argv[0], clargs);
   try
   {
-    auto clresult = clopt.parse(argc, argv);
+    cxxopts::ParseResult clresult = clopt.parse(argc, argv);
 
     if (clresult.count("help"))
     {
@@ -201,84 +291,16 @@ ArgumentList parse_cl(int argc, char* argv[])
       exit(0);
     }
 
-    if (clresult.count("verbose"))
-      clargs.verbosity = OutLvl::verbose;
-    else if (clresult.count("whisper"))
-      clargs.verbosity = OutLvl::whisper;
-    else
-      clargs.verbosity = OutLvl::silent;
+    parse_verbosity(clargs, clresult);
+    parse_model(clargs, clresult);
+    if (clargs.onlyshow)
+      return clargs;
+    parse_tactic(clargs, clresult);
 
     if (clresult.count("out-file"))
       clargs.out = clresult["out-file"].as<std::string>();
     else
       clargs.out = "";
-
-    if (clresult.count("optimize"))
-    {
-      std::string tactic = clresult["optimize"].as<std::string>();
-      if (tactic == "inc")
-        clargs.tactic = pdr::Tactic::increment;
-      else if (tactic == "dec")
-        clargs.tactic = pdr::Tactic::decrement;
-      else
-        throw std::invalid_argument(fmt::format(
-            "optimize must be either {} or {}.", increment_str, decrement_str));
-    }
-    else if (clresult.count(inc_jump_str))
-    {
-      clargs.tactic      = pdr::Tactic::inc_jump_test;
-      clargs.max_pebbles = clresult[inc_jump_str].as<unsigned>();
-    }
-    else if (clresult.count(inc_one_str))
-    {
-      clargs.tactic      = pdr::Tactic::inc_one_test;
-      clargs.max_pebbles = clresult[inc_one_str].as<unsigned>();
-    }
-    else
-    {
-      clargs.tactic = pdr::Tactic::basic;
-      if (!clresult.count("pebbles"))
-        throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
-
-      clargs.max_pebbles = clresult["pebbles"].as<int>();
-      if (clargs.max_pebbles < 0)
-        throw std::invalid_argument("pebbles must be positive.");
-    }
-
-    unsigned n_tests = clresult.count(to_string(pdr::Tactic::inc_jump_test)) +
-                       clresult.count(to_string(pdr::Tactic::inc_one_test));
-    if (n_tests > 1)
-      throw std::invalid_argument("specify at most one test");
-
-    // read model
-    unsigned n_models =
-        clresult.count("hop") + clresult.count("tfc") + clresult.count("bench");
-    if (n_models != 1)
-      throw std::invalid_argument("specify one of tfc, bench, or hop.");
-
-    if (clresult.count("hop"))
-    {
-      clargs.model = ModelType::hoperator;
-
-      const auto hop_list = clresult["hop"].as<std::vector<unsigned>>();
-      if (hop_list.size() != 2)
-        throw std::invalid_argument(
-            "hop requires two positive integers: bitwidth,modulus");
-      clargs.hop        = { hop_list[0], hop_list[1] };
-      clargs.model_name = fmt::format("hop{}_{}", hop_list[0], hop_list[1]);
-    }
-    if (clresult.count("tfc"))
-    {
-      clargs.model      = ModelType::tfc;
-      clargs.model_name = clresult["tfc"].as<std::string>();
-    }
-    if (clresult.count("bench"))
-    {
-      clargs.model      = ModelType::bench;
-      clargs.model_name = clresult["bench"].as<std::string>();
-    }
-
-    clargs.bench_folder = BENCH_FOLDER / clresult["dir"].as<fs::path>();
   }
   catch (const std::exception& e)
   {
@@ -313,7 +335,7 @@ void show_header(const ArgumentList& clargs)
   {
     case pdr::Tactic::basic:
       std::cout << fmt::format("Finding {}-pebble strategy for {}",
-                               clargs.max_pebbles, clargs.model_name);
+          clargs.max_pebbles, clargs.model_name);
       break;
     case pdr::Tactic::decrement:
       std::cout << fmt::format(
@@ -369,11 +391,11 @@ dag::Graph build_dag(const ArgumentList& args)
     {
       fs::path model_file = args.bench_folder / (args.model_name + ".bench");
       mockturtle::klut_network klut;
-      auto const result = lorina::read_bench(model_file.string(),
-                                             mockturtle::bench_reader(klut));
+      auto const result = lorina::read_bench(
+          model_file.string(), mockturtle::bench_reader(klut));
       if (result != lorina::return_code::success)
-        throw std::invalid_argument(model_file.string() +
-                                    " is not a valid .bench file");
+        throw std::invalid_argument(
+            model_file.string() + " is not a valid .bench file");
 
       G = dag::from_dot(klut, args.model_name); // TODO continue
     }
@@ -402,13 +424,10 @@ int main(int argc, char* argv[])
   ArgumentList clargs = parse_cl(argc, argv);
 
   // create files for I/O
-  const auto [model_dir, base_dir] = output_paths(clargs);
-  std::string filename             = file_name(clargs);
-
+  const fs::path model_dir  = setup_model_path(clargs);
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
 
-  // build directed acyclic graph
   dag::Graph G = build_dag(clargs);
   G.show_image(model_dir / "dag");
   std::cout << G.summary() << std::endl;
@@ -417,27 +436,30 @@ int main(int argc, char* argv[])
   z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
-  pdr::PebblingModel model(ctx_settings, clargs.model_name, G, clargs.max_pebbles);
+  pdr::PebblingModel model(
+      ctx_settings, clargs.model_name, G, clargs.max_pebbles);
   model.show(model_descr);
-
-  pdr::context context(model, clargs.delta, clargs.rand);
 
   if (clargs.onlyshow)
     return 0;
 
-  std::ofstream stats       = trunc_file(base_dir, filename, "stats");
-  std::ofstream strategy    = trunc_file(base_dir, filename, "strategy");
-  std::ofstream solver_dump = trunc_file(base_dir, "solver_dump", "strategy");
+  pdr::Context context(model, clargs.delta, clargs.rand);
+
+  const std::string filename      = file_name(clargs);
+  const fs::path run_dir    = setup_run_path(clargs);
+  std::ofstream stats       = trunc_file(run_dir, filename, "stats");
+  std::ofstream strategy    = trunc_file(run_dir, filename, "strategy");
+  std::ofstream solver_dump = trunc_file(run_dir, "solver_dump", "strategy");
 
   // initialize logger and other bookkeeping
-  fs::path log_file      = base_dir / fmt::format("{}.{}", filename, "log");
-  fs::path progress_file = base_dir / fmt::format("{}.{}", filename, "out");
+  fs::path log_file      = run_dir / fmt::format("{}.{}", filename, "log");
+  fs::path progress_file = run_dir / fmt::format("{}.{}", filename, "out");
 
   pdr::Logger pdr_logger = clargs.out == ""
                              ? pdr::Logger(log_file.string(), G,
-                                           clargs.verbosity, std::move(stats))
+                                   clargs.verbosity, std::move(stats))
                              : pdr::Logger(log_file.string(), G, clargs.out,
-                                           clargs.verbosity, std::move(stats));
+                                   clargs.verbosity, std::move(stats));
 
   pdr::PDR algorithm(context, pdr_logger);
 

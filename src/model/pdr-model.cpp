@@ -21,8 +21,8 @@ namespace pdr
       initial.push_back(!e);
 
     // load_pebble_transition_raw2(G);
-    load_pebble_transition(G);
-    // load_pebble_transition_tseytin(G);
+    // load_pebble_transition(G);
+    load_pebble_transition_tseytin(G);
 
     final_pebbles = G.output.size();
     set_max_pebbles(pebbles);
@@ -81,26 +81,29 @@ namespace pdr
     std::map<std::string, z3::expr> stay_expr;
     for (const std::string& n : G.nodes)
     {
-      std::string stay_name = fmt::format("__stay[{}]__", n);
+      std::string stay_name = fmt::format("_stay[{}]_", n);
       z3::expr stay = tseytin_and(transition, stay_name, lits(n), lits.p(n));
       stay_expr.emplace(n, stay);
     }
 
+    z3::expr_vector moves(ctx);
     for (int i = 0; i < lits.size(); i++) // every node has a transition
     {
       std::string name      = lits(i).to_string();
-      std::string flip_name = fmt::format("__flip[{}]__", name);
+      std::string flip_name = fmt::format("_flip[{}]_", name);
       z3::expr flip = tseytin_xor(transition, flip_name, lits(i), lits.p(i));
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const std::string& child : G.get_children(name))
       {
         z3::expr child_stay  = stay_expr.at(child);
-        std::string move_str = fmt::format("__move[{}, {}]__", name, child);
+        std::string move_str = fmt::format("_flip[{}] => stay[{}]_", name, child);
         z3::expr move = tseytin_implies(transition, move_str, flip, child_stay);
-        transition.push_back(move);
+        moves.push_back(move);
       }
     }
+    for (const z3::expr& e : moves)
+      transition.push_back(e);
   }
 
   void PebblingModel::load_pebble_transition_raw1(const dag::Graph& G)

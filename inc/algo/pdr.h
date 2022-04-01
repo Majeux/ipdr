@@ -25,7 +25,7 @@ namespace pdr
   class PDR
   {
    private:
-    context& ctx;
+    Context& ctx;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
@@ -79,7 +79,7 @@ namespace pdr
     void log_obligation_done(std::string_view type, unsigned l, double time);
 
    public:
-    PDR(context& c, Logger& l);
+    PDR(Context& c, Logger& l);
     // prepare PDR for new run. discards old trace
     void reset();
 

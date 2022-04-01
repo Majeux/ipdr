@@ -2,12 +2,12 @@
 
 namespace pdr
 {
-  context::context(PebblingModel& m, bool d, bool random_seed)
+  Context::Context(PebblingModel& m, bool d, bool random_seed)
       : delta(d), seed(random_seed ? time(0) : 0u), type(Tactic::undef), _model(m)
   {
   }
 
-  z3::context& context::operator()() const { return _model.ctx; }
-  PebblingModel& context:: model() const { return _model; }
-  const PebblingModel& context::const_model() const { return _model; }
+  z3::context& Context::operator()() const { return _model.ctx; }
+  PebblingModel& Context:: model() const { return _model; }
+  const PebblingModel& Context::const_model() const { return _model; }
 } // namespace pdr

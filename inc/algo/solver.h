@@ -24,7 +24,7 @@ namespace pdr
     using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
    private:
-    const context& ctx;
+    const Context& ctx;
     z3::solver internal_solver;
     SolverState state;
     bool core_available = false;
@@ -32,7 +32,7 @@ namespace pdr
                             // assertions begin
 
    public:
-    Solver(const context& c, z3::expr_vector base, z3::expr_vector t,
+    Solver(const Context& c, z3::expr_vector base, z3::expr_vector t,
            z3::expr_vector con);
 
     void reset();

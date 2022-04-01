@@ -24,7 +24,7 @@
 
 namespace pdr
 {
-  PDR::PDR(context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
+  PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
 
   void PDR::reset()
   {

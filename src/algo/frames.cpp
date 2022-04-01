@@ -18,7 +18,7 @@
 
 namespace pdr
 {
-  Frames::Frames(context& c, Logger& l)
+  Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
     const PebblingModel& m = ctx.const_model();

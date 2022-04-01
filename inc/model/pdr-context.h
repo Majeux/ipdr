@@ -14,14 +14,14 @@ namespace pdr
     inc_jump_test, inc_one_test,
   };
 
-  class context
+  class Context
   {
    public:
     const bool delta;
     const uint32_t seed;
     Tactic type; // algorithm may switch between runs types
 
-    context(PebblingModel& m, bool d, bool random_seed);
+    Context(PebblingModel& m, bool d, bool random_seed);
     z3::context& operator()() const;    
     PebblingModel& model() const;
     const PebblingModel& const_model() const;
