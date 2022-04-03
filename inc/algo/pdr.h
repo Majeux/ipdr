@@ -59,6 +59,7 @@ namespace pdr
     // results
     void store_result();
     void store_result2();
+    Result make_result();
     void show_trace(const std::shared_ptr<State> trace_root,
                     std::ostream& out) const;
     // to replace return value in run()
