@@ -126,9 +126,12 @@ namespace pdr
 
   std::string Solver::as_str(const std::string& header, bool clauses_only) const
   {
-    std::string str(header);
-    const z3::expr_vector asserts = internal_solver.assertions();
+    std::stringstream ss;
+    ss << header << std::endl;
+    ss << "z3::statistics" << std::endl;
+    ss << internal_solver.statistics() << std::endl;
 
+    const z3::expr_vector asserts = internal_solver.assertions();
     auto it = asserts.begin();
     if (clauses_only) // skip base, transition and constraint
     {
@@ -137,8 +140,8 @@ namespace pdr
     }
 
     for (; it != asserts.end(); it++)
-      str += fmt::format("- {}\n", (*it).to_string());
+      ss << fmt::format("- {}", (*it).to_string()) << std::endl;
 
-    return str;
+    return ss.str();
   }
 } // namespace pdr

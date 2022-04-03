@@ -26,6 +26,8 @@ namespace pdr
     {
     }
 
+    operator bool() const { return trace.get() != nullptr; }
+
     std::vector<std::string> listing() const
     {
       return { std::to_string(pebbles_used), std::to_string(invariant_index),
