@@ -31,7 +31,7 @@ namespace pdr
     logger.indent = 0;
     // trace is already converted into string, discard states
     assert(results.current().trace_string != ""); // should be stored
-    results.current().trace.reset();
+    trace.reset();
     shortest_strategy = UINT_MAX;
   }
 
@@ -43,7 +43,7 @@ namespace pdr
     logger.show("}");
   }
 
-  bool PDR::run(Tactic pdr_type)
+  Result PDR::run(Tactic pdr_type)
   {
     ctx.type = pdr_type;
     timer.reset();
@@ -54,33 +54,39 @@ namespace pdr
     {
       logger.and_show("Start initiation");
       logger.indent++;
-      if (!init())
+
+      if (Result init_res = init())
+      {
+        logger.and_whisper("Survived Initiation");
+        logger.indent--;
+      }
+      else
       {
         logger.and_show("Failed initiation");
-        return finish(false);
+        return finish(init_res);
       }
-      logger.and_show("Survived Initiation");
-      logger.indent--;
     }
 
     logger.and_show("\nStart iteration");
     logger.indent++;
-    if (!iterate())
+    if (Result it_res = iterate())
+    {
+      logger.and_show("Property verified");
+      logger.indent--;
+	  return finish(it_res);
+    }
+    else
     {
       logger.and_show("Failed iteration");
-      return finish(false);
+      return finish(it_res);
     }
-    logger.and_show("Property verified");
-    logger.indent--;
-
-    return finish(true);
   }
 
-  bool PDR::finish(bool rv)
+  Result PDR::finish(Result&& rv)
   {
     double final_time = timer.elapsed().count();
     logger.and_show(fmt::format("Total elapsed time {}", final_time));
-    results.current().total_time = final_time;
+    rv.total_time = final_time;
     logger.stats.elapsed         = final_time;
     logger.stats.write("Cardinality: {}", ctx.const_model().get_max_pebbles());
     logger.stats.write();
@@ -95,7 +101,7 @@ namespace pdr
   }
 
   // returns true if the model survives initiation
-  bool PDR::init()
+  Result PDR::init()
   {
     assert(frames.frontier() == 0);
     const PebblingModel& m = ctx.const_model();
@@ -104,8 +110,7 @@ namespace pdr
     if (frames.init_solver.check(notP))
     {
       logger.whisper("I =/> P");
-      results.current().trace = std::make_shared<State>(m.get_initial());
-      return false;
+      return Result::found_trace(m.get_initial());
     }
 
     z3::expr_vector notP_next = m.n_property.nexts();
@@ -113,17 +118,15 @@ namespace pdr
     { // there is a transitions from I to !P
       logger.show("I & T =/> P'");
       z3::expr_vector bad_cube = frames.get_solver(0).witness_current();
-      results.current().trace  = std::make_shared<State>(bad_cube);
-
-      return false;
+      return Result::found_trace(bad_cube);
     }
 
     frames.extend();
 
-    return true;
+    return Result::empty_true();
   }
 
-  bool PDR::iterate()
+  Result PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
     z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
@@ -146,8 +149,9 @@ namespace pdr
         z3::expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
-        if (not block(*cti, k - 1))
-          return false;
+        Result res = block(*cti, k - 1);
+        if (not res)
+          return res;
 
         logger.show("");
       }
@@ -163,13 +167,12 @@ namespace pdr
 
       if (invariant_level >= 0)
       {
-        results.current().invariant_index = invariant_level;
-        return true;
+        return Result::found_invariant(invariant_level);
       }
     }
   }
 
-  bool PDR::block(z3::expr_vector cti, unsigned n)
+  Result PDR::block(z3::expr_vector cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.tabbed("block");
@@ -223,10 +226,8 @@ namespace pdr
           }
         }
         else // intersects with I
-        {
-          results.current().trace = pred;
-          return false;
-        }
+          return Result::found_trace(pred);
+
         elapsed = sub_timer.elapsed().count();
         branch  = "(pred)  ";
       }
@@ -254,10 +255,8 @@ namespace pdr
           }
         }
         else
-        {
-          results.current().trace = state;
-          return false;
-        }
+          return Result::found_trace(state);
+
         elapsed = sub_timer.elapsed().count();
         branch  = "(finish)";
       }
@@ -279,7 +278,7 @@ namespace pdr
     }
 
     logger.indent--;
-    return true;
+    return Result();
   }
 
   void PDR::store_frame_strings()
@@ -307,8 +306,9 @@ namespace pdr
 
   Result PDR::make_result()
   {
-    Result result;
+    using string_vec           = std::vector<std::string>;
     const PebblingModel& model = ctx.const_model();
+    Result result;
   }
 
   void PDR::store_result2()
@@ -359,7 +359,7 @@ namespace pdr
     for (const State& s : result)
     {
       i++;
-      unsigned pebbles = s.no_marked();
+      unsigned pebbles    = s.no_marked();
       result.pebbles_used = std::max(result.pebbles_used, pebbles);
       string_vec row_marking =
           row(std::to_string(i), fmt::format("No. pebbled = {}", pebbles), s);

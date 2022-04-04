@@ -35,17 +35,16 @@ namespace pdr
     std::set<Obligation, std::less<Obligation>> obligations;
 
     Results results;
-    int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
 
     void print_model(const z3::model& m);
     // main loops
-    bool init();
-    bool iterate();
+    Result init();
+    Result iterate();
+    Result block(z3::expr_vector cti, unsigned n);
     bool iterate_short();
-    bool block(z3::expr_vector cti, unsigned n);
     bool block_short(z3::expr_vector& counter, unsigned o_level,
                      unsigned level);
     // generalization
@@ -87,7 +86,7 @@ namespace pdr
     // execute the PDR algorithm
     // returns true if the property is invariant
     // returns false if there is a trace to a violation
-    bool run(Tactic pdr_type = Tactic::basic);
+    Result run(Tactic pdr_type = Tactic::basic);
     void show_solver(std::ostream& out) const;
     void show_results(std::ostream& out) const;
     std::vector<std::string> trace_row(const z3::expr_vector& v);

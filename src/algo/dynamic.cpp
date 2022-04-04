@@ -38,7 +38,7 @@ namespace pdr
     int invariant = frames.propagate(true);
     if (invariant >= 0)
     {
-      results.current().invariant_index = invariant;
+      results.current().invariant_level = invariant;
       return true;
     }
     return false;

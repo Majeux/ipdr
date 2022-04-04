@@ -11,7 +11,7 @@
 #include <vector>
 namespace pdr
 {
-  // converts to bool: true if trace != null
+  // converts to bool: true if trace == null. if the property holds
   // iterating walks through the linked list starting with trace
   struct Result
   {
@@ -19,7 +19,7 @@ namespace pdr
     std::string trace_string;
     unsigned trace_length;
     unsigned pebbles_used;
-    int invariant_index;
+    int invariant_level;
     double total_time;
 
     struct iterator
@@ -62,20 +62,38 @@ namespace pdr
 
     Result()
         : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(0),
-          invariant_index(-1), total_time(0.0)
+          invariant_level(-1), total_time(0.0)
     {
     }
 
-    operator bool() const { return trace.get() != nullptr; }
+    static Result found_trace(std::shared_ptr<State> s) { return Result(s); }
+    static Result found_trace(State&& s) { return Result(std::make_shared<State>(s)); }
+    static Result found_invariant(int l) { return Result(l); }
+    static Result empty_true() { return Result(); }
+
+    operator bool() const { return trace.get() == nullptr; }
 
     std::vector<std::string> listing() const
     {
-      return { std::to_string(pebbles_used), std::to_string(invariant_index),
+      return { std::to_string(pebbles_used), std::to_string(invariant_level),
         std::to_string(trace_length), std::to_string(total_time) };
     }
 
     iterator begin() { return iterator(trace); }
     iterator end() { return iterator(nullptr); }
+
+   private:
+    Result(std::shared_ptr<State> s)
+        : trace(s), trace_string(""), trace_length(0), pebbles_used(0),
+          invariant_level(-1), total_time(0.0)
+    {
+    }
+
+    Result(int l)
+        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(0),
+          invariant_level(l), total_time(0.0)
+    {
+    }
   };
 
   struct Results
