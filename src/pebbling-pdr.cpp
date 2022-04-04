@@ -475,7 +475,7 @@ int main(int argc, char* argv[])
       break;
     case pdr::Tactic::basic:
       algorithm.run();
-      algorithm.show_results(strategy);
+      // algorithm.show_results(strategy);
       algorithm.show_solver(solver_dump);
       break;
     case pdr::Tactic::inc_jump_test:

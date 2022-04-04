@@ -34,7 +34,7 @@ namespace pdr
     Frames frames;
     std::set<Obligation, std::less<Obligation>> obligations;
 
-    Results results;
+	int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -56,14 +56,10 @@ namespace pdr
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
     // results
-    void store_result();
-    void store_result2();
-    Result make_result();
-    void show_trace(const std::shared_ptr<State> trace_root,
-                    std::ostream& out) const;
+    void make_result(Result& result);
     // to replace return value in run()
     // stores final logs, stats and result and returns its argument
-    bool finish(bool);
+    Result finish(Result&& rv);
     void store_frame_strings();
 
     // logging shorthands
@@ -88,7 +84,6 @@ namespace pdr
     // returns false if there is a trace to a violation
     Result run(Tactic pdr_type = Tactic::basic);
     void show_solver(std::ostream& out) const;
-    void show_results(std::ostream& out) const;
     std::vector<std::string> trace_row(const z3::expr_vector& v);
 
     // reduces the max pebbles of the model to 1 lower than the previous
