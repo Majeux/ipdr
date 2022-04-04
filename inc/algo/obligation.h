@@ -4,6 +4,7 @@
 #include "TextTable.h"
 #include "z3-ext.h"
 #include <fmt/format.h>
+#include <numeric>
 #include <string>
 #include <vector>
 #include <z3++.h>
@@ -29,6 +30,29 @@ namespace pdr
     {
     }
 
+    std::vector<std::string> marking(
+        std::vector<std::string> header, unsigned width) const
+    {
+      std::vector<std::string> rv(header.size(), "?");
+      for (const z3::expr& e : cube)
+      {
+        std::string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
+        auto it       = std::lower_bound(header.begin(), header.end(), s);
+        if (it != header.end() && *it == s) // it points to s
+        {
+          std::string fill_X      = fmt::format("{:X^{}}", "", width);
+          rv[it - header.begin()] = e.is_not() ? "" : fill_X;
+        }
+      }
+
+      return rv;
+    }
+    unsigned no_marked() const
+    {
+      return std::accumulate(cube.begin(), cube.end(), 0,
+          [](int x, const z3::expr& e) { return x + (!e.is_not()); });
+    }
+
     unsigned show(TextTable& table) const
     {
       std::vector<std::tuple<unsigned, std::string, unsigned>> steps;
@@ -51,7 +75,7 @@ namespace pdr
       {
         i++;
         steps.emplace_back(i, z3ext::join_expr_vec(current->cube),
-                           count_pebbled(current->cube));
+            count_pebbled(current->cube));
         current = current->prev;
       }
       unsigned i_padding = i / 10 + 1;
@@ -59,8 +83,8 @@ namespace pdr
       std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
       for (const auto& [num, vec, count] : steps)
       {
-        std::vector<std::string> step_row = {std::to_string(num), vec,
-                                             std::to_string(count)};
+        std::vector<std::string> step_row = { std::to_string(num), vec,
+          std::to_string(count) };
         table.addRow(step_row);
       }
 

@@ -18,7 +18,7 @@ namespace pdr
     std::shared_ptr<State> trace;
     std::string trace_string;
     unsigned trace_length;
-    int pebbles_used;
+    unsigned pebbles_used;
     int invariant_index;
     double total_time;
 
@@ -27,8 +27,8 @@ namespace pdr
       using iterator_category = std::forward_iterator_tag;
       using difference_type   = std::ptrdiff_t;
       using value_type        = State;
-      using pointer           = std::shared_ptr<State>; // or also value_type*
-      using reference         = State&; // or also value_type&
+      using pointer           = std::shared_ptr<State>;
+      using reference         = State&;
 
       iterator(pointer ptr) : m_ptr(ptr) {}
       reference operator*() const { return *m_ptr; }
@@ -61,7 +61,7 @@ namespace pdr
     };
 
     Result()
-        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(-1),
+        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(0),
           invariant_index(-1), total_time(0.0)
     {
     }
