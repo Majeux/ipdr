@@ -62,7 +62,7 @@ namespace pdr
     {
       if (time.size() <= i)
         return -1.0;
-      return time[i] / count[i];
+      return count[i] ?  time[i] / count[i] : -1.0;
     }
 
     friend std::ostream& operator<<(std::ostream& out, const Statistic& stat)

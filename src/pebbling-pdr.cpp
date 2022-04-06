@@ -502,5 +502,6 @@ int main(int argc, char* argv[])
   // solver_dump << SEP3 << " iteration " << clargs.max_pebbles << std::endl;
   // algorithm.show_solver(solver_dump);
 
+  std::cout << "done" << std::endl;
   return 0;
 }

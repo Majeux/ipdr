@@ -34,7 +34,7 @@ namespace pdr
     Frames frames;
     std::set<Obligation, std::less<Obligation>> obligations;
 
-	int shortest_strategy;
+    int shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = 3;
@@ -45,13 +45,13 @@ namespace pdr
     Result iterate();
     Result block(z3::expr_vector cti, unsigned n);
     bool iterate_short();
-    bool block_short(z3::expr_vector& counter, unsigned o_level,
-                     unsigned level);
+    bool block_short(
+        z3::expr_vector& counter, unsigned o_level, unsigned level);
     // generalization
     // todo return [n, cti ptr]
-    int hif_(const z3::expr_vector& cube, int min, int max);
-    std::tuple<int, z3::expr_vector>
-        highest_inductive_frame(const z3::expr_vector& cube, int min, int max);
+    int hif_(const z3::expr_vector& cube, int min);
+    std::tuple<int, z3::expr_vector> highest_inductive_frame(
+        const z3::expr_vector& cube, int min);
     z3::expr_vector generalize(const z3::expr_vector& cube, int level);
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
@@ -67,8 +67,8 @@ namespace pdr
     void log_iteration();
     void log_cti(const z3::expr_vector& cti, unsigned level);
     void log_propagation(unsigned level, double time);
-    void log_top_obligation(size_t queue_size, unsigned top_level,
-                            const z3::expr_vector& top);
+    void log_top_obligation(
+        size_t queue_size, unsigned top_level, const z3::expr_vector& top);
     void log_pred(const z3::expr_vector& p);
     void log_state_push(unsigned frame);
     void log_finish(const z3::expr_vector& s);
@@ -95,7 +95,7 @@ namespace pdr
     // start at final pebbles and increment until (at the most) max pebbles
     bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
     bool inc_jump_test(int start, int step, std::ofstream& strategy,
-                       std::ofstream& solver_dump);
+        std::ofstream& solver_dump);
 
     Statistics& stats();
     int length_shortest_strategy() const;

@@ -31,11 +31,13 @@ namespace pdr
       delta_solver = std::make_unique<Solver>(ctx, frame_base, T, constr);
 
     init_frame_I();
+    extend();
+    assert(frontier() == 0);
   }
 
   void Frames::init_frame_I()
   {
-    const PebblingModel& m                = ctx.const_model();
+    const PebblingModel& m        = ctx.const_model();
     const z3::expr_vector& t      = m.get_transition();
     const z3::expr_vector& constr = m.get_cardinality();
 
@@ -48,19 +50,19 @@ namespace pdr
     auto new_frame =
         std::make_unique<Frame>(0, std::move(frame_solver), logger);
     frames.push_back(std::move(new_frame));
-    logger("solver after init {}",
-           delta_solver->as_str("", false));
+    logger("solver after init {}", delta_solver->as_str("", false));
   }
 
   // frame interface
   //
-  void Frames::clear(size_t until_index)
+  // removes frames until the frontier is the given argument
+  void Frames::clear_until(size_t frontier_index)
   {
     if (ctx.delta)
       assert(frames.size() == act.size());
 
     // pop until given index is the highest
-    while (frames.size() > until_index + 1)
+    while (frontier() > frontier_index)
     {
       frames.pop_back();
       if (ctx.delta)
@@ -72,19 +74,19 @@ namespace pdr
   {
     assert(frames.size() > 0);
     if (ctx.delta)
-    { // frame with its own solver
+    { // universal delta_solver is used for this frame
       std::string acti = fmt::format("__act{}__", frames.size());
       act.push_back(ctx().bool_const(acti.c_str()));
       frames.push_back(std::make_unique<Frame>(frames.size(), logger));
     }
     else
     { // frame with its own solver
-      const PebblingModel& m                = ctx.const_model();
+      const PebblingModel& m        = ctx.const_model();
       const z3::expr_vector& t      = m.get_transition();
       const z3::expr_vector& constr = m.get_cardinality();
       auto frame_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
-      auto new_frame    = std::make_unique<Frame>(frames.size(),
-                                               std::move(frame_solver), logger);
+      auto new_frame    = std::make_unique<Frame>(
+          frames.size(), std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
     }
   }
@@ -138,11 +140,11 @@ namespace pdr
     ctx.model().set_max_pebbles(x);
     delta_solver->reconstrain(ctx.const_model().get_cardinality());
     CubeSet old = get_blocked(1); // store all cubes in F_1
-    clear();                      // reset sequence to { F_0 }
+    clear_until();                      // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
     logger("delta solver after reconstrain to {}\n{}", x,
-           delta_solver->as_str("", false));
+        delta_solver->as_str("", false));
     unsigned count = 0;
     for (const z3::expr_vector& cube : old)
     {
@@ -157,10 +159,10 @@ namespace pdr
         remove_state(cube, 1);
       }
     }
-    logger.and_show("pre-INC: {} cubes carried over, out of {}", count,
-                    old.size());
+    logger.and_show(
+        "pre-INC: {} cubes carried over, out of {}", count, old.size());
     logger("delta solver after repop1 to {}\n{}", x,
-           delta_solver->as_str("", false));
+        delta_solver->as_str("", false));
   }
 
   CubeSet Frames::get_blocked(size_t i) const
@@ -187,9 +189,10 @@ namespace pdr
 
   bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
   {
-    level = std::min(level, frames.size() - 1);
+    assert(level < frames.size());
+    // level = std::min(level, frames.size() - 1);
     logger.tabbed("removing cube from level [1..{}]: [{}]", level,
-                  str::extend::join(cube));
+        str::extend::join(cube));
     logger.indent++;
 
     bool result;
@@ -242,7 +245,7 @@ namespace pdr
 
   int Frames::propagate(bool repeat)
   {
-    unsigned k = frontier() - 1;
+    unsigned k = frontier();
     // last iteration was not finished, repeat previous propagation
     if (repeat)
       k--;
@@ -358,9 +361,8 @@ namespace pdr
     return true;
   }
 
-  std::optional<z3::expr_vector>
-      Frames::counter_to_inductiveness(const std::vector<z3::expr>& cube,
-                                       size_t frame) const
+  std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
+      const std::vector<z3::expr>& cube, size_t frame) const
   {
     if (LOG_SAT_CALLS && ctx.delta)
       logger.tabbed("counter to relative inductiveness, frame {}", frame);
@@ -371,9 +373,8 @@ namespace pdr
     return {};
   }
 
-  std::optional<z3::expr_vector>
-      Frames::counter_to_inductiveness(const z3::expr_vector& cube,
-                                       size_t frame) const
+  std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
+      const z3::expr_vector& cube, size_t frame) const
   {
     if (!inductive(cube, frame))
       return get_solver(frame).witness_current();
@@ -382,8 +383,8 @@ namespace pdr
   }
 
   // if primed: cube is already in next state, else first convert it
-  bool Frames::trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                            bool primed) const
+  bool Frames::trans_source(
+      size_t frame, const z3::expr_vector& dest_cube, bool primed) const
   {
     if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
@@ -393,9 +394,8 @@ namespace pdr
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
 
-  std::optional<z3::expr_vector>
-      Frames::get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                               bool primed) const
+  std::optional<z3::expr_vector> Frames::get_trans_source(
+      size_t frame, const z3::expr_vector& dest_cube, bool primed) const
   {
     if (LOG_SAT_CALLS)
       logger.tabbed("transition query, frame {}", frame);
@@ -443,8 +443,8 @@ namespace pdr
     if (LOG_SAT_CALLS)
     {
       logger.indent++;
-      logger.tabbed("assumps: [ {} ]",
-                    z3ext::join_expr_vec(assumptions, false));
+      logger.tabbed(
+          "assumps: [ {} ]", z3ext::join_expr_vec(assumptions, false));
       logger.indent--;
     }
 
@@ -468,10 +468,11 @@ namespace pdr
 
   // getters
   //
+  // the index 'k' to the second to last frame
   unsigned Frames::frontier() const
   {
-    assert(frames.size() > 0);
-    return frames.size() - 1;
+    assert(frames.size() > 1); // 0 is the minimal frontier (series F_0, F_1)
+    return frames.size() - 2;
   }
 
   Solver& Frames::get_solver(size_t frame) const

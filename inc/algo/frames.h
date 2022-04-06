@@ -47,7 +47,7 @@ namespace pdr
     // frame interface
     //
     //
-    void clear(size_t until_index = 0);
+    void clear_until(size_t until_index = 0);
     void extend();
     void reset_constraint(int x);
     void repopulate_solvers();

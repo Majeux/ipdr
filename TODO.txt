@@ -26,6 +26,7 @@ TODO
 	- format pebbling strategy
 	- alternative block
 	- pushing subsumed clauses
+	- track lowest changed frame
 	
 	DELTA
 		- terminates later than original (maybe ok)

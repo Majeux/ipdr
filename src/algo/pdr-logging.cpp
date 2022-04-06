@@ -71,9 +71,9 @@ namespace pdr
   {
     (void)s; // ignore unused warning when logging is off
     logger.tabbed("finishing state");
-    logger.indent++;
-    logger.tabbed("[{}]", str::extend::join(s));
-    logger.indent--;
+    // logger.indent++;
+    // logger.tabbed("[{}]", str::extend::join(s));
+    // logger.indent--;
   }
 
   void PDR::log_obligation_done(std::string_view type, unsigned l, double time)

@@ -132,12 +132,13 @@ namespace pdr
     {
       log_iteration();
       int k = frames.frontier();
+      logger.whisper("Iteration k={}", k);
       while (std::optional<z3::expr_vector> cti =
                  frames.get_trans_source(k, notP_next, true))
       {
         log_cti(*cti, k); // cti is an F_i state that leads to a violation
 
-        auto [n, core] = highest_inductive_frame(*cti, k - 1, k);
+        auto [n, core] = highest_inductive_frame(*cti, k - 1);
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
@@ -152,16 +153,16 @@ namespace pdr
       }
       logger.tabbed("no more counters at F_{}", k);
 
-      frames.extend();
       sub_timer.reset();
 
       int invariant_level = frames.propagate();
       double time         = sub_timer.elapsed().count();
-      log_propagation(frames.frontier() - 1, time);
+      log_propagation(frames.frontier(), time);
       frames.log_solvers();
 
       if (invariant_level >= 0)
         return Result::found_invariant(invariant_level);
+      frames.extend();
     }
   }
 
@@ -205,7 +206,7 @@ namespace pdr
 
         // state is at least inductive relative to F_n-2
         // z3::expr_vector core(ctx());
-        auto [m, core] = highest_inductive_frame(pred->cube, n - 1, k);
+        auto [m, core] = highest_inductive_frame(pred->cube, n - 1);
         // n-1 <= m <= level
         if (m >= 0)
         {
@@ -228,7 +229,7 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
-        auto [m, core] = highest_inductive_frame(state->cube, n + 1, k);
+        auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
 
