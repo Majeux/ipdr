@@ -15,6 +15,7 @@ namespace pdr
   // iterating walks through the linked list starting with trace
   struct Result
   {
+    unsigned constraint;
     std::shared_ptr<State> trace;
     bool cleaned = false; // result contained a trace, but it was deleted
     std::string trace_string;
@@ -23,7 +24,7 @@ namespace pdr
     int invariant_level;
     double total_time;
 
-    struct iterator
+    class iterator
     {
       using iterator_category = std::forward_iterator_tag;
       using difference_type   = std::ptrdiff_t;
@@ -31,6 +32,10 @@ namespace pdr
       using pointer           = std::shared_ptr<State>;
       using reference         = State&;
 
+     private:
+      pointer m_ptr;
+
+     public:
       iterator(pointer ptr) : m_ptr(ptr) {}
       reference operator*() const { return *m_ptr; }
       pointer operator->() { return m_ptr; }
@@ -56,16 +61,13 @@ namespace pdr
       {
         return a.m_ptr != b.m_ptr;
       };
-
-     private:
-      pointer m_ptr;
     };
 
     operator bool() const { return trace.get() == nullptr || cleaned; }
 
     Result()
-        : trace(nullptr), trace_string(""), trace_length(0), marked(0),
-          invariant_level(-1), total_time(0.0)
+        : constraint(0), trace(nullptr), trace_string(""), trace_length(0),
+          marked(0), invariant_level(-1), total_time(0.0)
     {
     }
 

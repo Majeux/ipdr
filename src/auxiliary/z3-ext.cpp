@@ -7,6 +7,11 @@
 
 namespace z3ext
 {
+  using std::string;
+  using std::vector;
+  using z3::expr;
+  using z3::expr_vector;
+
   expr minus(const expr& e) { return e.is_not() ? e.arg(0) : !e; }
 
   expr_vector copy(const expr_vector& v)

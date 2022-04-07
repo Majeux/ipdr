@@ -49,13 +49,13 @@ namespace pdr
     //
     void clear_until(size_t until_index = 0);
     void extend();
-    void reset_constraint(int x);
+    void reset_constraint(unsigned x);
     void repopulate_solvers();
     // assumes:
     // - a run of PDR has finished
     // - base assertions have been changed and are a superset of the previous
     // copy all old cubes that are not reachable from I into a new F_1
-    void increment_reset(int x);
+    void increment_reset(unsigned x);
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);

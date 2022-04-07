@@ -2,6 +2,7 @@
 #define PDR_MODEL
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #include <z3++.h>
@@ -21,22 +22,22 @@ namespace pdr
     ExpressionCache n_property;
 
     PebblingModel(z3::config& settings, const std::string& model_name,
-        const dag::Graph& G, int pebbles);
-    void load_model(
-        const std::string& model_name, const dag::Graph& G, int max_pebbles);
+        const dag::Graph& G, std::optional<unsigned> pebbles);
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_cardinality() const;
     size_t n_nodes() const;
-    int get_max_pebbles() const;
-    // sets the new constraint, returns false if final state cannot be pebbled
-    void set_max_pebbles(int x);
+    // the maximal amount of pebbles allowed
+    unsigned get_constraint() const;
+    // set the maximal amount of pebbles allowed
+    void set_constaint(unsigned x);
+    // return the number of pebbles in the final state
     int get_f_pebbles() const;
     void show(std::ostream& out) const;
 
    private:
-    int max_pebbles;
-    int final_pebbles;
+    unsigned max_pebbles;
+    unsigned final_pebbles;
 
     z3::expr_vector initial;
     z3::expr_vector transition; // vector of clauses (cnf)

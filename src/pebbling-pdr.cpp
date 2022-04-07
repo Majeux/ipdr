@@ -7,6 +7,7 @@
 #include "pdr-context.h"
 #include "pdr-model.h"
 #include "pdr.h"
+#include "experiments.h"
 
 #include <algorithm>
 #include <array>
@@ -57,7 +58,7 @@ struct ArgumentList
   fs::path bench_folder;
   std::string out = "";
 
-  int max_pebbles = -1;
+  std::optional<unsigned> max_pebbles;
 
   // run options
   bool rand;
@@ -93,7 +94,7 @@ std::string file_name(const ArgumentList& args)
 
   if (!(args.tactic == pdr::Tactic::increment ||
           args.tactic == pdr::Tactic::decrement))
-    file_string += fmt::format("-{}", args.max_pebbles);
+    file_string += fmt::format("-{}", args.max_pebbles.value());
   if (args.delta)
     file_string += "-delta";
 
@@ -106,7 +107,7 @@ std::string folder_name(const ArgumentList& args)
 
   if (!(args.tactic == pdr::Tactic::increment ||
           args.tactic == pdr::Tactic::decrement))
-    folder_string += fmt::format("-{}", args.max_pebbles);
+    folder_string += fmt::format("-{}", args.max_pebbles.value());
   if (args.delta)
     folder_string += "-delta";
 
@@ -179,7 +180,7 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<std::vector<unsigned>>(), "(uint:BITS,uint:MOD)")
     ("p,pebbles", "The number of strategy's to find a strategy for."
      "Ignored during optimize runs.", 
-      cxxopts::value<int>(clargs.max_pebbles), "(uint:N)")
+      cxxopts::value<int>(), "(uint:N)")
 
     (inc_jump_str, "Test two runs: one with pebbles 10 higher than the other.",
 	   cxxopts::value<unsigned>(), "(uint:P)")
@@ -234,7 +235,7 @@ void parse_tactic(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
     if (!clresult.count("pebbles"))
       throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
 
-    clargs.max_pebbles = clresult["pebbles"].as<int>();
+    clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
     if (clargs.max_pebbles < 0)
       throw std::invalid_argument("pebbles must be positive.");
   }
@@ -331,40 +332,42 @@ void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 
 void show_header(const ArgumentList& clargs)
 {
+  using std::cout;
+  using std::endl;
   switch (clargs.tactic)
   {
     case pdr::Tactic::basic:
-      std::cout << fmt::format("Finding {}-pebble strategy for {}",
-          clargs.max_pebbles, clargs.model_name);
+      cout << fmt::format("Finding {}-pebble strategy for {}",
+          clargs.max_pebbles.value(), clargs.model_name);
       break;
     case pdr::Tactic::decrement:
-      std::cout << fmt::format(
+      cout << fmt::format(
           "Finding minimal pebble strategy for {} by decrementing",
           clargs.model_name);
       break;
     case pdr::Tactic::increment:
-      std::cout << fmt::format(
+      cout << fmt::format(
           "Finding minimal pebble strategy for {} by incrementing",
           clargs.model_name);
       break;
     case pdr::Tactic::inc_jump_test:
-      std::cout << fmt::format(
+      cout << fmt::format(
           "{} and +10 step jump test for {} by incrementing",
-          clargs.max_pebbles, clargs.model_name);
+          clargs.max_pebbles.value(), clargs.model_name);
       break;
     case pdr::Tactic::inc_one_test:
-      std::cout << fmt::format(
-          "{} and +1 step jump test for {} by incrementing", clargs.max_pebbles,
+      cout << fmt::format(
+          "{} and +1 step jump test for {} by incrementing", clargs.max_pebbles.value(),
           clargs.model_name);
       break;
     default: throw std::invalid_argument("pdr::Tactic is undefined");
   }
-  std::cout << std::endl;
+  cout << endl;
   if (clargs.delta)
-    std::cout << "Using delta-encoded frames.";
+    cout << "Using delta-encoded frames.";
   if (clargs.rand)
-    std::cout << "Randomized seed.";
-  std::cout << std::endl;
+    cout << "Using randomized seed.";
+  cout << endl;
 }
 //
 // end OUTPUT
@@ -479,10 +482,10 @@ int main(int argc, char* argv[])
       algorithm.show_solver(solver_dump);
       break;
     case pdr::Tactic::inc_jump_test:
-      algorithm.inc_jump_test(clargs.max_pebbles, 10, strategy, solver_dump);
+      algorithm.inc_jump_test(clargs.max_pebbles.value(), 10, strategy, solver_dump);
       break;
     case pdr::Tactic::inc_one_test:
-      algorithm.inc_jump_test(clargs.max_pebbles, 1, strategy, solver_dump);
+      algorithm.inc_jump_test(clargs.max_pebbles.value(), 1, strategy, solver_dump);
       break;
     default: throw std::invalid_argument("No pdr tactic has been selected.");
   }

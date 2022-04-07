@@ -24,6 +24,11 @@
 
 namespace pdr
 {
+  using fmt::format;
+  using std::string;
+  using z3::expr;
+  using z3::expr_vector;
+
   PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
 
   void PDR::reset()
@@ -49,17 +54,12 @@ namespace pdr
 
     if (frames.frontier() == 0)
     {
-      logger.and_show("Start initiation");
       logger.indent++;
-
-      if (Result init_res = init())
+      Result init_res = init();
+      logger.indent--;
+      if (!init_res)
       {
-        logger.and_whisper("Survived Initiation");
-        logger.indent--;
-      }
-      else
-      {
-        logger.and_show("Failed initiation");
+        logger.and_whisper("Failed initiation");
         return finish(std::move(init_res));
       }
     }
@@ -68,13 +68,13 @@ namespace pdr
     logger.indent++;
     if (Result it_res = iterate())
     {
-      logger.and_show("Property verified");
+      logger.and_whisper("Property verified");
       logger.indent--;
       return finish(std::move(it_res));
     }
     else
     {
-      logger.and_show("Failed iteration");
+      logger.and_whisper("Failed iteration");
       return finish(std::move(it_res));
     }
   }
@@ -82,12 +82,12 @@ namespace pdr
   Result PDR::finish(Result&& rv)
   {
     double final_time = timer.elapsed().count();
-    logger.and_show(fmt::format("Total elapsed time {}", final_time));
+    logger.and_show(format("Total elapsed time {}", final_time));
     rv.total_time = final_time;
     make_result(rv);
 
     logger.stats.elapsed = final_time;
-    logger.stats.write("Cardinality: {}", ctx.const_model().get_max_pebbles());
+    logger.stats.write("Cardinality: {}", ctx.const_model().get_constraint());
     logger.stats.write();
     logger.stats.clear();
     store_frame_strings();
@@ -101,9 +101,11 @@ namespace pdr
   // returns true if the model survives initiation
   Result PDR::init()
   {
+    logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
+
     const PebblingModel& m = ctx.const_model();
-    z3::expr_vector notP   = m.n_property.currents();
+    expr_vector notP       = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
     {
@@ -111,29 +113,32 @@ namespace pdr
       return Result::found_trace(m.get_initial());
     }
 
-    z3::expr_vector notP_next = m.n_property.nexts();
+    expr_vector notP_next = m.n_property.nexts();
     if (frames.SAT(0, notP_next))
     { // there is a transitions from I to !P
       logger.show("I & T =/> P'");
-      z3::expr_vector bad_cube = frames.get_solver(0).witness_current();
+      expr_vector bad_cube = frames.get_solver(0).witness_current();
       return Result::found_trace(bad_cube);
     }
 
     frames.extend();
 
+    logger.and_whisper("Survived Initiation");
     return Result::empty_true();
   }
 
   Result PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
-    z3::expr_vector notP_next = ctx.const_model().n_property.nexts();
+    expr_vector notP_next = ctx.const_model().n_property.nexts();
+    unsigned k            = 1;
     while (true) // iterate over k, if dynamic this continues from last k
     {
       log_iteration();
-      int k = frames.frontier();
+      // int k = frames.frontier();
+      assert(k == frames.frontier());
       logger.whisper("Iteration k={}", k);
-      while (std::optional<z3::expr_vector> cti =
+      while (std::optional<expr_vector> cti =
                  frames.get_trans_source(k, notP_next, true))
       {
         log_cti(*cti, k); // cti is an F_i state that leads to a violation
@@ -142,12 +147,15 @@ namespace pdr
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
-        z3::expr_vector sub_cube = generalize(core, n);
+        expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
         Result res = block(*cti, k - 1);
         if (not res)
+        {
+          logger.and_show("Terminated with trace");
           return res;
+        }
 
         logger.show("");
       }
@@ -163,10 +171,11 @@ namespace pdr
       if (invariant_level >= 0)
         return Result::found_invariant(invariant_level);
       frames.extend();
+      k++;
     }
   }
 
-  Result PDR::block(z3::expr_vector cti, unsigned n)
+  Result PDR::block(expr_vector cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.tabbed("block");
@@ -190,14 +199,14 @@ namespace pdr
     {
       sub_timer.reset();
       double elapsed;
-      std::string branch;
+      string branch;
 
       auto [n, state, depth] = *(obligations.begin());
       assert(n <= k);
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> !state
-      if (std::optional<z3::expr_vector> pred_cube =
+      if (std::optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
         std::shared_ptr<State> pred =
@@ -210,7 +219,7 @@ namespace pdr
         // n-1 <= m <= level
         if (m >= 0)
         {
-          z3::expr_vector smaller_pred = generalize(core, m);
+          expr_vector smaller_pred = generalize(core, m);
           frames.remove_state(smaller_pred, m + 1);
 
           if (static_cast<unsigned>(m + 1) <= k)
@@ -236,7 +245,7 @@ namespace pdr
         if (m >= 0)
         {
           // !s is inductive to F_m
-          z3::expr_vector smaller_state = generalize(core, m);
+          expr_vector smaller_state = generalize(core, m);
           // expr_vector smaller_state = generalize(state->cube, m);
           frames.remove_state(smaller_state, m + 1);
           obligations.erase(obligations.begin());
@@ -277,15 +286,16 @@ namespace pdr
 
   void PDR::store_frame_strings()
   {
+    using std::endl;
     std::stringstream ss;
 
-    ss << SEP3 << std::endl
-       << "# Cardinality: " << ctx.const_model().get_max_pebbles() << std::endl
-       << "Frames" << std::endl
-       << frames.blocked_str() << std::endl
-       << SEP2 << std::endl
-       << "Solvers" << std::endl
-       << frames.solvers_str() << std::endl;
+    ss << SEP3 << endl
+       << "# Cardinality: " << ctx.const_model().get_constraint() << endl
+       << "Frames" << endl
+       << frames.blocked_str() << endl
+       << SEP2 << endl
+       << "Solvers" << endl
+       << frames.solvers_str() << endl;
 
     logger.stats.solver_dumps.push_back(ss.str());
   }
@@ -305,15 +315,15 @@ namespace pdr
     if (result)
     {
       result.trace_string =
-          fmt::format("No strategy for {}\n", model.get_max_pebbles());
+          format("No strategy for {}\n", model.get_constraint());
       return;
     }
 
     string_vec lits;
     {
-      z3::expr_vector z3_lits = ctx.const_model().lits.currents();
+      expr_vector z3_lits = ctx.const_model().lits.currents();
       std::transform(z3_lits.begin(), z3_lits.end(), std::back_inserter(lits),
-          [](z3::expr l) { return l.to_string(); });
+          [](expr l) { return l.to_string(); });
       std::sort(lits.begin(), lits.end());
     }
 
@@ -329,7 +339,7 @@ namespace pdr
       t.addRow(header);
     }
 
-    auto row = [&lits, largest](std::string a, std::string b, const State& s)
+    auto row = [&lits, largest](string a, string b, const State& s)
     {
       string_vec rv = s.marking(lits, largest);
       rv.insert(rv.begin(), b);
@@ -339,7 +349,7 @@ namespace pdr
 
     // Write initial state
     {
-      z3::expr_vector initial_state = model.get_initial();
+      expr_vector initial_state = model.get_initial();
       string_vec initial_row =
           row("I", "No. pebbled = 0", State(initial_state));
       t.addRow(initial_row);
@@ -354,7 +364,7 @@ namespace pdr
         unsigned pebbles = s.no_marked();
         result.marked    = std::max(result.marked, pebbles);
         string_vec row_marking =
-            row(std::to_string(i), fmt::format("No. pebbled = {}", pebbles), s);
+            row(std::to_string(i), format("No. pebbled = {}", pebbles), s);
         t.addRow(row_marking);
       }
       result.trace_length = i + 1;
@@ -362,9 +372,9 @@ namespace pdr
 
     // Write final state
     {
-      z3::expr_vector final_state = model.n_property.currents();
+      expr_vector final_state = model.n_property.currents();
       string_vec final_row =
-          row("F", fmt::format("No. pebbled = {}", model.get_f_pebbles()),
+          row("F", format("No. pebbled = {}", model.get_f_pebbles()),
               State(final_state));
       t.addRow(final_row);
     }
@@ -377,7 +387,7 @@ namespace pdr
     ss << t;
     result.trace_string = ss.str();
 
-	result.clean_trace(); // information is stored in string, deallocate trace
+    result.clean_trace(); // information is stored in string, deallocate trace
   }
 
   int PDR::length_shortest_strategy() const { return shortest_strategy; }

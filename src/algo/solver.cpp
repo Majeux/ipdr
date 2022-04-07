@@ -87,6 +87,7 @@ namespace pdr
 
   z3::model Solver::get_model() const { return internal_solver.get_model(); }
 
+  // TODO optional return
   z3::expr_vector Solver::unsat_core()
   {
     assert(core_available);

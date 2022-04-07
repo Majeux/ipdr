@@ -6,8 +6,8 @@ namespace pdr
 {
   void PDR::log_start() const
   {
-    logger("");
-    logger.and_whisper("PDR start:");
+    logger.and_whisper("");
+    logger.and_whisper("PDR start (cardinality {}):", ctx.const_model().get_constraint());
     logger("");
   }
 

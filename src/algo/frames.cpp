@@ -95,9 +95,9 @@ namespace pdr
   // existing and future frames have a reference to this
   // then clean all solvers from old assertions and reblock all its cubes
   // TODO only really re-adjusts constraint for incremental/decremental
-  void Frames::reset_constraint(int x)
+  void Frames::reset_constraint(unsigned x)
   {
-    ctx.model().set_max_pebbles(x);
+    ctx.model().set_constaint(x);
     z3::expr_vector constraint = ctx.const_model().get_cardinality();
     if (ctx.delta)
     {
@@ -130,17 +130,17 @@ namespace pdr
     }
   }
 
-  void Frames::increment_reset(int x)
+  void Frames::increment_reset(unsigned x)
   {
     assert(frames.size() > 0);
-    int oldx = ctx.const_model().get_max_pebbles();
+    unsigned oldx = ctx.const_model().get_constraint();
     assert(x > oldx);
     logger.and_show("increment from {} -> {} pebbles", oldx, x);
 
-    ctx.model().set_max_pebbles(x);
+    ctx.model().set_constaint(x);
     delta_solver->reconstrain(ctx.const_model().get_cardinality());
     CubeSet old = get_blocked(1); // store all cubes in F_1
-    clear_until();                      // reset sequence to { F_0 }
+    clear_until();                // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
     logger("delta solver after reconstrain to {}\n{}", x,
