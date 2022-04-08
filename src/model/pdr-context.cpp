@@ -8,6 +8,6 @@ namespace pdr
   }
 
   z3::context& Context::operator()() const { return _model.ctx; }
-  PebblingModel& Context:: model() const { return _model; }
-  const PebblingModel& Context::c_model() const { return _model; }
+  PebblingModel& Context::model() { return _model; }
+  const PebblingModel& Context::model() const { return _model; }
 } // namespace pdr

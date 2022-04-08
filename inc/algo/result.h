@@ -16,13 +16,17 @@ namespace pdr
   struct Result
   {
     unsigned constraint;
-    std::shared_ptr<State> trace;
+    double total_time;
     bool cleaned = false; // result contained a trace, but it was deleted
+
+    // Trace struct
+    std::shared_ptr<State> trace;
     std::string trace_string;
     unsigned trace_length;
     unsigned marked;
+    
+    // Inariant struct
     int invariant_level;
-    double total_time;
 
     class iterator
     {
@@ -113,8 +117,10 @@ namespace pdr
   {
     TextTable table;
     std::vector<std::string> traces;
-    Results(std::vector<std::string> header)
+    Results()
     {
+      std::vector<std::string> header = { "pebbles", "invariant index",
+        "strategy length", "Total time" };
       for (unsigned i = 0; i < header.size(); i++)
         table.setAlignment(i, TextTable::Alignment::RIGHT);
 

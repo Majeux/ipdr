@@ -32,6 +32,9 @@ namespace pdr
 
   PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
 
+  const Context& PDR::get_ctx() const { return ctx; }
+  Context& PDR::get_ctx() { return ctx; }
+
   void PDR::reset() { shortest_strategy = UINT_MAX; }
 
   void PDR::reconstrain(unsigned x) { frames.reset_constraint(x); }

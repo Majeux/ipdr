@@ -29,7 +29,7 @@ namespace pdr
     // return cardinality 'x' clauses for current and next literals
     z3::expr_vector constraint(std::optional<unsigned> x);
     // return the number of pebbles in the final state
-    int get_f_pebbles() const;
+    unsigned get_f_pebbles() const;
     void show(std::ostream& out) const;
 
    private:

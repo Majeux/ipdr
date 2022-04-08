@@ -25,7 +25,7 @@ namespace pdr
   Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    PebblingModel& m = ctx.model();
+    PebblingModel& m = ctx.modell();
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
@@ -41,7 +41,7 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    PebblingModel& m       = ctx.model();
+    PebblingModel& m       = ctx.modell();
     const expr_vector& I   = m.get_initial();
     const expr_vector& T   = m.get_transition();
     expr_vector constraint = m.constraint(max_pebbles);
@@ -84,7 +84,7 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      PebblingModel& m         = ctx.model();
+      PebblingModel& m         = ctx.modell();
       const z3::expr_vector& t = m.get_transition();
       expr_vector constr       = m.constraint(max_pebbles);
 
@@ -101,7 +101,7 @@ namespace pdr
   void Frames::reset_constraint(std::optional<unsigned> x)
   {
     max_pebbles                = x;
-    z3::expr_vector constraint = ctx.model().constraint(max_pebbles);
+    z3::expr_vector constraint = ctx.modell().constraint(max_pebbles);
     if (ctx.delta)
     {
       delta_solver->reconstrain(constraint);
@@ -141,7 +141,7 @@ namespace pdr
     logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
 
     max_pebbles = x;
-    delta_solver->reconstrain(ctx.model().constraint(x));
+    delta_solver->reconstrain(ctx.modell().constraint(x));
     CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);               // reset sequence to { F_0 }
     extend();                     // reinstate level 1

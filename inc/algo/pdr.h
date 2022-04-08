@@ -80,6 +80,8 @@ namespace pdr
     PDR(Context& c, Logger& l);
     // prepare PDR for new run. discards old trace
     void reset();
+    const Context& get_ctx() const;
+    Context& get_ctx();
 
     // execute the PDR algorithm using the model and property in the context
     // returns true if the property is invariant

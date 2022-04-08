@@ -14,7 +14,7 @@ namespace pdr
   bool PDR::decrement(bool reuse)
   {
 #warning "not yet fixed with new results"
-    const PebblingModel& m = ctx.c_model();
+    const PebblingModel& m = ctx.model();
     unsigned k             = frames.frontier();
 
     int max_pebbles = frames.max_pebbles.value();
@@ -49,7 +49,7 @@ namespace pdr
   {
 #warning "dec_tactic not yet fixed for new resets/results"
     logger.and_show("NEW DEC RUN");
-    const PebblingModel& m = ctx.c_model();
+    const PebblingModel& m = ctx.model();
     int N                  = m.n_nodes(); // cannot pebble more than this
     ctx.model().constraint(N);
     bool found_strategy = !run(Tactic::basic);
@@ -78,27 +78,23 @@ namespace pdr
   bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
 #warning inc_tactic not yet fixed for new resets/results
-    const PebblingModel& m = ctx.c_model();
-    Results results(
-        { "pebbles", "invariant index", "strategy length", "Total time" });
+    const PebblingModel& m = ctx.model();
+    Results results;
 
     unsigned N = m.get_f_pebbles(); // need at least this many pebbles
     
-    logger.and_show("NEW INC RUN");
-    frames.reset_constraint(N);
-    pdr::Result invariant = run(Tactic::basic);
+    logger.and_whisper("NEW INC RUN");
+    pdr::Result invariant = run(Tactic::basic, N);
     results << invariant;
     while (invariant)
     {
       N++;
       if (N > m.n_nodes())
       {
-        std::cout << "No strategy exists." << std::endl;
+        logger.and_whisper("No strategy exists.");
         return false;
       }
-      reset();
-      frames.increment_reset(N);
-      invariant = run(Tactic::increment);
+      invariant = increment_run(N);
       results << invariant;
     }
     // N is minimal
@@ -112,11 +108,10 @@ namespace pdr
       std::ofstream& solver_dump)
   {
     std::vector<pdr::Statistics> statistics;
-    Results results(
-        { "pebbles", "invariant index", "strategy length", "Total time" });
+    Results results;
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
-    const PebblingModel& m = ctx.c_model();
+    const PebblingModel& m = ctx.model();
     pdr::Result invariant = run(Tactic::basic, start);
     results << invariant;
 

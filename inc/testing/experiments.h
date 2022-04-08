@@ -10,12 +10,11 @@ namespace pdr::experiments
 {
   // clang-format off
   struct Invariant { int index; };
-  struct Trace { unsigned length; };
+  struct Trace { unsigned length; unsigned pebbles; };
   // clang-format on
   struct Result
   {
     unsigned cardinality;
-    unsigned pebbles;
     std::variant<Invariant, Trace> result;
     double time;
   };
