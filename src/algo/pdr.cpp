@@ -25,17 +25,16 @@
 namespace pdr
 {
   using fmt::format;
+  using std::optional;
   using std::string;
   using z3::expr;
   using z3::expr_vector;
 
   PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
 
-  void PDR::reset()
-  {
-    logger.indent     = 0;
-    shortest_strategy = UINT_MAX;
-  }
+  void PDR::reset() { shortest_strategy = UINT_MAX; }
+
+  void PDR::reconstrain(unsigned x) { frames.reset_constraint(x); }
 
   void PDR::print_model(const z3::model& m)
   {
@@ -45,9 +44,8 @@ namespace pdr
     logger.show("}");
   }
 
-  Result PDR::run(Tactic pdr_type)
+  Result PDR::_run()
   {
-    ctx.type = pdr_type;
     timer.reset();
     // TODO run type preparation logic here
     log_start();
@@ -79,6 +77,20 @@ namespace pdr
     }
   }
 
+  Result PDR::run(Tactic pdr_type, optional<unsigned> max_p)
+  {
+    ctx.type = pdr_type;
+    frames.reset_constraint(max_p);
+    return _run();
+  }
+
+  Result PDR::increment_run(unsigned max_p)
+  {
+    ctx.type = Tactic::increment;
+    frames.increment_reset(max_p);
+    return _run();
+  }
+
   Result PDR::finish(Result&& rv)
   {
     double final_time = timer.elapsed().count();
@@ -87,7 +99,7 @@ namespace pdr
     make_result(rv);
 
     logger.stats.elapsed = final_time;
-    logger.stats.write("Cardinality: {}", ctx.const_model().get_constraint());
+    logger.stats.write(constraint_str());
     logger.stats.write();
     logger.stats.clear();
     store_frame_strings();
@@ -104,7 +116,7 @@ namespace pdr
     logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
 
-    const PebblingModel& m = ctx.const_model();
+    const PebblingModel& m = ctx.c_model();
     expr_vector notP       = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
@@ -130,7 +142,7 @@ namespace pdr
   Result PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
-    expr_vector notP_next = ctx.const_model().n_property.nexts();
+    expr_vector notP_next = ctx.c_model().n_property.nexts();
     unsigned k            = 1;
     while (true) // iterate over k, if dynamic this continues from last k
     {
@@ -284,13 +296,21 @@ namespace pdr
     return Result();
   }
 
+  string PDR::constraint_str() const
+  {
+    if (frames.max_pebbles)
+      return format("cardinality {}", *frames.max_pebbles);
+    else
+      return "no constraint";
+  }
+
   void PDR::store_frame_strings()
   {
     using std::endl;
     std::stringstream ss;
 
     ss << SEP3 << endl
-       << "# Cardinality: " << ctx.const_model().get_constraint() << endl
+       << "# " << constraint_str() << endl
        << "Frames" << endl
        << frames.blocked_str() << endl
        << SEP2 << endl
@@ -310,18 +330,21 @@ namespace pdr
   {
     using string_vec = std::vector<std::string>;
     using std::string_view;
-    const PebblingModel& model = ctx.const_model();
+    const PebblingModel& model = ctx.c_model();
 
     if (result)
     {
-      result.trace_string =
-          format("No strategy for {}\n", model.get_constraint());
+      if (frames.max_pebbles)
+        result.trace_string =
+            format("No strategy for {}\n", *frames.max_pebbles);
+      else
+        result.trace_string = "No strategy\n";
       return;
     }
 
     string_vec lits;
     {
-      expr_vector z3_lits = ctx.const_model().lits.currents();
+      expr_vector z3_lits = ctx.c_model().lits.currents();
       std::transform(z3_lits.begin(), z3_lits.end(), std::back_inserter(lits),
           [](expr l) { return l.to_string(); });
       std::sort(lits.begin(), lits.end());

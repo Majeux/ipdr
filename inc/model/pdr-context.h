@@ -18,13 +18,13 @@ namespace pdr
   {
    public:
     const bool delta;
-    const uint32_t seed;
-    Tactic type; // algorithm may switch between runs types
+    uint32_t seed;
+    Tactic type;
 
     Context(PebblingModel& m, bool d, bool random_seed);
     z3::context& operator()() const;    
     PebblingModel& model() const;
-    const PebblingModel& const_model() const;
+    const PebblingModel& c_model() const;
 
    private:
     PebblingModel& _model;

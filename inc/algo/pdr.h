@@ -40,7 +40,8 @@ namespace pdr
     const unsigned mic_retries = 3;
 
     void print_model(const z3::model& m);
-    // main loops
+    // main algorithm
+    Result _run();
     Result init();
     Result iterate();
     Result block(z3::expr_vector cti, unsigned n);
@@ -61,6 +62,7 @@ namespace pdr
     // stores final logs, stats and result and returns its argument
     Result finish(Result&& rv);
     void store_frame_strings();
+    std::string constraint_str() const;
 
     // logging shorthands
     void log_start() const;
@@ -79,13 +81,18 @@ namespace pdr
     // prepare PDR for new run. discards old trace
     void reset();
 
-    // execute the PDR algorithm
+    // execute the PDR algorithm using the model and property in the context
     // returns true if the property is invariant
     // returns false if there is a trace to a violation
-    Result run(Tactic pdr_type = Tactic::basic);
-    void show_solver(std::ostream& out) const;
-    std::vector<std::string> trace_row(const z3::expr_vector& v);
+    // max_pebbles: {} gives Frames no constraint
+    // any value constrains maximum pebbled literals to the number
+    Result run(Tactic pdr_type              = Tactic::basic,
+        std::optional<unsigned> max_pebbles = {});
+    // a run loosening the constraint, assuming a previous run was completed
+    Result increment_run(unsigned max_pebbles);
 
+    // constrain the given model to allow only 'x' literals marked
+    void reconstrain(unsigned x);
     // reduces the max pebbles of the model to 1 lower than the previous
     // strategy length. returns true if the is already proven invariant by this.
     // returns false if this remains to be verified.
@@ -98,6 +105,8 @@ namespace pdr
         std::ofstream& solver_dump);
 
     Statistics& stats();
+    void show_solver(std::ostream& out) const;
+    std::vector<std::string> trace_row(const z3::expr_vector& v);
     int length_shortest_strategy() const;
   };
 } // namespace pdr

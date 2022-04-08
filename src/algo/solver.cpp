@@ -49,7 +49,6 @@ namespace pdr
     internal_solver.add(constraint);
     internal_solver.push();          // remake stateless backtracking point
     clauses_start = internal_solver.assertions().size();
-    
   }
 
   void Solver::reconstrain(z3::expr_vector constraint, const CubeSet& cubes)
@@ -108,7 +107,7 @@ namespace pdr
       z3::expr boolean_value = m.get_const_interp(f);
       z3::expr literal       = f();
 
-      if (ctx.const_model().lits.atom_is_current(literal))
+      if (ctx.c_model().lits.atom_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);

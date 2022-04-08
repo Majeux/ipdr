@@ -11,10 +11,10 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  PebblingModel::PebblingModel(z3::config& settings, const string& model_name,
-      const dag::Graph& G, std::optional<unsigned> pebbles)
+  PebblingModel::PebblingModel(
+      z3::config& settings, const string& model_name, const dag::Graph& G)
       : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
-        transition(ctx), cardinality(ctx)
+        transition(ctx)
   {
     name = model_name;
 
@@ -30,8 +30,6 @@ namespace pdr
     load_pebble_transition_tseytin(G);
     final_pebbles = G.output.size();
     load_property(G);
-    if (pebbles)
-      set_constaint(*pebbles);
 
     // z3::solver s(ctx);
     // z3::param_descrs p = s.get_param_descrs();
@@ -53,11 +51,6 @@ namespace pdr
   }
 
   const expr_vector& PebblingModel::get_initial() const { return initial; }
-
-  const expr_vector& PebblingModel::get_cardinality() const
-  {
-    return cardinality;
-  }
 
   size_t PebblingModel::n_nodes() const { return initial.size(); }
 
@@ -178,15 +171,16 @@ namespace pdr
     property.finish();
   }
 
-  unsigned PebblingModel::get_constraint() const { return max_pebbles; }
-
-  void PebblingModel::set_constaint(unsigned x)
+  expr_vector PebblingModel::constraint(std::optional<unsigned> x)
   {
-    max_pebbles = x;
+    expr_vector v(ctx);
+    if (!x)
+      return v;
 
-    cardinality = expr_vector(ctx);
-    cardinality.push_back(z3::atmost(lits.currents(), max_pebbles));
-    cardinality.push_back(z3::atmost(lits.nexts(), max_pebbles));
+    v.push_back(z3::atmost(lits.currents(), *x));
+    v.push_back(z3::atmost(lits.nexts(), *x));
+
+    return v;
   }
 
   int PebblingModel::get_f_pebbles() const { return final_pebbles; }

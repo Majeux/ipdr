@@ -1,4 +1,5 @@
 ﻿#include "dag.h"
+#include "experiments.h"
 #include "h-operator.h"
 #include "logger.h"
 #include "mockturtle/networks/klut.hpp"
@@ -7,7 +8,6 @@
 #include "pdr-context.h"
 #include "pdr-model.h"
 #include "pdr.h"
-#include "experiments.h"
 
 #include <algorithm>
 #include <array>
@@ -56,7 +56,7 @@ struct ArgumentList
   std::string model_name;
   hop_arg hop;
   fs::path bench_folder;
-  std::string out = "";
+  std::optional<std::string> out;
 
   std::optional<unsigned> max_pebbles;
 
@@ -301,7 +301,7 @@ ArgumentList parse_cl(int argc, char* argv[])
     if (clresult.count("out-file"))
       clargs.out = clresult["out-file"].as<std::string>();
     else
-      clargs.out = "";
+      clargs.out = {};
   }
   catch (const std::exception& e)
   {
@@ -351,14 +351,12 @@ void show_header(const ArgumentList& clargs)
           clargs.model_name);
       break;
     case pdr::Tactic::inc_jump_test:
-      cout << fmt::format(
-          "{} and +10 step jump test for {} by incrementing",
+      cout << fmt::format("{} and +10 step jump test for {} by incrementing",
           clargs.max_pebbles.value(), clargs.model_name);
       break;
     case pdr::Tactic::inc_one_test:
-      cout << fmt::format(
-          "{} and +1 step jump test for {} by incrementing", clargs.max_pebbles.value(),
-          clargs.model_name);
+      cout << fmt::format("{} and +1 step jump test for {} by incrementing",
+          clargs.max_pebbles.value(), clargs.model_name);
       break;
     default: throw std::invalid_argument("pdr::Tactic is undefined");
   }
@@ -427,20 +425,20 @@ int main(int argc, char* argv[])
   ArgumentList clargs = parse_cl(argc, argv);
 
   // create files for I/O
-  const fs::path model_dir  = setup_model_path(clargs);
-  std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
-  std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
+  static fs::path model_dir        = setup_model_path(clargs);
+  static std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
+  static std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
+  static fs::path run_dir          = setup_run_path(clargs);
 
   dag::Graph G = build_dag(clargs);
   G.show_image(model_dir / "dag");
   std::cout << G.summary() << std::endl;
   graph_descr << G.summary() << std::endl << G;
 
-  z3::config ctx_settings;
+  static z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
-  pdr::PebblingModel model(
-      ctx_settings, clargs.model_name, G, clargs.max_pebbles);
+  pdr::PebblingModel model(ctx_settings, clargs.model_name, G);
   model.show(model_descr);
 
   if (clargs.onlyshow)
@@ -448,20 +446,19 @@ int main(int argc, char* argv[])
 
   pdr::Context context(model, clargs.delta, clargs.rand);
 
-  const std::string filename      = file_name(clargs);
-  const fs::path run_dir    = setup_run_path(clargs);
-  std::ofstream stats       = trunc_file(run_dir, filename, "stats");
-  std::ofstream strategy    = trunc_file(run_dir, filename, "strategy");
-  std::ofstream solver_dump = trunc_file(run_dir, "solver_dump", "strategy");
+  const std::string filename = file_name(clargs);
+  std::ofstream stats        = trunc_file(run_dir, filename, "stats");
+  std::ofstream strategy     = trunc_file(run_dir, filename, "strategy");
+  std::ofstream solver_dump  = trunc_file(run_dir, "solver_dump", "strategy");
 
   // initialize logger and other bookkeeping
   fs::path log_file      = run_dir / fmt::format("{}.{}", filename, "log");
   fs::path progress_file = run_dir / fmt::format("{}.{}", filename, "out");
 
-  pdr::Logger pdr_logger = clargs.out == ""
-                             ? pdr::Logger(log_file.string(), G,
+  pdr::Logger pdr_logger = clargs.out
+                             ? pdr::Logger(log_file.string(), G, *clargs.out,
                                    clargs.verbosity, std::move(stats))
-                             : pdr::Logger(log_file.string(), G, clargs.out,
+                             : pdr::Logger(log_file.string(), G,
                                    clargs.verbosity, std::move(stats));
 
   pdr::PDR algorithm(context, pdr_logger);
@@ -482,29 +479,15 @@ int main(int argc, char* argv[])
       algorithm.show_solver(solver_dump);
       break;
     case pdr::Tactic::inc_jump_test:
-      algorithm.inc_jump_test(clargs.max_pebbles.value(), 10, strategy, solver_dump);
+      algorithm.inc_jump_test(
+          clargs.max_pebbles.value(), 10, strategy, solver_dump);
       break;
     case pdr::Tactic::inc_one_test:
-      algorithm.inc_jump_test(clargs.max_pebbles.value(), 1, strategy, solver_dump);
+      algorithm.inc_jump_test(
+          clargs.max_pebbles.value(), 1, strategy, solver_dump);
       break;
     default: throw std::invalid_argument("No pdr tactic has been selected.");
   }
-  // while (true)
-  // {
-  //   bool found_strategy = !algorithm.run(clargs.opt);
-  //   stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
-  //   stats << pdr_logger.stats << std::endl;
-
-  //   if (!found_strategy || clargs.one)
-  //     break;
-
-  //   if (algorithm.decrement(true))
-  //     break;
-  // }
-  // algorithm.show_results(strategy);
-  // solver_dump << SEP3 << " iteration " << clargs.max_pebbles << std::endl;
-  // algorithm.show_solver(solver_dump);
-
   std::cout << "done" << std::endl;
   return 0;
 }

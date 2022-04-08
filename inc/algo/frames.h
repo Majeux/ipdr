@@ -42,14 +42,15 @@ namespace pdr
    public:
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
+    std::optional<unsigned> max_pebbles;
 
     Frames(Context& c, Logger& l);
     // frame interface
     //
-    //
+    // pops frames until the given index is the frontier
     void clear_until(size_t until_index = 0);
     void extend();
-    void reset_constraint(unsigned x);
+    void reset_constraint(std::optional<unsigned> x);
     void repopulate_solvers();
     // assumes:
     // - a run of PDR has finished

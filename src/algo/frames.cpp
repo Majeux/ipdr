@@ -18,17 +18,21 @@
 
 namespace pdr
 {
+  using std::make_unique;
+  using z3::expr;
+  using z3::expr_vector;
+
   Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    const PebblingModel& m = ctx.const_model();
+    PebblingModel& m = ctx.model();
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
-    const z3::expr_vector& T      = m.get_transition();
-    const z3::expr_vector& constr = m.get_cardinality();
+    const expr_vector& T   = m.get_transition();
+    expr_vector constraint = m.constraint(max_pebbles);
     if (ctx.delta)
-      delta_solver = std::make_unique<Solver>(ctx, frame_base, T, constr);
+      delta_solver = make_unique<Solver>(ctx, frame_base, T, constraint);
 
     init_frame_I();
     extend();
@@ -37,18 +41,17 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    const PebblingModel& m        = ctx.const_model();
-    const z3::expr_vector& t      = m.get_transition();
-    const z3::expr_vector& constr = m.get_cardinality();
+    PebblingModel& m       = ctx.model();
+    const expr_vector& I   = m.get_initial();
+    const expr_vector& T   = m.get_transition();
+    expr_vector constraint = m.constraint(max_pebbles);
 
     if (ctx.delta)
       act.push_back(ctx().bool_const("__actI__")); // unused
 
     // make F_0 = I transition solver
-    auto frame_solver =
-        std::make_unique<Solver>(ctx, m.get_initial(), t, constr);
-    auto new_frame =
-        std::make_unique<Frame>(0, std::move(frame_solver), logger);
+    auto frame_solver = make_unique<Solver>(ctx, I, T, constraint);
+    auto new_frame    = make_unique<Frame>(0, std::move(frame_solver), logger);
     frames.push_back(std::move(new_frame));
     logger("solver after init {}", delta_solver->as_str("", false));
   }
@@ -77,16 +80,17 @@ namespace pdr
     { // universal delta_solver is used for this frame
       std::string acti = fmt::format("__act{}__", frames.size());
       act.push_back(ctx().bool_const(acti.c_str()));
-      frames.push_back(std::make_unique<Frame>(frames.size(), logger));
+      frames.push_back(make_unique<Frame>(frames.size(), logger));
     }
     else
     { // frame with its own solver
-      const PebblingModel& m        = ctx.const_model();
-      const z3::expr_vector& t      = m.get_transition();
-      const z3::expr_vector& constr = m.get_cardinality();
-      auto frame_solver = std::make_unique<Solver>(ctx, frame_base, t, constr);
-      auto new_frame    = std::make_unique<Frame>(
-          frames.size(), std::move(frame_solver), logger);
+      PebblingModel& m         = ctx.model();
+      const z3::expr_vector& t = m.get_transition();
+      expr_vector constr       = m.constraint(max_pebbles);
+
+      auto frame_solver = make_unique<Solver>(ctx, frame_base, t, constr);
+      auto new_frame =
+          make_unique<Frame>(frames.size(), std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
     }
   }
@@ -94,11 +98,10 @@ namespace pdr
   // redefine constraint in the model
   // existing and future frames have a reference to this
   // then clean all solvers from old assertions and reblock all its cubes
-  // TODO only really re-adjusts constraint for incremental/decremental
-  void Frames::reset_constraint(unsigned x)
+  void Frames::reset_constraint(std::optional<unsigned> x)
   {
-    ctx.model().set_constaint(x);
-    z3::expr_vector constraint = ctx.const_model().get_cardinality();
+    max_pebbles                = x;
+    z3::expr_vector constraint = ctx.model().constraint(max_pebbles);
     if (ctx.delta)
     {
       delta_solver->reconstrain(constraint);
@@ -132,15 +135,15 @@ namespace pdr
 
   void Frames::increment_reset(unsigned x)
   {
+#warning increment_reset is delta only
     assert(frames.size() > 0);
-    unsigned oldx = ctx.const_model().get_constraint();
-    assert(x > oldx);
-    logger.and_show("increment from {} -> {} pebbles", oldx, x);
+    assert(x > max_pebbles);
+    logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
 
-    ctx.model().set_constaint(x);
-    delta_solver->reconstrain(ctx.const_model().get_cardinality());
+    max_pebbles = x;
+    delta_solver->reconstrain(ctx.model().constraint(x));
     CubeSet old = get_blocked(1); // store all cubes in F_1
-    clear_until();                // reset sequence to { F_0 }
+    clear_until(0);               // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
     logger("delta solver after reconstrain to {}\n{}", x,
@@ -350,7 +353,7 @@ namespace pdr
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
     z3::expr_vector assumptions =
-        ctx.const_model().lits.p(cube); // cube in next state
+        ctx.c_model().lits.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -389,7 +392,7 @@ namespace pdr
     if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
-      return SAT(frame, ctx.const_model().lits.p(dest_cube));
+      return SAT(frame, ctx.c_model().lits.p(dest_cube));
 
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
@@ -401,7 +404,7 @@ namespace pdr
       logger.tabbed("transition query, frame {}", frame);
 
     if (!primed) // cube is in current, bring to next
-      if (!SAT(frame, ctx.const_model().lits.p(dest_cube)))
+      if (!SAT(frame, ctx.c_model().lits.p(dest_cube)))
         return {};
 
     if (!SAT(frame, dest_cube))

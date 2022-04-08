@@ -14,10 +14,10 @@ namespace pdr
   bool PDR::decrement(bool reuse)
   {
 #warning "not yet fixed with new results"
-    const PebblingModel& m = ctx.const_model();
+    const PebblingModel& m = ctx.c_model();
     unsigned k             = frames.frontier();
 
-    int max_pebbles = m.get_constraint();
+    int max_pebbles = frames.max_pebbles.value();
     int new_pebbles = shortest_strategy - 1;
     assert(new_pebbles > 0);
     assert(new_pebbles < max_pebbles);
@@ -49,13 +49,13 @@ namespace pdr
   {
 #warning "dec_tactic not yet fixed for new resets/results"
     logger.and_show("NEW DEC RUN");
-    const PebblingModel& m = ctx.const_model();
+    const PebblingModel& m = ctx.c_model();
     int N                  = m.n_nodes(); // cannot pebble more than this
-    ctx.model().set_constaint(N);
+    ctx.model().constraint(N);
     bool found_strategy = !run(Tactic::basic);
     while (found_strategy)
     {
-      int maxp = m.get_constraint();
+      int maxp = frames.max_pebbles.value();
       int newp = shortest_strategy - 1;
       assert(newp > 0);
       assert(newp < maxp);
@@ -78,7 +78,7 @@ namespace pdr
   bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
 #warning inc_tactic not yet fixed for new resets/results
-    const PebblingModel& m = ctx.const_model();
+    const PebblingModel& m = ctx.c_model();
     Results results(
         { "pebbles", "invariant index", "strategy length", "Total time" });
 
@@ -116,29 +116,24 @@ namespace pdr
         { "pebbles", "invariant index", "strategy length", "Total time" });
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
-    const PebblingModel& m = ctx.const_model();
-    int N                  = start;
-    frames.reset_constraint(N);
-    pdr::Result invariant = run(Tactic::basic);
+    const PebblingModel& m = ctx.c_model();
+    pdr::Result invariant = run(Tactic::basic, start);
     results << invariant;
 
     if (true)
     {
-      int maxp = m.get_constraint();
+      int maxp = frames.max_pebbles.value();
       int newp = maxp + step;
       assert(newp > 0);
       assert(maxp < newp);
       if (newp <= (int)m.n_nodes())
       {
-        reset();
-        frames.increment_reset(newp);
-        invariant = run(Tactic::increment);
+        invariant = increment_run(newp);
         results << invariant;
       }
     }
-    // N is minimal
     results.show(strategy_file);
-    solver_dump << SEP3 << " final iteration " << N << std::endl;
+    solver_dump << SEP3 << " final iteration " << frames.max_pebbles.value() << std::endl;
     show_solver(solver_dump);
     return true;
   }

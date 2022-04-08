@@ -22,27 +22,21 @@ namespace pdr
     ExpressionCache n_property;
 
     PebblingModel(z3::config& settings, const std::string& model_name,
-        const dag::Graph& G, std::optional<unsigned> pebbles);
+        const dag::Graph& G);
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_initial() const;
-    const z3::expr_vector& get_cardinality() const;
     size_t n_nodes() const;
-    // the maximal amount of pebbles allowed
-    unsigned get_constraint() const;
-    // set the maximal amount of pebbles allowed
-    void set_constaint(unsigned x);
+    // return cardinality 'x' clauses for current and next literals
+    z3::expr_vector constraint(std::optional<unsigned> x);
     // return the number of pebbles in the final state
     int get_f_pebbles() const;
     void show(std::ostream& out) const;
 
    private:
-    unsigned max_pebbles;
-    unsigned final_pebbles;
+    unsigned final_pebbles; // number of marked literals in property
 
     z3::expr_vector initial;
     z3::expr_vector transition; // vector of clauses (cnf)
-    // cardinality constraint for current and next state
-    z3::expr_vector cardinality;
 
     z3::config& set_config(z3::config& settings);
     void load_pebble_transition(const dag::Graph& G);
