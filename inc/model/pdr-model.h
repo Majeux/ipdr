@@ -7,6 +7,7 @@
 #include <vector>
 #include <z3++.h>
 
+#include "cli-parse.h"
 #include "dag.h"
 #include "exp-cache.h"
 
@@ -21,7 +22,7 @@ namespace pdr
     ExpressionCache property;
     ExpressionCache n_property;
 
-    PebblingModel(z3::config& settings, const std::string& model_name,
+    PebblingModel(z3::config& settings, const my::cli::ArgumentList& model_name,
         const dag::Graph& G);
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_initial() const;

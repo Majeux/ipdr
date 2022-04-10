@@ -1,4 +1,5 @@
 #include "pdr-model.h"
+#include "cli-parse.h"
 #include <TextTable.h>
 #include <numeric>
 #include <optional>
@@ -11,12 +12,12 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  PebblingModel::PebblingModel(
-      z3::config& settings, const string& model_name, const dag::Graph& G)
+  PebblingModel::PebblingModel(z3::config& settings,
+      const my::cli::ArgumentList& args, const dag::Graph& G)
       : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
         transition(ctx)
   {
-    name = model_name;
+    name = args.model_name;
 
     for (string node : G.nodes)
       lits.add_literal(node);
@@ -26,8 +27,11 @@ namespace pdr
       initial.push_back(!e);
 
     // load_pebble_transition_raw2(G);
-    load_pebble_transition(G);
-    // load_pebble_transition_tseytin(G);
+    if (args.tseytin)
+      load_pebble_transition_tseytin(G);
+    else
+      load_pebble_transition(G);
+
     final_pebbles = G.output.size();
     load_property(G);
 
