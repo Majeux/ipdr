@@ -43,7 +43,7 @@ namespace pdr::experiments
 
   void pdr_run(pdr::PDR& alg, Tactic tactic)
   {
-    Results iteration_results;
+    Results iteration_results(alg.get_ctx().model());
     const PebblingModel& m = alg.get_ctx().model();
     cout << "sample run" << endl;
     switch (tactic)
@@ -53,6 +53,18 @@ namespace pdr::experiments
         unsigned N            = m.get_f_pebbles();
         pdr::Result invariant = alg.run(Tactic::basic, N);
         iteration_results << invariant;
+
+        if (!invariant)
+        {
+          
+        }
+
+        for (N = N+1; N <= m.n_nodes(); N++)
+        {
+          invariant = alg.increment_run(N);
+          iteration_results << invariant;
+          
+        }
         while (invariant)
         {
           N++;
@@ -60,7 +72,7 @@ namespace pdr::experiments
             break;
           invariant = alg.increment_run(N);
           iteration_results << invariant;
-        Result r(N, {Invariant(invariant.invariant_level)}, invariant.total_time);
+
         }
       }
       break;

@@ -8,17 +8,6 @@
 
 namespace pdr::experiments 
 {
-  // clang-format off
-  struct Invariant { int index; };
-  struct Trace { unsigned length; unsigned pebbles; };
-  // clang-format on
-  struct Result
-  {
-    unsigned cardinality;
-    std::variant<Invariant, Trace> result;
-    double time;
-  };
-
   struct Run 
   {
     Tactic tactic;

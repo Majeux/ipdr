@@ -5,9 +5,11 @@
 #include "obligation.h"
 #include "output.h"
 #include "pdr-model.h"
+#include <cassert>
 #include <fmt/format.h>
 #include <memory>
 #include <sstream>
+#include <variant>
 #include <vector>
 namespace pdr
 {
@@ -15,18 +17,54 @@ namespace pdr
   // iterating walks through the linked list starting with trace
   struct Result
   {
-    unsigned constraint;
-    double total_time;
-    bool cleaned = false; // result contained a trace, but it was deleted
+    using ResultRow = std::array<std::string, 5>;
+    class iterator;
+    struct Invariant
+    {
+      int level;
+      Invariant(int l = 1);
+    };
 
-    // Trace struct
-    std::shared_ptr<State> trace;
-    std::string trace_string;
-    unsigned trace_length;
-    unsigned marked;
-    
-    // Inariant struct
-    int invariant_level;
+    struct Trace
+    {
+      std::shared_ptr<State> states_ll;
+      unsigned length;
+      unsigned marked;
+      bool cleaned;
+
+      Trace();
+      Trace(std::shared_ptr<State> s);
+    };
+
+    std::optional<unsigned> constraint;
+    double total_time = 0.0;
+    std::variant<Invariant, Trace> output;
+
+    // Result builders
+    static Result found_trace(
+        std::optional<unsigned> constraint, std::shared_ptr<State> s);
+    static Result found_trace(std::optional<unsigned> constraint, State&& s);
+    static Result found_invariant(
+        std::optional<unsigned> constraint, int level);
+    static Result empty_true();
+    static Result empty_false();
+
+    operator bool() const;
+    bool has_invariant() const;
+    bool has_trace() const;
+
+    // assumes that has_invariant() and has_trace() hold respectively
+    const Invariant& invariant() const;
+    const Trace& trace() const;
+    Invariant& invariant();
+    Trace& trace();
+
+    void clean_trace();
+    ResultRow listing() const;
+    std::string_view strategy_string(const PebblingModel& model);
+    // iterators over the Trace. empty if there is an Invariant
+    iterator begin();
+    iterator end();
 
     class iterator
     {
@@ -40,107 +78,31 @@ namespace pdr
       pointer m_ptr;
 
      public:
-      iterator(pointer ptr) : m_ptr(ptr) {}
-      reference operator*() const { return *m_ptr; }
-      pointer operator->() { return m_ptr; }
-
-      iterator& operator++()
-      {
-        m_ptr = m_ptr->prev;
-        return *this;
-      }
-
-      iterator operator++(int)
-      {
-        iterator tmp = *this;
-        ++(*this);
-        return tmp;
-      }
-
-      friend bool operator==(const iterator& a, const iterator& b)
-      {
-        return a.m_ptr == b.m_ptr;
-      };
-      friend bool operator!=(const iterator& a, const iterator& b)
-      {
-        return a.m_ptr != b.m_ptr;
-      };
+      iterator(pointer ptr);
+      reference operator*() const;
+      pointer operator->();
+      iterator& operator++();
+      iterator operator++(int);
+      friend bool operator==(const iterator& a, const iterator& b);
+      friend bool operator!=(const iterator& a, const iterator& b);
     };
 
-    operator bool() const { return trace.get() == nullptr || cleaned; }
-
-    Result()
-        : constraint(0), trace(nullptr), trace_string(""), trace_length(0),
-          marked(0), invariant_level(-1), total_time(0.0)
-    {
-    }
-
-    void clean_trace()
-    {
-      assert(trace);
-      trace.reset();
-      cleaned = true;
-    }
-
-    static Result found_trace(std::shared_ptr<State> s) { return Result(s); }
-    static Result found_trace(State&& s)
-    {
-      return Result(std::make_shared<State>(s));
-    }
-    static Result found_invariant(int l) { return Result(l); }
-    static Result empty_true() { return Result(); }
-
-    std::vector<std::string> listing() const
-    {
-      return { std::to_string(marked), std::to_string(invariant_level),
-        std::to_string(trace_length), std::to_string(total_time) };
-    }
-
-    iterator begin() { return iterator(trace); }
-    iterator end() { return iterator(nullptr); }
-
    private:
-    Result(std::shared_ptr<State> s)
-        : trace(s), trace_string(""), trace_length(0), marked(0),
-          invariant_level(-1), total_time(0.0)
-    {
-    }
+    std::string str = "";
 
-    Result(int l)
-        : trace(nullptr), trace_string(""), trace_length(0), marked(0),
-          invariant_level(l), total_time(0.0)
-    {
-    }
+    Result(std::optional<unsigned> constr, std::shared_ptr<State> s);
+    Result(std::optional<unsigned> constr, int l);
   };
 
   struct Results
   {
+    const PebblingModel& model;
     TextTable table;
     std::vector<std::string> traces;
-    Results()
-    {
-      std::vector<std::string> header = { "pebbles", "invariant index",
-        "strategy length", "Total time" };
-      for (unsigned i = 0; i < header.size(); i++)
-        table.setAlignment(i, TextTable::Alignment::RIGHT);
 
-      table.addRow(header);
-    }
-
-    friend Results& operator<<(Results& rs, const Result& r)
-    {
-      rs.table.addRow(r.listing());
-      rs.traces.push_back(r.trace_string);
-      return rs;
-    }
-
-    void show(std::ostream& out) const
-    {
-      out << table << std::endl << std::endl;
-
-      for (const std::string& trace : traces)
-        out << trace << std::endl;
-    }
+    Results(const PebblingModel& m);
+    void show(std::ostream& out) const;
+    friend Results& operator<<(Results& rs, Result& r);
   };
 } // namespace pdr
 #endif // PDR_RES

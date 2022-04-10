@@ -17,8 +17,9 @@ namespace pdr
     const PebblingModel& m = ctx.model();
     unsigned k             = frames.frontier();
 
-    int max_pebbles = frames.max_pebbles.value();
-    int new_pebbles = shortest_strategy - 1;
+    unsigned max_pebbles = frames.max_pebbles.value();
+    unsigned new_pebbles = shortest_strategy - 1;
+    assert(max_pebbles > 0);
     assert(new_pebbles > 0);
     assert(new_pebbles < max_pebbles);
 
@@ -79,7 +80,7 @@ namespace pdr
   {
 #warning inc_tactic not yet fixed for new resets/results
     const PebblingModel& m = ctx.model();
-    Results results;
+    Results results(m);
 
     unsigned N = m.get_f_pebbles(); // need at least this many pebbles
     
@@ -108,7 +109,7 @@ namespace pdr
       std::ofstream& solver_dump)
   {
     std::vector<pdr::Statistics> statistics;
-    Results results;
+    Results results(ctx.model());
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
     const PebblingModel& m = ctx.model();

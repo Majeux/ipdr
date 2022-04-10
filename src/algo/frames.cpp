@@ -25,7 +25,7 @@ namespace pdr
   Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    PebblingModel& m = ctx.modell();
+    PebblingModel& m = ctx.model();
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
@@ -41,7 +41,7 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    PebblingModel& m       = ctx.modell();
+    PebblingModel& m       = ctx.model();
     const expr_vector& I   = m.get_initial();
     const expr_vector& T   = m.get_transition();
     expr_vector constraint = m.constraint(max_pebbles);
@@ -84,7 +84,7 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      PebblingModel& m         = ctx.modell();
+      PebblingModel& m         = ctx.model();
       const z3::expr_vector& t = m.get_transition();
       expr_vector constr       = m.constraint(max_pebbles);
 
@@ -101,7 +101,7 @@ namespace pdr
   void Frames::reset_constraint(std::optional<unsigned> x)
   {
     max_pebbles                = x;
-    z3::expr_vector constraint = ctx.modell().constraint(max_pebbles);
+    z3::expr_vector constraint = ctx.model().constraint(max_pebbles);
     if (ctx.delta)
     {
       delta_solver->reconstrain(constraint);
@@ -141,7 +141,7 @@ namespace pdr
     logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
 
     max_pebbles = x;
-    delta_solver->reconstrain(ctx.modell().constraint(x));
+    delta_solver->reconstrain(ctx.model().constraint(x));
     CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);               // reset sequence to { F_0 }
     extend();                     // reinstate level 1
@@ -353,7 +353,7 @@ namespace pdr
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
     z3::expr_vector assumptions =
-        ctx.c_model().lits.p(cube); // cube in next state
+        ctx.model().lits.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -392,7 +392,7 @@ namespace pdr
     if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
-      return SAT(frame, ctx.c_model().lits.p(dest_cube));
+      return SAT(frame, ctx.model().lits.p(dest_cube));
 
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
@@ -404,7 +404,7 @@ namespace pdr
       logger.tabbed("transition query, frame {}", frame);
 
     if (!primed) // cube is in current, bring to next
-      if (!SAT(frame, ctx.c_model().lits.p(dest_cube)))
+      if (!SAT(frame, ctx.model().lits.p(dest_cube)))
         return {};
 
     if (!SAT(frame, dest_cube))
@@ -503,17 +503,17 @@ namespace pdr
   //
   // end getters
 
-  void Frames::log_solvers() const
+  void Frames::log_solvers(bool only_clauses) const
   {
     logger(SEP3);
     if (ctx.delta)
     {
-      logger(delta_solver->as_str());
+      logger(delta_solver->as_str("", only_clauses));
     }
     else
       for (const std::unique_ptr<Frame>& f : frames)
       {
-        logger(f->get_solver().as_str());
+        logger(f->get_solver().as_str("", only_clauses));
       }
     logger(SEP3);
   }
@@ -528,16 +528,16 @@ namespace pdr
     }
     return str;
   }
-  std::string Frames::solvers_str() const
+  std::string Frames::solvers_str(bool only_clauses) const
   {
     std::string str;
     if (ctx.delta)
-      str += delta_solver->as_str();
+      str += delta_solver->as_str("", only_clauses);
     else
     {
       for (auto& f : frames)
       {
-        str += f->get_solver().as_str();
+        str += f->get_solver().as_str("", only_clauses);
         str += '\n';
       }
     }

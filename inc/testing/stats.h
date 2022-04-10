@@ -49,7 +49,6 @@ namespace pdr
 
     Statistic ctis;
     Statistic subsumed_cubes;
-#warning TODO: add reduction average (%)
 
     double elapsed = -1.0;
     std::map<std::string, unsigned> model;

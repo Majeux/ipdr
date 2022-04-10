@@ -26,8 +26,8 @@ namespace pdr
       initial.push_back(!e);
 
     // load_pebble_transition_raw2(G);
-    // load_pebble_transition(G);
-    load_pebble_transition_tseytin(G);
+    load_pebble_transition(G);
+    // load_pebble_transition_tseytin(G);
     final_pebbles = G.output.size();
     load_property(G);
 
@@ -183,7 +183,7 @@ namespace pdr
     return v;
   }
 
-  int PebblingModel::get_f_pebbles() const { return final_pebbles; }
+  unsigned PebblingModel::get_f_pebbles() const { return final_pebbles; }
 
   void PebblingModel::show(std::ostream& out) const
   {

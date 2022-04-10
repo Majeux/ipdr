@@ -102,9 +102,9 @@ namespace pdr
     // returns all cubes blocked in Frame 1. adjusted for delta encoding.
     CubeSet get_blocked(size_t i) const;
 
-    void log_solvers() const;
+    void log_solvers(bool clauses_only) const;
     std::string blocked_str() const;
-    std::string solvers_str() const;
+    std::string solvers_str(bool clauses_only) const;
   };
 
 } // namespace pdr

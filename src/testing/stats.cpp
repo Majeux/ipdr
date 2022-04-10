@@ -2,6 +2,7 @@
 
 namespace pdr
 {
+#warning TODO: add reduction average (%)
   Statistic::Statistic(bool t) : timed(t)
   {
     if (timed)

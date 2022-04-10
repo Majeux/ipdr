@@ -62,11 +62,13 @@ struct ArgumentList
 
   // run options
   bool rand;
+  std::optional<unsigned> seed;
   bool delta;
   bool onlyshow;
   pdr::Tactic tactic;
 
   bool _failed = false;
+#warning display settings for: delta, seed, mic_retries
 };
 
 const std::string decrement_str("dec");
@@ -167,8 +169,10 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
       cxxopts::value<std::string>(), "(string:TYPE)")
     ("d,delta", "Use delta-encoded frames.",
       cxxopts::value<bool>(clargs.delta))
-    ("r,randomize", "Use a randomized seed for the SAT solver",
+    ("r,rand", "Use a randomized seed for the SAT solver",
       cxxopts::value<bool>(clargs.rand))
+    ("seed", "Use the given seed for the SAT solver",
+      cxxopts::value<unsigned>(), "(uint:SEED)")
 
     ("dir","Directory (relative to ./) than contains runable benchmarks.",
       cxxopts::value<fs::path>()->default_value(BENCH_FOLDER), "(string:F)")
@@ -190,7 +194,7 @@ cxxopts::Options make_options(std::string name, ArgumentList& clargs)
 
     ("h,help", "Show usage");
   // clang-format on
-
+#warning add mic_retries option
   return clopt;
 }
 
@@ -298,6 +302,12 @@ ArgumentList parse_cl(int argc, char* argv[])
       return clargs;
     parse_tactic(clargs, clresult);
 
+    if (clresult.count("seed"))
+    {
+      assert(!clargs.rand);
+      clargs.seed = clresult["seed"].as<unsigned>();
+    }
+
     if (clresult.count("out-file"))
       clargs.out = clresult["out-file"].as<std::string>();
     else
@@ -362,9 +372,11 @@ void show_header(const ArgumentList& clargs)
   }
   cout << endl;
   if (clargs.delta)
-    cout << "Using delta-encoded frames.";
+    cout << "Using delta-encoded frames. ";
   if (clargs.rand)
-    cout << "Using randomized seed.";
+    cout << "Using randomized seed. ";
+  if (clargs.seed)
+    cout << "Using seed: " << *clargs.seed;
   cout << endl;
 }
 //
@@ -444,7 +456,9 @@ int main(int argc, char* argv[])
   if (clargs.onlyshow)
     return 0;
 
-  pdr::Context context(model, clargs.delta, clargs.rand);
+  pdr::Context context = clargs.seed
+                           ? pdr::Context(model, clargs.delta, *clargs.seed)
+                           : pdr::Context(model, clargs.delta, clargs.rand);
 
   const std::string filename = file_name(clargs);
   std::ofstream stats        = trunc_file(run_dir, filename, "stats");

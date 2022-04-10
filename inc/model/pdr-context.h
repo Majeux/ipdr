@@ -20,8 +20,8 @@ namespace pdr
     const bool delta;
     uint32_t seed;
     Tactic type;
-
     Context(PebblingModel& m, bool d, bool random_seed);
+    Context(PebblingModel& m, bool d, unsigned seed);
     z3::context& operator()() const;    
     PebblingModel& model();
     const PebblingModel& model() const;

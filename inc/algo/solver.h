@@ -33,7 +33,7 @@ namespace pdr
 
    public:
     Solver(const Context& c, z3::expr_vector base, z3::expr_vector t,
-           z3::expr_vector con);
+        z3::expr_vector con);
 
     void reset();
     void reset(const CubeSet& cubes);
@@ -48,8 +48,7 @@ namespace pdr
     z3::expr_vector witness_current() const;
     z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
 
-    std::string as_str(const std::string& header = "",
-                       bool clauses_only         = true) const;
+    std::string as_str(const std::string& header, bool clauses_only) const;
 
     // function to extract a cube representing a satisfying assignment to
     // the last SAT call to the solver. the resulting vector or expr_vector
@@ -58,8 +57,8 @@ namespace pdr
     template <typename UnaryPredicate>
     static z3::expr_vector filter_witness(const z3::model& m, UnaryPredicate p);
     template <typename UnaryPredicate>
-    static std::vector<z3::expr> filter_witness_vector(const z3::model& m,
-                                                       UnaryPredicate p);
+    static std::vector<z3::expr> filter_witness_vector(
+        const z3::model& m, UnaryPredicate p);
 
     // function extract the unsat_core from the solver, a subset of the
     // assumptions the resulting vector or expr_vector is in sorted order
@@ -83,8 +82,8 @@ namespace pdr
   }
 
   template <typename UnaryPredicate>
-  std::vector<z3::expr> Solver::filter_witness_vector(const z3::model& m,
-                                                      UnaryPredicate p)
+  std::vector<z3::expr> Solver::filter_witness_vector(
+      const z3::model& m, UnaryPredicate p)
   {
     std::vector<z3::expr> v;
     v.reserve(m.num_consts());

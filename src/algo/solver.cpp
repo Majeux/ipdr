@@ -78,7 +78,11 @@ namespace pdr
     if (result == z3::sat)
       return true;
 
-    assert(result != z3::check_result::unknown);
+    // if (result == z3::check_result::unknown)
+    // {
+      // std::cout << as_str("", true);
+      assert(result != z3::check_result::unknown);
+    // }
 
     core_available = true;
     return false;
@@ -107,7 +111,7 @@ namespace pdr
       z3::expr boolean_value = m.get_const_interp(f);
       z3::expr literal       = f();
 
-      if (ctx.c_model().lits.atom_is_current(literal))
+      if (ctx.model().lits.atom_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);

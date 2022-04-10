@@ -34,10 +34,10 @@ namespace pdr
     Frames frames;
     std::set<Obligation, std::less<Obligation>> obligations;
 
-    int shortest_strategy;
+    unsigned shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
-    const unsigned mic_retries = 3;
+    const unsigned mic_retries = 5;
 
     void print_model(const z3::model& m);
     // main algorithm
