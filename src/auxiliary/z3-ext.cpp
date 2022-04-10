@@ -83,7 +83,7 @@ namespace z3ext
 
   bool subsumes(const expr_vector& l, const expr_vector& r)
   {
-    if (l.size() > r.size())
+    if (l.size() >= r.size())
       return false;
 
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());

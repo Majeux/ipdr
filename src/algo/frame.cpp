@@ -61,9 +61,7 @@ namespace pdr
   // TODO redundant, make void or make useful
   bool Frame::block(const z3::expr_vector& cube)
   {
-    bool inserted = blocked_cubes.insert(cube).second;
-    assert(inserted);
-    return true;
+    return blocked_cubes.insert(cube).second;
   }
 
   void Frame::block_in_solver(const z3::expr_vector& cube)

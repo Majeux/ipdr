@@ -223,6 +223,9 @@ namespace pdr
       logger.tabbed("blocked in {}", level);
       return true;
     }
+    else
+      logger.tabbed("was already blocked in {}", level);
+
     return false;
   }
 
@@ -235,6 +238,7 @@ namespace pdr
       unsigned n_removed = frames.at(i)->remove_subsumed(cube);
       logger.stats.subsumed_cubes.add(level, n_removed);
 
+#warning subsumes is now not automatic
       if (frames[i]->block(cube))
       {
         frames[i]->block_in_solver(cube);
@@ -434,8 +438,8 @@ namespace pdr
     if (ctx.delta && frame > 0)
     {
       assert(frames.size() == act.size());
-      for (unsigned i = frame; i <= frontier(); i++)
-        assumptions.push_back(act.at(i));
+      for (unsigned i = frame; i < act.size(); i++)
+        assumptions.push_back(act[i]);
 
       if (LOG_SAT_CALLS)
         logger.tabbed("Delta check");
