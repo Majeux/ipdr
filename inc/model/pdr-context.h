@@ -16,13 +16,18 @@ namespace pdr
     Tactic type;
     Context(PebblingModel& m, bool d, bool random_seed);
     Context(PebblingModel& m, bool d, unsigned seed);
-    z3::context& operator()() const;
+
+	operator z3::context&();
+	operator const z3::context&() const;
+	operator PebblingModel&();
+	operator const PebblingModel&() const;
+    
+	z3::context& operator()() const;
     PebblingModel& model();
     const PebblingModel& model() const;
 
    private:
     PebblingModel& _model;
   }; // class PDRcontext
-
 } // namespace pdr
 #endif // PDRCONTEXT_H

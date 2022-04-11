@@ -31,7 +31,8 @@ namespace pdr::experiments
     {
       pdr::Context ctx(model, delta, true); // new context with new random seed
       pdr::PDR algorithm(ctx, log);
-      pdr_run(algorithm, tactic);
+      ExperimentResult r = pdr_run(algorithm, tactic);
+	  // TODO at r to total and average out
     }
 
     /* result format
@@ -41,39 +42,34 @@ namespace pdr::experiments
     */
   }
 
-  void pdr_run(pdr::PDR& alg, Tactic tactic)
+  ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic)
   {
     Results iteration_results(alg.get_ctx().model());
-    const PebblingModel& m = alg.get_ctx().model();
+    const PebblingModel& m = alg.get_ctx();
     cout << "sample run" << endl;
     switch (tactic)
     {
       case Tactic::increment:
       {
-        unsigned N            = m.get_f_pebbles();
-        pdr::Result invariant = alg.run(Tactic::basic, N);
-        iteration_results << invariant;
+        unsigned N      = m.get_f_pebbles();
+        pdr::Result res = alg.run(Tactic::basic, N);
+        iteration_results << res;
 
-        if (!invariant)
+        if (!res) // trace found
         {
-          
         }
+        else
+        {
+          for (N = N + 1; N <= m.n_nodes(); N++)
+          {
+            res = alg.increment_run(N);
+            iteration_results << res;
 
-        for (N = N+1; N <= m.n_nodes(); N++)
-        {
-          invariant = alg.increment_run(N);
-          iteration_results << invariant;
-          
+			if (!res)
+				break;
+          }
         }
-        while (invariant)
-        {
-          N++;
-          if (N > m.n_nodes())
-            break;
-          invariant = alg.increment_run(N);
-          iteration_results << invariant;
-
-        }
+		assert (!res || N > m.n_nodes());
       }
       break;
       case Tactic::decrement:

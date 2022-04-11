@@ -1,7 +1,10 @@
 #include "result.h"
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <memory>
+#include <numeric>
 #include <string>
 
 namespace pdr
@@ -28,36 +31,35 @@ namespace pdr
 
   // Result::iterator members
   //
-  using iterator          = Result::iterator;
-  using iterator_category = std::forward_iterator_tag;
-  using difference_type   = std::ptrdiff_t;
-  using value_type        = State;
-  using pointer           = std::shared_ptr<State>;
-  using reference         = State&;
+  using const_iterator  = Result::const_iterator;
+  using difference_type = std::ptrdiff_t;
+  using value_type      = State;
+  using const_pointer   = std::shared_ptr<const State>;
+  using const_reference = const State&;
 
-  iterator::iterator(pointer ptr) : m_ptr(ptr) {}
-  reference iterator::operator*() const { return *m_ptr; }
-  pointer iterator::operator->() { return m_ptr; }
+  const_iterator::const_iterator(const_pointer ptr) : m_ptr(ptr) {}
+  const_reference const_iterator::operator*() const { return *m_ptr; }
+  const_pointer const_iterator::operator->() { return m_ptr; }
 
-  iterator& iterator::operator++()
+  const_iterator& const_iterator::operator++()
   {
     m_ptr = m_ptr->prev;
     return *this;
   }
 
-  iterator iterator::operator++(int)
+  const_iterator const_iterator::operator++(int)
   {
-    iterator tmp = *this;
+    const_iterator tmp = *this;
     ++(*this);
     return tmp;
   }
 
-  bool operator==(const iterator& a, const iterator& b)
+  bool operator==(const const_iterator& a, const const_iterator& b)
   {
     return a.m_ptr == b.m_ptr;
   }
 
-  bool operator!=(const iterator& a, const iterator& b)
+  bool operator!=(const const_iterator& a, const const_iterator& b)
   {
     return a.m_ptr != b.m_ptr;
   }
@@ -139,7 +141,13 @@ namespace pdr
     return rv;
   }
 
-  std::string_view Result::strategy_string(const PebblingModel& model)
+  std::string_view Result::string_rep() const
+  {
+    assert(finalized);
+    return str;
+  }
+
+  void Result::finalize(const PebblingModel& model)
   {
     using string_vec = std::vector<std::string>;
     using fmt::format;
@@ -147,8 +155,8 @@ namespace pdr
     using z3::expr;
     using z3::expr_vector;
 
-    if (str != "")
-      return str;
+    if (finalized)
+      return;
 
     if (has_invariant())
     {
@@ -156,7 +164,7 @@ namespace pdr
         str = format("No strategy for {}\n", *constraint);
       else
         str = "No strategy\n";
-      return str;
+      return;
     }
 
     string_vec lits;
@@ -169,7 +177,7 @@ namespace pdr
 
     auto str_size_cmp = [](string_view a, string_view b)
     { return a.size() < b.size(); };
-    size_t largest =
+    size_t longest =
         std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
 
     TextTable t('|');
@@ -179,9 +187,9 @@ namespace pdr
       t.addRow(header);
     }
 
-    auto row = [&lits, largest](string a, string b, const State& s)
+    auto row = [&lits, longest](string a, string b, const State& s)
     {
-      string_vec rv = s.marking(lits, largest);
+      string_vec rv = s.marking(lits, longest);
       rv.insert(rv.begin(), b);
       rv.insert(rv.begin(), a);
       return rv;
@@ -229,19 +237,19 @@ namespace pdr
 
     clean_trace(); // information is stored in string, deallocate trace
 
-    return str;
+    finalized = true;
   }
 
-  iterator Result::begin()
+  const_iterator Result::begin()
   {
     if (has_invariant())
       return end();
     // we have a Trace
     const Trace& trace = std::get<Trace>(output);
     assert(trace.cleaned == false);
-    return iterator(trace.states_ll);
+    return const_iterator(trace.states_ll);
   }
-  iterator Result::end() { return iterator(nullptr); }
+  const_iterator Result::end() { return const_iterator(nullptr); }
 
   // Results members
   //
@@ -265,12 +273,65 @@ namespace pdr
 
   Results& operator<<(Results& rs, Result& r)
   {
-    string trace;
-    trace = r.strategy_string(rs.model);
+    string trace(r.string_rep());
     rs.table.addRow(r.listing());
 
     rs.traces.push_back(trace);
 
     return rs;
+  }
+
+  std::vector<double> AveragedResults::extract_times() const
+  {
+    std::vector<double> times;
+    std::transform(original.begin(), original.end(), std::back_inserter(times),
+        [](const Result& r) { return r.total_time; });
+    return times;
+  }
+
+  double AveragedResults::median_time()
+  {
+    std::vector<double> times = extract_times();
+    std::sort(times.begin(), times.end());
+
+    if (times.size() % 2 == 0) // even number
+    {
+      size_t i1 = times.size() / 2;
+      size_t i2 = i1 + 1;
+      return (times[i1] + times[i2]) / 2; // return average of middle two
+    }
+    else
+      return times[times.size() / 2];
+  }
+
+  double AveragedResults::mean_time()
+  {
+    double total = std::accumulate(original.begin(), original.end(), 0.0,
+        [](double a, const Result& r) { return a + r.total_time; });
+    return total / original.size();
+  }
+
+  double AveragedResults::time_std_dev(double mean)
+  {
+    std::vector<double> times = extract_times();
+    double diffs              = std::accumulate(times.begin(), times.end(), 0.0,
+                     [mean](double a, double t) { return a + std::sqrt(t - mean); });
+    double variance           = diffs / times.size();
+
+    return std::sqrt(variance);
+  }
+
+  void AveragedResults::show(std::ostream& out) const {}
+
+  AveragedResults& operator<<(AveragedResults& ars, Result& r)
+  {
+    ars.original.push_back(r);
+    if (r.has_invariant())
+      ars.invariant_level = std::min(ars.invariant_level, r.invariant().level);
+    else
+      ars.length = std::min(ars.length, r.trace().length);
+
+    dynamic_cast<Results&>(ars) << r;
+    return ars;
   }
 } // namespace pdr

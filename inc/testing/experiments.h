@@ -8,6 +8,7 @@
 
 namespace pdr::experiments 
 {
+  struct ExperimentResult {};
   struct Run 
   {
     Tactic tactic;
@@ -19,7 +20,7 @@ namespace pdr::experiments
   };
 
   void model_run(pdr::PebblingModel& model, pdr::Logger& log, unsigned sample_size, Tactic tactic);
-  void pdr_run(pdr::PDR& alg, Tactic tactic);
+  ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic);
 } // namespace pdr::experiments
 
 #endif // EXPERIMENTS_H

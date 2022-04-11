@@ -15,6 +15,11 @@ namespace pdr
     std::cout << "random seed " << seed << std::endl;
   }
 
+  Context::operator z3::context&(){ return _model.ctx; }
+  Context::operator PebblingModel&(){ return _model; }
+  Context::operator const z3::context&() const{ return _model.ctx; }
+  Context::operator const PebblingModel&() const{ return _model; }
+
   z3::context& Context::operator()() const { return _model.ctx; }
   PebblingModel& Context::model() { return _model; }
   const PebblingModel& Context::model() const { return _model; }

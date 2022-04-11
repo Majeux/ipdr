@@ -18,7 +18,7 @@ namespace pdr
   struct Result
   {
     using ResultRow = std::array<std::string, 5>;
-    class iterator;
+    class const_iterator;
     struct Invariant
     {
       int level;
@@ -58,51 +58,73 @@ namespace pdr
     const Trace& trace() const;
     Invariant& invariant();
     Trace& trace();
+	std::string_view string_rep() const;
 
     void clean_trace();
     ResultRow listing() const;
-    std::string_view strategy_string(const PebblingModel& model);
+    void finalize(const PebblingModel& model);
     // iterators over the Trace. empty if there is an Invariant
-    iterator begin();
-    iterator end();
+    const_iterator begin();
+    const_iterator end();
 
-    class iterator
+    class const_iterator
     {
       using iterator_category = std::forward_iterator_tag;
       using difference_type   = std::ptrdiff_t;
       using value_type        = State;
-      using pointer           = std::shared_ptr<State>;
-      using reference         = State&;
+      using const_pointer     = std::shared_ptr<const State>;
+      using const_reference   = const State&;
 
      private:
-      pointer m_ptr;
+      const_pointer m_ptr;
 
      public:
-      iterator(pointer ptr);
-      reference operator*() const;
-      pointer operator->();
-      iterator& operator++();
-      iterator operator++(int);
-      friend bool operator==(const iterator& a, const iterator& b);
-      friend bool operator!=(const iterator& a, const iterator& b);
+      const_iterator(const_pointer ptr);
+      const_reference operator*() const;
+      const_pointer operator->();
+      const_iterator& operator++();
+      const_iterator operator++(int);
+      friend bool operator==(const const_iterator& a, const const_iterator& b);
+      friend bool operator!=(const const_iterator& a, const const_iterator& b);
     };
 
    private:
+	bool finalized = false;
     std::string str = "";
 
     Result(std::optional<unsigned> constr, std::shared_ptr<State> s);
     Result(std::optional<unsigned> constr, int l);
   };
 
-  struct Results
+  class Results
   {
+   protected:
     const PebblingModel& model;
     TextTable table;
     std::vector<std::string> traces;
 
+   public:
     Results(const PebblingModel& m);
-    void show(std::ostream& out) const;
+    virtual void show(std::ostream& out) const;
     friend Results& operator<<(Results& rs, Result& r);
+  };
+
+  class AveragedResults : public Results
+  {
+   private:
+    Result averaged;
+    int invariant_level;
+    unsigned length;
+    std::vector<Result> original;
+
+	std::vector<double> extract_times() const;
+	double median_time();
+	double mean_time();
+	double time_std_dev(double mean);
+
+   public:
+    void show(std::ostream& out) const override;
+    friend AveragedResults& operator<<(AveragedResults& rs, Result& r);
   };
 } // namespace pdr
 #endif // PDR_RES
