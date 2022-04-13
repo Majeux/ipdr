@@ -19,7 +19,7 @@ namespace pdr::experiments
     Run(Tactic t, bool d, unsigned ss, std::optional<unsigned> p = {});
   };
 
-  void model_run(pdr::PebblingModel& model, pdr::Logger& log, unsigned sample_size, Tactic tactic);
+  void model_run(pebbling::Model& model, pdr::Logger& log, unsigned sample_size, Tactic tactic);
   ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic);
 } // namespace pdr::experiments
 

@@ -1,4 +1,5 @@
 #include "result.h"
+#include <TextTable.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -87,6 +88,7 @@ namespace pdr
     return Result(constraint, std::make_shared<State>(s));
   }
 
+#warning TODO int level to size_t
   Result Result::found_invariant(optional<unsigned> constraint, int level)
   {
     return Result(constraint, level);
@@ -147,7 +149,7 @@ namespace pdr
     return str;
   }
 
-  void Result::finalize(const PebblingModel& model)
+  void Result::finalize(const pebbling::Model& model)
   {
     using string_vec = std::vector<std::string>;
     using fmt::format;
@@ -253,19 +255,30 @@ namespace pdr
 
   // Results members
   //
-  Results::Results(const PebblingModel& m) : model(m)
-  {
-    ResultRow header = { "constraint", "pebbles used", "invariant index",
-      "trace length", "Total time" };
-    for (unsigned i = 0; i < header.size(); i++)
-      table.setAlignment(i, TextTable::Alignment::RIGHT);
+  Results::Results(const pebbling::Model& m) : model(m) {}
 
-    table.addRow(header);
+  TextTable Results::new_table() const
+  {
+    TextTable t;
+    for (unsigned i = 0; i < header.size(); i++)
+      t.setAlignment(i, TextTable::Alignment::RIGHT);
+    t.addRow(header);
+
+    return t;
+  }
+
+  void Results::reset()
+  {
+    rows.resize(1);
+    traces.resize(0);
   }
 
   void Results::show(std::ostream& out) const
   {
-    out << table << std::endl << std::endl;
+    TextTable t = new_table();
+    for (const auto& row : rows)
+      t.addRow(row);
+    out << t << std::endl << std::endl;
 
     for (const std::string& trace : traces)
       out << trace << std::endl;
@@ -274,8 +287,7 @@ namespace pdr
   Results& operator<<(Results& rs, Result& r)
   {
     string trace(r.string_rep());
-    rs.table.addRow(r.listing());
-
+    rs.rows.push_back(r.listing());
     rs.traces.push_back(trace);
 
     return rs;

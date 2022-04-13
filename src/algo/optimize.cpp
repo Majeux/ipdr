@@ -7,6 +7,69 @@
 
 namespace pdr
 {
+  namespace pebbling
+  {
+    Optimizer::Optimizer(Context& c, Logger& l)
+        : alg(c, l), latest_results(alg.ctx)
+    {
+    }
+
+    std::optional<unsigned> Optimizer::increment()
+    {
+#warning dec_tactic not yet fixed for new resets/results
+      alg.logger.and_whisper("! Optimization run: decrement.");
+      const Model& m = alg.ctx;
+      latest_results.reset();
+
+      unsigned N = m.get_f_pebbles(); // need at least this many pebbles
+
+      pdr::Result invariant = alg.run(Tactic::basic, N);
+      latest_results << invariant;
+
+      for (N = N + 1; invariant && N <= m.n_nodes(); N++)
+      {
+        invariant = alg.increment_run(N);
+        latest_results << invariant;
+      }
+
+      if (N > m.n_nodes()) // last run did not find a trace
+      {
+        alg.logger.and_whisper("! No optimum exists.");
+        return {};
+      }
+      // N is minimal
+      alg.logger.and_whisper("! Found optimum: {}.", N);
+      return N;
+    }
+
+    std::optional<unsigned> Optimizer::decrement()
+    {
+#warning dec_tactic not yet fixed for new resets/results
+      alg.logger.and_whisper("! Optimization run: decrement.");
+      const Model& m = alg.ctx;
+      latest_results.reset();
+
+      unsigned N = m.n_nodes(); // need at least this many pebbles
+
+      pdr::Result invariant = alg.run(Tactic::basic, N);
+      latest_results << invariant;
+
+      for (N = N - 1; !invariant && N >= m.get_f_pebbles(); N--)
+      {
+        invariant = alg.decrement_run(N);
+        latest_results << invariant;
+      }
+
+      if (N < m.get_f_pebbles()) // last run did not find a trace
+      {
+        alg.logger.and_whisper("! No optimum exists.");
+        return {};
+      }
+      // the previous N was optimal
+      alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+      return N + 1;
+    }
+  } // namespace pebbling
   /*
     returns true if the incremental algorithm must continue
     returns false if no strategy with fewer than max_pebbles exists.
@@ -15,7 +78,7 @@ namespace pdr
   {
 #warning "not yet fixed with new results"
     const Model& m = ctx.model();
-    unsigned k             = frames.frontier();
+    unsigned k     = frames.frontier();
 
     unsigned max_pebbles = frames.max_pebbles.value();
     unsigned new_pebbles = shortest_strategy - 1;
@@ -37,8 +100,8 @@ namespace pdr
 
     logger.and_show(fmt::format("Dynamic: skip initiation. k = {}", k));
     // if we are reusing frames, the last propagation was k-1, repeat this
-    int invariant = frames.propagate(true);
-    if (invariant >= 0)
+    std::optional<size_t> invariant = frames.propagate(true);
+    if (invariant)
     {
       // results.current().invariant_level = invariant;
       return true;
@@ -50,8 +113,8 @@ namespace pdr
   {
 #warning "dec_tactic not yet fixed for new resets/results"
     logger.and_show("NEW DEC RUN");
-    const Model& m = ctx.model();
-    int N                  = m.n_nodes(); // cannot pebble more than this
+    const pebbling::Model& m = ctx.model();
+    int N          = m.n_nodes(); // cannot pebble more than this
     ctx.model().constraint(N);
     bool found_strategy = !run(Tactic::basic);
     while (found_strategy)
@@ -76,6 +139,7 @@ namespace pdr
     return true;
   }
 
+  /*
   bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
   {
 #warning inc_tactic not yet fixed for new resets/results
@@ -83,7 +147,7 @@ namespace pdr
     Results results(m);
 
     unsigned N = m.get_f_pebbles(); // need at least this many pebbles
-    
+
     logger.and_whisper("NEW INC RUN");
     pdr::Result invariant = run(Tactic::basic, N);
     results << invariant;
@@ -104,15 +168,16 @@ namespace pdr
     show_solver(solver_dump);
     return true;
   }
+  */
 
-  bool PDR::inc_jump_test(unsigned start, int step, std::ofstream& strategy_file,
-      std::ofstream& solver_dump)
+  bool PDR::inc_jump_test(unsigned start, int step,
+      std::ofstream& strategy_file, std::ofstream& solver_dump)
   {
     std::vector<pdr::Statistics> statistics;
     Results results(ctx.model());
     logger.and_show("NEW INC JUMP TEST RUN");
     logger.and_show("start {}. step {}", start, step);
-    const Model& m = ctx.model();
+    const pebbling::Model& m        = ctx.model();
     pdr::Result invariant = run(Tactic::basic, start);
     results << invariant;
 
@@ -129,7 +194,8 @@ namespace pdr
       }
     }
     results.show(strategy_file);
-    solver_dump << SEP3 << " final iteration " << frames.max_pebbles.value() << std::endl;
+    solver_dump << SEP3 << " final iteration " << frames.max_pebbles.value()
+                << std::endl;
     show_solver(solver_dump);
     return true;
   }

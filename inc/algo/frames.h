@@ -56,13 +56,15 @@ namespace pdr
     // - a run of PDR has finished
     // - base assertions have been changed and are a superset of the previous
     // copy all old cubes that are not reachable from I into a new F_1
+    std::optional<size_t> decrement_reset(unsigned x);
     void increment_reset(unsigned x);
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);
-    int propagate(bool repeat = false);
-    void push_forward_delta(unsigned level, bool repeat = false);
-    int push_forward_fat(unsigned level, bool repeat = false);
+    std::optional<size_t> propagate();
+    std::optional<size_t> propagate(size_t k);
+    void push_forward_delta(size_t level, bool repeat = false);
+    std::optional<size_t> push_forward_fat(size_t level, bool repeat = false);
 
     // queries
     //
@@ -70,19 +72,16 @@ namespace pdr
     // returns if the clause of the given cube is inductive relative to F_frame
     bool inductive(const std::vector<z3::expr>& cube, size_t frame) const;
     bool inductive(const z3::expr_vector& cube, size_t frame) const;
-    std::optional<z3::expr_vector>
-        counter_to_inductiveness(const std::vector<z3::expr>& cube,
-                                 size_t frame) const;
-    std::optional<z3::expr_vector>
-        counter_to_inductiveness(const z3::expr_vector& cube,
-                                 size_t frame) const;
+    std::optional<z3::expr_vector> counter_to_inductiveness(
+        const std::vector<z3::expr>& cube, size_t frame) const;
+    std::optional<z3::expr_vector> counter_to_inductiveness(
+        const z3::expr_vector& cube, size_t frame) const;
     // returns if there exists a transition from frame to cube,
     // allows collection of witness from solver(frame) if true.
     bool trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                      bool primed = false) const;
-    std::optional<z3::expr_vector>
-        get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                         bool primed = false) const;
+        bool primed = false) const;
+    std::optional<z3::expr_vector> get_trans_source(size_t frame,
+        const z3::expr_vector& dest_cube, bool primed = false) const;
 
     // Solver calls
     //
@@ -95,7 +94,7 @@ namespace pdr
 
     // getters
     //
-    unsigned frontier() const;
+    size_t frontier() const;
     Solver& get_solver(size_t frame) const;
     const Solver& get_const_solver(size_t frame) const;
     const Frame& operator[](size_t i);

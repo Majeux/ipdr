@@ -19,6 +19,7 @@ namespace pdr
   {
     using ResultRow = std::array<std::string, 5>;
     class const_iterator;
+
     struct Invariant
     {
       int level;
@@ -58,11 +59,11 @@ namespace pdr
     const Trace& trace() const;
     Invariant& invariant();
     Trace& trace();
-	std::string_view string_rep() const;
+    std::string_view string_rep() const;
 
     void clean_trace();
     ResultRow listing() const;
-    void finalize(const PebblingModel& model);
+    void finalize(const pebbling::Model& model);
     // iterators over the Trace. empty if there is an Invariant
     const_iterator begin();
     const_iterator end();
@@ -89,7 +90,7 @@ namespace pdr
     };
 
    private:
-	bool finalized = false;
+    bool finalized  = false;
     std::string str = "";
 
     Result(std::optional<unsigned> constr, std::shared_ptr<State> s);
@@ -98,13 +99,19 @@ namespace pdr
 
   class Results
   {
+    using ResultRow = std::array<std::string, 5>;
+
    protected:
-    const PebblingModel& model;
-    TextTable table;
+    const pebbling::Model& model;
+    ResultRow header = { "constraint", "pebbles used", "invariant index",
+      "trace length", "Total time" };
+    std::vector<ResultRow> rows;
     std::vector<std::string> traces;
 
    public:
-    Results(const PebblingModel& m);
+    Results(const pebbling::Model& m);
+    TextTable new_table() const;
+    void reset();
     virtual void show(std::ostream& out) const;
     friend Results& operator<<(Results& rs, Result& r);
   };
@@ -117,10 +124,10 @@ namespace pdr
     unsigned length;
     std::vector<Result> original;
 
-	std::vector<double> extract_times() const;
-	double median_time();
-	double mean_time();
-	double time_std_dev(double mean);
+    std::vector<double> extract_times() const;
+    double median_time();
+    double mean_time();
+    double time_std_dev(double mean);
 
    public:
     void show(std::ostream& out) const override;

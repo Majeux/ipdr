@@ -87,6 +87,15 @@ namespace pdr
     return _run();
   }
 
+  Result PDR::decrement_run(unsigned max_p)
+  {
+    ctx.type = Tactic::decrement;
+    if (std::optional<unsigned> inv = frames.decrement_reset(max_p))
+      return Result::found_invariant(frames.max_pebbles, *inv);
+
+    return _run();
+  }
+
   Result PDR::increment_run(unsigned max_p)
   {
     ctx.type = Tactic::increment;
@@ -119,7 +128,7 @@ namespace pdr
     logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
 
-    const PebblingModel& m = ctx.model();
+    const pebbling::Model& m = ctx.model();
     expr_vector notP       = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
@@ -179,13 +188,13 @@ namespace pdr
 
       sub_timer.reset();
 
-      int invariant_level = frames.propagate();
+      optional<size_t> invariant_level = frames.propagate();
       double time         = sub_timer.elapsed().count();
       log_propagation(frames.frontier(), time);
       frames.log_solvers(true);
 
-      if (invariant_level >= 0)
-        return Result::found_invariant(frames.max_pebbles, invariant_level);
+      if (invariant_level)
+        return Result::found_invariant(frames.max_pebbles, *invariant_level);
       frames.extend();
       k++;
     }

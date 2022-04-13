@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
   static z3::config ctx_settings;
   ctx_settings.set("unsat_core", true);
   ctx_settings.set("model", true);
-  pdr::PebblingModel model(ctx_settings, clargs, G);
+  pdr::pebbling::Model model(ctx_settings, clargs, G);
   model.show(model_descr);
 
   if (clargs.onlyshow)

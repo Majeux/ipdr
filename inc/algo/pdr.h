@@ -22,8 +22,15 @@
 
 namespace pdr
 {
+  namespace pebbling
+  {
+    class Optimizer;
+  }
+
   class PDR
   {
+    friend class pebbling::Optimizer;
+
    private:
     Context& ctx;
 
@@ -91,6 +98,7 @@ namespace pdr
     Result run(Tactic pdr_type              = Tactic::basic,
         std::optional<unsigned> max_pebbles = {});
     // a run loosening the constraint, assuming a previous run was completed
+    Result decrement_run(unsigned max_pebbles);
     Result increment_run(unsigned max_pebbles);
 
     // constrain the given model to allow only 'x' literals marked
@@ -99,6 +107,9 @@ namespace pdr
     // strategy length. returns true if the is already proven invariant by this.
     // returns false if this remains to be verified.
     bool decrement(bool reuse = false);
+
+    // optimization tactics
+    //
     // Start at max pebbles and decrement until (at the lowest) final pebbles
     bool dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
     // start at final pebbles and increment until (at the most) max pebbles
@@ -111,5 +122,25 @@ namespace pdr
     std::vector<std::string> trace_row(const z3::expr_vector& v);
     int length_shortest_strategy() const;
   };
+
+  namespace pebbling
+  {
+    class Optimizer
+    {
+     private:
+      PDR alg;
+
+     public:
+      Results latest_results;
+
+      Optimizer(Context& c, Logger& l);
+
+      std::optional<unsigned> run(Tactic t);
+
+      std::optional<unsigned> increment();
+      std::optional<unsigned> decrement();
+      std::optional<unsigned> inc_jump_test();
+    }; // class Optimizer
+  }    // namespace pebbling
 } // namespace pdr
 #endif // PDR_ALG

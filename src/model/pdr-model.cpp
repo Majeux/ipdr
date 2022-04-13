@@ -6,13 +6,13 @@
 #include <z3++.h>
 #include <z3_api.h>
 
-namespace pdr
+namespace pdr::pebbling
 {
   using std::string;
   using z3::expr;
   using z3::expr_vector;
 
-  PebblingModel::PebblingModel(z3::config& settings,
+  Model::Model(z3::config& settings,
       const my::cli::ArgumentList& args, const dag::Graph& G)
       : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
         transition(ctx)
@@ -49,16 +49,16 @@ namespace pdr
     //   std::cout << param_out << std::endl;
   }
 
-  const expr_vector& PebblingModel::get_transition() const
+  const expr_vector& Model::get_transition() const
   {
     return transition;
   }
 
-  const expr_vector& PebblingModel::get_initial() const { return initial; }
+  const expr_vector& Model::get_initial() const { return initial; }
 
-  size_t PebblingModel::n_nodes() const { return initial.size(); }
+  size_t Model::n_nodes() const { return initial.size(); }
 
-  void PebblingModel::load_pebble_transition(const dag::Graph& G)
+  void Model::load_pebble_transition(const dag::Graph& G)
   {
     for (int i = 0; i < lits.size(); i++) // every node has a transition
     {
@@ -78,7 +78,7 @@ namespace pdr
     }
   }
 
-  void PebblingModel::load_pebble_transition_tseytin(const dag::Graph& G)
+  void Model::load_pebble_transition_tseytin(const dag::Graph& G)
   {
     transition.resize(0);
     // ((pv,i ^ pv,i+1 ) => (pw,i & pw,i+1 ))
@@ -110,7 +110,7 @@ namespace pdr
       transition.push_back(e);
   }
 
-  void PebblingModel::load_pebble_transition_raw1(const dag::Graph& G)
+  void Model::load_pebble_transition_raw1(const dag::Graph& G)
   {
     for (int i = 0; i < lits.size(); i++) // every node has a transition
     {
@@ -129,7 +129,7 @@ namespace pdr
     }
   }
 
-  void PebblingModel::load_pebble_transition_raw2(const dag::Graph& G)
+  void Model::load_pebble_transition_raw2(const dag::Graph& G)
   {
     for (int i = 0; i < lits.size(); i++) // every node has a transition
     {
@@ -150,7 +150,7 @@ namespace pdr
     }
   }
 
-  void PebblingModel::load_property(const dag::Graph& G)
+  void Model::load_property(const dag::Graph& G)
   {
     // final nodes are pebbled and others are not
     for (const expr& e : lits.currents())
@@ -175,7 +175,7 @@ namespace pdr
     property.finish();
   }
 
-  expr_vector PebblingModel::constraint(std::optional<unsigned> x)
+  expr_vector Model::constraint(std::optional<unsigned> x)
   {
     expr_vector v(ctx);
     if (!x)
@@ -187,9 +187,9 @@ namespace pdr
     return v;
   }
 
-  unsigned PebblingModel::get_f_pebbles() const { return final_pebbles; }
+  unsigned Model::get_f_pebbles() const { return final_pebbles; }
 
-  void PebblingModel::show(std::ostream& out) const
+  void Model::show(std::ostream& out) const
   {
     using std::endl;
     lits.show(out);
@@ -205,7 +205,7 @@ namespace pdr
   }
 
   // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
-  expr PebblingModel::tseytin_and(
+  expr Model::tseytin_and(
       expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
   {
     expr c = ctx.bool_const(name.c_str());
@@ -216,7 +216,7 @@ namespace pdr
   }
 
   // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
-  expr PebblingModel::tseytin_or(
+  expr Model::tseytin_or(
       expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
   {
     expr c = ctx.bool_const(name.c_str());
@@ -227,14 +227,14 @@ namespace pdr
   }
 
   // a => b <=> !a | b
-  expr PebblingModel::tseytin_implies(
+  expr Model::tseytin_implies(
       expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
   {
     return tseytin_or(sub_defs, name, !a, b);
   }
 
   // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
-  expr PebblingModel::tseytin_xor(
+  expr Model::tseytin_xor(
       expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
   {
     expr c = ctx.bool_const(name.c_str());

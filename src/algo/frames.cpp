@@ -25,7 +25,7 @@ namespace pdr
   Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    PebblingModel& m = ctx.model();
+    pebbling::Model& m = ctx.model();
     init_solver.add(m.get_initial());
     frame_base = m.property.currents(); // all frames are initialized to P
 
@@ -41,7 +41,7 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    PebblingModel& m       = ctx.model();
+    pebbling::Model& m     = ctx.model();
     const expr_vector& I   = m.get_initial();
     const expr_vector& T   = m.get_transition();
     expr_vector constraint = m.constraint(max_pebbles);
@@ -84,7 +84,7 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      PebblingModel& m         = ctx.model();
+      pebbling::Model& m       = ctx.model();
       const z3::expr_vector& t = m.get_transition();
       expr_vector constr       = m.constraint(max_pebbles);
 
@@ -131,6 +131,18 @@ namespace pdr
       for (size_t i = 1; i < frames.size(); i++)
         get_solver(i).reset(frames[i]->get_blocked());
     }
+  }
+
+  std::optional<size_t> Frames::decrement_reset(unsigned x)
+  {
+    assert(frames.size() > 0);
+    assert(x < max_pebbles);
+    logger.and_show("decrement from {} -> {} pebbles", max_pebbles.value(), x);
+
+    max_pebbles = x;
+    delta_solver->reconstrain(ctx.model().constraint(x));
+    logger.and_show("Redoing last propagation: {}", frontier() - 1);
+    return propagate(frontier() - 1);
   }
 
   void Frames::increment_reset(unsigned x)
@@ -250,16 +262,15 @@ namespace pdr
     return true;
   }
 
-  int Frames::propagate(bool repeat)
+  std::optional<size_t> Frames::propagate() { return propagate(frontier()); }
+  std::optional<size_t> Frames::propagate(size_t k)
   {
-    unsigned k = frontier();
-    // last iteration was not finished, repeat previous propagation
-    if (repeat)
-      k--;
+    assert(k <= frontier());
     logger.tabbed_and_whisper("propagate levels {} - {}", 1, k);
     logger.indent++;
+    bool repeat = (k < frontier());
 
-    for (unsigned i = 1; i <= k; i++)
+    for (size_t i = 1; i <= k; i++)
     {
       if (ctx.delta)
         push_forward_delta(i, repeat);
@@ -267,23 +278,21 @@ namespace pdr
         return i;
     }
 
-    if (ctx.delta)
-      for (unsigned i = 1; i <= k; i++)
-      {
+    if (ctx.delta) // check for empty level
+      for (size_t i = 1; i <= k; i++)
         if (frames.at(i)->empty())
         {
           logger.and_whisper("F[{}] \\ F[{}] == 0", i, i + 1);
           return i;
         }
-      }
 
     repopulate_solvers();
     logger.indent--;
 
-    return -1;
+    return {};
   }
 
-  void Frames::push_forward_delta(unsigned level, bool repeat)
+  void Frames::push_forward_delta(size_t level, bool repeat)
   {
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
@@ -306,9 +315,9 @@ namespace pdr
     logger.stats.propagation_level.add_timed(level, dt.count());
   }
 
-  int Frames::push_forward_fat(unsigned level, bool repeat)
+  std::optional<size_t> Frames::push_forward_fat(size_t level, bool repeat)
   {
-    int rv = -1;
+    std::optional<size_t> rv = {};
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
@@ -476,7 +485,7 @@ namespace pdr
   // getters
   //
   // the index 'k' to the second to last frame
-  unsigned Frames::frontier() const
+  size_t Frames::frontier() const
   {
     assert(frames.size() > 1); // 0 is the minimal frontier (series F_0, F_1)
     return frames.size() - 2;

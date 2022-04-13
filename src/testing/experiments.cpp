@@ -22,8 +22,8 @@ namespace pdr::experiments
     }
   }
 
-  void model_run(pdr::PebblingModel& model, pdr::Logger& log,
-      unsigned sample_size, Tactic tactic, bool delta)
+  void model_run(pebbling::Model& model, pdr::Logger& log, unsigned sample_size,
+      Tactic tactic, bool delta)
   {
     cout << format("running {}, {} samples", model.name, sample_size) << endl;
     std::vector<Result> res;
@@ -32,7 +32,7 @@ namespace pdr::experiments
       pdr::Context ctx(model, delta, true); // new context with new random seed
       pdr::PDR algorithm(ctx, log);
       ExperimentResult r = pdr_run(algorithm, tactic);
-	  // TODO at r to total and average out
+      // TODO at r to total and average out
     }
 
     /* result format
@@ -45,7 +45,7 @@ namespace pdr::experiments
   ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic)
   {
     Results iteration_results(alg.get_ctx().model());
-    const PebblingModel& m = alg.get_ctx();
+    const pebbling::Model& m = alg.get_ctx();
     cout << "sample run" << endl;
     switch (tactic)
     {
@@ -65,11 +65,11 @@ namespace pdr::experiments
             res = alg.increment_run(N);
             iteration_results << res;
 
-			if (!res)
-				break;
+            if (!res)
+              break;
           }
         }
-		assert (!res || N > m.n_nodes());
+        assert(!res || N > m.n_nodes());
       }
       break;
       case Tactic::decrement:
