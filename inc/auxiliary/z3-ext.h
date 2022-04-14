@@ -35,9 +35,12 @@ namespace z3ext
 
   void sort(z3::expr_vector& v);
 
+  // returns true if l < r
+  // assumes l and r are in sorted order (as sort())
+  bool subsumes_l(const z3::expr_vector& l, const z3::expr_vector& r);
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
-  bool subsumes(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
 
   // COMPARATOR FUNCTORS
   //

@@ -99,7 +99,7 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+#warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
   ArgumentList clargs = parse_cl(argc, argv);
@@ -143,33 +143,27 @@ int main(int argc, char* argv[])
                              : pdr::Logger(log_file.string(), G,
                                    clargs.verbosity, std::move(stats));
 
-  pdr::PDR algorithm(context, pdr_logger);
-
   show_header(clargs);
 
-  switch (clargs.tactic)
+  pdr::Results rs(model);
+  pdr::PDR algorithm(context, pdr_logger);
+
+  if (clargs.tactic == pdr::Tactic::basic)
   {
-    case pdr::Tactic::decrement:
-      algorithm.dec_tactic(strategy, solver_dump);
-      break;
-    case pdr::Tactic::increment:
-      algorithm.inc_tactic(strategy, solver_dump);
-      break;
-    case pdr::Tactic::basic:
-      algorithm.run();
-      // algorithm.show_results(strategy);
-      algorithm.show_solver(solver_dump);
-      break;
-    case pdr::Tactic::inc_jump_test:
-      algorithm.inc_jump_test(
-          clargs.max_pebbles.value(), 10, strategy, solver_dump);
-      break;
-    case pdr::Tactic::inc_one_test:
-      algorithm.inc_jump_test(
-          clargs.max_pebbles.value(), 1, strategy, solver_dump);
-      break;
-    default: throw std::invalid_argument("No pdr tactic has been selected.");
+    pdr::Result r = algorithm.run(clargs.tactic, clargs.max_pebbles);
+    rs.add(r).show(strategy);
+    algorithm.show_solver(solver_dump);
+
+    return 0;
   }
+  else
+  {
+    pdr::pebbling::Optimizer optimize(std::move(algorithm));
+    std::optional<unsigned> optimum = optimize.run(clargs);
+    optimize.latest_results.show(strategy);
+    optimize.dump_solver(solver_dump);
+  }
+
   std::cout << "done" << std::endl;
   return 0;
 }

@@ -40,7 +40,7 @@ namespace pdr
 
         void clean_solver();
 
-        unsigned remove_subsumed(const z3::expr_vector& cube);
+        unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
         bool blocked(const z3::expr_vector& cube);
         bool block(const z3::expr_vector& cube);
         void block_in_solver(const z3::expr_vector& cube);

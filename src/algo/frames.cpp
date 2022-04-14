@@ -224,7 +224,7 @@ namespace pdr
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
-      unsigned n_removed = frames.at(i)->remove_subsumed(cube);
+      unsigned n_removed = frames.at(i)->remove_subsumed(cube, i < level);
       logger.stats.subsumed_cubes.add(level, n_removed);
     }
 
@@ -247,7 +247,7 @@ namespace pdr
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
-      unsigned n_removed = frames.at(i)->remove_subsumed(cube);
+      unsigned n_removed = frames.at(i)->remove_subsumed(cube, i < level);
       logger.stats.subsumed_cubes.add(level, n_removed);
 
 #warning subsumes is now not automatic
@@ -265,6 +265,7 @@ namespace pdr
   std::optional<size_t> Frames::propagate() { return propagate(frontier()); }
   std::optional<size_t> Frames::propagate(size_t k)
   {
+#warning infinite loop dec ham7tc: blocked cube in multiple levels
     assert(k <= frontier());
     logger.tabbed_and_whisper("propagate levels {} - {}", 1, k);
     logger.indent++;

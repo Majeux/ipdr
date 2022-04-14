@@ -159,6 +159,7 @@ namespace pdr
 
     if (finalized)
       return;
+    finalized = true;
 
     if (has_invariant())
     {
@@ -207,6 +208,7 @@ namespace pdr
 
     // Write strategy states
     {
+      trace().marked = model.get_f_pebbles();
       unsigned i = 0;
       for (const State& s : *this)
       {
@@ -238,8 +240,6 @@ namespace pdr
     str = ss.str();
 
     clean_trace(); // information is stored in string, deallocate trace
-
-    finalized = true;
   }
 
   const_iterator Result::begin()
@@ -284,16 +284,18 @@ namespace pdr
       out << trace << std::endl;
   }
 
-  Results& operator<<(Results& rs, Result& r)
+  Results& Results::add(Result& r)
   {
     string trace(r.string_rep());
-    rs.rows.push_back(r.listing());
-    rs.traces.push_back(trace);
+    rows.push_back(r.listing());
+    traces.push_back(trace);
 
-    return rs;
+    return *this;
   }
 
-  std::vector<double> AveragedResults::extract_times() const
+  Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
+
+  std::vector<double> ExperimentResults::extract_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
@@ -301,7 +303,7 @@ namespace pdr
     return times;
   }
 
-  double AveragedResults::median_time()
+  double ExperimentResults::median_time()
   {
     std::vector<double> times = extract_times();
     std::sort(times.begin(), times.end());
@@ -316,14 +318,14 @@ namespace pdr
       return times[times.size() / 2];
   }
 
-  double AveragedResults::mean_time()
+  double ExperimentResults::mean_time()
   {
     double total = std::accumulate(original.begin(), original.end(), 0.0,
         [](double a, const Result& r) { return a + r.total_time; });
     return total / original.size();
   }
 
-  double AveragedResults::time_std_dev(double mean)
+  double ExperimentResults::time_std_dev(double mean)
   {
     std::vector<double> times = extract_times();
     double diffs              = std::accumulate(times.begin(), times.end(), 0.0,
@@ -333,9 +335,9 @@ namespace pdr
     return std::sqrt(variance);
   }
 
-  void AveragedResults::show(std::ostream& out) const {}
+  void ExperimentResults::show(std::ostream& out) const {}
 
-  AveragedResults& operator<<(AveragedResults& ars, Result& r)
+  ExperimentResults& operator<<(ExperimentResults& ars, Result& r)
   {
     ars.original.push_back(r);
     if (r.has_invariant())

@@ -25,7 +25,7 @@ namespace pdr
   {
     for (const z3::expr_vector& blocked_cube : blocked_cubes)
     {
-      if (z3ext::subsumes(blocked_cube, cube))
+      if (z3ext::subsumes_l(blocked_cube, cube))
       {
         SPDLOG_LOGGER_TRACE(logger.spd_logger, "already blocked in F{} by {}",
                             level, z3ext::join_expr_vec(blocked_cube));
@@ -35,7 +35,7 @@ namespace pdr
     return false;
   }
 
-  unsigned Frame::remove_subsumed(const z3::expr_vector& cube)
+  unsigned Frame::remove_subsumed(const z3::expr_vector& cube, bool remove_equal)
   {
     // return 0;
     unsigned before = blocked_cubes.size();
@@ -43,9 +43,14 @@ namespace pdr
     // blocked_cubes.end(),
     // 		[&cube](const expr_vector& blocked) { return
     // z3ext::subsumes(cube, blocked); });
+    
+    auto subsumes = [remove_equal](const z3::expr_vector& l, const z3::expr_vector& r) {
+      return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
+    };
+
     for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
     {
-      if (z3ext::subsumes(cube, *it))
+      if (subsumes(cube, *it))
         it = blocked_cubes.erase(it);
       else
         it++;

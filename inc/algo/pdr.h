@@ -133,13 +133,15 @@ namespace pdr
      public:
       Results latest_results;
 
+      Optimizer(PDR&& a);
       Optimizer(Context& c, Logger& l);
 
-      std::optional<unsigned> run(Tactic t);
-
+      std::optional<unsigned> run(my::cli::ArgumentList args);
       std::optional<unsigned> increment();
       std::optional<unsigned> decrement();
-      std::optional<unsigned> inc_jump_test();
+      void inc_jump_test(unsigned start, int step);
+
+      void dump_solver(std::ofstream& out) const;
     }; // class Optimizer
   }    // namespace pebbling
 } // namespace pdr

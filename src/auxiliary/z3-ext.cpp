@@ -81,7 +81,7 @@ namespace z3ext
     v = convert(std::move(std_vec));
   }
 
-  bool subsumes(const expr_vector& l, const expr_vector& r)
+  bool subsumes_l(const expr_vector& l, const expr_vector& r)
   {
     if (l.size() >= r.size())
       return false;
@@ -89,6 +89,13 @@ namespace z3ext
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
   }
 
+  bool subsumes_le(const expr_vector& l, const expr_vector& r)
+  {
+    if (l.size() > r.size())
+      return false;
+
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+  }
   // COMPARATOR FUNCTORS
   //
   bool expr_less::operator()(const z3::expr& l, const z3::expr& r) const

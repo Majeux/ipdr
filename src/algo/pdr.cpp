@@ -117,7 +117,7 @@ namespace pdr
     if (!rv)
       shortest_strategy = std::min(shortest_strategy, rv.trace().marked);
     logger.indent = 0;
-	rv.finalize(ctx);
+    rv.finalize(ctx);
 
     return rv;
   }
@@ -129,7 +129,7 @@ namespace pdr
     assert(frames.frontier() == 0);
 
     const pebbling::Model& m = ctx.model();
-    expr_vector notP       = m.n_property.currents();
+    expr_vector notP         = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
     {
@@ -155,12 +155,12 @@ namespace pdr
   {
     // I => P and I & T ⇒ P' (from init)
     expr_vector notP_next = ctx.model().n_property.nexts();
-    unsigned k            = 1;
-    while (true) // iterate over k, if dynamic this continues from last k
+    if (ctx.type != Tactic::decrement)
+      assert(frames.frontier() == 1);
+
+    for (size_t k = frames.frontier(); true; k++, frames.extend()) 
     {
       log_iteration();
-      // int k = frames.frontier();
-      assert(k == frames.frontier());
       logger.whisper("Iteration k={}", k);
       while (std::optional<expr_vector> cti =
                  frames.get_trans_source(k, notP_next, true))
@@ -189,14 +189,12 @@ namespace pdr
       sub_timer.reset();
 
       optional<size_t> invariant_level = frames.propagate();
-      double time         = sub_timer.elapsed().count();
-      log_propagation(frames.frontier(), time);
+      double time                      = sub_timer.elapsed().count();
+      log_propagation(k, time);
       frames.log_solvers(true);
 
       if (invariant_level)
         return Result::found_invariant(frames.max_pebbles, *invariant_level);
-      frames.extend();
-      k++;
     }
   }
 

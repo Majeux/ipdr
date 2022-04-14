@@ -23,15 +23,15 @@ namespace pdr::experiments
   }
 
   void model_run(pebbling::Model& model, pdr::Logger& log, unsigned sample_size,
-      Tactic tactic, bool delta)
+      my::cli::ArgumentList args, bool delta)
   {
     cout << format("running {}, {} samples", model.name, sample_size) << endl;
     std::vector<Result> res;
     for (unsigned i = 0; i < sample_size; i++)
     {
       pdr::Context ctx(model, delta, true); // new context with new random seed
-      pdr::PDR algorithm(ctx, log);
-      ExperimentResult r = pdr_run(algorithm, tactic);
+      pdr::pebbling::Optimizer opt(ctx, log);
+      std::optional<unsigned> r = opt.run(args);
       // TODO at r to total and average out
     }
 

@@ -5,198 +5,117 @@
 #include <cstddef>
 #include <string>
 
-namespace pdr
+namespace pdr::pebbling
 {
-  namespace pebbling
+  Optimizer::Optimizer(PDR&& a) : alg(std::move(a)), latest_results(alg.ctx) {}
+
+  Optimizer::Optimizer(Context& c, Logger& l)
+      : alg(c, l), latest_results(alg.ctx)
   {
-    Optimizer::Optimizer(Context& c, Logger& l)
-        : alg(c, l), latest_results(alg.ctx)
-    {
-    }
-
-    std::optional<unsigned> Optimizer::increment()
-    {
-#warning dec_tactic not yet fixed for new resets/results
-      alg.logger.and_whisper("! Optimization run: decrement.");
-      const Model& m = alg.ctx;
-      latest_results.reset();
-
-      unsigned N = m.get_f_pebbles(); // need at least this many pebbles
-
-      pdr::Result invariant = alg.run(Tactic::basic, N);
-      latest_results << invariant;
-
-      for (N = N + 1; invariant && N <= m.n_nodes(); N++)
-      {
-        invariant = alg.increment_run(N);
-        latest_results << invariant;
-      }
-
-      if (N > m.n_nodes()) // last run did not find a trace
-      {
-        alg.logger.and_whisper("! No optimum exists.");
-        return {};
-      }
-      // N is minimal
-      alg.logger.and_whisper("! Found optimum: {}.", N);
-      return N;
-    }
-
-    std::optional<unsigned> Optimizer::decrement()
-    {
-#warning dec_tactic not yet fixed for new resets/results
-      alg.logger.and_whisper("! Optimization run: decrement.");
-      const Model& m = alg.ctx;
-      latest_results.reset();
-
-      unsigned N = m.n_nodes(); // need at least this many pebbles
-
-      pdr::Result invariant = alg.run(Tactic::basic, N);
-      latest_results << invariant;
-
-      for (N = N - 1; !invariant && N >= m.get_f_pebbles(); N--)
-      {
-        invariant = alg.decrement_run(N);
-        latest_results << invariant;
-      }
-
-      if (N < m.get_f_pebbles()) // last run did not find a trace
-      {
-        alg.logger.and_whisper("! No optimum exists.");
-        return {};
-      }
-      // the previous N was optimal
-      alg.logger.and_whisper("! Found optimum: {}.", N + 1);
-      return N + 1;
-    }
-  } // namespace pebbling
-  /*
-    returns true if the incremental algorithm must continue
-    returns false if no strategy with fewer than max_pebbles exists.
-  */
-  bool PDR::decrement(bool reuse)
-  {
-#warning "not yet fixed with new results"
-    const Model& m = ctx.model();
-    unsigned k     = frames.frontier();
-
-    unsigned max_pebbles = frames.max_pebbles.value();
-    unsigned new_pebbles = shortest_strategy - 1;
-    assert(max_pebbles > 0);
-    assert(new_pebbles > 0);
-    assert(new_pebbles < max_pebbles);
-
-    if (new_pebbles < m.get_f_pebbles()) // not enough to pebble final state
-      return false;
-
-    reset();
-    // results.extend();
-    logger.whisper("retrying with {}", new_pebbles);
-    if (!reuse)
-      return true;
-
-    // TODO separate statstics from dyn runs?
-    frames.reset_constraint(new_pebbles);
-
-    logger.and_show(fmt::format("Dynamic: skip initiation. k = {}", k));
-    // if we are reusing frames, the last propagation was k-1, repeat this
-    std::optional<size_t> invariant = frames.propagate(true);
-    if (invariant)
-    {
-      // results.current().invariant_level = invariant;
-      return true;
-    }
-    return false;
   }
 
-  bool PDR::dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
+  std::optional<unsigned> Optimizer::run(my::cli::ArgumentList args)
   {
-#warning "dec_tactic not yet fixed for new resets/results"
-    logger.and_show("NEW DEC RUN");
-    const pebbling::Model& m = ctx.model();
-    int N          = m.n_nodes(); // cannot pebble more than this
-    ctx.model().constraint(N);
-    bool found_strategy = !run(Tactic::basic);
-    while (found_strategy)
+
+    switch (args.tactic)
     {
-      int maxp = frames.max_pebbles.value();
-      int newp = shortest_strategy - 1;
-      assert(newp > 0);
-      assert(newp < maxp);
-      if (newp > (int)m.n_nodes())
+      case pdr::Tactic::decrement: return decrement();
+      case pdr::Tactic::increment: return increment();
+      case pdr::Tactic::inc_jump_test:
+        inc_jump_test(args.max_pebbles.value(), 10);
         break;
-      reset();
-      // results.extend();
-      logger.whisper("Decremental run {} -> {} pebbles", maxp, newp);
-
-      frames.reset_constraint(newp);
-      found_strategy = !run(Tactic::decrement);
+      case pdr::Tactic::inc_one_test:
+        inc_jump_test(args.max_pebbles.value(), 1);
+        break;
+      default:
+        throw std::invalid_argument(
+            "No optimization pdr tactic has been selected.");
     }
-    // N is minimal
-    // show_results(strategy);
-    solver_dump << SEP3 << " final iteration " << N << std::endl;
-    show_solver(solver_dump);
-    return true;
+    return {};
   }
 
-  /*
-  bool PDR::inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump)
+  std::optional<unsigned> Optimizer::increment()
   {
-#warning inc_tactic not yet fixed for new resets/results
-    const Model& m = ctx.model();
-    Results results(m);
+#warning dec_tactic not yet fixed for new resets/results
+    alg.logger.and_whisper("! Optimization run: decrement.");
+    const Model& m = alg.ctx;
+    latest_results.reset();
 
     unsigned N = m.get_f_pebbles(); // need at least this many pebbles
 
-    logger.and_whisper("NEW INC RUN");
-    pdr::Result invariant = run(Tactic::basic, N);
-    results << invariant;
-    while (invariant)
+    pdr::Result invariant = alg.run(Tactic::basic, N);
+    latest_results << invariant;
+
+    for (N = N + 1; invariant && N <= m.n_nodes(); N++)
     {
-      N++;
-      if (N > m.n_nodes())
-      {
-        logger.and_whisper("No strategy exists.");
-        return false;
-      }
-      invariant = increment_run(N);
-      results << invariant;
+      invariant = alg.increment_run(N);
+      latest_results << invariant;
+    }
+
+    if (N > m.n_nodes()) // last run did not find a trace
+    {
+      alg.logger.and_whisper("! No optimum exists.");
+      return {};
     }
     // N is minimal
-    results.show(strategy);
-    solver_dump << SEP3 << " final iteration " << N << std::endl;
-    show_solver(solver_dump);
-    return true;
+    alg.logger.and_whisper("! Found optimum: {}.", N);
+    return N;
   }
-  */
 
-  bool PDR::inc_jump_test(unsigned start, int step,
-      std::ofstream& strategy_file, std::ofstream& solver_dump)
+  std::optional<unsigned> Optimizer::decrement()
+  {
+#warning use found strategy as next constraint
+    alg.logger.and_whisper("! Optimization run: decrement.");
+    const Model& m = alg.ctx;
+    latest_results.reset();
+
+    unsigned N = m.n_nodes(); // need at least this many pebbles
+
+    pdr::Result invariant = alg.run(Tactic::basic, N);
+    latest_results << invariant;
+    if (!invariant)
+      N = std::min(N, invariant.trace().marked);
+
+    for (N = N - 1; !invariant && N >= m.get_f_pebbles(); N--)
+    {
+      invariant = alg.decrement_run(N);
+      latest_results << invariant;
+      if (!invariant)
+        N = std::min(N, invariant.trace().marked);
+    }
+
+    if (invariant) // last run did not find a trace
+    {
+      alg.logger.and_whisper("! No optimum exists.");
+      return {};
+    }
+    // the previous N was optimal
+    alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+    return N + 1;
+  }
+
+  void Optimizer::inc_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
-    Results results(ctx.model());
-    logger.and_show("NEW INC JUMP TEST RUN");
-    logger.and_show("start {}. step {}", start, step);
-    const pebbling::Model& m        = ctx.model();
-    pdr::Result invariant = run(Tactic::basic, start);
-    results << invariant;
+    alg.logger.and_show("NEW INC JUMP TEST RUN");
+    alg.logger.and_show("start {}. step {}", start, step);
+    const pebbling::Model& m = alg.ctx;
+    pdr::Result invariant    = alg.run(Tactic::basic, start);
+    latest_results << invariant;
 
-    if (true)
+    int maxp = alg.frames.max_pebbles.value();
+    int newp = maxp + step;
+    assert(newp > 0);
+    assert(maxp < newp);
+    if (newp <= (int)m.n_nodes())
     {
-      int maxp = frames.max_pebbles.value();
-      int newp = maxp + step;
-      assert(newp > 0);
-      assert(maxp < newp);
-      if (newp <= (int)m.n_nodes())
-      {
-        invariant = increment_run(newp);
-        results << invariant;
-      }
+      invariant = alg.increment_run(newp);
+      latest_results << invariant;
     }
-    results.show(strategy_file);
-    solver_dump << SEP3 << " final iteration " << frames.max_pebbles.value()
-                << std::endl;
-    show_solver(solver_dump);
-    return true;
   }
-} // namespace pdr
+
+  void Optimizer::dump_solver(std::ofstream& out) const
+  {
+    alg.show_solver(out);
+  }
+} // namespace pdr::pebbling

@@ -113,10 +113,11 @@ namespace pdr
     TextTable new_table() const;
     void reset();
     virtual void show(std::ostream& out) const;
+    Results& add(Result& r);
     friend Results& operator<<(Results& rs, Result& r);
   };
 
-  class AveragedResults : public Results
+  class ExperimentResults : public Results
   {
    private:
     Result averaged;
@@ -131,7 +132,7 @@ namespace pdr
 
    public:
     void show(std::ostream& out) const override;
-    friend AveragedResults& operator<<(AveragedResults& rs, Result& r);
+    friend ExperimentResults& operator<<(ExperimentResults& rs, Result& r);
   };
 } // namespace pdr
 #endif // PDR_RES

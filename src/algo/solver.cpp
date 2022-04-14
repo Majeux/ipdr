@@ -4,6 +4,7 @@
 
 namespace pdr
 {
+#warning still duplicates in solver in dump
   Solver::Solver(const Context& c, z3::expr_vector base,
                  z3::expr_vector transition, z3::expr_vector constraint)
       : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
