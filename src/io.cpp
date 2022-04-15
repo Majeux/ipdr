@@ -8,29 +8,39 @@ namespace my::io
 {
   using cli::ArgumentList;
   using namespace pdr::tactic;
+  using fmt::format;
+  using std::string;
   namespace fs = ghc::filesystem;
 
-  std::string file_name(const ArgumentList& args)
+  string file_name(const ArgumentList& args)
   {
-    std::string file_string =
-        fmt::format("{}-{}", args.model_name, to_string(args.tactic));
+    string file_string =
+        format("{}-{}", args.model_name, to_string(args.tactic));
 
     if (!(args.tactic == pdr::Tactic::increment ||
             args.tactic == pdr::Tactic::decrement))
-      file_string += fmt::format("-{}", args.max_pebbles.value());
+      file_string += format("-{}", args.max_pebbles.value());
     if (args.delta)
       file_string += "-delta";
 
     return file_string;
   }
 
-  std::string folder_name(const ArgumentList& args)
+  string folder_name(const ArgumentList& args)
   {
-    std::string folder_string = to_string(args.tactic);
+    string folder_string = to_string(args.tactic);
+
+    if (args.exp_sample)
+    {
+      folder_string += "-";
+      if (args.experiment_control)
+        folder_string += "C";
+      folder_string += format("exp{}", *args.exp_sample);
+    }
 
     if (!(args.tactic == pdr::Tactic::increment ||
             args.tactic == pdr::Tactic::decrement))
-      folder_string += fmt::format("-{}", args.max_pebbles.value());
+      folder_string += format("-{}", args.max_pebbles.value());
     if (args.delta)
       folder_string += "-delta";
 

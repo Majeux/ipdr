@@ -22,17 +22,29 @@ namespace pdr::experiments
     }
   }
 
-  void model_run(pebbling::Model& model, pdr::Logger& log, unsigned sample_size,
-      my::cli::ArgumentList args, bool delta)
+  void model_run(pebbling::Model& model, pdr::Logger& log,
+      const my::cli::ArgumentList& args)
   {
-    cout << format("running {}, {} samples", model.name, sample_size) << endl;
+    using std::optional;
+
+    unsigned N = args.exp_sample.value();
+    cout << format("running {}, {} samples", model.name, N) << endl;
     std::vector<Result> res;
-    for (unsigned i = 0; i < sample_size; i++)
+    optional<unsigned> optimum;
+    for (unsigned i = 0; i < N; i++)
     {
-      pdr::Context ctx(model, delta, true); // new context with new random seed
+std::optional<unsigned> r;
+      pdr::Context ctx(model, args.delta, true); // new context with new random seed
       pdr::pebbling::Optimizer opt(ctx, log);
-      std::optional<unsigned> r = opt.run(args);
-      // TODO at r to total and average out
+
+      if (i == 0)
+         optimum = opt.run(args);
+      else
+      {
+        r = opt.run(args);
+        assert(optimum == r);
+      }
+      
     }
 
     /* result format

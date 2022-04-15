@@ -136,9 +136,10 @@ namespace pdr
       Optimizer(PDR&& a);
       Optimizer(Context& c, Logger& l);
 
+      // runs the optimizer as dictated by the argument
       std::optional<unsigned> run(my::cli::ArgumentList args);
-      std::optional<unsigned> increment();
-      std::optional<unsigned> decrement();
+      std::optional<unsigned> increment(bool control);
+      std::optional<unsigned> decrement(bool control);
       void inc_jump_test(unsigned start, int step);
 
       void dump_solver(std::ofstream& out) const;

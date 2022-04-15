@@ -12,88 +12,110 @@ namespace my::cli
 
   void show_header(const ArgumentList& clargs)
   {
+    using fmt::format;
     using std::cout;
     using std::endl;
     switch (clargs.tactic)
     {
       case pdr::Tactic::basic:
-        cout << fmt::format("Finding {}-pebble strategy for {}",
+        cout << format("Finding {}-pebble strategy for {}",
             clargs.max_pebbles.value(), clargs.model_name);
         break;
       case pdr::Tactic::decrement:
-        cout << fmt::format(
-            "Finding minimal pebble strategy for {} by decrementing",
+        cout << format("Finding minimal pebble strategy for {} by decrementing",
             clargs.model_name);
         break;
       case pdr::Tactic::increment:
-        cout << fmt::format(
-            "Finding minimal pebble strategy for {} by incrementing",
+        cout << format("Finding minimal pebble strategy for {} by incrementing",
             clargs.model_name);
         break;
       case pdr::Tactic::inc_jump_test:
-        cout << fmt::format("{} and +10 step jump test for {} by incrementing",
+        cout << format("{} and +10 step jump test for {} by incrementing",
             clargs.max_pebbles.value(), clargs.model_name);
         break;
       case pdr::Tactic::inc_one_test:
-        cout << fmt::format("{} and +1 step jump test for {} by incrementing",
+        cout << format("{} and +1 step jump test for {} by incrementing",
             clargs.max_pebbles.value(), clargs.model_name);
         break;
       default: throw std::invalid_argument("pdr::Tactic is undefined");
     }
     cout << endl;
+    if (clargs.exp_sample)
+      cout << format(
+          "Running an experiment with {} samples. ", *clargs.exp_sample);
+    if (clargs.experiment_control)
+      cout << "(a control run)";
+    cout << endl;
+
     if (clargs.delta)
-      cout << "Using delta-encoded frames. ";
+      cout << "Using delta-encoded frames." << endl;
     if (clargs.rand)
-      cout << "Using randomized seed. ";
+      cout << "Using randomized seed." << endl;
     if (clargs.seed)
-      cout << "Using seed: " << *clargs.seed;
+      cout << "Using seed: " << *clargs.seed << endl;
+    if (clargs.tseytin)
+      cout << "Using tseytin encoded transition." << endl;
     cout << endl;
   }
+
   cxxopts::Options make_options(std::string name, ArgumentList& clargs)
   {
     using cxxopts::value;
+    using std::optional;
+    using std::string;
+    using std::vector;
+
     cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                  "amount of pebbles through PDR");
-    clargs.delta = false;
     // clang-format off
     clopt.add_options()
-    ("v,verbose", "Output all messages during pdr iterations")
-    ("w,wisper", "Output only minor messages during pdr iterations. (default)")
-    ("s,silent", "Output no messages during pdr iterations.")
-    ("show-only", "Only write the given model to its output file, does not run the algorithm.",
-     value<bool>(clargs.onlyshow))
-    ("out-file", "Write to an output file instead of standard output", 
-      value<std::string>(), "(string:FILE.out)")
+      // output options
+      ("v,verbose", "Output all messages during pdr iterations")
+      ("w,wisper", "Output only minor messages during pdr iterations. (default)")
+      ("s,silent", "Output no messages during pdr iterations.")
+      ("out-file", "Write to an output file instead of standard output", 
+        value< optional<string> >(clargs.out), "(string:FILE.out)")
 
-    ("optimize", fmt::format("Find a strategy requiring the minimum number of pebbles."
-                             "Value is {} or {}", increment_str, decrement_str), 
-      value<std::string>(), "(string:TYPE)")
-    ("d,delta", "Use delta-encoded frames.",
-      value<bool>(clargs.delta))
-    ("r,rand", "Use a randomized seed for the SAT solver",
-      value<bool>(clargs.rand))
-    ("seed", "Use the given seed for the SAT solver",
-      value<unsigned>(), "(uint:SEED)")
+      // tactic option
+      ("optimize", fmt::format("Find a strategy requiring the minimum number of pebbles."
+       "Value is {} or {}", increment_str, decrement_str), 
+        value<string>(), "(string:TYPE)")
+      ("e,experiment", "Run an for a given optimization tactic.",
+        value< optional<unsigned> >(clargs.exp_sample))
+      ("control", "Run an optimization tactic with only multiple Basic runs",
+        value<bool>(clargs.experiment_control))
 
-    ("dir","Directory (relative to ./) than contains runable benchmarks.",
-      value<fs::path>()->default_value(my::io::BENCH_FOLDER), "(string:F)")
-    ("bench", "File in in .bench format.",
-      value<std::string>(), "(string:FILE)")
-    ("tfc", "File in in .tfc format.",
-      value<std::string>(), "(string:FILE)")
-    ("hop", "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
-      value<std::vector<unsigned>>(), "(uint:BITS,uint:MOD)")
-    ("p,pebbles", "The number of strategy's to find a strategy for."
-     "Ignored during optimize runs.", 
-      value<int>(), "(uint:N)")
-    ("tseytin", "Build the transition relation using the tseytin reform.",
-      value<bool>(clargs.tseytin))
+      // model options
+      ("dir","Directory (relative to ./) than contains runable benchmarks.",
+        value<fs::path>()->default_value(my::io::BENCH_FOLDER), "(string:F)")
+      ("bench", "File in in .bench format.",
+        value<string>(), "(string:FILE)")
+      ("tfc", "File in in .tfc format.",
+        value<string>(), "(string:FILE)")
+      ("hop", "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
+        value< vector<unsigned> >(), "(uint:BITS,uint:MOD)")
+      ("p,pebbles", "The number of strategy's to find a strategy for."
+       "Ignored during optimize runs.", 
+        value< optional<unsigned> >(clargs.max_pebbles), "(uint:N)")
 
-    (inc_jump_str, "Test two runs: one with pebbles 10 higher than the other.",
-	   cxxopts::value<unsigned>(), "(uint:P)")
-    (inc_one_str, "Test two runs: one with P pebbles and the other with P+1.",
-	   cxxopts::value<unsigned>(), "(uint:P)")
+      // context options
+      ("r,rand", "Use a randomized seed for the SAT solver",
+        value<bool>(clargs.rand))
+      ("seed", "Use the given seed for the SAT solver",
+        value< optional<unsigned> >(clargs.seed), "(uint:SEED)")
+      ("d,delta", "Use delta-encoded frames.",
+        value<bool>(clargs.delta))
+      ("tseytin", "Build the transition relation using the tseytin reform.",
+        value<bool>(clargs.tseytin))
 
+      // tests
+      (inc_jump_str, "Test two runs: one with pebbles 10 higher than the other.",
+       value<unsigned>(), "(uint:P)")
+      (inc_one_str, "Test two runs: one with P pebbles and the other with P+1.",
+       value<unsigned>(), "(uint:P)")
+
+      ("show-only", "Only write the given model to its output file, does not run the algorithm.",
+       value<bool>(clargs.onlyshow))
 
     ("h,help", "Show usage");
     // clang-format on
@@ -143,13 +165,14 @@ namespace my::cli
       if (!clresult.count("pebbles"))
         throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
 
-      clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
-      if (clargs.max_pebbles < 0)
-        throw std::invalid_argument("pebbles must be positive.");
+      // clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
+      // if (clargs.max_pebbles < 0)
+      //   throw std::invalid_argument("pebbles must be positive.");
     }
 
-    unsigned n_tests = clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_jump_test)) +
-                       clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_one_test));
+    unsigned n_tests =
+        clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_jump_test)) +
+        clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_one_test));
     if (n_tests > 1)
       throw std::invalid_argument("specify at most one test");
   }
@@ -205,17 +228,6 @@ namespace my::cli
       if (clargs.onlyshow)
         return clargs;
       parse_tactic(clargs, clresult);
-
-      if (clresult.count("seed"))
-      {
-        assert(!clargs.rand);
-        clargs.seed = clresult["seed"].as<unsigned>();
-      }
-
-      if (clresult.count("out-file"))
-        clargs.out = clresult["out-file"].as<std::string>();
-      else
-        clargs.out = {};
     }
     catch (const std::exception& e)
     {

@@ -6,10 +6,12 @@
 #include "pdr.h"
 #include <variant>
 
-namespace pdr::experiments 
+namespace pdr::experiments
 {
-  struct ExperimentResult {};
-  struct Run 
+  struct ExperimentResult
+  {
+  };
+  struct Run
   {
     Tactic tactic;
     bool delta;
@@ -19,7 +21,8 @@ namespace pdr::experiments
     Run(Tactic t, bool d, unsigned ss, std::optional<unsigned> p = {});
   };
 
-  void model_run(pebbling::Model& model, pdr::Logger& log, unsigned sample_size, Tactic tactic);
+  void model_run(pebbling::Model& model, pdr::Logger& log,
+      const my::cli::ArgumentList& args);
   ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic);
 } // namespace pdr::experiments
 

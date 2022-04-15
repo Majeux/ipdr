@@ -108,7 +108,6 @@ int main(int argc, char* argv[])
   static fs::path model_dir        = setup_model_path(clargs);
   static std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
   static std::ofstream model_descr = trunc_file(model_dir, "model", "txt");
-  static fs::path run_dir          = setup_run_path(clargs);
 
   dag::Graph G = build_dag(clargs);
   G.show_image(model_dir / "dag");
@@ -129,6 +128,7 @@ int main(int argc, char* argv[])
                            : pdr::Context(model, clargs.delta, clargs.rand);
 
   const std::string filename = file_name(clargs);
+  static fs::path run_dir    = setup_run_path(clargs);
   std::ofstream stats        = trunc_file(run_dir, filename, "stats");
   std::ofstream strategy     = trunc_file(run_dir, filename, "strategy");
   std::ofstream solver_dump  = trunc_file(run_dir, "solver_dump", "strategy");
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
   fs::path log_file      = run_dir / fmt::format("{}.{}", filename, "log");
   fs::path progress_file = run_dir / fmt::format("{}.{}", filename, "out");
 
-  pdr::Logger pdr_logger = clargs.out
+  pdr::Logger logger = clargs.out
                              ? pdr::Logger(log_file.string(), G, *clargs.out,
                                    clargs.verbosity, std::move(stats))
                              : pdr::Logger(log_file.string(), G,
@@ -146,9 +146,13 @@ int main(int argc, char* argv[])
   show_header(clargs);
 
   pdr::Results rs(model);
-  pdr::PDR algorithm(context, pdr_logger);
+  pdr::PDR algorithm(context, logger);
 
-  if (clargs.tactic == pdr::Tactic::basic)
+  if (clargs.exp_sample) {
+    using namespace pdr::experiments;
+    model_run(model, logger, clargs);
+  }
+  else if (clargs.tactic == pdr::Tactic::basic)
   {
     pdr::Result r = algorithm.run(clargs.tactic, clargs.max_pebbles);
     rs.add(r).show(strategy);

@@ -7,6 +7,8 @@
 
 namespace pdr::pebbling
 {
+  using std::optional;
+
   Optimizer::Optimizer(PDR&& a) : alg(std::move(a)), latest_results(alg.ctx) {}
 
   Optimizer::Optimizer(Context& c, Logger& l)
@@ -14,13 +16,13 @@ namespace pdr::pebbling
   {
   }
 
-  std::optional<unsigned> Optimizer::run(my::cli::ArgumentList args)
+  optional<unsigned> Optimizer::run(my::cli::ArgumentList args)
   {
 
     switch (args.tactic)
     {
-      case pdr::Tactic::decrement: return decrement();
-      case pdr::Tactic::increment: return increment();
+      case pdr::Tactic::decrement: return decrement(args.experiment_control);
+      case pdr::Tactic::increment: return increment(args.experiment_control);
       case pdr::Tactic::inc_jump_test:
         inc_jump_test(args.max_pebbles.value(), 10);
         break;
@@ -34,7 +36,7 @@ namespace pdr::pebbling
     return {};
   }
 
-  std::optional<unsigned> Optimizer::increment()
+  optional<unsigned> Optimizer::increment(bool control)
   {
 #warning dec_tactic not yet fixed for new resets/results
     alg.logger.and_whisper("! Optimization run: decrement.");
@@ -48,7 +50,10 @@ namespace pdr::pebbling
 
     for (N = N + 1; invariant && N <= m.n_nodes(); N++)
     {
-      invariant = alg.increment_run(N);
+      if (control)
+        invariant = alg.run(Tactic::basic, N);
+      else
+        invariant = alg.increment_run(N);
       latest_results << invariant;
     }
 
@@ -62,7 +67,7 @@ namespace pdr::pebbling
     return N;
   }
 
-  std::optional<unsigned> Optimizer::decrement()
+  optional<unsigned> Optimizer::decrement(bool control)
   {
 #warning use found strategy as next constraint
     alg.logger.and_whisper("! Optimization run: decrement.");
@@ -78,7 +83,10 @@ namespace pdr::pebbling
 
     for (N = N - 1; !invariant && N >= m.get_f_pebbles(); N--)
     {
-      invariant = alg.decrement_run(N);
+      if (control)
+        invariant = alg.run(Tactic::basic, N);
+      else
+        invariant = alg.decrement_run(N);
       latest_results << invariant;
       if (!invariant)
         N = std::min(N, invariant.trace().marked);

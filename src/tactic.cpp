@@ -8,12 +8,13 @@ namespace pdr::tactic
   {
     switch (r)
     {
-      case pdr::Tactic::basic: return "basic";
-      case pdr::Tactic::decrement: return decrement_str;
-      case pdr::Tactic::increment: return increment_str;
-      case pdr::Tactic::inc_jump_test: return inc_jump_str;
-      case pdr::Tactic::inc_one_test: return inc_one_str;
-      default: throw std::invalid_argument("pdr::Tactic is undefined");
+      case Tactic::basic: return "basic";
+      case Tactic::decrement: return decrement_str;
+      case Tactic::increment: return increment_str;
+      case Tactic::inc_jump_test: return inc_jump_str;
+      case Tactic::inc_one_test: return inc_one_str;
+      case Tactic::undef: return "???";
+      //  default: throw std::invalid_argument("pdr::Tactic is undefined");
     }
   }
 } // namespace pdr
