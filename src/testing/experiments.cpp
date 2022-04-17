@@ -1,6 +1,7 @@
 #include "experiments.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "tactic.h"
 #include <cassert>
 #include <fmt/core.h>
 #include <variant>
@@ -28,23 +29,34 @@ namespace pdr::experiments
     using std::optional;
 
     unsigned N = args.exp_sample.value();
-    cout << format("running {}, {} samples", model.name, N) << endl;
-    std::vector<Result> res;
+    cout << format("running {}. {} samples. {} tactic", model.name, N,
+                pdr::tactic::to_string(args.tactic))
+         << endl;
     optional<unsigned> optimum;
     for (unsigned i = 0; i < N; i++)
     {
-std::optional<unsigned> r;
-      pdr::Context ctx(model, args.delta, true); // new context with new random seed
+      std::optional<unsigned> r;
+      pdr::Context ctx(
+          model, args.delta, true); // new context with new random seed
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
-         optimum = opt.run(args);
+        optimum = opt.run(args);
       else
       {
         r = opt.run(args);
         assert(optimum == r);
       }
-      
+
+      ExperimentResults er(opt.latest_results, args.tactic);
+      cout << format("## Experiment sample {}", i) << endl;
+      er.show(cout);
+      cout << std::endl << format("## Raw data sample {}", i) << endl;
+      er.show_raw(std::cout);
+      cout << endl
+           << endl
+           << "==================================" << endl
+           << endl;
     }
 
     /* result format
@@ -54,53 +66,38 @@ std::optional<unsigned> r;
     */
   }
 
-  ExperimentResult pdr_run(pdr::PDR& alg, Tactic tactic)
-  {
-    Results iteration_results(alg.get_ctx().model());
-    const pebbling::Model& m = alg.get_ctx();
-    cout << "sample run" << endl;
-    switch (tactic)
-    {
-      case Tactic::increment:
-      {
-        unsigned N      = m.get_f_pebbles();
-        pdr::Result res = alg.run(Tactic::basic, N);
-        iteration_results << res;
+  // double ExperimentResults::median_time()
+  // {
+  //   std::vector<double> times = extract_times();
+  //   std::sort(times.begin(), times.end());
 
-        if (!res) // trace found
-        {
-        }
-        else
-        {
-          for (N = N + 1; N <= m.n_nodes(); N++)
-          {
-            res = alg.increment_run(N);
-            iteration_results << res;
+  //   if (times.size() % 2 == 0) // even number
+  //   {
+  //     size_t i1 = times.size() / 2;
+  //     size_t i2 = i1 + 1;
+  //     return (times[i1] + times[i2]) / 2; // return average of middle two
+  //   }
+  //   else
+  //     return times[times.size() / 2];
+  // }
 
-            if (!res)
-              break;
-          }
-        }
-        assert(!res || N > m.n_nodes());
-      }
-      break;
-      case Tactic::decrement:
-      {
-        unsigned N            = m.n_nodes();
-        pdr::Result invariant = alg.run(Tactic::basic, N);
-        iteration_results << invariant;
-        while (invariant)
-        {
-          N--;
-          if (N <= m.get_f_pebbles())
-            break;
-          invariant = alg.increment_run(N);
-          iteration_results << invariant;
-        }
-      }
-      break;
-      default: assert(false);
-    }
-  }
+  // double ExperimentResults::mean_time()
+  // {
+  //   double total = std::accumulate(original.begin(), original.end(), 0.0,
+  //       [](double a, const Result& r) { return a + r.time; });
+  //   return total / original.size();
+  // }
+
+  // double ExperimentResults::time_std_dev(double mean)
+  // {
+  //   std::vector<double> times = extract_times();
+  //   double diffs              = std::accumulate(times.begin(), times.end(),
+  //   0.0,
+  //                    [mean](double a, double t) { return a + std::sqrt(t -
+  //                    mean); });
+  //   double variance           = diffs / times.size();
+
+  //   return std::sqrt(variance);
+  // }
 
 } // namespace pdr::experiments

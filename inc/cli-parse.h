@@ -56,7 +56,6 @@ namespace my::cli
     bool _failed = false;
   };
 
-  std::string to_string(pdr::Tactic r);
   void show_header(const ArgumentList& clargs);
 
   Options make_options(std::string name, ArgumentList& clargs);

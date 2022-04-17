@@ -107,7 +107,7 @@ namespace pdr
   {
     double final_time = timer.elapsed().count();
     logger.and_show(format("Total elapsed time {}", final_time));
-    rv.total_time = final_time;
+    rv.time = final_time;
 
     logger.stats.elapsed = final_time;
     logger.stats.write(constraint_str());

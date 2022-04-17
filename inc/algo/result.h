@@ -38,7 +38,7 @@ namespace pdr
     };
 
     std::optional<unsigned> constraint;
-    double total_time = 0.0;
+    double time = 0.0;
     std::variant<Invariant, Trace> output;
 
     // Result builders
@@ -97,15 +97,21 @@ namespace pdr
     Result(std::optional<unsigned> constr, int l);
   };
 
+  // collection of >= 1 pdr runs on the same model with varying constraints
+  // if decreasing: trace, trace, ..., invariant
+  // if increasing: invariant, invariant, ..., trace
   class Results
   {
     using ResultRow = std::array<std::string, 5>;
+    friend class ExperimentResults;
 
    protected:
     const pebbling::Model& model;
-    ResultRow header = { "constraint", "pebbles used", "invariant index",
-      "trace length", "Total time" };
+    const ResultRow header = { "constraint", "pebbles used", "invariant index",
+      "trace length", "time" };
     std::vector<ResultRow> rows;
+
+    std::vector<Result> original;
     std::vector<std::string> traces;
 
    public:
@@ -115,23 +121,27 @@ namespace pdr
     virtual void show(std::ostream& out) const;
     Results& add(Result& r);
     friend Results& operator<<(Results& rs, Result& r);
+    std::vector<double> extract_times() const;
   };
 
+  // results that accumulates results for experiments
   class ExperimentResults : public Results
   {
    private:
-    Result averaged;
-    int invariant_level;
-    unsigned length;
-    std::vector<Result> original;
+    double total_time   = 0.0;
+    int invariant_level = INT_MAX;  // earliest invariant found
+    unsigned length     = UINT_MAX; // shortest trace found
+    unsigned marked     = 0;
+    const Tactic tactic;
 
-    std::vector<double> extract_times() const;
-    double median_time();
-    double mean_time();
-    double time_std_dev(double mean);
+    void acc_update(const Result& r);
 
    public:
+    ExperimentResults(const pebbling::Model& m, Tactic t);
+    ExperimentResults(const Results& r, Tactic t);
     void show(std::ostream& out) const override;
+    void show_raw(std::ostream& out) const;
+    ExperimentResults& add(Result& r);
     friend ExperimentResults& operator<<(ExperimentResults& rs, Result& r);
   };
 } // namespace pdr

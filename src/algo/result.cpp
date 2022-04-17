@@ -1,4 +1,5 @@
 #include "result.h"
+#include "output.h"
 #include <TextTable.h>
 #include <algorithm>
 #include <array>
@@ -138,7 +139,7 @@ namespace pdr
       rv[2] = "";
       rv[3] = to_string(trace().length);
     }
-    rv[4] = to_string(total_time);
+    rv[4] = to_string(time);
 
     return rv;
   }
@@ -209,7 +210,7 @@ namespace pdr
     // Write strategy states
     {
       trace().marked = model.get_f_pebbles();
-      unsigned i = 0;
+      unsigned i     = 0;
       for (const State& s : *this)
       {
         i++;
@@ -289,63 +290,95 @@ namespace pdr
     string trace(r.string_rep());
     rows.push_back(r.listing());
     traces.push_back(trace);
+    original.push_back(r);
 
     return *this;
   }
 
   Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
 
-  std::vector<double> ExperimentResults::extract_times() const
+  std::vector<double> Results::extract_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
-        [](const Result& r) { return r.total_time; });
+        [](const Result& r) { return r.time; });
     return times;
   }
 
-  double ExperimentResults::median_time()
+  // ExperimentResults members
+  //
+  ExperimentResults::ExperimentResults(const pebbling::Model& m, Tactic t)
+      : Results(m), tactic(t)
   {
-    std::vector<double> times = extract_times();
-    std::sort(times.begin(), times.end());
+    assert(t == Tactic::decrement || t == Tactic::increment);
+  }
+  ExperimentResults::ExperimentResults(const Results& r, Tactic t)
+      : ExperimentResults(r.model, t)
+  {
+    rows     = r.rows;
+    original = r.original;
+    traces   = r.traces;
+    for (const Result& r : original)
+      acc_update(r);
+  }
 
-    if (times.size() % 2 == 0) // even number
-    {
-      size_t i1 = times.size() / 2;
-      size_t i2 = i1 + 1;
-      return (times[i1] + times[i2]) / 2; // return average of middle two
-    }
+  void ExperimentResults::show(std::ostream& out) const
+  {
+    using std::to_string;
+
+    #warning if lowest strategy == min possible pebbles: last run is not invariant
+    TextTable t;
+    auto header = { "runtime", "max constraint with invariant", "level",
+      "min constraint with strategy", "length" };
+    t.addRow(header);
+
+    auto max_inv   = original.crbegin();
+    auto min_strat = original.crbegin();
+    if (tactic == Tactic::decrement)
+      min_strat++;
+    else if (tactic == Tactic::increment)
+      max_inv++;
     else
-      return times[times.size() / 2];
+      assert(false && "Only inc or dec for experiment");
+
+    using std::string;
+    string time_str       = to_string(total_time),
+           constraint_str = to_string(max_inv->constraint.value()),
+           level_str = to_string(max_inv->invariant().level),
+           marked_str = to_string(min_strat->trace().marked),
+           length_str = to_string(min_strat->trace().length);
+
+    auto r = { time_str, constraint_str, level_str, marked_str, length_str };
+    t.addRow(r);
+    out << t << std::endl;
   }
 
-  double ExperimentResults::mean_time()
+  void ExperimentResults::show_raw(std::ostream& out) const
   {
-    double total = std::accumulate(original.begin(), original.end(), 0.0,
-        [](double a, const Result& r) { return a + r.total_time; });
-    return total / original.size();
+    Results::show(out);
   }
 
-  double ExperimentResults::time_std_dev(double mean)
+  void ExperimentResults::acc_update(const Result& r)
   {
-    std::vector<double> times = extract_times();
-    double diffs              = std::accumulate(times.begin(), times.end(), 0.0,
-                     [mean](double a, double t) { return a + std::sqrt(t - mean); });
-    double variance           = diffs / times.size();
-
-    return std::sqrt(variance);
+    total_time += r.time;
+    if (r.has_invariant())
+      invariant_level = std::min(invariant_level, r.invariant().level);
+    else
+    {
+      length = std::min(length, r.trace().length);
+      marked = std::min(marked, r.trace().marked);
+    }
   }
 
-  void ExperimentResults::show(std::ostream& out) const {}
+  ExperimentResults& ExperimentResults::add(Result& r)
+  {
+    acc_update(r);
+    Results::add(r);
+    return *this;
+  }
 
   ExperimentResults& operator<<(ExperimentResults& ars, Result& r)
   {
-    ars.original.push_back(r);
-    if (r.has_invariant())
-      ars.invariant_level = std::min(ars.invariant_level, r.invariant().level);
-    else
-      ars.length = std::min(ars.length, r.trace().length);
-
-    dynamic_cast<Results&>(ars) << r;
-    return ars;
+    return ars.add(r);
   }
 } // namespace pdr
