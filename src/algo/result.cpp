@@ -270,7 +270,7 @@ namespace pdr
 
   void Results::reset()
   {
-    rows.resize(1);
+    rows.resize(0);
     traces.resize(0);
   }
 
@@ -324,32 +324,54 @@ namespace pdr
 
   void ExperimentResults::show(std::ostream& out) const
   {
+    using fmt::format;
     using std::to_string;
 
-    #warning if lowest strategy == min possible pebbles: last run is not invariant
-    TextTable t;
+    TextTable t('|');
     auto header = { "runtime", "max constraint with invariant", "level",
       "min constraint with strategy", "length" };
     t.addRow(header);
 
-    auto max_inv   = original.crbegin();
-    auto min_strat = original.crbegin();
+    const auto none = original.crend();
+    auto max_inv    = original.crbegin(); // last element
+    auto min_strat  = original.crbegin(); // last element
+
     if (tactic == Tactic::decrement)
-      min_strat++;
+    {
+      if (min_strat->has_trace() && min_strat->trace().marked == model.get_f_pebbles())
+        max_inv = none; // crbegin is min strategy. no invariant
+      else
+        min_strat++; // crbegin is max invariant. crbegin+1 is min strategy
+    }
     else if (tactic == Tactic::increment)
-      max_inv++;
+    {
+      if (max_inv->constraint == model.n_nodes())
+        min_strat = none; // crbegin is invariant. no strategy
+      else
+        max_inv++; // crbegin is strat. crbegin+1 is invariant
+    }
     else
       assert(false && "Only inc or dec for experiment");
 
-    using std::string;
-    string time_str       = to_string(total_time),
-           constraint_str = to_string(max_inv->constraint.value()),
-           level_str = to_string(max_inv->invariant().level),
-           marked_str = to_string(min_strat->trace().marked),
-           length_str = to_string(min_strat->trace().length);
+    std::optional<unsigned> constr, Flevel, marked, length;
+    if (max_inv != none)
+    {
+      constr = max_inv->constraint;
+      Flevel = max_inv->invariant().level;
+    }
+    if (min_strat != none)
+    {
+      marked = min_strat->trace().marked;
+      length = min_strat->trace().length;
+    }
 
-    auto r = { time_str, constraint_str, level_str, marked_str, length_str };
-    t.addRow(r);
+    auto vec = { format("{}", total_time),
+      constr ? format("{}", constr.value()) : "strategy uses least possible",
+      Flevel ? format("F_{}", Flevel.value()) : "no F_i",
+      marked ? format("{}", marked.value()) : "no strategy",
+      length ? format("{}", length.value()) : "" };
+
+    t.addRow(vec);
     out << t << std::endl;
   }
 
