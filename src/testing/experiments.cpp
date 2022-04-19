@@ -5,6 +5,7 @@
 #include <cassert>
 #include <fmt/core.h>
 #include <variant>
+#include <tabulate/latex_exporter.hpp>
 
 namespace pdr::experiments
 {
@@ -28,16 +29,23 @@ namespace pdr::experiments
   {
     using std::optional;
 
+    optional<unsigned> optimum;
+    std::vector<ExperimentResults> results;
+    tabulate::Table sample_table;
+    sample_table.format().font_align(tabulate::FontAlign::right).hide_border_top().hide_border_bottom();
+    sample_table.add_row({ "runtime", "max constraint with invariant", "level",
+        "min constraint with strategy", "length" });
+
     unsigned N = args.exp_sample.value();
     cout << format("running {}. {} samples. {} tactic", model.name, N,
                 pdr::tactic::to_string(args.tactic))
          << endl;
-    optional<unsigned> optimum;
+
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
-      pdr::Context ctx(
-          model, args.delta, true); // new context with new random seed
+      // new context with new random seed
+      pdr::Context ctx(model, args.delta, true);
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
@@ -48,16 +56,20 @@ namespace pdr::experiments
         assert(optimum == r);
       }
 
-      ExperimentResults er(opt.latest_results, args.tactic);
-      cout << format("## Experiment sample {}", i) << endl;
-      er.show(cout);
-      cout << std::endl << format("## Raw data sample {}", i) << endl;
-      er.show_raw(std::cout);
-      cout << endl
-           << endl
-           << "==================================" << endl
-           << endl;
+      results.emplace_back(opt.latest_results, args.tactic);
+      // cout << format("## Experiment sample {}", i) << endl;
+      results.back().add_to(sample_table);
     }
+
+    cout << sample_table << endl;
+
+    assert(results.size() == N);
+    // for (size_t i = 0; i < results.size(); i++)
+    // {
+    //   cout << std::endl << format("## Raw data sample {}", i) << endl;
+    //   results[i].show_raw(std::cout);
+    //   cout << endl << endl;
+    // }
 
     /* result format
       <averaged results>

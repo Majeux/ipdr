@@ -9,6 +9,8 @@
 #include <fmt/format.h>
 #include <memory>
 #include <sstream>
+#include <tabulate/row.hpp>
+#include <tabulate/table.hpp>
 #include <variant>
 #include <vector>
 namespace pdr
@@ -116,6 +118,7 @@ namespace pdr
 
    public:
     Results(const pebbling::Model& m);
+    virtual ~Results();
     TextTable new_table() const;
     void reset();
     virtual void show(std::ostream& out) const;
@@ -139,6 +142,7 @@ namespace pdr
    public:
     ExperimentResults(const pebbling::Model& m, Tactic t);
     ExperimentResults(const Results& r, Tactic t);
+    void add_to(tabulate::Table& t) const;
     void show(std::ostream& out) const override;
     void show_raw(std::ostream& out) const;
     ExperimentResults& add(Result& r);

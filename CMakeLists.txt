@@ -11,11 +11,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set( EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../ )
 
-find_package(fmt CONFIG REQUIRED)
-find_package(Z3 CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
 find_package(cxxopts CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 find_package(ghc_filesystem CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(Z3 CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
@@ -40,7 +40,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
     # set(SANITIZE "-fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -fsanitize-address-track-origins")
     # set(SANITIZE "-fsanitize=memory -fno-omit-frame-pointer -fsanitize-memory-track-origins")
-    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} ${SANITIZE}") # -ferror-limit=0")
+    set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} ${SANITIZE} -O1") # -ferror-limit=0")
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if (DO_LOG)
@@ -51,19 +51,19 @@ else ()
 endif (DO_LOG)
 
 target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/solver inc/testing)
-target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/mockturtle/include)
+target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include inc/ext/mockturtle/include)
 
 add_library(fmt INTERFACE) # override mockturtle's local version with current
 target_link_libraries(fmt INTERFACE fmt::fmt)
 add_subdirectory(inc/ext/mockturtle/include)
 add_subdirectory(inc/ext/mockturtle/lib)
 
-target_link_libraries(pebbling-pdr PRIVATE mockturtle)
-target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
-target_link_libraries(pebbling-pdr INTERFACE fmt)
-target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
-target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
 target_link_libraries(pebbling-pdr PRIVATE cxxopts::cxxopts)
+target_link_libraries(pebbling-pdr INTERFACE fmt)
+target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
+target_link_libraries(pebbling-pdr PRIVATE mockturtle)
+target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
+target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
 
 # link graphviz on windows. assuming it is the default location
 if (WIN32)

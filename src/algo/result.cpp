@@ -8,6 +8,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <tabulate/latex_exporter.hpp>
 
 namespace pdr
 {
@@ -258,6 +259,8 @@ namespace pdr
   //
   Results::Results(const pebbling::Model& m) : model(m) {}
 
+  Results::~Results() {}
+
   TextTable Results::new_table() const
   {
     TextTable t;
@@ -312,6 +315,7 @@ namespace pdr
   {
     assert(t == Tactic::decrement || t == Tactic::increment);
   }
+
   ExperimentResults::ExperimentResults(const Results& r, Tactic t)
       : ExperimentResults(r.model, t)
   {
@@ -322,15 +326,9 @@ namespace pdr
       acc_update(r);
   }
 
-  void ExperimentResults::show(std::ostream& out) const
+  void ExperimentResults::add_to(tabulate::Table& t) const
   {
     using fmt::format;
-    using std::to_string;
-
-    TextTable t('|');
-    auto header = { "runtime", "max constraint with invariant", "level",
-      "min constraint with strategy", "length" };
-    t.addRow(header);
 
     const auto none = original.crend();
     auto max_inv    = original.crbegin(); // last element
@@ -338,7 +336,8 @@ namespace pdr
 
     if (tactic == Tactic::decrement)
     {
-      if (min_strat->has_trace() && min_strat->trace().marked == model.get_f_pebbles())
+      if (min_strat->has_trace() &&
+          min_strat->trace().marked == model.get_f_pebbles())
         max_inv = none; // crbegin is min strategy. no invariant
       else
         min_strat++; // crbegin is max invariant. crbegin+1 is min strategy
@@ -365,14 +364,29 @@ namespace pdr
       length = min_strat->trace().length;
     }
 
-    auto vec = { format("{}", total_time),
-      constr ? format("{}", constr.value()) : "strategy uses least possible",
-      Flevel ? format("F_{}", Flevel.value()) : "no F_i",
-      marked ? format("{}", marked.value()) : "no strategy",
-      length ? format("{}", length.value()) : "" };
+    t.add_row({ format("{}", total_time),
+        constr ? format("{}", constr.value()) : "strategy uses least possible",
+        Flevel ? format("F_{}", Flevel.value()) : "no F_i",
+        marked ? format("{}", marked.value()) : "no strategy",
+        length ? format("{}", length.value()) : "" });
 
-    t.addRow(vec);
-    out << t << std::endl;
+  }
+
+  void ExperimentResults::show(std::ostream& out) const
+  {
+    using fmt::format;
+    using std::to_string;
+
+    tabulate::Table table;
+    table.format().font_align(tabulate::FontAlign::right);
+
+    table.add_row({ "runtime", "max constraint with invariant", "level",
+        "min constraint with strategy", "length" });
+    add_to(table);
+
+    out << table << std::endl;
+    auto latex = tabulate::LatexExporter().dump(table);
+    out << latex << std::endl;
   }
 
   void ExperimentResults::show_raw(std::ostream& out) const

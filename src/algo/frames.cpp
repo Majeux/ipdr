@@ -265,7 +265,6 @@ namespace pdr
   std::optional<size_t> Frames::propagate() { return propagate(frontier()); }
   std::optional<size_t> Frames::propagate(size_t k)
   {
-#warning infinite loop dec ham7tc: blocked cube in multiple levels
     assert(k <= frontier());
     logger.tabbed_and_whisper("propagate levels {} - {}", 1, k);
     logger.indent++;
