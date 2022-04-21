@@ -4,8 +4,8 @@
 #include "tactic.h"
 #include <cassert>
 #include <fmt/core.h>
-#include <variant>
 #include <tabulate/latex_exporter.hpp>
+#include <variant>
 
 namespace pdr::experiments
 {
@@ -18,18 +18,37 @@ namespace pdr::experiments
   {
     using std::min;
     using Invariant = Result::Invariant;
-    using Trace = Result::Trace;
+    using Trace     = Result::Trace;
 
+    double time_sum = 0.0;
     for (const ExperimentResults& r : results)
     {
-      auto[t, inv, trace] = r.get_total();
-      avg_time += t;
-      // if (max_inv)
-      //   max_inv = min(*max_inv, inv, [](Invariant a, Invariant b) { return a.level < b.level; } );
-      // TODO continue
+      auto [t, inv, trace] = r.get_total();
+
+      time_sum += t;
+
+      if (inv) // get the lowest invariant level we found
+      {
+        if (max_inv)
+          max_inv = min(*max_inv, *inv,
+              [](Invariant a, Invariant b) { return a.level < b.level; });
+        else
+          max_inv = inv;
+      }
+
+      if (trace) // get the shortest trace we found
+      {
+        if (min_strat)
+          min_strat = min(*min_strat, *trace,
+              [](const Trace& a, const Trace& b)
+              { return a.length < b.length; });
+        else
+          min_strat = trace;
+      }
+
+      avg_time = time_sum / results.size();
     }
   }
-
 
   void model_run(pebbling::Model& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)
@@ -39,7 +58,10 @@ namespace pdr::experiments
     optional<unsigned> optimum;
     std::vector<ExperimentResults> results;
     tabulate::Table sample_table;
-    sample_table.format().font_align(tabulate::FontAlign::right).hide_border_top().hide_border_bottom();
+    sample_table.format()
+        .font_align(tabulate::FontAlign::right)
+        .hide_border_top()
+        .hide_border_bottom();
     sample_table.add_row({ "runtime", "max constraint with invariant", "level",
         "min constraint with strategy", "length" });
 
@@ -71,12 +93,12 @@ namespace pdr::experiments
     cout << sample_table << endl;
 
     assert(results.size() == N);
-    // for (size_t i = 0; i < results.size(); i++)
-    // {
-    //   cout << std::endl << format("## Raw data sample {}", i) << endl;
-    //   results[i].show_raw(std::cout);
-    //   cout << endl << endl;
-    // }
+    for (size_t i = 0; i < results.size(); i++)
+    {
+      cout << std::endl << format("## Raw data sample {}", i) << endl;
+      results[i].show_raw(std::cout);
+      cout << endl << endl;
+    }
 
     /* result format
       <averaged results>

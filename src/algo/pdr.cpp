@@ -220,8 +220,8 @@ namespace pdr
     // relative to F[i-1]
     while (obligations.size() > 0)
     {
-      logger(frames.solvers_str(true));
-      logger(frames.blocked_str());
+      // logger(frames.solvers_str(true));
+      // logger(frames.blocked_str());
       sub_timer.reset();
       double elapsed;
       string branch;

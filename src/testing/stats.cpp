@@ -3,6 +3,8 @@
 namespace pdr
 {
 #warning TODO: add reduction average (%)
+#warning TODO: add no. exceed MIC attempts (%)
+#warning TODO: average no. MIC attempts
   Statistic::Statistic(bool t) : timed(t)
   {
     if (timed)

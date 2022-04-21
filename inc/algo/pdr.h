@@ -44,7 +44,7 @@ namespace pdr
     unsigned shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
-    const unsigned mic_retries = 5;
+    const unsigned mic_retries = UINT_MAX;
 
     void print_model(const z3::model& m);
     // main algorithm
