@@ -25,12 +25,14 @@ namespace pdr
   using Invariant = Result::Invariant;
   using Trace     = Result::Trace;
   Invariant::Invariant(int l) : level(l) {}
+  Invariant::Invariant(optional<unsigned> c, int l) : constraint(c), level(l) {}
 
-  Trace::Trace() : states_ll(nullptr), length(0), marked(0), cleaned(false) {}
-  Trace::Trace(shared_ptr<State> s)
-      : states_ll(s), length(0), marked(0), cleaned(false)
+  Trace::Trace() : states_ll(nullptr), length(0), marked(0) {}
+  Trace::Trace(unsigned l, unsigned m)
+      : states_ll(nullptr), length(l), marked(m)
   {
   }
+  Trace::Trace(shared_ptr<State> s) : states_ll(s), length(0), marked(0) {}
 
   // Result::iterator members
   //
@@ -75,7 +77,7 @@ namespace pdr
   }
 
   Result::Result(optional<unsigned> constr, int l)
-      : constraint(constr), output(Invariant(l))
+      : constraint(constr), output(Invariant(constr, l))
   {
   }
 
@@ -115,7 +117,6 @@ namespace pdr
     Trace& trace = get<Trace>(output);
     assert(trace.states_ll);
     trace.states_ll.reset();
-    trace.cleaned = true;
   }
 
   ResultRow Result::listing() const
@@ -250,7 +251,7 @@ namespace pdr
       return end();
     // we have a Trace
     const Trace& trace = std::get<Trace>(output);
-    assert(trace.cleaned == false);
+    assert(trace.states_ll);
     return const_iterator(trace.states_ll);
   }
   const_iterator Result::end() { return const_iterator(nullptr); }
@@ -292,15 +293,15 @@ namespace pdr
   {
     string trace(r.string_rep());
     rows.push_back(r.listing());
-    traces.push_back(trace);
     original.push_back(r);
+    traces.push_back(trace);
 
     return *this;
   }
 
   Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
 
-  std::vector<double> Results::extract_times() const
+  std::vector<double> ExperimentResults::g_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
@@ -326,50 +327,49 @@ namespace pdr
       acc_update(r);
   }
 
+  ExperimentResults::Data_t ExperimentResults::get_total() const
+  {
+    return { total_time, max_inv, min_strat };
+  }
+
   void ExperimentResults::add_to(tabulate::Table& t) const
   {
     using fmt::format;
+    using std::to_string;
 
-    const auto none = original.crend();
-    auto max_inv    = original.crbegin(); // last element
-    auto min_strat  = original.crbegin(); // last element
+    auto [time, max_inv, min_strat] = get_total();
+    string time_str                 = format("{}", time);
 
-    if (tactic == Tactic::decrement)
+    string inv_constr, inv_level;
+    if (max_inv)
     {
-      if (min_strat->has_trace() &&
-          min_strat->trace().marked == model.get_f_pebbles())
-        max_inv = none; // crbegin is min strategy. no invariant
-      else
-        min_strat++; // crbegin is max invariant. crbegin+1 is min strategy
-    }
-    else if (tactic == Tactic::increment)
-    {
-      if (max_inv->constraint == model.n_nodes())
-        min_strat = none; // crbegin is invariant. no strategy
-      else
-        max_inv++; // crbegin is strat. crbegin+1 is invariant
+      inv_constr = to_string(max_inv->constraint.value());
+      inv_level  = format("F_{}", max_inv->level);
     }
     else
-      assert(false && "Only inc or dec for experiment");
-
-    std::optional<unsigned> constr, Flevel, marked, length;
-    if (max_inv != none)
     {
-      constr = max_inv->constraint;
-      Flevel = max_inv->invariant().level;
-    }
-    if (min_strat != none)
-    {
-      marked = min_strat->trace().marked;
-      length = min_strat->trace().length;
+      assert(tactic == Tactic::decrement &&
+             min_strat->marked == model.get_f_pebbles());
+      // the maximal invariant did not need to be considered and added
+      inv_constr = "strategy uses minimal";
+      inv_level  = "--";
     }
 
-    t.add_row({ format("{}", total_time),
-        constr ? format("{}", constr.value()) : "strategy uses least possible",
-        Flevel ? format("F_{}", Flevel.value()) : "no F_i",
-        marked ? format("{}", marked.value()) : "no strategy",
-        length ? format("{}", length.value()) : "" });
+    string trace_marked, trace_length;
+    if (min_strat)
+    {
+      trace_marked = to_string(min_strat->marked);
+      trace_length = to_string(min_strat->length);
+    }
+    else
+    {
+      assert(max_inv->constraint == model.n_nodes());
+      // never encountered a strategy, no. nodes is the invariant
+      trace_marked = "no strategy";
+      trace_length = "--";
+    }
 
+    t.add_row({ time_str, inv_constr, inv_level, trace_marked, trace_length });
   }
 
   void ExperimentResults::show(std::ostream& out) const
@@ -397,12 +397,24 @@ namespace pdr
   void ExperimentResults::acc_update(const Result& r)
   {
     total_time += r.time;
+
     if (r.has_invariant())
-      invariant_level = std::min(invariant_level, r.invariant().level);
+    {
+      assert(r.invariant().constraint);
+      if (max_inv)
+        max_inv = std::max(*max_inv, r.invariant(),
+            [](Invariant a, Invariant b)
+            { return a.constraint < b.constraint; });
+      else
+        max_inv = r.invariant();
+    }
     else
     {
-      length = std::min(length, r.trace().length);
-      marked = std::min(marked, r.trace().marked);
+      if (min_strat)
+        min_strat = std::min(*min_strat, r.trace(),
+            [](const Trace& a, const Trace& b) { return a.marked < b.marked; });
+      else
+        min_strat = r.trace();
     }
   }
 

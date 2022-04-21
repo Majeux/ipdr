@@ -13,16 +13,23 @@ namespace pdr::experiments
   using std::cout;
   using std::endl;
 
-  Run::Run(Tactic t, bool d, unsigned ss, std::optional<unsigned> p)
-      : tactic(t), delta(d), sample_size(ss), n_pebbles(p)
+  Run::Run(std::string_view m, const std::vector<ExperimentResults>& results)
+      : model(m), avg_time(0.0)
   {
-    switch (tactic)
+    using std::min;
+    using Invariant = Result::Invariant;
+    using Trace = Result::Trace;
+
+    for (const ExperimentResults& r : results)
     {
-      case Tactic::decrement:
-      case Tactic::increment: assert(!n_pebbles); break;
-      default: assert(n_pebbles);
+      auto[t, inv, trace] = r.get_total();
+      avg_time += t;
+      // if (max_inv)
+      //   max_inv = min(*max_inv, inv, [](Invariant a, Invariant b) { return a.level < b.level; } );
+      // TODO continue
     }
   }
+
 
   void model_run(pebbling::Model& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)

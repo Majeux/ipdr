@@ -4,18 +4,20 @@
 #include "logger.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "result.h"
 #include <variant>
 
 namespace pdr::experiments
 {
   struct Run
   {
-    Tactic tactic;
-    bool delta;
-    unsigned sample_size;
-    std::optional<unsigned> n_pebbles;
+    std::string model;
+    double avg_time;
+    unsigned constraint;
+    std::optional<Result::Invariant> max_inv;
+    std::optional<Result::Trace> min_strat;
 
-    Run(Tactic t, bool d, unsigned ss, std::optional<unsigned> p = {});
+    Run(std::string_view m, const std::vector<ExperimentResults>& r);
   };
 
   void model_run(pebbling::Model& model, pdr::Logger& log,
