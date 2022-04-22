@@ -52,9 +52,8 @@ namespace pdr
     Result init();
     Result iterate();
     Result block(z3::expr_vector cti, unsigned n);
-    bool iterate_short();
-    bool block_short(
-        z3::expr_vector& counter, unsigned o_level, unsigned level);
+    Result iterate_short();
+    Result block_short(z3::expr_vector&& counter, unsigned n);
     // generalization
     // todo return [n, cti ptr]
     int hif_(const z3::expr_vector& cube, int min);

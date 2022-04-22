@@ -67,7 +67,7 @@ namespace pdr
 
     logger.and_show("\nStart iteration");
     logger.indent++;
-    if (Result it_res = iterate())
+    if (Result it_res = iterate_short())
     {
       logger.and_whisper("Property verified");
       logger.indent--;
@@ -107,6 +107,11 @@ namespace pdr
   {
     double final_time = timer.elapsed().count();
     logger.and_show(format("Total elapsed time {}", final_time));
+    if (rv)
+        logger.and_show("Invariant found");
+    else
+        logger.and_show("Terminated with trace");
+
     rv.time = final_time;
 
     logger.stats.elapsed = final_time;
