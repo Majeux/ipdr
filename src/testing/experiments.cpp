@@ -93,12 +93,13 @@ namespace pdr::experiments
     cout << sample_table << endl;
 
     assert(results.size() == N);
-    for (size_t i = 0; i < results.size(); i++)
-    {
-      cout << std::endl << format("## Raw data sample {}", i) << endl;
-      results[i].show_raw(std::cout);
-      cout << endl << endl;
-    }
+    results.at(0).show_raw(std::cout);
+    // for (size_t i = 0; i < results.size(); i++)
+    // {
+    //   cout << std::endl << format("## Raw data sample {}", i) << endl;
+    //   results[i].show_raw(std::cout);
+    //   cout << endl << endl;
+    // }
 
     /* result format
       <averaged results>

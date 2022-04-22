@@ -29,10 +29,10 @@ namespace pdr
   Result PDR::iterate_short()
   {
     // I => P and I & T ⇒ P' (from init)
-    expr_vector notP_next = ctx.model().n_property.nexts();
     if (ctx.type != Tactic::decrement) // decr continues from last level
       assert(frames.frontier() == 1);
 
+    expr_vector notP_next = ctx.model().n_property.nexts();
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
@@ -55,7 +55,6 @@ namespace pdr
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
-      frames.log_solvers(true);
 
       if (invariant_level)
         return Result::found_invariant(frames.max_pebbles, *invariant_level);
