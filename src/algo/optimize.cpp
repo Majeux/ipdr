@@ -21,6 +21,7 @@ namespace pdr::pebbling
 
     switch (args.tactic)
     {
+#warning control does not reset frames
       case pdr::Tactic::decrement: return decrement(args.experiment_control);
       case pdr::Tactic::increment: return increment(args.experiment_control);
       case pdr::Tactic::inc_jump_test:

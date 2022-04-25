@@ -151,6 +151,8 @@ namespace pdr::experiments
 
     optional<unsigned> optimum;
     std::vector<ExperimentResults> results;
+    std::vector<ExperimentResults> control;
+
     tabulate::Table sample_table;
     sample_table.format()
         .font_align(tabulate::FontAlign::right)
@@ -158,12 +160,15 @@ namespace pdr::experiments
         .hide_border_bottom();
     sample_table.add_row({ "runtime", "max constraint with invariant", "level",
         "min constraint with strategy", "length" });
+    tabulate::Table control_table = sample_table;
 
     unsigned N = args.exp_sample.value();
-    cout << format("running {}. {} samples. {} tactic", model.name, N,
-                pdr::tactic::to_string(args.tactic))
-         << endl;
 
+    std::string tactic_str = pdr::tactic::to_string(args.tactic);
+    // normal runs
+    cout << format(
+                "running {}. {} samples. {} tactic", model.name, N, tactic_str)
+         << endl;
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
@@ -184,10 +189,36 @@ namespace pdr::experiments
       results.back().add_to(sample_table);
     }
 
+    // control runs without incremental functionality
+    cout << format("control run for {}. {} samples. {} tactic", model.name, N,
+                tactic_str)
+         << endl;
+    for (unsigned i = 0; i < N; i++)
+    {
+      std::optional<unsigned> r;
+      // new context with new random seed
+      pdr::Context ctx(model, args.delta, true);
+      pdr::pebbling::Optimizer opt(ctx, log);
+
+      if (i == 0)
+        optimum = opt.run(args, true);
+      else
+      {
+        r = opt.run(args, true);
+        assert(optimum == r);
+      }
+
+      control.emplace_back(opt.latest_results, args.tactic);
+      // cout << format("## Experiment sample {}", i) << endl;
+      control.back().add_to(control_table);
+    }
+
     Run aggregate(args, results);
-    cout << aggregate.str() << endl;
+    Run control_aggregate(args, control);
+    cout << aggregate.str_compared(control_aggregate) << endl;
 
     cout << sample_table << endl;
+    cout << control_table << endl;
 
     assert(results.size() == N);
     // results.at(0).show_raw(std::cout);

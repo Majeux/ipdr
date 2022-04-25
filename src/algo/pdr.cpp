@@ -83,6 +83,7 @@ namespace pdr
   Result PDR::run(Tactic pdr_type, optional<unsigned> max_p)
   {
     ctx.type = pdr_type;
+    frames = Frames(ctx, logger);
     frames.reset_constraint(max_p);
     return _run();
   }

@@ -137,6 +137,9 @@ namespace pdr
 
       // runs the optimizer as dictated by the argument
       std::optional<unsigned> run(my::cli::ArgumentList args);
+      // runs the optimizer as dictated by the argument, but override the
+      // experiment_control option with "control"
+      std::optional<unsigned> run(my::cli::ArgumentList args, bool control);
       std::optional<unsigned> increment(bool control);
       std::optional<unsigned> decrement(bool control);
       void inc_jump_test(unsigned start, int step);
