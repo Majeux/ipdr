@@ -36,7 +36,7 @@ namespace pdr
 
   // reset and automatically repopulate by blocking cubes
   // used by frames
-  void Solver::reset(const CubeSet& cubes)
+  void Solver::reset(const z3ext::CubeSet& cubes)
   {
     reset();
     for (const z3::expr_vector& cube : cubes)
@@ -52,7 +52,7 @@ namespace pdr
     clauses_start = internal_solver.assertions().size();
   }
 
-  void Solver::reconstrain(z3::expr_vector constraint, const CubeSet& cubes)
+  void Solver::reconstrain(z3::expr_vector constraint, const z3ext::CubeSet& cubes)
   {
     reconstrain(constraint);
     for (const z3::expr_vector& cube : cubes)

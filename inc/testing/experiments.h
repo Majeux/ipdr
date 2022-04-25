@@ -11,13 +11,23 @@ namespace pdr::experiments
 {
   struct Run
   {
-    std::string model;
+    using Row_t   = tabulate::Table::Row_t;
+    using Table_t = std::array<Row_t, 6>;
+    std::string_view model;
+    Tactic tactic;
+
     double avg_time;
-    unsigned constraint;
     std::optional<Result::Invariant> max_inv;
     std::optional<Result::Trace> min_strat;
 
-    Run(std::string_view m, const std::vector<ExperimentResults>& r);
+    Run(const my::cli::ArgumentList& args,
+        const std::vector<ExperimentResults>& r);
+    std::string str() const;
+    std::string str_compared(const Run& other) const;
+
+   private:
+    Table_t listing() const;
+    Table_t combined_listing(const Run& other) const;
   };
 
   void model_run(pebbling::Model& model, pdr::Logger& log,

@@ -20,7 +20,6 @@
 
 namespace pdr
 {
-  using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
   class Frames
   {
@@ -99,7 +98,7 @@ namespace pdr
     const Solver& get_const_solver(size_t frame) const;
     const Frame& operator[](size_t i);
     // returns all cubes blocked in Frame 1. adjusted for delta encoding.
-    CubeSet get_blocked(size_t i) const;
+    z3ext::CubeSet get_blocked(size_t i) const;
 
     void log_solvers(bool clauses_only) const;
     std::string blocked_str() const;

@@ -109,7 +109,7 @@ namespace pdr
     return out;
   }
 
-  const CubeSet& Frame::get_blocked() const { return blocked_cubes; }
+  const z3ext::CubeSet& Frame::get_blocked() const { return blocked_cubes; }
   bool Frame::empty() const { return blocked_cubes.size() == 0; }
   Solver& Frame::get_solver() const { return *solver; }
   const Solver& Frame::get_const_solver() const { return *solver; }

@@ -18,8 +18,6 @@ namespace pdr
   using std::shared_ptr;
   using std::string;
 
-  using ResultRow = std::array<string, 5>;
-
   // Result::Invariant and Trace members
   //
   using Invariant = Result::Invariant;
@@ -119,7 +117,7 @@ namespace pdr
     trace.states_ll.reset();
   }
 
-  ResultRow Result::listing() const
+  Results::Row_t Result::listing() const
   {
     using fmt::format;
     using std::to_string;

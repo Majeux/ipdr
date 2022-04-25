@@ -5,6 +5,7 @@
 #include <cassert>
 #include <fmt/core.h>
 #include <tabulate/latex_exporter.hpp>
+#include <tabulate/table.hpp>
 #include <variant>
 
 namespace pdr::experiments
@@ -13,8 +14,9 @@ namespace pdr::experiments
   using std::cout;
   using std::endl;
 
-  Run::Run(std::string_view m, const std::vector<ExperimentResults>& results)
-      : model(m), avg_time(0.0)
+  Run::Run(const my::cli::ArgumentList& args,
+      const std::vector<ExperimentResults>& results)
+      : model(args.model_name), tactic(args.tactic), avg_time(0.0)
   {
     using std::min;
     using Invariant = Result::Invariant;
@@ -50,6 +52,98 @@ namespace pdr::experiments
     }
   }
 
+  namespace
+  {
+    tabulate::Table init_table()
+    {
+      tabulate::Table t;
+      t.format()
+          .font_align(tabulate::FontAlign::right)
+          .hide_border_top()
+          .hide_border_bottom();
+      return t;
+    }
+  } // namespace
+
+  std::string Run::str() const
+  {
+    tabulate::Table table = init_table();
+
+    for (const Row_t& r : listing())
+      table.add_row(r);
+
+    std::stringstream ss;
+    ss << fmt::format("Experiment: {}", model) << endl << table;
+
+    return ss.str();
+  }
+
+  std::string Run::str_compared(const Run& other) const
+  {
+    tabulate::Table paired;
+
+    for (const Row_t& r : combined_listing(other))
+      paired.add_row(r);
+
+    std::stringstream ss;
+    ss << fmt::format("Experiment: {}", model) << endl << paired;
+
+    return ss.str();
+  }
+
+  Run::Table_t Run::listing() const
+  {
+
+    Table_t t;
+    {
+      using fmt::to_string;
+      size_t i = 0;
+
+      t.at(i++) = { "", tactic::to_string(tactic) };
+      t.at(i++) = { "avg time", to_string(avg_time) };
+
+      if (max_inv)
+      {
+        t.at(i++) = { "max_inv constraint",
+          to_string(max_inv->constraint.value()) };
+        t.at(i++) = { "max_inv level", to_string(max_inv->level) };
+      }
+
+      if (min_strat)
+      {
+        t.at(i++) = { "min strat marked", to_string(min_strat->marked) };
+        t.at(i++) = { "min strat length", to_string(min_strat->length) };
+      }
+    }
+    return t;
+  }
+
+  Run::Table_t Run::combined_listing(const Run& other) const
+  {
+    Table_t rows = listing();
+    {
+      using fmt::to_string;
+      size_t i = 0;
+
+      rows.at(i++).push_back("control");
+      rows.at(i++).push_back(to_string(other.avg_time));
+      if (other.max_inv)
+      {
+        rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
+        rows.at(i++).push_back(to_string(other.max_inv->level));
+      }
+      if (other.min_strat)
+      {
+        rows.at(i++).push_back(to_string(other.min_strat->marked));
+        rows.at(i++).push_back(to_string(other.min_strat->length));
+      }
+    }
+
+    return rows;
+  }
+
+  // FUNCTIONS
+  //
   void model_run(pebbling::Model& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)
   {
@@ -90,10 +184,14 @@ namespace pdr::experiments
       results.back().add_to(sample_table);
     }
 
+    Run aggregate(args, results);
+    cout << aggregate.str() << endl;
+
     cout << sample_table << endl;
 
     assert(results.size() == N);
-    results.at(0).show_raw(std::cout);
+    // results.at(0).show_raw(std::cout);
+
     // for (size_t i = 0; i < results.size(); i++)
     // {
     //   cout << std::endl << format("## Raw data sample {}", i) << endl;

@@ -21,8 +21,6 @@ namespace pdr
 
   class Solver
   {
-    using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
-
    private:
     const Context& ctx;
     z3::solver internal_solver;
@@ -36,9 +34,9 @@ namespace pdr
         z3::expr_vector con);
 
     void reset();
-    void reset(const CubeSet& cubes);
+    void reset(const z3ext::CubeSet& cubes);
     void reconstrain(z3::expr_vector constraint);
-    void reconstrain(z3::expr_vector constraint, const CubeSet& cubes);
+    void reconstrain(z3::expr_vector constraint, const z3ext::CubeSet& cubes);
     void block(const z3::expr_vector& cube);
     void block(const z3::expr_vector& cube, const z3::expr& act);
     void add(const z3::expr& e);

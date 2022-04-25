@@ -106,19 +106,9 @@ namespace pdr
   // if increasing: invariant, invariant, ..., trace
   class Results
   {
-    using ResultRow = std::array<std::string, 5>;
-    friend class ExperimentResults;
-
-   protected:
-    const pebbling::Model& model;
-    const ResultRow header = { "constraint", "pebbles used", "invariant index",
-      "trace length", "time" };
-    std::vector<ResultRow> rows;
-
-    std::vector<Result> original;
-    std::vector<std::string> traces;
-
    public:
+    using Row_t = std::array<std::string, 5>;
+
     Results(const pebbling::Model& m);
     virtual ~Results();
     TextTable new_table() const;
@@ -126,6 +116,17 @@ namespace pdr
     virtual void show(std::ostream& out) const;
     Results& add(Result& r);
     friend Results& operator<<(Results& rs, Result& r);
+
+   protected:
+    const pebbling::Model& model;
+    const Row_t header = { "constraint", "pebbles used", "invariant index",
+      "trace length", "time" };
+    std::vector<Row_t> rows;
+
+    std::vector<Result> original;
+    std::vector<std::string> traces;
+
+    friend class ExperimentResults;
   };
 
   // results that accumulates results for experiments

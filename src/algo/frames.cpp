@@ -154,7 +154,7 @@ namespace pdr
 
     max_pebbles = x;
     delta_solver->reconstrain(ctx.model().constraint(x));
-    CubeSet old = get_blocked(1); // store all cubes in F_1
+    z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);               // reset sequence to { F_0 }
     extend();                     // reinstate level 1
 
@@ -180,10 +180,10 @@ namespace pdr
         delta_solver->as_str("", false));
   }
 
-  CubeSet Frames::get_blocked(size_t i) const
+  z3ext::CubeSet Frames::get_blocked(size_t i) const
   {
     assert(i < frames.size());
-    CubeSet blocked;
+    z3ext::CubeSet blocked;
 
     if (ctx.delta)
     {
@@ -192,7 +192,7 @@ namespace pdr
       for (; i < frames.size(); i++)
       {
         // TODO non-const getter allows std::move
-        const CubeSet& Fi = frames[i]->get_blocked();
+        const z3ext::CubeSet& Fi = frames[i]->get_blocked();
         blocked.insert(Fi.begin(), Fi.end());
       }
     }
@@ -298,7 +298,7 @@ namespace pdr
     auto start = steady_clock::now();
 
     unsigned count  = 0;
-    CubeSet blocked = frames.at(level)->get_blocked();
+    z3ext::CubeSet blocked = frames.at(level)->get_blocked();
     for (const z3::expr_vector& cube : blocked)
     {
       if (!trans_source(level, cube))

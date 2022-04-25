@@ -6,10 +6,10 @@
 #include <sstream>
 #include <vector>
 #include <z3++.h>
+#include <set>
 
 namespace z3ext
 {
-
   z3::expr minus(const z3::expr& e);
 
   // allocates new vector
@@ -99,5 +99,7 @@ namespace z3ext
     }
     return ss.str();
   }
+
+  using CubeSet = std::set<z3::expr_vector, expr_vector_less>;
 } // namespace z3ext
 #endif // Z3_EXT
