@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
   show_header(clargs);
 
   pdr::Results rs(model);
-  pdr::PDR algorithm(context, logger);
+  pdr::PDR algorithm(context, logger, clargs.max_pebbles);
 
   if (clargs.exp_sample) {
     using namespace pdr::experiments;

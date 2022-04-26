@@ -9,9 +9,11 @@ namespace pdr
     std::cout << "random seed " << seed << std::endl;
   }
   Context::Context(pebbling::Model& m, bool d, bool random_seed)
-      : delta(d), seed(random_seed ? time(0) : 0u), type(Tactic::undef),
+      : delta(d), type(Tactic::undef),
         _model(m)
   {
+    srand(time(0));
+    seed = random_seed ? rand() : 0u;
     std::cout << "random seed " << seed << std::endl;
   }
 

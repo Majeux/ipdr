@@ -6,7 +6,7 @@ namespace pdr
 {
 #warning still duplicates in solver in dump
   Solver::Solver(const Context& c, z3::expr_vector base,
-                 z3::expr_vector transition, z3::expr_vector constraint)
+      z3::expr_vector transition, z3::expr_vector constraint)
       : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
@@ -45,14 +45,15 @@ namespace pdr
 
   void Solver::reconstrain(z3::expr_vector constraint)
   {
-    internal_solver.pop(2);          // remove all blocked cubes and constraint
-    internal_solver.push();          // remake constraintless backtracking point
+    internal_solver.pop(2); // remove all blocked cubes and constraint
+    internal_solver.push(); // remake constraintless backtracking point
     internal_solver.add(constraint);
-    internal_solver.push();          // remake stateless backtracking point
+    internal_solver.push(); // remake stateless backtracking point
     clauses_start = internal_solver.assertions().size();
   }
 
-  void Solver::reconstrain(z3::expr_vector constraint, const z3ext::CubeSet& cubes)
+  void Solver::reconstrain(
+      z3::expr_vector constraint, const z3ext::CubeSet& cubes)
   {
     reconstrain(constraint);
     for (const z3::expr_vector& cube : cubes)
@@ -81,8 +82,8 @@ namespace pdr
 
     // if (result == z3::check_result::unknown)
     // {
-      // std::cout << as_str("", true);
-      assert(result != z3::check_result::unknown);
+    // std::cout << as_str("", true);
+    assert(result != z3::check_result::unknown);
     // }
 
     core_available = true;
@@ -137,7 +138,7 @@ namespace pdr
     ss << internal_solver.statistics() << std::endl;
 
     const z3::expr_vector asserts = internal_solver.assertions();
-    auto it = asserts.begin();
+    auto it                       = asserts.begin();
     if (clauses_only) // skip base, transition and constraint
     {
       for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)

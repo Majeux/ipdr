@@ -84,6 +84,7 @@ namespace pdr
 
    public:
     PDR(Context& c, Logger& l);
+    PDR(Context& c, Logger& l, std::optional<unsigned> constraint);
     // prepare PDR for new run. discards old trace
     void reset();
     const Context& get_ctx() const;
@@ -94,8 +95,9 @@ namespace pdr
     // returns false if there is a trace to a violation
     // max_pebbles: {} gives Frames no constraint
     // any value constrains maximum pebbled literals to the number
-    Result run(Tactic pdr_type              = Tactic::basic,
-        std::optional<unsigned> max_pebbles = {});
+    Result run(Tactic pdr_type);
+    Result run(Tactic pdr_type, std::optional<unsigned> max_pebbles);
+
     // a run loosening the constraint, assuming a previous run was completed
     Result decrement_run(unsigned max_pebbles);
     Result increment_run(unsigned max_pebbles);
@@ -137,9 +139,9 @@ namespace pdr
 
       // runs the optimizer as dictated by the argument
       std::optional<unsigned> run(my::cli::ArgumentList args);
-      // runs the optimizer as dictated by the argument, but override the
-      // experiment_control option with "control"
-      std::optional<unsigned> run(my::cli::ArgumentList args, bool control);
+      // runs the optimizer as dictated by the argument but with forced
+      // experiment_control
+      std::optional<unsigned> control_run(my::cli::ArgumentList args);
       std::optional<unsigned> increment(bool control);
       std::optional<unsigned> decrement(bool control);
       void inc_jump_test(unsigned start, int step);

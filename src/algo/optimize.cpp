@@ -16,9 +16,28 @@ namespace pdr::pebbling
   {
   }
 
+  optional<unsigned> Optimizer::control_run(my::cli::ArgumentList args)
+  {
+    switch (args.tactic)
+    {
+#warning control does not reset frames
+      case pdr::Tactic::decrement: return decrement(true);
+      case pdr::Tactic::increment: return increment(true);
+      case pdr::Tactic::inc_jump_test:
+        inc_jump_test(args.max_pebbles.value(), 10);
+        break;
+      case pdr::Tactic::inc_one_test:
+        inc_jump_test(args.max_pebbles.value(), 1);
+        break;
+      default:
+        throw std::invalid_argument(
+            "No optimization pdr tactic has been selected.");
+    }
+    return {};
+  }
+
   optional<unsigned> Optimizer::run(my::cli::ArgumentList args)
   {
-
     switch (args.tactic)
     {
 #warning control does not reset frames

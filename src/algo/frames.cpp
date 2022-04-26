@@ -19,6 +19,7 @@
 namespace pdr
 {
   using std::make_unique;
+  using std::optional;
   using z3::expr;
   using z3::expr_vector;
 
@@ -26,17 +27,102 @@ namespace pdr
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
     pebbling::Model& m = ctx.model();
-    init_solver.add(m.get_initial());
+    { // the initial states always remain the same
+      init_solver.reset();
+      init_solver.add(m.get_initial());
+    }
+
+    reset();
+  }
+
+  Frames::Frames(Context& c, Logger& l, optional<unsigned> constraint)
+      : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx()),
+        max_pebbles(constraint)
+  {
+    pebbling::Model& m = ctx.model();
+    { // the initial states always remain the same
+      init_solver.reset();
+      init_solver.add(m.get_initial());
+    }
+
+    reset(constraint);
+  }
+
+  void Frames::reset(optional<unsigned> new_constraint)
+  {
+    max_pebbles = new_constraint;
+    reset();
+  }
+
+  void Frames::reset()
+  {
+    pebbling::Model& m = ctx.model();
+
     frame_base = m.property.currents(); // all frames are initialized to P
 
-    const expr_vector& T   = m.get_transition();
-    expr_vector constraint = m.constraint(max_pebbles);
     if (ctx.delta)
+    {
+      const expr_vector& T   = m.get_transition();
+      expr_vector constraint = m.constraint(max_pebbles);
       delta_solver = make_unique<Solver>(ctx, frame_base, T, constraint);
+    }
+
+    frames.resize(0);
+    while (ctx.delta && act.size() > 0)
+      act.pop_back();
 
     init_frame_I();
     extend();
     assert(frontier() == 0);
+  }
+
+  optional<size_t> Frames::decrement_reset(unsigned x)
+  {
+    logger.and_show("decrement from {} -> {} pebbles", max_pebbles.value(), x);
+    assert(frames.size() > 0);
+    assert(x < max_pebbles);
+
+    max_pebbles = x;
+    delta_solver->reconstrain(ctx.model().constraint(x));
+    
+    // with fewer transitions, new cubes may be propagated
+    logger.and_show("Redoing last propagation: {}", frontier() - 1);
+    return propagate(frontier() - 1);
+  }
+
+  void Frames::increment_reset(unsigned x)
+  {
+#warning increment_reset is delta only
+    assert(frames.size() > 0);
+    assert(x > max_pebbles);
+    logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
+
+    max_pebbles = x;
+    delta_solver->reconstrain(ctx.model().constraint(x));
+    z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
+    clear_until(0);                      // reset sequence to { F_0 }
+    extend();                            // reinstate level 1
+
+    logger("delta solver after reconstrain to {}\n{}", x,
+        delta_solver->as_str("", false));
+    unsigned count = 0;
+    for (const z3::expr_vector& cube : old)
+    {
+      if (SAT(0, cube))
+      {
+        // TODO regeneralize cti from this cube (must be possible or counter)
+        // else it will be reconsidered next iteration
+      }
+      else
+      {
+        count++;
+        remove_state(cube, 1);
+      }
+    }
+    logger.and_show(
+        "pre-INC: {} cubes carried over, out of {}", count, old.size());
+    logger("delta solver after repop1 to {}\n{}", x,
+        delta_solver->as_str("", false));
   }
 
   void Frames::init_frame_I()
@@ -47,12 +133,17 @@ namespace pdr
     expr_vector constraint = m.constraint(max_pebbles);
 
     if (ctx.delta)
+    {
+      assert(act.size() == 0);
       act.push_back(ctx().bool_const("__actI__")); // unused
+    }
 
     // make F_0 = I transition solver
-    auto frame_solver = make_unique<Solver>(ctx, I, T, constraint);
-    auto new_frame    = make_unique<Frame>(0, std::move(frame_solver), logger);
-    frames.push_back(std::move(new_frame));
+    {
+      auto frame_solver = make_unique<Solver>(ctx, I, T, constraint);
+      auto new_frame = make_unique<Frame>(0, std::move(frame_solver), logger);
+      frames.push_back(std::move(new_frame));
+    }
     logger("solver after init {}", delta_solver->as_str("", false));
   }
 
@@ -95,28 +186,6 @@ namespace pdr
     }
   }
 
-  // redefine constraint in the model
-  // existing and future frames have a reference to this
-  // then clean all solvers from old assertions and reblock all its cubes
-  void Frames::reset_constraint(std::optional<unsigned> x)
-  {
-    max_pebbles                = x;
-    z3::expr_vector constraint = ctx.model().constraint(max_pebbles);
-    if (ctx.delta)
-    {
-      delta_solver->reconstrain(constraint);
-      for (size_t i = 1; i < frames.size(); i++)
-        for (const z3::expr_vector& cube : frames[i]->get_blocked())
-          delta_solver->block(cube, act.at(i));
-    }
-    else
-    {
-      for (size_t i = 1; i < frames.size(); i++)
-        get_solver(i).reconstrain(constraint, frames[i]->get_blocked());
-    }
-  }
-
-  // reset solvers and repopulate with current blocked cubes
   void Frames::repopulate_solvers()
   {
     if (ctx.delta)
@@ -131,53 +200,6 @@ namespace pdr
       for (size_t i = 1; i < frames.size(); i++)
         get_solver(i).reset(frames[i]->get_blocked());
     }
-  }
-
-  std::optional<size_t> Frames::decrement_reset(unsigned x)
-  {
-    assert(frames.size() > 0);
-    assert(x < max_pebbles);
-    logger.and_show("decrement from {} -> {} pebbles", max_pebbles.value(), x);
-
-    max_pebbles = x;
-    delta_solver->reconstrain(ctx.model().constraint(x));
-    logger.and_show("Redoing last propagation: {}", frontier() - 1);
-    return propagate(frontier() - 1);
-  }
-
-  void Frames::increment_reset(unsigned x)
-  {
-#warning increment_reset is delta only
-    assert(frames.size() > 0);
-    assert(x > max_pebbles);
-    logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
-
-    max_pebbles = x;
-    delta_solver->reconstrain(ctx.model().constraint(x));
-    z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
-    clear_until(0);               // reset sequence to { F_0 }
-    extend();                     // reinstate level 1
-
-    logger("delta solver after reconstrain to {}\n{}", x,
-        delta_solver->as_str("", false));
-    unsigned count = 0;
-    for (const z3::expr_vector& cube : old)
-    {
-      if (SAT(0, cube))
-      {
-        // TODO regeneralize cti from this cube (must be possible or counter)
-        // else it will be reconsidered next iteration
-      }
-      else
-      {
-        count++;
-        remove_state(cube, 1);
-      }
-    }
-    logger.and_show(
-        "pre-INC: {} cubes carried over, out of {}", count, old.size());
-    logger("delta solver after repop1 to {}\n{}", x,
-        delta_solver->as_str("", false));
   }
 
   z3ext::CubeSet Frames::get_blocked(size_t i) const
@@ -297,7 +319,7 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
-    unsigned count  = 0;
+    unsigned count         = 0;
     z3ext::CubeSet blocked = frames.at(level)->get_blocked();
     for (const z3::expr_vector& cube : blocked)
     {

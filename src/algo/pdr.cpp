@@ -31,13 +31,15 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
+  PDR::PDR(Context& c, Logger& l, optional<unsigned> constraint)
+      : ctx(c), logger(l), frames(ctx, logger, constraint)
+  {
+  }
 
   const Context& PDR::get_ctx() const { return ctx; }
   Context& PDR::get_ctx() { return ctx; }
 
   void PDR::reset() { shortest_strategy = UINT_MAX; }
-
-  void PDR::reconstrain(unsigned x) { frames.reset_constraint(x); }
 
   void PDR::print_model(const z3::model& m)
   {
@@ -80,11 +82,16 @@ namespace pdr
     }
   }
 
+  Result PDR::run(Tactic pdr_type)
+  {
+    ctx.type = pdr_type;
+    return _run();
+  }
+
   Result PDR::run(Tactic pdr_type, optional<unsigned> max_p)
   {
     ctx.type = pdr_type;
-    frames = Frames(ctx, logger);
-    frames.reset_constraint(max_p);
+    frames.reset(max_p);
     return _run();
   }
 
@@ -109,9 +116,9 @@ namespace pdr
     double final_time = timer.elapsed().count();
     logger.and_show(format("Total elapsed time {}", final_time));
     if (rv)
-        logger.and_show("Invariant found");
+      logger.and_show("Invariant found");
     else
-        logger.and_show("Terminated with trace");
+      logger.and_show("Terminated with trace");
 
     rv.time = final_time;
 
@@ -164,7 +171,7 @@ namespace pdr
     if (ctx.type != Tactic::decrement)
       assert(frames.frontier() == 1);
 
-    for (size_t k = frames.frontier(); true; k++, frames.extend()) 
+    for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);

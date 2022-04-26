@@ -2,6 +2,7 @@
 #include "pdr-context.h"
 #include "pdr.h"
 #include "tactic.h"
+#include <algorithm>
 #include <cassert>
 #include <fmt/core.h>
 #include <tabulate/latex_exporter.hpp>
@@ -164,16 +165,21 @@ namespace pdr::experiments
 
     unsigned N = args.exp_sample.value();
 
+    std::vector<unsigned> seeds(N);
+    {
+      srand(time(0));
+      std::generate(seeds.begin(), seeds.end(), rand);
+    }
+
     std::string tactic_str = pdr::tactic::to_string(args.tactic);
-    // normal runs
-    cout << format(
-                "running {}. {} samples. {} tactic", model.name, N, tactic_str)
+    cout << format("{} run. {} samples. {} tactic", model.name, N, tactic_str)
          << endl;
+    // normal runs
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
       // new context with new random seed
-      pdr::Context ctx(model, args.delta, true);
+      pdr::Context ctx(model, args.delta, seeds[i]);
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
@@ -189,22 +195,23 @@ namespace pdr::experiments
       results.back().add_to(sample_table);
     }
 
-    // control runs without incremental functionality
-    cout << format("control run for {}. {} samples. {} tactic", model.name, N,
+    cout << format("{} control run. {} samples. {} tactic", model.name, N,
                 tactic_str)
          << endl;
+
+    // control runs without incremental functionality
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
       // new context with new random seed
-      pdr::Context ctx(model, args.delta, true);
+      pdr::Context ctx(model, args.delta, seeds[i]);
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
-        optimum = opt.run(args, true);
+        optimum = opt.control_run(args);
       else
       {
-        r = opt.run(args, true);
+        r = opt.control_run(args);
         assert(optimum == r);
       }
 

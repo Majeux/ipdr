@@ -41,22 +41,38 @@ namespace pdr
    public:
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
+
+    // cardinality constraint on the maximum allowed marked literals in a state
     std::optional<unsigned> max_pebbles;
 
     Frames(Context& c, Logger& l);
+    Frames(Context& c, Logger& l, std::optional<unsigned> constraint);
+
+    // reset the sequence to F_0, F_1 (frontier 0)
+    void reset();
+
+    // reset the sequence to F_0, F_1 (frontier 0)
+    // and set 'new_constraint' as the new 'max_pebbles'
+    void reset(std::optional<unsigned> new_constraint);
+
+    // reduce the max_pebbles constraint to 'x'
+    // redo propagation for the previous level
+    // return an invariant level if propagation finds one
+    std::optional<size_t> decrement_reset(unsigned x);
+
+    // increase the max_pebbles constraint to 'x'
+    // carry over all learned cubes to F_1 in a new sequence (if valid)
+    void increment_reset(unsigned x);
+
     // frame interface
     //
     // pops frames until the given index is the frontier
-    void clear_until(size_t until_index = 0);
+    void clear_until(size_t until_index);
     void extend();
-    void reset_constraint(std::optional<unsigned> x);
+
+    // reset solvers and repopulate with current blocked cubes
     void repopulate_solvers();
-    // assumes:
-    // - a run of PDR has finished
-    // - base assertions have been changed and are a superset of the previous
-    // copy all old cubes that are not reachable from I into a new F_1
-    std::optional<size_t> decrement_reset(unsigned x);
-    void increment_reset(unsigned x);
+
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);
@@ -65,9 +81,9 @@ namespace pdr
     void push_forward_delta(size_t level, bool repeat = false);
     std::optional<size_t> push_forward_fat(size_t level, bool repeat = false);
 
-    // queries
+    // queries (non-modifying)
     //
-    bool init_implies(const z3::expr_vector& formula) const;
+    bool I_implies(const z3::expr_vector& formula) const;
     // returns if the clause of the given cube is inductive relative to F_frame
     bool inductive(const std::vector<z3::expr>& cube, size_t frame) const;
     bool inductive(const z3::expr_vector& cube, size_t frame) const;
@@ -82,7 +98,7 @@ namespace pdr
     std::optional<z3::expr_vector> get_trans_source(size_t frame,
         const z3::expr_vector& dest_cube, bool primed = false) const;
 
-    // Solver calls
+    // Solver calls (non-modifying)
     //
     // returns if there exists a satisfying assignment
     bool SAT(size_t frame, const z3::expr_vector& assumptions) const;
@@ -91,7 +107,7 @@ namespace pdr
     const z3::model get_model(size_t frame) const;
     void reset_solver(size_t frame);
 
-    // getters
+    // getters (non-modifying)
     //
     size_t frontier() const;
     Solver& get_solver(size_t frame) const;
