@@ -81,7 +81,7 @@ namespace pdr::experiments
 
   std::string Run::str_compared(const Run& other) const
   {
-    tabulate::Table paired;
+    tabulate::Table paired = init_table();
 
     for (const Row_t& r : combined_listing(other))
       paired.add_row(r);
@@ -119,24 +119,61 @@ namespace pdr::experiments
     return t;
   }
 
+  namespace
+  {
+    template <typename T> double percentage_dec(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (double)(a - b) / a * 100;
+    }
+
+    template <typename T> double percentage_inc(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (b - a) / a * 100;
+    }
+  } // namespace
+
   Run::Table_t Run::combined_listing(const Run& other) const
   {
     Table_t rows = listing();
     {
       using fmt::to_string;
       size_t i = 0;
-
-      rows.at(i++).push_back("control");
-      rows.at(i++).push_back(to_string(other.avg_time));
+      {
+        rows.at(i).push_back("control");
+        rows.at(i).push_back("improvement");
+        i++;
+      }
+      {
+        rows.at(i).push_back(to_string(other.avg_time));
+        // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
+        double speedup = percentage_dec(other.avg_time, avg_time);
+        rows.at(i).push_back(format("{} % decrease", speedup));
+        i++;
+      }
       if (other.max_inv)
       {
         rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
-        rows.at(i++).push_back(to_string(other.max_inv->level));
+        {
+          rows.at(i).push_back(to_string(other.max_inv->level));
+          double dec = percentage_dec(other.max_inv->level, max_inv->level);
+          rows.at(i).push_back(format("{} % decrease", dec));
+          i++;
+        }
       }
       if (other.min_strat)
       {
         rows.at(i++).push_back(to_string(other.min_strat->marked));
-        rows.at(i++).push_back(to_string(other.min_strat->length));
+        {
+          rows.at(i).push_back(to_string(other.min_strat->length));
+          double dec =
+              percentage_dec(other.min_strat->length, min_strat->length);
+          rows.at(i).push_back(format("{} % decrease", dec));
+          i++;
+        }
       }
     }
 
@@ -154,14 +191,22 @@ namespace pdr::experiments
     std::vector<ExperimentResults> results;
     std::vector<ExperimentResults> control;
 
+    tabulate::Table::Row_t header{ "runtime", "max constraint with invariant",
+      "level", "min constraint with strategy", "length" };
+
     tabulate::Table sample_table;
-    sample_table.format()
-        .font_align(tabulate::FontAlign::right)
-        .hide_border_top()
-        .hide_border_bottom();
-    sample_table.add_row({ "runtime", "max constraint with invariant", "level",
-        "min constraint with strategy", "length" });
-    tabulate::Table control_table = sample_table;
+    {
+      sample_table.add_row(header);
+      sample_table.format()
+          .font_align(tabulate::FontAlign::right)
+          .hide_border_top()
+          .hide_border_bottom();
+    }
+    tabulate::Table control_table;
+    {
+      control_table.add_row(header);
+      control_table.format() = sample_table.format();
+    }
 
     unsigned N = args.exp_sample.value();
 
