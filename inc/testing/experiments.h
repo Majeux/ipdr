@@ -12,11 +12,12 @@ namespace pdr::experiments
   struct Run
   {
     using Row_t   = tabulate::Table::Row_t;
-    using Table_t = std::array<Row_t, 6>;
+    using Table_t = std::array<Row_t, 7>;
     std::string_view model;
     Tactic tactic;
 
     double avg_time;
+    double std_dev_time;
     std::optional<Result::Invariant> max_inv;
     std::optional<Result::Trace> min_strat;
 

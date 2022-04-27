@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <fmt/core.h>
+#include <numeric>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/table.hpp>
 #include <variant>
@@ -24,11 +25,13 @@ namespace pdr::experiments
     using Trace     = Result::Trace;
 
     double time_sum = 0.0;
+    std::vector<double> times;
     for (const ExperimentResults& r : results)
     {
       auto [t, inv, trace] = r.get_total();
 
       time_sum += t;
+      times.push_back(t);
 
       if (inv) // get the lowest invariant level we found
       {
@@ -48,9 +51,13 @@ namespace pdr::experiments
         else
           min_strat = trace;
       }
-
-      avg_time = time_sum / results.size();
     }
+    avg_time = time_sum / results.size();
+
+    double total_variance = std::accumulate(times.begin(), times.end(), 0.0,
+        [this](double a, double t) { return a + std::pow(t - avg_time, 2); });
+
+    std_dev_time = std::sqrt(total_variance / results.size());
   }
 
   namespace
@@ -102,6 +109,7 @@ namespace pdr::experiments
 
       t.at(i++) = { "", tactic::to_string(tactic) };
       t.at(i++) = { "avg time", to_string(avg_time) };
+      t.at(i++) = { "std dev time", to_string(std_dev_time) };
 
       if (max_inv)
       {
@@ -138,6 +146,8 @@ namespace pdr::experiments
 
   Run::Table_t Run::combined_listing(const Run& other) const
   {
+    std::string percentage_fmt{"{:.2f} %"};
+
     Table_t rows = listing();
     {
       using fmt::to_string;
@@ -147,23 +157,28 @@ namespace pdr::experiments
         rows.at(i).push_back("improvement");
         i++;
       }
+      
       {
         rows.at(i).push_back(to_string(other.avg_time));
         // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
         double speedup = percentage_dec(other.avg_time, avg_time);
-        rows.at(i).push_back(format("{} % decrease", speedup));
+        rows.at(i).push_back(format(percentage_fmt, speedup));
         i++;
       }
+
+      rows.at(i++).push_back(to_string(other.std_dev_time));
+      
       if (other.max_inv)
       {
         rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
         {
           rows.at(i).push_back(to_string(other.max_inv->level));
           double dec = percentage_dec(other.max_inv->level, max_inv->level);
-          rows.at(i).push_back(format("{} % decrease", dec));
+          rows.at(i).push_back(format(percentage_fmt, dec));
           i++;
         }
       }
+      
       if (other.min_strat)
       {
         rows.at(i++).push_back(to_string(other.min_strat->marked));
@@ -171,7 +186,7 @@ namespace pdr::experiments
           rows.at(i).push_back(to_string(other.min_strat->length));
           double dec =
               percentage_dec(other.min_strat->length, min_strat->length);
-          rows.at(i).push_back(format("{} % decrease", dec));
+          rows.at(i).push_back(format(percentage_fmt, dec));
           i++;
         }
       }
