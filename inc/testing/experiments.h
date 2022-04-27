@@ -9,6 +9,7 @@
 
 namespace pdr::experiments
 {
+  enum output_format {string, latex, markdown};
   struct Run
   {
     using Row_t   = tabulate::Table::Row_t;
@@ -24,7 +25,7 @@ namespace pdr::experiments
     Run(const my::cli::ArgumentList& args,
         const std::vector<ExperimentResults>& r);
     std::string str() const;
-    std::string str_compared(const Run& other) const;
+    std::string str_compared(const Run& other, output_format fmt) const;
 
    private:
     Table_t listing() const;

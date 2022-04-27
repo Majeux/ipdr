@@ -1,4 +1,5 @@
 #include "experiments.h"
+#include "io.h"
 #include "pdr-context.h"
 #include "pdr.h"
 #include "tactic.h"
@@ -7,6 +8,7 @@
 #include <fmt/core.h>
 #include <numeric>
 #include <tabulate/latex_exporter.hpp>
+#include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
 #include <variant>
 
@@ -86,7 +88,7 @@ namespace pdr::experiments
     return ss.str();
   }
 
-  std::string Run::str_compared(const Run& other) const
+  std::string Run::str_compared(const Run& other, output_format fmt) const
   {
     tabulate::Table paired = init_table();
 
@@ -94,8 +96,18 @@ namespace pdr::experiments
       paired.add_row(r);
 
     std::stringstream ss;
-    ss << fmt::format("Experiment: {}", model) << endl << paired;
-
+    switch (fmt)
+    {
+      case output_format::string:
+        ss << fmt::format("Experiment: {}", model) << endl << paired;
+        break;
+      case output_format::latex:
+        ss << tabulate::LatexExporter().dump(paired) << endl;
+        break;
+      case output_format::markdown: 
+        ss << tabulate::MarkdownExporter().dump(paired) << endl;
+        break;
+    }
     return ss.str();
   }
 
@@ -146,7 +158,7 @@ namespace pdr::experiments
 
   Run::Table_t Run::combined_listing(const Run& other) const
   {
-    std::string percentage_fmt{"{:.2f} %"};
+    std::string percentage_fmt{ "{:.2f} %" };
 
     Table_t rows = listing();
     {
@@ -157,7 +169,7 @@ namespace pdr::experiments
         rows.at(i).push_back("improvement");
         i++;
       }
-      
+
       {
         rows.at(i).push_back(to_string(other.avg_time));
         // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
@@ -167,7 +179,7 @@ namespace pdr::experiments
       }
 
       rows.at(i++).push_back(to_string(other.std_dev_time));
-      
+
       if (other.max_inv)
       {
         rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
@@ -178,7 +190,7 @@ namespace pdr::experiments
           i++;
         }
       }
-      
+
       if (other.min_strat)
       {
         rows.at(i++).push_back(to_string(other.min_strat->marked));
@@ -255,10 +267,6 @@ namespace pdr::experiments
       results.back().add_to(sample_table);
     }
 
-    cout << format("{} control run. {} samples. {} tactic", model.name, N,
-                tactic_str)
-         << endl;
-
     // control runs without incremental functionality
     for (unsigned i = 0; i < N; i++)
     {
@@ -290,12 +298,28 @@ namespace pdr::experiments
     assert(results.size() == N);
     // results.at(0).show_raw(std::cout);
 
-    // for (size_t i = 0; i < results.size(); i++)
-    // {
-    //   cout << std::endl << format("## Raw data sample {}", i) << endl;
-    //   results[i].show_raw(std::cout);
-    //   cout << endl << endl;
-    // }
+    using namespace my::io;
+    const fs::path model_dir   = setup_model_path(args);
+    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
+    const std::string filename = file_name(args);
+
+    {
+      std::ofstream latex = trunc_file(run_dir, filename, "tex");
+      latex << aggregate.str_compared(control_aggregate, output_format::latex);
+    }
+    {
+      std::ofstream raw = trunc_file(run_dir, "raw-" + filename, "md");
+      raw << format("# {}", model.name) << endl
+          << format("## Control run. {} samples. {} tactic", N, tactic_str)
+          << endl;
+#warning continue here
+      for (size_t i = 0; i < results.size(); i++)
+      {
+        raw << format("### Raw data sample {}", i) << endl;
+        results[i].show_raw(raw);
+        raw << endl << endl;
+      }
+    }
 
     /* result format
       <averaged results>
@@ -303,39 +327,5 @@ namespace pdr::experiments
       <complete results>
     */
   }
-
-  // double ExperimentResults::median_time()
-  // {
-  //   std::vector<double> times = extract_times();
-  //   std::sort(times.begin(), times.end());
-
-  //   if (times.size() % 2 == 0) // even number
-  //   {
-  //     size_t i1 = times.size() / 2;
-  //     size_t i2 = i1 + 1;
-  //     return (times[i1] + times[i2]) / 2; // return average of middle two
-  //   }
-  //   else
-  //     return times[times.size() / 2];
-  // }
-
-  // double ExperimentResults::mean_time()
-  // {
-  //   double total = std::accumulate(original.begin(), original.end(), 0.0,
-  //       [](double a, const Result& r) { return a + r.time; });
-  //   return total / original.size();
-  // }
-
-  // double ExperimentResults::time_std_dev(double mean)
-  // {
-  //   std::vector<double> times = extract_times();
-  //   double diffs              = std::accumulate(times.begin(), times.end(),
-  //   0.0,
-  //                    [mean](double a, double t) { return a + std::sqrt(t -
-  //                    mean); });
-  //   double variance           = diffs / times.size();
-
-  //   return std::sqrt(variance);
-  // }
 
 } // namespace pdr::experiments

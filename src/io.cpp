@@ -1,16 +1,22 @@
+#include <ghc/filesystem.hpp>
 #include <string>
 
 #include "cli-parse.h"
-#include "tactic.h"
 #include "io.h"
+#include "tactic.h"
 
 namespace my::io
 {
-  using cli::ArgumentList;
   using namespace pdr::tactic;
   using fmt::format;
   using std::string;
-  namespace fs = ghc::filesystem;
+
+  fs::path base_out()
+  {
+    fs::path rv = fs::current_path() / "output";
+    fs::create_directory(rv);
+    return rv;
+  }
 
   string file_name(const ArgumentList& args)
   {
@@ -49,7 +55,8 @@ namespace my::io
 
   fs::path setup_model_path(const ArgumentList& args)
   {
-    fs::path results_folder = fs::current_path() / "output";
+    fs::path results_folder =
+        base_out() / (args.exp_sample ? "experiments" : "results");
     fs::create_directory(results_folder);
     fs::path model_dir = results_folder / args.model_name;
     fs::create_directory(model_dir);
@@ -57,11 +64,28 @@ namespace my::io
     return model_dir;
   }
 
+  fs::path setup_path(fs::path p)
+  {
+    fs::create_directory(p);
+    return p;
+  }
+
   fs::path setup_run_path(const ArgumentList& args)
   {
-    fs::path results_folder = fs::current_path() / "output";
+    fs::path results_folder = base_out() / "results";
     fs::create_directory(results_folder);
     fs::path run_dir = results_folder / args.model_name / folder_name(args);
+    fs::create_directory(run_dir);
+
+    return run_dir;
+  }
+
+  fs::path setup_exp_path(const ArgumentList& args)
+  {
+    assert(args.exp_sample);
+    fs::path exp_folder = base_out() / "experiments";
+    fs::create_directory(exp_folder);
+    fs::path run_dir = exp_folder / args.model_name / folder_name(args);
     fs::create_directory(run_dir);
 
     return run_dir;
