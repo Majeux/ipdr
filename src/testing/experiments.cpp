@@ -64,15 +64,25 @@ namespace pdr::experiments
 
   namespace
   {
+    tabulate::Format& format_base(tabulate::Format& f)
+    {
+      return f.font_align(tabulate::FontAlign::right)
+          .hide_border_top()
+          .hide_border_bottom();
+    }
+
+    tabulate::Format& format_base(tabulate::Table& t)
+    {
+      return format_base(t.format());
+    }
+
     tabulate::Table init_table()
     {
       tabulate::Table t;
-      t.format()
-          .font_align(tabulate::FontAlign::right)
-          .hide_border_top()
-          .hide_border_bottom();
+      format_base(t);
       return t;
     }
+
   } // namespace
 
   std::string Run::str() const
@@ -104,12 +114,17 @@ namespace pdr::experiments
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(paired) << endl;
         break;
-      case output_format::markdown: 
+      case output_format::markdown:
         ss << tabulate::MarkdownExporter().dump(paired) << endl;
         break;
     }
     return ss.str();
   }
+
+  namespace
+  {
+    std::string time_str(double x) { return format("{:.3f} s", x); };
+  } // namespace
 
   Run::Table_t Run::listing() const
   {
@@ -120,14 +135,14 @@ namespace pdr::experiments
       size_t i = 0;
 
       t.at(i++) = { "", tactic::to_string(tactic) };
-      t.at(i++) = { "avg time", to_string(avg_time) };
-      t.at(i++) = { "std dev time", to_string(std_dev_time) };
+      t.at(i++) = { "avg time", time_str(avg_time) };
+      t.at(i++) = { "std dev time", time_str(std_dev_time) };
 
       if (max_inv)
       {
-        t.at(i++) = { "max_inv constraint",
+        t.at(i++) = { "max inv constraint",
           to_string(max_inv->constraint.value()) };
-        t.at(i++) = { "max_inv level", to_string(max_inv->level) };
+        t.at(i++) = { "max inv level", to_string(max_inv->level) };
       }
 
       if (min_strat)
@@ -158,7 +173,8 @@ namespace pdr::experiments
 
   Run::Table_t Run::combined_listing(const Run& other) const
   {
-    std::string percentage_fmt{ "{:.2f} %" };
+    std::string percentage_fmt{ "{:.2f} \\\%" };
+    auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
     Table_t rows = listing();
     {
@@ -171,14 +187,14 @@ namespace pdr::experiments
       }
 
       {
-        rows.at(i).push_back(to_string(other.avg_time));
+        rows.at(i).push_back(time_str(other.avg_time));
         // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
         double speedup = percentage_dec(other.avg_time, avg_time);
-        rows.at(i).push_back(format(percentage_fmt, speedup));
+        rows.at(i).push_back(perc_str(speedup));
         i++;
       }
 
-      rows.at(i++).push_back(to_string(other.std_dev_time));
+      rows.at(i++).push_back(time_str(other.std_dev_time));
 
       if (other.max_inv)
       {
@@ -186,7 +202,7 @@ namespace pdr::experiments
         {
           rows.at(i).push_back(to_string(other.max_inv->level));
           double dec = percentage_dec(other.max_inv->level, max_inv->level);
-          rows.at(i).push_back(format(percentage_fmt, dec));
+          rows.at(i).push_back(perc_str(dec));
           i++;
         }
       }
@@ -198,7 +214,7 @@ namespace pdr::experiments
           rows.at(i).push_back(to_string(other.min_strat->length));
           double dec =
               percentage_dec(other.min_strat->length, min_strat->length);
-          rows.at(i).push_back(format(percentage_fmt, dec));
+          rows.at(i).push_back(perc_str(dec));
           i++;
         }
       }
@@ -290,13 +306,8 @@ namespace pdr::experiments
 
     Run aggregate(args, results);
     Run control_aggregate(args, control);
-    cout << aggregate.str_compared(control_aggregate) << endl;
-
-    cout << sample_table << endl;
-    cout << control_table << endl;
 
     assert(results.size() == N);
-    // results.at(0).show_raw(std::cout);
 
     using namespace my::io;
     const fs::path model_dir   = setup_model_path(args);
@@ -309,16 +320,28 @@ namespace pdr::experiments
     }
     {
       std::ofstream raw = trunc_file(run_dir, "raw-" + filename, "md");
-      raw << format("# {}", model.name) << endl
-          << format("## Control run. {} samples. {} tactic", N, tactic_str)
-          << endl;
-#warning continue here
-      for (size_t i = 0; i < results.size(); i++)
+      tabulate::MarkdownExporter exporter;
+      auto dump = [&exporter, &raw](const ExperimentResults& r, size_t i)
       {
-        raw << format("### Raw data sample {}", i) << endl;
-        results[i].show_raw(raw);
-        raw << endl << endl;
-      }
+        raw << format("### Sample {}", i) << endl;
+        tabulate::Table t{ r.raw_table() };
+        format_base(t);
+        raw << exporter.dump(t) << endl << endl;
+
+        raw << "#### Traces" << endl;
+        r.show_traces(raw);
+      };
+
+      raw << format("# {}. {} samples. {} tactic.", model.name, N, tactic_str)
+          << endl;
+
+      raw << "## Experiment run." << endl;
+      for (size_t i = 0; i < results.size(); i++)
+        dump(results[i], i);
+
+      raw << "## Control run." << endl;
+      for (size_t i = 0; i < results.size(); i++)
+        dump(control[i], i);
     }
 
     /* result format
@@ -327,5 +350,7 @@ namespace pdr::experiments
       <complete results>
     */
   }
+
+  void dump_raw(std::ofstream& out) {}
 
 } // namespace pdr::experiments

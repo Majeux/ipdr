@@ -107,21 +107,22 @@ namespace pdr
   class Results
   {
    public:
-    using Row_t = std::array<std::string, 5>;
-
     Results(const pebbling::Model& m);
     virtual ~Results();
-    TextTable new_table() const;
+    tabulate::Table new_table() const;
     void reset();
     virtual void show(std::ostream& out) const;
+    void show_traces(std::ostream& out) const;
     Results& add(Result& r);
+    tabulate::Table raw_table() const;
+    std::vector<double> g_times() const;
     friend Results& operator<<(Results& rs, Result& r);
 
    protected:
     const pebbling::Model& model;
-    const Row_t header = { "constraint", "pebbles used", "invariant index",
-      "trace length", "time" };
-    std::vector<Row_t> rows;
+    const tabulate::Table::Row_t header = { "constraint", "pebbles used",
+      "invariant index", "trace length", "time" };
+    std::vector<tabulate::Table::Row_t> rows;
 
     std::vector<Result> original;
     std::vector<std::string> traces;
@@ -143,7 +144,6 @@ namespace pdr
     ExperimentResults(const pebbling::Model& m, Tactic t);
     ExperimentResults(const Results& r, Tactic t);
     Data_t get_total() const;
-    std::vector<double> g_times() const;
     void add_to(tabulate::Table& t) const;
     void show(std::ostream& out) const override;
     void show_raw(std::ostream& out) const;

@@ -135,10 +135,11 @@ void experiment(ArgumentList& clargs)
   const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
 
   string sub        = "analysis";
+  fs::create_directory(run_dir / sub);
   ofstream stats    = trunc_file(run_dir / sub, filename, "stats");
   ofstream strategy = trunc_file(run_dir / sub, filename, "strategy");
+  fs::path log_file = run_dir / sub / fmt::format("{}.log", filename);
 
-  fs::path log_file = run_dir / fmt::format("{}.log", filename);
   pdr::Logger logger =
       pdr::Logger(log_file.string(), G, clargs.verbosity, std::move(stats));
 

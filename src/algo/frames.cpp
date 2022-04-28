@@ -80,7 +80,7 @@ namespace pdr
   {
     logger.and_show("decrement from {} -> {} pebbles", max_pebbles.value(), x);
     assert(frames.size() > 0);
-    assert(x < max_pebbles);
+    assert(x < max_pebbles.value());
 
     max_pebbles = x;
     delta_solver->reconstrain(ctx.model().constraint(x));

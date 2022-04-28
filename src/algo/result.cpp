@@ -9,6 +9,7 @@
 #include <numeric>
 #include <string>
 #include <tabulate/latex_exporter.hpp>
+#include <tabulate/markdown_exporter.hpp>
 
 namespace pdr
 {
@@ -117,7 +118,7 @@ namespace pdr
     trace.states_ll.reset();
   }
 
-  Results::Row_t Result::listing() const
+  Result::ResultRow Result::listing() const
   {
     using fmt::format;
     using std::to_string;
@@ -152,9 +153,9 @@ namespace pdr
 
   void Result::finalize(const pebbling::Model& model)
   {
-    using string_vec = std::vector<std::string>;
     using fmt::format;
     using std::string_view;
+    using tabulate::Table;
     using z3::expr;
     using z3::expr_vector;
 
@@ -171,7 +172,7 @@ namespace pdr
       return;
     }
 
-    string_vec lits;
+    std::vector<std::string> lits;
     {
       expr_vector z3_lits = model.lits.currents();
       std::transform(z3_lits.begin(), z3_lits.end(), std::back_inserter(lits),
@@ -184,27 +185,29 @@ namespace pdr
     size_t longest =
         std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
 
-    TextTable t('|');
+    Table t;
     {
-      string_vec header = { "", "" };
+      Table::Row_t header = { "", "marked" };
       header.insert(header.end(), lits.begin(), lits.end());
-      t.addRow(header);
+      t.add_row(header);
     }
 
     auto row = [&lits, longest](string a, string b, const State& s)
     {
-      string_vec rv = s.marking(lits, longest);
-      rv.insert(rv.begin(), b);
-      rv.insert(rv.begin(), a);
+      std::vector<std::string> r = s.marking(lits, longest);
+      r.insert(r.begin(), b);
+      r.insert(r.begin(), a);
+      Table::Row_t rv;
+      rv.assign(r.begin(), r.end());
       return rv;
     };
 
     // Write initial state
     {
       expr_vector initial_state = model.get_initial();
-      string_vec initial_row =
-          row("I", "No. pebbled = 0", State(initial_state));
-      t.addRow(initial_row);
+      Table::Row_t initial_row =
+          row("I", "0", State(initial_state));
+      t.add_row(initial_row);
     }
 
     // Write strategy states
@@ -216,9 +219,9 @@ namespace pdr
         i++;
         unsigned pebbles = s.no_marked();
         trace().marked   = std::max(trace().marked, pebbles);
-        string_vec row_marking =
-            row(std::to_string(i), format("No. pebbled = {}", pebbles), s);
-        t.addRow(row_marking);
+        Table::Row_t row_marking =
+            row(std::to_string(i), std::to_string(pebbles), s);
+        t.add_row(row_marking);
       }
       trace().length = i + 1;
     }
@@ -226,18 +229,18 @@ namespace pdr
     // Write final state
     {
       expr_vector final_state = model.n_property.currents();
-      string_vec final_row =
-          row("F", format("No. pebbled = {}", model.get_f_pebbles()),
+      Table::Row_t final_row =
+          row("F", format("{}", model.get_f_pebbles()),
               State(final_state));
-      t.addRow(final_row);
+      t.add_row(final_row);
     }
 
-    for (unsigned i = 0; i < t.rows()[0].size(); i++)
-      t.setAlignment(i, TextTable::Alignment::RIGHT);
+    t.format().font_align(tabulate::FontAlign::right);
 
     std::stringstream ss;
-    ss << "Strategy for " << trace().marked << " pebbles" << std::endl;
-    ss << t;
+    ss << "Strategy for " << trace().marked << " pebbles" << std::endl
+       << std::endl
+       << tabulate::MarkdownExporter().dump(t);
     str = ss.str();
 
     clean_trace(); // information is stored in string, deallocate trace
@@ -260,13 +263,10 @@ namespace pdr
 
   Results::~Results() {}
 
-  TextTable Results::new_table() const
+  tabulate::Table Results::new_table() const
   {
-    TextTable t;
-    for (unsigned i = 0; i < header.size(); i++)
-      t.setAlignment(i, TextTable::Alignment::RIGHT);
-    t.addRow(header);
-
+    tabulate::Table t;
+    t.add_row(header);
     return t;
   }
 
@@ -278,9 +278,7 @@ namespace pdr
 
   void Results::show(std::ostream& out) const
   {
-    TextTable t = new_table();
-    for (const auto& row : rows)
-      t.addRow(row);
+    tabulate::Table t = raw_table();
     out << t << std::endl << std::endl;
 
     for (const std::string& trace : traces)
@@ -290,22 +288,53 @@ namespace pdr
   Results& Results::add(Result& r)
   {
     string trace(r.string_rep());
-    rows.push_back(r.listing());
+    Result::ResultRow listing = r.listing();
+
+    {
+      tabulate::Table::Row_t row;
+      row.assign(listing.begin(), listing.end());
+      rows.push_back(row);
+    }
+
     original.push_back(r);
     traces.push_back(trace);
 
     return *this;
   }
 
-  Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
-
-  std::vector<double> ExperimentResults::g_times() const
+  std::vector<double> Results::g_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
         [](const Result& r) { return r.time; });
     return times;
   }
+
+  tabulate::Table Results::raw_table() const
+  {
+    tabulate::Table t = new_table();
+    {
+      for (const auto& row : rows)
+        t.add_row(row);
+      tabulate::Table::Row_t total;
+      total.resize(rows.at(0).size());
+
+      std::vector<double> times = g_times();
+      total.back() =
+          fmt::format("{}", std::accumulate(times.begin(), times.end(), 0.0));
+      t.add_row(total);
+    }
+
+    return t;
+  }
+
+  void Results::show_traces(std::ostream& out) const
+  {
+    for (const std::string& t : traces)
+      out << t << std::endl;
+  }
+
+  Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
 
   // ExperimentResults members
   //
