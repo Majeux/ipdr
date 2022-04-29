@@ -6,7 +6,6 @@ namespace pdr
   Context::Context(pebbling::Model& m, bool d, unsigned seed)
       : delta(d), seed(seed), type(Tactic::undef), _model(m)
   {
-    std::cout << "random seed " << seed << std::endl;
   }
   Context::Context(pebbling::Model& m, bool d, bool random_seed)
       : delta(d), type(Tactic::undef),

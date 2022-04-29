@@ -85,7 +85,7 @@ namespace pdr::experiments
 
   } // namespace
 
-  std::string Run::str() const
+  std::string Run::str(output_format fmt) const
   {
     tabulate::Table table = init_table();
 
@@ -93,7 +93,18 @@ namespace pdr::experiments
       table.add_row(r);
 
     std::stringstream ss;
-    ss << fmt::format("Experiment: {}", model) << endl << table;
+    switch (fmt)
+    {
+      case output_format::string:
+        ss << fmt::format("Experiment: {}", model) << endl << table;
+        break;
+      case output_format::latex:
+        ss << tabulate::LatexExporter().dump(table) << endl;
+        break;
+      case output_format::markdown:
+        ss << tabulate::MarkdownExporter().dump(table) << endl;
+        break;
+    }
 
     return ss.str();
   }
@@ -229,6 +240,13 @@ namespace pdr::experiments
       const my::cli::ArgumentList& args)
   {
     using std::optional;
+    using namespace my::io;
+
+    const fs::path model_dir   = setup_model_path(args);
+    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
+    const std::string filename = file_name(args);
+    std::ofstream latex        = trunc_file(run_dir, filename, "tex");
+    std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
 
     optional<unsigned> optimum;
     std::vector<ExperimentResults> results;
@@ -263,11 +281,13 @@ namespace pdr::experiments
     cout << format("{} run. {} samples. {} tactic", model.name, N, tactic_str)
          << endl;
     // normal runs
+    cout << "Experiment:" << endl;
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
+      cout << format("{}: {}", i, seeds[i]) << endl;
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
@@ -283,12 +303,18 @@ namespace pdr::experiments
       results.back().add_to(sample_table);
     }
 
+    assert(results.size() == N);
+    Run aggregate(args, results);
+    latex << aggregate.str(output_format::latex);
+
     // control runs without incremental functionality
+    cout << "Control:" << endl;
     for (unsigned i = 0; i < N; i++)
     {
       std::optional<unsigned> r;
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
+      cout << format("{}: {}", i, seeds[i]) << endl;
       pdr::pebbling::Optimizer opt(ctx, log);
 
       if (i == 0)
@@ -300,26 +326,14 @@ namespace pdr::experiments
       }
 
       control.emplace_back(opt.latest_results, args.tactic);
-      // cout << format("## Experiment sample {}", i) << endl;
       control.back().add_to(control_table);
     }
 
-    Run aggregate(args, results);
     Run control_aggregate(args, control);
+    latex << aggregate.str_compared(control_aggregate, output_format::latex);
 
-    assert(results.size() == N);
-
-    using namespace my::io;
-    const fs::path model_dir   = setup_model_path(args);
-    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
-    const std::string filename = file_name(args);
-
+    // write raw run data as markdown
     {
-      std::ofstream latex = trunc_file(run_dir, filename, "tex");
-      latex << aggregate.str_compared(control_aggregate, output_format::latex);
-    }
-    {
-      std::ofstream raw = trunc_file(run_dir, "raw-" + filename, "md");
       tabulate::MarkdownExporter exporter;
       auto dump = [&exporter, &raw](const ExperimentResults& r, size_t i)
       {
@@ -343,14 +357,6 @@ namespace pdr::experiments
       for (size_t i = 0; i < results.size(); i++)
         dump(control[i], i);
     }
-
-    /* result format
-      <averaged results>
-      ------------------
-      <complete results>
-    */
   }
-
-  void dump_raw(std::ofstream& out) {}
 
 } // namespace pdr::experiments

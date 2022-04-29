@@ -24,7 +24,7 @@ namespace pdr::experiments
 
     Run(const my::cli::ArgumentList& args,
         const std::vector<ExperimentResults>& r);
-    std::string str() const;
+    std::string str(output_format fmt) const;
     std::string str_compared(const Run& other, output_format fmt) const;
 
    private:
