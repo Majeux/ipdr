@@ -10,37 +10,29 @@ if [ $# -eq 0 ]
 then
 	echo "give a sample size"
 	exit 1
-elif [ $# -eq 1 ]
-then
-	SUBF=""
-else
-	SUBF=$2
 fi
+sample=$1
 
-SAMPLE=$1
+echo "searching in: $BENCHMARKS/"
 
-echo "$BENCHMARKS/$SUBF/"
+models=()
+while read -r m
+do
+	if [ -f "$BENCHMARKS/$m.tfc" ]
+	then
+		echo -e "${bold}============\n============\n"
+		echo -e "Running experiment for $filename\n"
+		folderarg="--dir=$BENCHMARKS"
+		modelarg="--tfc=$m"
+		optarg="--optimize=dec"
+		exparg="--experiment=$sample"
 
-for file in "$BENCHMARKS/$SUBF"/*; do
-	if [ -f "$file" ]; then
-		fbase=$(basename "$file")
-		filename="${fbase%.*}"
-		extension="${fbase##*.}"
+		command="$EXEC --silent --delta $optarg $exparg $folderarg $modelarg"
 
-		if [ "$extension" = "tfc" ]; then
-			echo -e "${bold}============\n============\n"
-			echo -e "Running experiment for $filename\n\n"
-			if [ -z "$SUBF" ]; then
-				folderarg="--dir=$BENCHMARKS"
-			else
-				folderarg="--dir=$BENCHMARKS/$SUBF"
-			fi
-
-			command="$EXEC --silent --delta $folderarg --tfc=$filename --optimize=dec --experiment=$SAMPLE"
-
-			echo "${bold}$command${normal}"
-			$command
-			echo -e "done\n"
-		fi
+		echo "${bold}$command${normal}"
+		# $command
+		echo -e "done\n"
+	else
+		echo "$m is not a valid .tfc file"
 	fi
 done
