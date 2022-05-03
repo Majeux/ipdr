@@ -16,19 +16,16 @@ namespace pdr
 {
   Frame::Frame(unsigned i, Logger& l) : level(i), logger(l) {}
 
-  Frame::Frame(unsigned i, z3::context& c,
-               const std::vector<z3::expr_vector>& assertions, Logger& l)
-      : level(i), logger(l), solver(std::make_unique<Solver>(c, assertions))
+  Frame::Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l)
+      : level(i), logger(l), solver(std::move(s))
   {
   }
-
-  void Frame::set_stats(Statistics& s) { logger.stats = s; }
 
   bool Frame::blocked(const z3::expr_vector& cube)
   {
     for (const z3::expr_vector& blocked_cube : blocked_cubes)
     {
-      if (z3ext::subsumes(blocked_cube, cube))
+      if (z3ext::subsumes_l(blocked_cube, cube))
       {
         SPDLOG_LOGGER_TRACE(logger.spd_logger, "already blocked in F{} by {}",
                             level, z3ext::join_expr_vec(blocked_cube));
@@ -38,7 +35,7 @@ namespace pdr
     return false;
   }
 
-  unsigned Frame::remove_subsumed(const z3::expr_vector& cube)
+  unsigned Frame::remove_subsumed(const z3::expr_vector& cube, bool remove_equal)
   {
     // return 0;
     unsigned before = blocked_cubes.size();
@@ -46,12 +43,15 @@ namespace pdr
     // blocked_cubes.end(),
     // 		[&cube](const expr_vector& blocked) { return
     // z3ext::subsumes(cube, blocked); });
+    
+    auto subsumes = [remove_equal](const z3::expr_vector& l, const z3::expr_vector& r) {
+      return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
+    };
+
     for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
     {
-      if (z3ext::subsumes(cube, *it))
-      {
+      if (subsumes(cube, *it))
         it = blocked_cubes.erase(it);
-      }
       else
         it++;
     }
@@ -63,11 +63,10 @@ namespace pdr
   //
   // cube is sorted by id()
   // block cube unless it, or a stronger version, is already blocked
+  // TODO redundant, make void or make useful
   bool Frame::block(const z3::expr_vector& cube)
   {
-    bool inserted = blocked_cubes.insert(cube).second;
-    assert(inserted);
-    return true;
+    return blocked_cubes.insert(cube).second;
   }
 
   void Frame::block_in_solver(const z3::expr_vector& cube)
@@ -110,9 +109,10 @@ namespace pdr
     return out;
   }
 
-  const CubeSet& Frame::get_blocked() const { return blocked_cubes; }
+  const z3ext::CubeSet& Frame::get_blocked() const { return blocked_cubes; }
   bool Frame::empty() const { return blocked_cubes.size() == 0; }
-  Solver* Frame::get_solver() const { return solver.get(); }
+  Solver& Frame::get_solver() const { return *solver; }
+  const Solver& Frame::get_const_solver() const { return *solver; }
 
   std::string Frame::blocked_str() const
   {

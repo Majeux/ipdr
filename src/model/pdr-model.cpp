@@ -1,151 +1,247 @@
 #include "pdr-model.h"
+#include "cli-parse.h"
+#include <TextTable.h>
+#include <numeric>
+#include <optional>
 #include <z3++.h>
+#include <z3_api.h>
 
-PDRModel::PDRModel()
-    : ctx(), literals(ctx), property(ctx), n_property(ctx), initial(ctx),
-      transition(ctx), cardinality(ctx)
+namespace pdr::pebbling
 {
-}
+  using std::string;
+  using z3::expr;
+  using z3::expr_vector;
 
-PDRModel::PDRModel(z3::config& settings)
-    : ctx(settings), literals(ctx), property(ctx), n_property(ctx),
-      initial(ctx), transition(ctx), cardinality(ctx)
-{
-}
-
-const z3::expr_vector& PDRModel::get_transition() const { return transition; }
-const z3::expr_vector& PDRModel::get_initial() const { return initial; }
-const z3::expr_vector& PDRModel::get_cardinality() const { return cardinality; }
-
-void PDRModel::load_pebble_transition(const dag::Graph& G)
-{
-  for (int i = 0; i < literals.size(); i++) // every node has a transition
+  Model::Model(z3::config& settings,
+      const my::cli::ArgumentList& args, const dag::Graph& G)
+      : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
+        transition(ctx)
   {
-    std::string name = literals(i).to_string();
-    // pebble if all children are pebbled now and next
-    // or unpebble if all children are pebbled now and next
-    for (const std::string& child : G.children.at(name))
-    {
-      z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
+    name = args.model_name;
 
-      transition.push_back(literals(i) || !literals.p(i) || literals(child_i));
-      transition.push_back(!literals(i) || literals.p(i) || literals(child_i));
-      transition.push_back(literals(i) || !literals.p(i) ||
-                           literals.p(child_i));
-      transition.push_back(!literals(i) || literals.p(i) ||
-                           literals.p(child_i));
-    }
-  }
-}
+    for (string node : G.nodes)
+      lits.add_literal(node);
+    lits.finish();
 
-void PDRModel::load_pebble_transition_raw1(const dag::Graph& G)
-{
-  for (int i = 0; i < literals.size(); i++) // every node has a transition
-  {
-    std::string name = literals(i).to_string();
-    z3::expr parent_flip = literals(i) ^ literals.p(i);
-    // pebble if all children are pebbled now and next
-    // or unpebble if all children are pebbled now and next
-    for (const std::string& child : G.children.at(name))
-    {
-      z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
-      z3::expr child_pebbled = literals(child_i) & literals.p(child_i);
+    for (const expr& e : lits.currents())
+      initial.push_back(!e);
 
-      transition.push_back(z3::implies(parent_flip, child_pebbled));
-    }
-  }
-}
-
-void PDRModel::load_pebble_transition_raw2(const dag::Graph& G)
-{
-  for (int i = 0; i < literals.size(); i++) // every node has a transition
-  {
-    std::string name = literals(i).to_string();
-    z3::expr parent_flip = literals(i) ^ literals.p(i);
-    // pebble if all children are pebbled now and next
-    // or unpebble if all children are pebbled now and next
-    z3::expr_vector children_pebbled(ctx);
-    for (const std::string& child : G.children.at(name))
-    {
-      z3::expr child_node = ctx.bool_const(child.c_str());
-      int child_i = literals.indexof(child_node);
-      children_pebbled.push_back(literals(child_i));
-      children_pebbled.push_back(literals.p(child_i));
-    }
-    transition.push_back(
-        z3::implies(parent_flip, z3::mk_and(children_pebbled)));
-  }
-}
-
-void PDRModel::load_property(const dag::Graph& G)
-{
-  // final nodes are pebbled and others are not
-  for (const z3::expr& e : literals.currents())
-  {
-    if (G.is_output(e.to_string()))
-      n_property.add_expression(e, literals);
+    // load_pebble_transition_raw2(G);
+    if (args.tseytin)
+      load_pebble_transition_tseytin(G);
     else
-      n_property.add_expression(!e, literals);
-  }
-  n_property.finish();
+      load_pebble_transition(G);
 
-  // final nodes are unpebbled and others are
-  z3::expr_vector disjunction(ctx);
-  for (const z3::expr& e : literals.currents())
+    final_pebbles = G.output.size();
+    load_property(G);
+
+    // z3::solver s(ctx);
+    // z3::param_descrs p = s.get_param_descrs();
+    // TextTable param_out(' ');
+    // for (unsigned i = 0; i < p.size(); i++)
+    // {
+    //   z3::symbol sym = p.name(i);
+    //   Z3_param_kind kind = p.kind(sym);
+    //   string doc = p.documentation(sym);
+    //   std::vector<std::string> row = {sym.str(), doc};
+    //   param_out.addRow(row);
+    // }
+    //   std::cout << param_out << std::endl;
+  }
+
+  const expr_vector& Model::get_transition() const
   {
-    if (G.is_output(e.to_string()))
-      disjunction.push_back(!e);
-    else
-      disjunction.push_back(e);
+    return transition;
   }
-  property.add_expression(z3::mk_or(disjunction), literals);
-  property.finish();
-}
 
-void PDRModel::load_model(const std::string& model_name, const dag::Graph& G,
-                          int pebbles)
-{
-  name = model_name;
+  const expr_vector& Model::get_initial() const { return initial; }
 
-  for (std::string node : G.nodes)
-    literals.add_literal(node);
-  literals.finish();
+  size_t Model::n_nodes() const { return initial.size(); }
 
-  for (const z3::expr& e : literals.currents())
-    initial.push_back(!e);
+  void Model::load_pebble_transition(const dag::Graph& G)
+  {
+    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    {
+      string name = lits(i).to_string();
+      // pebble if all children are pebbled now and next
+      // or unpebble if all children are pebbled now and next
+      for (const string& child : G.get_children(name))
+      {
+        expr child_node = ctx.bool_const(child.c_str());
+        int child_i     = lits.indexof(child_node);
 
-  // load_pebble_transition_raw2(G);
-  load_pebble_transition(G);
+        transition.push_back(lits(i) || !lits.p(i) || lits(child_i));
+        transition.push_back(!lits(i) || lits.p(i) || lits(child_i));
+        transition.push_back(lits(i) || !lits.p(i) || lits.p(child_i));
+        transition.push_back(!lits(i) || lits.p(i) || lits.p(child_i));
+      }
+    }
+  }
 
-  final_pebbles = G.output.size();
-  set_max_pebbles(pebbles);
+  void Model::load_pebble_transition_tseytin(const dag::Graph& G)
+  {
+    transition.resize(0);
+    // ((pv,i ^ pv,i+1 ) => (pw,i & pw,i+1 ))
+    std::map<string, expr> stay_expr;
+    for (const string& n : G.nodes)
+    {
+      string stay_name = fmt::format("_stay[{}]_", n);
+      expr stay        = tseytin_and(transition, stay_name, lits(n), lits.p(n));
+      stay_expr.emplace(n, stay);
+    }
 
-  load_property(G);
-}
+    expr_vector moves(ctx);
+    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    {
+      string name      = lits(i).to_string();
+      string flip_name = fmt::format("_flip[{}]_", name);
+      expr flip        = tseytin_xor(transition, flip_name, lits(i), lits.p(i));
+      // pebble if all children are pebbled now and next
+      // or unpebble if all children are pebbled now and next
+      for (const string& child : G.get_children(name))
+      {
+        expr child_stay = stay_expr.at(child);
+        string move_str = fmt::format("_flip[{}] => stay[{}]_", name, child);
+        expr move = tseytin_implies(transition, move_str, flip, child_stay);
+        moves.push_back(move);
+      }
+    }
+    for (const expr& e : moves)
+      transition.push_back(e);
+  }
 
-int PDRModel::get_max_pebbles() const { return max_pebbles; }
+  void Model::load_pebble_transition_raw1(const dag::Graph& G)
+  {
+    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    {
+      string name      = lits(i).to_string();
+      expr parent_flip = lits(i) ^ lits.p(i);
+      // pebble if all children are pebbled now and next
+      // or unpebble if all children are pebbled now and next
+      for (const string& child : G.get_children(name))
+      {
+        expr child_node    = ctx.bool_const(child.c_str());
+        int child_i        = lits.indexof(child_node);
+        expr child_pebbled = lits(child_i) & lits.p(child_i);
 
-bool PDRModel::set_max_pebbles(int x)
-{
-  max_pebbles = x;
+        transition.push_back(z3::implies(parent_flip, child_pebbled));
+      }
+    }
+  }
 
-  cardinality = z3::expr_vector(ctx);
-  cardinality.push_back(z3::atmost(literals.currents(), max_pebbles));
-  cardinality.push_back(z3::atmost(literals.nexts(), max_pebbles));
-  return x >= final_pebbles;
+  void Model::load_pebble_transition_raw2(const dag::Graph& G)
+  {
+    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    {
+      string name      = lits(i).to_string();
+      expr parent_flip = lits(i) ^ lits.p(i);
+      // pebble if all children are pebbled now and next
+      // or unpebble if all children are pebbled now and next
+      expr_vector children_pebbled(ctx);
+      for (const string& child : G.get_children(name))
+      {
+        expr child_node = ctx.bool_const(child.c_str());
+        int child_i     = lits.indexof(child_node);
+        children_pebbled.push_back(lits(child_i));
+        children_pebbled.push_back(lits.p(child_i));
+      }
+      transition.push_back(
+          z3::implies(parent_flip, z3::mk_and(children_pebbled)));
+    }
+  }
 
-}
+  void Model::load_property(const dag::Graph& G)
+  {
+    // final nodes are pebbled and others are not
+    for (const expr& e : lits.currents())
+    {
+      if (G.is_output(e.to_string()))
+        n_property.add_expression(e, lits);
+      else
+        n_property.add_expression(!e, lits);
+    }
+    n_property.finish();
 
-int PDRModel::get_f_pebbles() const { return final_pebbles; }
+    // final nodes are unpebbled and others are
+    expr_vector disjunction(ctx);
+    for (const expr& e : lits.currents())
+    {
+      if (G.is_output(e.to_string()))
+        disjunction.push_back(!e);
+      else
+        disjunction.push_back(e);
+    }
+    property.add_expression(z3::mk_or(disjunction), lits);
+    property.finish();
+  }
 
-void PDRModel::show(std::ostream& out) const
-{
-  literals.show(out);
-  out << "Transition Relation:" << std::endl << transition << std::endl;
-  out << "property: " << std::endl;
-  property.show(out);
-  out << "not_property: " << std::endl;
-  n_property.show(out);
-}
+  expr_vector Model::constraint(std::optional<unsigned> x)
+  {
+    expr_vector v(ctx);
+    if (!x)
+      return v;
+
+    v.push_back(z3::atmost(lits.currents(), *x));
+    v.push_back(z3::atmost(lits.nexts(), *x));
+
+    return v;
+  }
+
+  unsigned Model::get_f_pebbles() const { return final_pebbles; }
+
+  void Model::show(std::ostream& out) const
+  {
+    using std::endl;
+    lits.show(out);
+    unsigned t_size = std::accumulate(transition.begin(), transition.end(), 0,
+        [](unsigned acc, const expr& e) { return acc + e.num_args(); });
+
+    out << fmt::format("Transition Relation (size = {}):", t_size) << endl
+        << transition << endl;
+    out << "property: " << endl;
+    property.show(out);
+    out << "not_property: " << endl;
+    n_property.show(out);
+  }
+
+  // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
+  expr Model::tseytin_and(
+      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
+  {
+    expr c = ctx.bool_const(name.c_str());
+    sub_defs.push_back(c || !a || !b);
+    sub_defs.push_back(!c || a);
+    sub_defs.push_back(!c || b);
+    return c;
+  }
+
+  // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
+  expr Model::tseytin_or(
+      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
+  {
+    expr c = ctx.bool_const(name.c_str());
+    sub_defs.push_back(!c || a || b);
+    sub_defs.push_back(c || !a);
+    sub_defs.push_back(c || !b);
+    return c;
+  }
+
+  // a => b <=> !a | b
+  expr Model::tseytin_implies(
+      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
+  {
+    return tseytin_or(sub_defs, name, !a, b);
+  }
+
+  // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
+  expr Model::tseytin_xor(
+      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
+  {
+    expr c = ctx.bool_const(name.c_str());
+    sub_defs.push_back(!c || !a || !b);
+    sub_defs.push_back(!c || a || b);
+    sub_defs.push_back(c || a || !b);
+    sub_defs.push_back(c || !a || b);
+    return c;
+  }
+} // namespace pdr

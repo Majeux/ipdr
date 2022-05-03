@@ -1,0 +1,12 @@
+4b15g_1
+5bitadder
+5mod5tc
+gf2^3mult_11_47
+gf2^4mult_19_83
+gf2^5mult_29_129
+ham3tc
+ham7tc
+mod_4mod5-n5-gc4-qc13
+mod5d1
+mod_5mod5-n6-gc7-qc429
+rd32

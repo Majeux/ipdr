@@ -1,20 +1,28 @@
-﻿#include "dag.h"
+﻿#include "cli-parse.h"
+#include "dag.h"
+#include "experiments.h"
+#include "h-operator.h"
+#include "io.h"
+#include "logger.h"
+#include "mockturtle/networks/klut.hpp"
 #include "parse_bench.h"
 #include "parse_tfc.h"
+#include "pdr-context.h"
 #include "pdr-model.h"
 #include "pdr.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
 #include <cxxopts.hpp>
 #include <exception>
 #include <fmt/core.h>
-#include <fstream>
-// #include <filesystem>
 #include <fmt/format.h>
+#include <fstream>
 #include <ghc/filesystem.hpp>
 #include <iostream>
+#include <lorina/bench.hpp>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -23,230 +31,191 @@
 #include <vector>
 #include <z3++.h>
 
-namespace fs = ghc::filesystem;
+using namespace my::cli;
+using namespace my::io;
 
-const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" / "tfc";
-
-// "{model}-{n pebbles}[_opt?][_delta?]"
-std::string file_name(const std::string& name, unsigned n, bool opt, bool delta)
+void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
-  return fmt::format("{}-{}pebbles{}{}", name, n, opt ? "_opt" : "",
-                     delta ? "_delta" : "");
-}
-
-std::string folder_name(unsigned n, bool opt, bool delta)
-{
-  return fmt::format("{}{}{}", n, opt ? "-opt" : "", delta ? "-delta" : "");
-}
-
-// ensure proper folders exist and create file names for In and Output
-std::array<std::string, 5> setup_in_out(const std::string& model_name,
-                                        unsigned n_pebbles, bool optimize,
-                                        bool delta)
-{
-  fs::path results_folder = fs::current_path() / "output";
-
-  std::string opts = folder_name(n_pebbles, optimize, delta);
-  fs::create_directory(results_folder);
-  fs::create_directory(results_folder / model_name);
-  fs::create_directory(results_folder / model_name / opts);
-  fs::path base = results_folder / model_name / opts;
-
-  fs::path stats_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".stats");
-  fs::path strategy_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".strategy");
-  fs::path log_file =
-      base / (file_name(model_name, n_pebbles, optimize, delta) + ".log");
-  fs::path solver_file = base / "solver_dump.solver";
-  fs::path progress    = base / "progress.txt";
-
   // show used paths
   TextTable output_files;
-  auto cwd_row  = { std::string(" current dir "), fs::current_path().string() };
-  auto stat_row = { std::string(" stats file "), stats_file.string() };
-  auto res_row  = { std::string(" result file "), strategy_file.string() };
-  auto solver_row = { std::string(" solver_dump file"), solver_file.string() };
-  output_files.addRow(cwd_row);
-  output_files.addRow(stat_row);
-  output_files.addRow(res_row);
-  output_files.addRow(solver_row);
-  std::cout << output_files << std::endl;
-
-  return { stats_file.string(), strategy_file.string(), log_file.string(),
-           solver_file.string(), progress.string() };
-}
-
-struct ArgumentList
-{
-  bool verbose;
-  bool whisper;
-  std::string model_name;
-  fs::path bench_folder;
-  unsigned max_pebbles;
-  bool optimize;
-  bool delta;
-
-  bool _failed = false;
-};
-
-cxxopts::Options make_options(std::string name, ArgumentList& clargs)
-{
-  cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
-                               "amount of pebbles through PDR");
-  clargs.optimize = clargs.delta = false;
-  // clang-format off
-  clopt.add_options()
-    ("v,verbose", "Remove all output during pdr iterations",
-      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
-    ("w,wisper", "Output only minor info during pdr iterations",
-      cxxopts::value<bool>(clargs.verbose)->default_value("false"))
-    ("o, optimize", "Multiple runs that find a strategy with minimum pebbles",
-      cxxopts::value<bool>(clargs.optimize))
-    ("d, delta", "Use delta-encoded frames",
-      cxxopts::value<bool>(clargs.delta))
-    ("model", "Name of the graph to pebble",
-      cxxopts::value<std::string>(clargs.model_name))
-    ("pebbles", "Maximum number of pebbles for a strategy",
-      cxxopts::value<unsigned>(clargs.max_pebbles))
-    ("b,benchfolder","Folder than contains runable .tfc benchmarks",
-      cxxopts::value<fs::path>()->default_value(BENCH_FOLDER))
-    ("h,help", "Show usage");
-  // clang-format on
-  clopt.parse_positional({ "model", "pebbles" });
-  clopt.positional_help("<model name> <max pebbles>").show_positional_help();
-
-  return clopt;
-}
-
-ArgumentList parse_cl(int argc, char* argv[])
-{
-  ArgumentList clargs;
-  cxxopts::Options clopt = make_options(argv[0], clargs);
-  try
+  for (auto kv : paths)
   {
-    auto clresult = clopt.parse(argc, argv);
+    auto row = { kv.first, kv.second.string() };
+    output_files.addRow(row);
+  }
+  os << output_files << std::endl;
+}
 
-    if (clresult.count("help"))
+//
+// end OUTPUT
+
+dag::Graph build_dag(const ArgumentList& args)
+{
+  dag::Graph G;
+  // read input model
+  switch (args.model)
+  {
+    case ModelType::hoperator:
+      G = dag::hoperator(args.hop.bits, args.hop.mod);
+      break;
+
+    case ModelType::tfc:
     {
-      std::cerr << clopt.help() << std::endl;
-      exit(0);
+      parse::TFCParser parser;
+      fs::path model_file = args.bench_folder / (args.model_name + ".tfc");
+      G = parser.parse_file(model_file.string(), args.model_name);
     }
+    break;
 
-    if (clresult.count("model"))
-      clargs.model_name = clresult["model"].as<std::string>();
-    else
-      throw std::invalid_argument("<model name> is required");
+    case ModelType::bench:
+    {
+      fs::path model_file = args.bench_folder / (args.model_name + ".bench");
+      mockturtle::klut_network klut;
+      auto const result = lorina::read_bench(
+          model_file.string(), mockturtle::bench_reader(klut));
+      if (result != lorina::return_code::success)
+        throw std::invalid_argument(
+            model_file.string() + " is not a valid .bench file");
 
-    if (clresult.count("pebbles"))
-      clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
-    else
-      throw std::invalid_argument("<max pebbles> is required");
+      G = dag::from_dot(klut, args.model_name); // TODO continue
+    }
+    break;
 
-    clargs.bench_folder = BENCH_FOLDER / clresult["benchfolder"].as<fs::path>();
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << "Error parsing command line arguments" << std::endl
-              << std::endl;
-    std::cerr << clopt.help() << std::endl;
-    throw;
+    default: break;
   }
 
-  return clargs;
+  return G;
 }
 
+std::ostream& operator<<(std::ostream& o, std::exception const& e)
+{
+  o << fmt::format(
+           "terminated after throwing an \'std::exception\', typeid: {}",
+           typeid(e).name())
+    << std::endl
+    << fmt::format("  what():  {}", e.what()) << std::endl;
+  return o;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+dag::Graph setup_graph(const ArgumentList& clargs)
+{
+  // create folders and files for I/O
+  fs::path model_dir        = setup_model_path(clargs);
+  std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
+
+  dag::Graph G = build_dag(clargs);
+  {
+    G.show_image(model_dir / "dag");
+    std::cout << G.summary() << std::endl;
+    graph_descr << G.summary() << std::endl << G;
+  }
+
+  return G;
+}
+
+void experiment(ArgumentList& clargs)
+{
+  using namespace pdr::experiments;
+  using std::ofstream;
+  using std::string;
+
+  dag::Graph G = build_dag(clargs);
+
+  static z3::config ctx_settings;
+  {
+    ctx_settings.set("unsat_core", true);
+    ctx_settings.set("model", true);
+  }
+  pdr::pebbling::Model model(ctx_settings, clargs, G);
+
+  const fs::path model_dir = setup_model_path(clargs);
+  const string filename    = file_name(clargs);
+  const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
+
+  string sub        = "analysis";
+  fs::create_directory(run_dir / sub);
+  ofstream stats    = trunc_file(run_dir / sub, filename, "stats");
+  ofstream strategy = trunc_file(run_dir / sub, filename, "strategy");
+  fs::path log_file = run_dir / sub / fmt::format("{}.log", filename);
+
+  pdr::Logger logger =
+      pdr::Logger(log_file.string(), G, clargs.verbosity, std::move(stats));
+
+  model_run(model, logger, clargs);
+  std::cout << "experiment done" << std::endl;
+}
+
+#warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
+  using std::ofstream;
+
   ArgumentList clargs = parse_cl(argc, argv);
 
-  std::cout << fmt::format("Finding {}-pebble strategy for {}",
-                           clargs.max_pebbles, clargs.model_name)
-            << std::endl
-            << (clargs.optimize ? "Using dynamic cardinality. " : "")
-            << (clargs.delta ? "Using delta-encoded frames." : "") << std::endl;
-
-  // bench model
-  // fs::path bench_folder =
-  //     fs::current_path() / "benchmark" / "iscas85" / "bench";
-  // fs::path model_file = fs::current_path() /
-  //                                    "benchmark" / "iscas85" / "bench" /
-  //                                    (clargs.model_name + ".bench");
-
-  // tfc model
-  fs::path model_file = clargs.bench_folder / (clargs.model_name + ".tfc");
-
-  const auto [stats_file, strategy_file, log_file, solver_file, progress_file] =
-      setup_in_out(clargs.model_name, clargs.max_pebbles, clargs.optimize,
-                   clargs.delta);
-
-  std::ofstream stats(stats_file, std::fstream::out | std::fstream::trunc);
-  std::ofstream results(strategy_file, std::fstream::out | std::fstream::trunc);
-  std::ofstream solver_dump(solver_file,
-                            std::fstream::out | std::fstream::trunc);
-
-  assert(stats.is_open());
-  assert(results.is_open());
-
-  // read input model
-  parse::TFCParser parser;
-  dag::Graph G = parser.parse_file(model_file, clargs.model_name);
-  // dag::Graph G = parse::parse_bench(model_file, clargs.model_name);
-
-  std::cout << "Graph" << std::endl << G;
-  // G.export_digraph(BENCH_FOLDER.string());
-
-  // init z3
-  z3::config settings;
-  settings.set("unsat_core", true);
-  settings.set("model", true);
-
-  // create model from DAG graph and set up algorithm
-  PDRModel model(settings);
-  model.load_model(clargs.model_name, G, clargs.max_pebbles);
-  model.show(std::cout);
-  // initialize logger and other bookkeeping
-  pdr::Logger pdr_logger(log_file, G, progress_file, OutLvl::verbose);
-  pdr::PDResults res(model);
-
-  // run pdr and write output
-  if (clargs.optimize)
+  if (clargs.exp_sample)
   {
-    pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
+    experiment(clargs);
+    return 0;
+  }
 
-    while (true)
-    {
-      bool strategy = !algorithm.run(clargs.optimize);
-      stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
-      stats << pdr_logger.stats << std::endl;
+  const fs::path model_dir = setup_model_path(clargs);
+  const dag::Graph G       = setup_graph(clargs);
 
-      if (!strategy)
-        break;
+  z3::config ctx_settings;
+  {
+    ctx_settings.set("unsat_core", true);
+    ctx_settings.set("model", true);
+  }
+  pdr::pebbling::Model model(ctx_settings, clargs, G);
+  ofstream model_descr = trunc_file(model_dir, "model", "txt");
+  model.show(model_descr);
 
-      if (algorithm.decrement(true))
-        break;
-    }
-    algorithm.show_results(results);
-    algorithm.show_solver(solver_dump, clargs.max_pebbles);
+  if (clargs.onlyshow)
+    return 0;
+
+  pdr::Context context = clargs.seed
+                           ? pdr::Context(model, clargs.delta, *clargs.seed)
+                           : pdr::Context(model, clargs.delta, clargs.rand);
+
+  const std::string filename = file_name(clargs);
+  fs::path run_dir           = setup_path(model_dir / folder_name(clargs));
+
+  ofstream stats       = trunc_file(run_dir, filename, "stats");
+  ofstream strategy    = trunc_file(run_dir, filename, "strategy");
+  ofstream solver_dump = trunc_file(run_dir, "solver_dump", "solver");
+
+  // initialize logger and other bookkeeping
+  fs::path log_file = run_dir / fmt::format("{}.log", filename);
+
+  pdr::Logger logger = clargs.out
+                         ? pdr::Logger(log_file.string(), G, *clargs.out,
+                               clargs.verbosity, std::move(stats))
+                         : pdr::Logger(log_file.string(), G, clargs.verbosity,
+                               std::move(stats));
+
+  show_header(clargs);
+
+  pdr::Results rs(model);
+  pdr::PDR algorithm(context, logger, clargs.max_pebbles);
+
+  if (clargs.tactic == pdr::Tactic::basic)
+  {
+    pdr::Result r = algorithm.run(clargs.tactic, clargs.max_pebbles);
+    rs.add(r).show(strategy);
+    algorithm.show_solver(solver_dump);
+
+    return 0;
   }
   else
   {
-    // TODO multiple normal runs from comparision
-    while (true)
-    {
-      pdr::PDR algorithm(model, clargs.delta, pdr_logger, res);
-      bool strategy = !algorithm.run(clargs.optimize);
-      stats << "Cardinality: " << model.get_max_pebbles() << std::endl;
-      stats << pdr_logger.stats << std::endl;
-
-      algorithm.show_solver(solver_dump, model.get_max_pebbles());
-
-      if (!strategy && algorithm.decrement(true))
-      {
-        algorithm.show_results(results);
-        break;
-      }
-    }
+    pdr::pebbling::Optimizer optimize(std::move(algorithm));
+    std::optional<unsigned> optimum = optimize.run(clargs);
+    optimize.latest_results.show(strategy);
+    optimize.dump_solver(solver_dump);
   }
+
+  std::cout << "run done" << std::endl;
   return 0;
 }

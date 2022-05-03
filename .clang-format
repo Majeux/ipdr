@@ -1,6 +1,7 @@
 UseTab: Never
 NamespaceIndentation: All
 IndentWrappedFunctionNames: true
+IndentCaseLabels: true
 TabWidth: 2
 IndentWidth: 2
 AccessModifierOffset: -1
@@ -12,6 +13,7 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
 AlignConsecutiveAssignments: AcrossComments
 AlignEscapedNewlines: Left
+AlignAfterOpenBracket: DontAlign
 
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true

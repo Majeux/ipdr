@@ -1,0 +1,14 @@
+# 5bitadder
+## opt delta
+Statistics show some of stats until now.
+
+Solver calls are each very short on average, only very numerous
+
+Proof obligations take more significant time
+
+Propagation takes longer as clauses increase, expected, but nothing unmanagable.
+
+## delta
+propagation is significantly shorter. redundant clauses may slow this down.
+
+fewer obligations to be handled

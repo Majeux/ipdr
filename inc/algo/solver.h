@@ -1,5 +1,6 @@
-#ifndef SOLVER
-#define SOLVER
+#ifndef SOLVER_H
+#define SOLVER_H
+#include "pdr-context.h"
 #include "z3-ext.h"
 
 #include <fmt/core.h>
@@ -11,31 +12,41 @@
 
 namespace pdr
 {
+  enum class SolverState
+  {
+    neutral,
+    witness_avaible,
+    core_available,
+  };
+
   class Solver
   {
-    using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
-
-  private:
-    z3::context& ctx;
+   private:
+    const Context& ctx;
     z3::solver internal_solver;
+    SolverState state;
     bool core_available = false;
-    unsigned cubes_start; // point where base_assertions ends and other
-                          // assertions begin
+    unsigned clauses_start; // point where base_assertions ends and other
+                            // assertions begin
 
-  public:
-    std::vector<z3::expr_vector> base_assertions;
-    Solver(z3::context& c, std::vector<z3::expr_vector> base);
+   public:
+    Solver(const Context& c, z3::expr_vector base, z3::expr_vector t,
+        z3::expr_vector con);
 
-    void init();
     void reset();
-    void reset(const CubeSet& cubes);
+    void reset(const z3ext::CubeSet& cubes);
+    void reconstrain(z3::expr_vector constraint);
+    void reconstrain(z3::expr_vector constraint, const z3ext::CubeSet& cubes);
     void block(const z3::expr_vector& cube);
     void block(const z3::expr_vector& cube, const z3::expr& act);
     void add(const z3::expr& e);
 
     bool SAT(const z3::expr_vector& assumptions);
     z3::model get_model() const;
-    std::string as_str(const std::string& header = "") const;
+    z3::expr_vector witness_current() const;
+    z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
+
+    std::string as_str(const std::string& header, bool clauses_only) const;
 
     // function to extract a cube representing a satisfying assignment to
     // the last SAT call to the solver. the resulting vector or expr_vector
@@ -44,8 +55,8 @@ namespace pdr
     template <typename UnaryPredicate>
     static z3::expr_vector filter_witness(const z3::model& m, UnaryPredicate p);
     template <typename UnaryPredicate>
-    static std::vector<z3::expr> filter_witness_vector(const z3::model& m,
-                                                       UnaryPredicate p);
+    static std::vector<z3::expr> filter_witness_vector(
+        const z3::model& m, UnaryPredicate p);
 
     // function extract the unsat_core from the solver, a subset of the
     // assumptions the resulting vector or expr_vector is in sorted order
@@ -69,14 +80,14 @@ namespace pdr
   }
 
   template <typename UnaryPredicate>
-  std::vector<z3::expr> Solver::filter_witness_vector(const z3::model& m,
-                                                      UnaryPredicate p)
+  std::vector<z3::expr> Solver::filter_witness_vector(
+      const z3::model& m, UnaryPredicate p)
   {
     std::vector<z3::expr> v;
     v.reserve(m.num_consts());
     for (unsigned i = 0; i < m.size(); i++)
     {
-      z3::func_decl f = m[i];
+      z3::func_decl f  = m[i];
       z3::expr b_value = m.get_const_interp(f);
       z3::expr literal = f();
       if (p(literal))
@@ -110,4 +121,4 @@ namespace pdr
     return z3ext::convert(core);
   }
 } // namespace pdr
-#endif // SOLVER
+#endif // SOLVER_H
