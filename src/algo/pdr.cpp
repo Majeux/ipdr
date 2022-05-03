@@ -141,7 +141,7 @@ namespace pdr
     logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
 
-    const pebbling::Model& m = ctx.model();
+    const ::pebbling::Model& m = ctx.model();
     expr_vector notP         = m.n_property.currents();
 
     if (frames.init_solver.check(notP))
@@ -187,7 +187,6 @@ namespace pdr
         expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
-#warning try top down
         Result res = block(*cti, n);
         if (not res)
         {

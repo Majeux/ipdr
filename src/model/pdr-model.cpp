@@ -6,7 +6,7 @@
 #include <z3++.h>
 #include <z3_api.h>
 
-namespace pdr::pebbling
+namespace pebbling
 {
   using std::string;
   using z3::expr;

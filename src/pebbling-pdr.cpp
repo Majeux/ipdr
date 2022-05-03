@@ -128,7 +128,7 @@ void experiment(ArgumentList& clargs)
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
-  pdr::pebbling::Model model(ctx_settings, clargs, G);
+  pebbling::Model model(ctx_settings, clargs, G);
 
   const fs::path model_dir = setup_model_path(clargs);
   const string filename    = file_name(clargs);
@@ -168,7 +168,7 @@ int main(int argc, char* argv[])
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
-  pdr::pebbling::Model model(ctx_settings, clargs, G);
+  pebbling::Model model(ctx_settings, clargs, G);
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 

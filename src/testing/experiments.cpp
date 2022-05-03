@@ -236,7 +236,7 @@ namespace pdr::experiments
 
   // FUNCTIONS
   //
-  void model_run(pebbling::Model& model, pdr::Logger& log,
+  void model_run(::pebbling::Model& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)
   {
     using std::optional;

@@ -20,7 +20,6 @@ namespace pdr::pebbling
   {
     switch (args.tactic)
     {
-#warning control does not reset frames
       case pdr::Tactic::decrement: return decrement(true);
       case pdr::Tactic::increment: return increment(true);
       case pdr::Tactic::inc_jump_test:
@@ -40,7 +39,6 @@ namespace pdr::pebbling
   {
     switch (args.tactic)
     {
-#warning control does not reset frames
       case pdr::Tactic::decrement: return decrement(args.experiment_control);
       case pdr::Tactic::increment: return increment(args.experiment_control);
       case pdr::Tactic::inc_jump_test:
@@ -58,9 +56,8 @@ namespace pdr::pebbling
 
   optional<unsigned> Optimizer::increment(bool control)
   {
-#warning dec_tactic not yet fixed for new resets/results
     alg.logger.and_whisper("! Optimization run: decrement.");
-    const Model& m = alg.ctx;
+    const ::pebbling::Model& m = alg.ctx;
     latest_results.reset();
 
     unsigned N = m.get_f_pebbles(); // need at least this many pebbles
@@ -89,9 +86,8 @@ namespace pdr::pebbling
 
   optional<unsigned> Optimizer::decrement(bool control)
   {
-#warning use found strategy as next constraint
     alg.logger.and_whisper("! Optimization run: decrement.");
-    const Model& m = alg.ctx;
+    const ::pebbling::Model& m = alg.ctx;
     latest_results.reset();
 
     unsigned N = m.n_nodes(); // need at least this many pebbles
@@ -127,7 +123,7 @@ namespace pdr::pebbling
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
     alg.logger.and_show("start {}. step {}", start, step);
-    const pebbling::Model& m = alg.ctx;
+    const ::pebbling::Model& m = alg.ctx;
     pdr::Result invariant    = alg.run(Tactic::basic, start);
     latest_results << invariant;
 

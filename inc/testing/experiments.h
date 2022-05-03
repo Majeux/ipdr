@@ -32,7 +32,7 @@ namespace pdr::experiments
     Table_t combined_listing(const Run& other) const;
   };
 
-  void model_run(pebbling::Model& model, pdr::Logger& log,
+  void model_run(::pebbling::Model& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 } // namespace pdr::experiments
 
