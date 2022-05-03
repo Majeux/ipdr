@@ -9,9 +9,13 @@
 
 namespace pdr
 {
+  using std::vector;
+  using z3::expr;
+  using z3::expr_vector;
   //! s is inductive up until min-1. !s is included up until min
-  int PDR::hif_(const z3::expr_vector& cube, int min, int max)
+  int PDR::hif_(const expr_vector& cube, int min)
   {
+    int max = frames.frontier();
     if (min <= 0 && !frames.inductive(cube, 0))
     {
       logger.tabbed("Intersects I");
@@ -33,20 +37,19 @@ namespace pdr
     return highest;
   }
 
-  std::tuple<int, z3::expr_vector>
-      PDR::highest_inductive_frame(const z3::expr_vector& cube, int min,
-                                   int max)
+  std::tuple<int, expr_vector> PDR::highest_inductive_frame(
+      const expr_vector& cube, int min)
   {
-    z3::expr_vector core(ctx());
-    int result = hif_(cube, min, max);
+    expr_vector core(ctx());
+    int result = hif_(cube, min);
     if (result >= 0 && result >= min) // if unsat result occurs
     {
       // F_result & !cube & T & cube' = UNSAT
       // => F_result & !cube & T & core' = UNSAT
-      auto next_lits = [this](const z3::expr& e)
-      { return ctx.const_model().literals.literal_is_p(e); };
-      auto to_current = [this](const z3::expr& e)
-      { return ctx.const_model().literals(e); };
+      auto next_lits = [this](const expr& e)
+      { return ctx.model().lits.literal_is_p(e); };
+      auto to_current = [this](const expr& e)
+      { return ctx.model().lits(e); };
 
       core = frames.get_solver(result).unsat_core(next_lits, to_current);
 
@@ -57,34 +60,40 @@ namespace pdr
     else
       core = cube; // no core produced
 
-    logger.tabbed("cube reduction: {} -> {}", cube.size(),
-                  core.size());
+    logger.tabbed("cube reduction: {} -> {}", cube.size(), core.size());
     return { result, core };
   }
 
-  z3::expr_vector PDR::generalize(const z3::expr_vector& state, int level)
+  expr_vector PDR::generalize(const expr_vector& state, int level)
   {
     logger.tabbed("generalize cube");
     logger.indent++;
-    z3::expr_vector smaller_cube = MIC(state, level);
+    expr_vector smaller_cube = MIC(state, level);
     logger.indent--;
 
-    logger.tabbed("reduction by MIC: {} -> {}", state.size(), smaller_cube.size());
+    logger.tabbed(
+        "reduction by MIC: {} -> {}", state.size(), smaller_cube.size());
     // SPDLOG_LOGGER_TRACE(log, "{}| final reduced cube = [{}]", TAB,
     // join(smaller_cube));
     return smaller_cube;
   }
 
-  z3::expr_vector PDR::MIC(const z3::expr_vector& state, int level)
+  expr_vector PDR::MIC(const expr_vector& state, int level)
   {
+    assert(level <= (int)frames.frontier());
     // used for sorting
-    std::vector<z3::expr> cube = z3ext::convert(state);
+    vector<expr> cube = z3ext::convert(state);
 
     assert(std::is_sorted(cube.begin(), cube.end(), z3ext::expr_less()));
     unsigned attempts = 0;
-    for (unsigned i = 0; i < cube.size() && attempts < mic_retries;)
+    for (unsigned i = 0; i < cube.size();)
     {
-      std::vector<z3::expr> new_cube(cube.begin(), cube.begin() + i);
+      if (attempts > mic_retries)
+      {
+        logger("MIC exceeded {} attempts", mic_retries);
+        break;
+      }
+      vector<expr> new_cube(cube.begin(), cube.begin() + i);
       new_cube.reserve(cube.size() - 1);
       new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
 
@@ -109,19 +118,19 @@ namespace pdr
   }
 
   // state is sorted
-  bool PDR::down(std::vector<z3::expr>& state, int level)
+  bool PDR::down(vector<expr>& state, int level)
   {
     assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
-    auto is_current_in_state = [this, &state](const z3::expr& e)
+    auto is_current_in_state = [this, &state](const expr& e)
     {
-      return ctx.const_model().literals.literal_is_current(e) &&
-             std::binary_search(state.begin(), state.end(), e,
-                                z3ext::expr_less());
+      return ctx.model().lits.literal_is_current(e) &&
+             std::binary_search(
+                 state.begin(), state.end(), e, z3ext::expr_less());
     };
 
     while (true)
     {
-      z3::expr* const raw_state = state.data();
+      expr* const raw_state = state.data();
       if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
         return false;
 
@@ -129,7 +138,7 @@ namespace pdr
       {
         // intersect the current states from the model with state
         z3::model witness = frames.get_solver(level).get_model();
-        std::vector<z3::expr> cti_intersect =
+        vector<expr> cti_intersect =
             Solver::filter_witness_vector(witness, is_current_in_state);
 
         state = std::move(cti_intersect);

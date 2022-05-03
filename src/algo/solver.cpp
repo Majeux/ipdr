@@ -4,8 +4,9 @@
 
 namespace pdr
 {
-  Solver::Solver(const context& c, z3::expr_vector base,
-                 z3::expr_vector transition, z3::expr_vector constraint)
+#warning still duplicates in solver in dump
+  Solver::Solver(const Context& c, z3::expr_vector base,
+      z3::expr_vector transition, z3::expr_vector constraint)
       : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
@@ -35,7 +36,7 @@ namespace pdr
 
   // reset and automatically repopulate by blocking cubes
   // used by frames
-  void Solver::reset(const CubeSet& cubes)
+  void Solver::reset(const z3ext::CubeSet& cubes)
   {
     reset();
     for (const z3::expr_vector& cube : cubes)
@@ -44,15 +45,15 @@ namespace pdr
 
   void Solver::reconstrain(z3::expr_vector constraint)
   {
-    internal_solver.pop(2);          // remove all blocked cubes and constraint
-    internal_solver.push();          // remake constraintless backtracking point
+    internal_solver.pop(2); // remove all blocked cubes and constraint
+    internal_solver.push(); // remake constraintless backtracking point
     internal_solver.add(constraint);
-    internal_solver.push();          // remake stateless backtracking point
+    internal_solver.push(); // remake stateless backtracking point
     clauses_start = internal_solver.assertions().size();
-    
   }
 
-  void Solver::reconstrain(z3::expr_vector constraint, const CubeSet& cubes)
+  void Solver::reconstrain(
+      z3::expr_vector constraint, const z3ext::CubeSet& cubes)
   {
     reconstrain(constraint);
     for (const z3::expr_vector& cube : cubes)
@@ -79,7 +80,11 @@ namespace pdr
     if (result == z3::sat)
       return true;
 
+    // if (result == z3::check_result::unknown)
+    // {
+    // std::cout << as_str("", true);
     assert(result != z3::check_result::unknown);
+    // }
 
     core_available = true;
     return false;
@@ -87,6 +92,7 @@ namespace pdr
 
   z3::model Solver::get_model() const { return internal_solver.get_model(); }
 
+  // TODO optional return
   z3::expr_vector Solver::unsat_core()
   {
     assert(core_available);
@@ -107,7 +113,7 @@ namespace pdr
       z3::expr boolean_value = m.get_const_interp(f);
       z3::expr literal       = f();
 
-      if (ctx.const_model().literals.atom_is_current(literal))
+      if (ctx.model().lits.atom_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);
@@ -126,10 +132,13 @@ namespace pdr
 
   std::string Solver::as_str(const std::string& header, bool clauses_only) const
   {
-    std::string str(header);
-    const z3::expr_vector asserts = internal_solver.assertions();
+    std::stringstream ss;
+    ss << header << std::endl;
+    ss << "z3::statistics" << std::endl;
+    ss << internal_solver.statistics() << std::endl;
 
-    auto it = asserts.begin();
+    const z3::expr_vector asserts = internal_solver.assertions();
+    auto it                       = asserts.begin();
     if (clauses_only) // skip base, transition and constraint
     {
       for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)
@@ -137,8 +146,8 @@ namespace pdr
     }
 
     for (; it != asserts.end(); it++)
-      str += fmt::format("- {}\n", (*it).to_string());
+      ss << fmt::format("- {}", (*it).to_string()) << std::endl;
 
-    return str;
+    return ss.str();
   }
 } // namespace pdr

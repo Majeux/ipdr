@@ -2,34 +2,32 @@
 #define PDRCONTEXT_H
 
 #include "pdr-model.h"
+#include "tactic.h"
 #include <cstdint>
 #include <z3++.h>
 
 namespace pdr
 {
-  enum class Tactic
-  {
-    undef, 
-    basic, increment, decrement, 
-    inc_jump_test, inc_one_test,
-  };
-
-  class context
+  class Context
   {
    public:
     const bool delta;
-    const uint32_t seed;
-    Tactic type; // algorithm may switch between runs types
+    uint32_t seed;
+    Tactic type;
+    Context(pebbling::Model& m, bool d, bool random_seed);
+    Context(pebbling::Model& m, bool d, unsigned seed);
 
-    context(Model& m, bool d, bool random_seed);
-    z3::context& operator()() const;    
-    Model& model() const;
-    const Model& const_model() const;
+    operator z3::context&();
+    operator const z3::context&() const;
+    operator pebbling::Model&();
+    operator const pebbling::Model&() const;
+
+    z3::context& operator()() const;
+    pebbling::Model& model();
+    const pebbling::Model& model() const;
 
    private:
-    Model& _model;
+    pebbling::Model& _model;
   }; // class PDRcontext
-
 } // namespace pdr
 #endif // PDRCONTEXT_H
-

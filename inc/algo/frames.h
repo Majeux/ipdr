@@ -20,12 +20,11 @@
 
 namespace pdr
 {
-  using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
 
   class Frames
   {
    private:
-    context& ctx;
+    Context& ctx;
     Logger& logger;
     const bool LOG_SAT_CALLS = false;
 
@@ -43,47 +42,63 @@ namespace pdr
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
 
-    Frames(context& c, Logger& l);
+    // cardinality constraint on the maximum allowed marked literals in a state
+    std::optional<unsigned> max_pebbles;
+
+    Frames(Context& c, Logger& l);
+    Frames(Context& c, Logger& l, std::optional<unsigned> constraint);
+
+    // reset the sequence to F_0, F_1 (frontier 0)
+    void reset();
+
+    // reset the sequence to F_0, F_1 (frontier 0)
+    // and set 'new_constraint' as the new 'max_pebbles'
+    void reset(std::optional<unsigned> new_constraint);
+
+    // reduce the max_pebbles constraint to 'x'
+    // redo propagation for the previous level
+    // return an invariant level if propagation finds one
+    std::optional<size_t> decrement_reset(unsigned x);
+
+    // increase the max_pebbles constraint to 'x'
+    // carry over all learned cubes to F_1 in a new sequence (if valid)
+    void increment_reset(unsigned x);
+
     // frame interface
     //
-    //
-    void clear(size_t until_index = 0);
+    // pops frames until the given index is the frontier
+    void clear_until(size_t until_index);
     void extend();
-    void reset_constraint(int x);
+
+    // reset solvers and repopulate with current blocked cubes
     void repopulate_solvers();
-    // assumes:
-    // - a run of PDR has finished
-    // - base assertions have been changed and are a superset of the previous
-    // copy all old cubes that are not reachable from I into a new F_1
-    void increment_reset(int x);
+
     bool remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool fat_remove_state(const z3::expr_vector& cube, size_t level);
-    int propagate(bool repeat = false);
-    void push_forward_delta(unsigned level, bool repeat = false);
-    int push_forward_fat(unsigned level, bool repeat = false);
+    std::optional<size_t> propagate();
+    std::optional<size_t> propagate(size_t k);
+    void push_forward_delta(size_t level, bool repeat = false);
+    std::optional<size_t> push_forward_fat(size_t level, bool repeat = false);
 
-    // queries
+    // queries (non-modifying)
     //
-    bool init_implies(const z3::expr_vector& formula) const;
+    bool I_implies(const z3::expr_vector& formula) const;
     // returns if the clause of the given cube is inductive relative to F_frame
     bool inductive(const std::vector<z3::expr>& cube, size_t frame) const;
     bool inductive(const z3::expr_vector& cube, size_t frame) const;
-    std::optional<z3::expr_vector>
-        counter_to_inductiveness(const std::vector<z3::expr>& cube,
-                                 size_t frame) const;
-    std::optional<z3::expr_vector>
-        counter_to_inductiveness(const z3::expr_vector& cube,
-                                 size_t frame) const;
+    std::optional<z3::expr_vector> counter_to_inductiveness(
+        const std::vector<z3::expr>& cube, size_t frame) const;
+    std::optional<z3::expr_vector> counter_to_inductiveness(
+        const z3::expr_vector& cube, size_t frame) const;
     // returns if there exists a transition from frame to cube,
     // allows collection of witness from solver(frame) if true.
     bool trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                      bool primed = false) const;
-    std::optional<z3::expr_vector>
-        get_trans_source(size_t frame, const z3::expr_vector& dest_cube,
-                         bool primed = false) const;
+        bool primed = false) const;
+    std::optional<z3::expr_vector> get_trans_source(size_t frame,
+        const z3::expr_vector& dest_cube, bool primed = false) const;
 
-    // Solver calls
+    // Solver calls (non-modifying)
     //
     // returns if there exists a satisfying assignment
     bool SAT(size_t frame, const z3::expr_vector& assumptions) const;
@@ -92,18 +107,18 @@ namespace pdr
     const z3::model get_model(size_t frame) const;
     void reset_solver(size_t frame);
 
-    // getters
+    // getters (non-modifying)
     //
-    unsigned frontier() const;
+    size_t frontier() const;
     Solver& get_solver(size_t frame) const;
     const Solver& get_const_solver(size_t frame) const;
     const Frame& operator[](size_t i);
     // returns all cubes blocked in Frame 1. adjusted for delta encoding.
-    CubeSet get_blocked(size_t i) const;
+    z3ext::CubeSet get_blocked(size_t i) const;
 
-    void log_solvers() const;
+    void log_solvers(bool clauses_only) const;
     std::string blocked_str() const;
-    std::string solvers_str() const;
+    std::string solvers_str(bool clauses_only) const;
   };
 
 } // namespace pdr

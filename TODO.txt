@@ -26,6 +26,7 @@ TODO
 	- format pebbling strategy
 	- alternative block
 	- pushing subsumed clauses
+	- track lowest changed frame
 	
 	DELTA
 		- terminates later than original (maybe ok)
@@ -37,3 +38,4 @@ TODO
 		- Compare speed of iterations between --optimize and not
 		- Determine speedup for reusing
 		- cleaner format for strategy (on/off)
+		- vary over mic_retries

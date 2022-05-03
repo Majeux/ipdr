@@ -6,3 +6,7 @@
 	path = inc/ext/mockturtle
 	url = git@github.com:lsils/mockturtle.git
 	ignore = dirty
+[submodule "inc/ext/tabulate"]
+	path = inc/ext/tabulate
+	url = https://github.com/p-ranav/tabulate
+	ignore = untracked

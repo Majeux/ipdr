@@ -19,12 +19,10 @@
 
 namespace pdr
 {
-    using CubeSet = std::set<z3::expr_vector, z3ext::expr_vector_less>;
-
     class Frame
     {
       private:
-        CubeSet blocked_cubes;
+        z3ext::CubeSet blocked_cubes;
         unsigned level;
         Logger& logger;
         std::unique_ptr<Solver> solver;
@@ -40,7 +38,7 @@ namespace pdr
 
         void clean_solver();
 
-        unsigned remove_subsumed(const z3::expr_vector& cube);
+        unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
         bool blocked(const z3::expr_vector& cube);
         bool block(const z3::expr_vector& cube);
         void block_in_solver(const z3::expr_vector& cube);
@@ -50,7 +48,7 @@ namespace pdr
         std::vector<z3::expr_vector> diff(const Frame& f) const;
 
         // getters
-        const CubeSet& get_blocked() const;
+        const z3ext::CubeSet& get_blocked() const;
         bool empty() const;
         Solver& get_solver() const;
         const Solver& get_const_solver() const;
