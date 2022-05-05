@@ -12,6 +12,7 @@ namespace pebbling
   using z3::expr;
   using z3::expr_vector;
 
+#warning pass NDEBUG flag for experiment runs
   Model::Model(z3::config& settings,
       const my::cli::ArgumentList& args, const dag::Graph& G)
       : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
@@ -22,6 +23,12 @@ namespace pebbling
     for (string node : G.nodes)
       lits.add_literal(node);
     lits.finish();
+    // for (auto l : lits.currents())
+    //   std::cout << l.id() << " ";
+    // std::cout << std::endl;
+    // for (auto l : lits.nexts())
+    //   std::cout << l.id() << " ";
+    // std::cout << std::endl;
 
     for (const expr& e : lits.currents())
       initial.push_back(!e);

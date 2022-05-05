@@ -51,6 +51,7 @@ class ExpressionCache
     return atom_is_current(e);
   }
 
+  //  not used
   bool literal_is_p(const z3::expr& e) const
   {
     if (e.is_not())
@@ -80,6 +81,7 @@ class ExpressionCache
     return current[indexof(e)]; 
   }
 
+  // not used
   z3::expr_vector operator()(const z3::expr_vector& vec) const
   {
     z3::expr_vector vec_now(ctx);
@@ -88,6 +90,7 @@ class ExpressionCache
     return vec_now;
   }
 
+  // used internally
   // next state expressions
   z3::expr p(const z3::expr& e) const
   {
@@ -101,7 +104,9 @@ class ExpressionCache
     int index = literal_index.at(e.id());
     return next[index];
   }
+  // not used
   z3::expr p(int index) const { return next[index]; }
+  // not used
   z3::expr p(const std::string& s) const 
   { 
     z3::expr e = ctx.bool_const(s.c_str());
@@ -118,6 +123,7 @@ class ExpressionCache
       vec_next.push_back(p(e));
     return vec_next;
   }
+  // not used
   z3::expr_vector p(const std::vector<z3::expr>& vec) const
   {
     z3::expr_vector vec_next(ctx);
