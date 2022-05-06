@@ -3,7 +3,10 @@
 
 #include "dag.h"
 #include <optional>
+<<<<<<< HEAD
 #include <tabulate/table.hpp>
+=======
+>>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
 #include <z3++.h>
 
 namespace bounded
@@ -81,7 +84,15 @@ namespace bounded
 
     BoundedPebbling(const dag::Graph& G);
 
+<<<<<<< HEAD
     bool find_for(size_t pebbles);
+=======
+    // transition relations for an amount of steps
+    void transition(size_t steps);
+
+    // formula for an amount of steps
+    z3::expr iteration(size_t steps);
+>>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
 
    private:
     z3::context context;
@@ -89,6 +100,7 @@ namespace bounded
     z3::solver solver;
     size_t bt_points = 0;
 
+<<<<<<< HEAD
     std::vector<std::string> lit_names;
     const size_t n_lits;
 
@@ -113,6 +125,20 @@ namespace bounded
 
     std::string strategy_table(const std::vector<TraceRow>& content) const;
     void dump_strategy(size_t length) const;
+=======
+    const std::set<std::string, std::less<>>& lit_names;
+    const size_t n_lits;
+
+    std::optional<size_t> cardinality;
+
+    z3::expr lit(std::string_view name, size_t time_step);
+    z3::expr initial();
+    z3::expr_vector final(size_t i);
+    void push_time_frame();
+    // returns the transition for step i -> i+1
+    // with the cardinality clause for step i+1
+    z3::expr_vector next_trans(size_t i);
+>>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
 
     void bt_push();
     void bt_pop();
