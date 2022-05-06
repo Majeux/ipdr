@@ -71,7 +71,7 @@ namespace dag
   std::string Graph::summary() const
   {
     return fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}", input.size(),
-                       output.size(), nodes.size());
+        output.size(), nodes.size());
   }
 
   std::ostream& operator<<(std::ostream& stream, Graph const& g)
@@ -111,13 +111,13 @@ namespace dag
     return ss.str();
   }
 
-  bool Graph::is_output(const std::string& name) const
+  bool Graph::is_output(std::string_view name) const
   {
     return output.find(name) != output.end();
   }
 
-  const std::vector<std::string>&
-      Graph::get_children(const std::string& key) const
+  const std::vector<std::string>& Graph::get_children(
+      std::string_view key) const
   {
     auto result = children.find(key);
 

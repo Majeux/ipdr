@@ -1,5 +1,6 @@
 #include "bounded.h"
 #include "dag.h"
+#include <z3++.h>
 
 namespace bounded
 {
@@ -12,17 +13,47 @@ namespace bounded
       : context(), graph(G), solver(context), lit_names(G.nodes),
         n_lits(lit_names.size())
   {
-    for (string_view n : lit_names)
-      solver.add(!lit(n, 0));
-
-    solver.add(F);
+    solver.add(initial());
     bt_push(); // backtracking point to no transitions or cardinality
   }
 
   expr Bounded::lit(std::string_view name, size_t time_step)
   {
-    std::string full_name = fmt::format("{}[{}]", name, time);
+    std::string full_name = fmt::format("{}.{}", name, time_step);
     return context.bool_const(full_name.c_str());
+  }
+
+  expr Bounded::initial()
+  {
+    expr_vector cube(context);
+    expr_vector lits(context);
+    for (string_view n : lit_names)
+    {
+      expr l = lit(n, 0);
+      lits.push_back(l);
+      cube.push_back(!l);
+    }
+    cube.push_back(z3::atmost(lits, cardinality.value()));
+
+    return z3::mk_and(cube);
+  }
+
+  expr_vector Bounded::final(size_t i)
+  {
+    expr_vector cube(context);
+    expr_vector lits(context);
+    for (string_view n : lit_names)
+    {
+      expr l = lit(n, i);
+      lits.push_back(l);
+      if (graph.is_output(n))
+        cube.push_back(l);
+      else
+        cube.push_back(!l);
+    }
+    cube.push_back(z3::atmost(lits, cardinality.value()));
+
+    return cube;
   }
 
   void Bounded::push_time_frame()
@@ -44,33 +75,47 @@ namespace bounded
   expr_vector Bounded::next_trans(size_t i)
   {
     expr_vector rv(context);
+    expr_vector current(context);
+    expr_vector next(context);
+
+    expr_vector T(context);
+    for (std::string_view node : lit_names) // every node has a transition
     {
-      rv.push_back(T_i, T_i + 1);
-      rv.push_back(card_i + 1);
-      bt_push();
+      expr source   = lit(node, i);
+      expr source_p = lit(node, i+1);
+      current.push_back(source);
+      next.push_back(source_p);
+      // pebble if all children are pebbled now and next
+      // or unpebble if all children are pebbled now and next
+      for (std::string_view child : graph.get_children(node))
+      {
+        // clang-format off
+        T.push_back( source || !source_p || lit(child, i));
+        T.push_back(!source ||  source_p || lit(child, i));
+        T.push_back( source || !source_p || lit(child, i+1));
+        T.push_back(!source ||  source_p || lit(child, i+1));
+        // clang-format on
+      }
     }
+
+    rv.push_back(z3::mk_and(T));
+    rv.push_back(z3::atmost(next, cardinality.value()));
     return rv;
   }
 
-  expr_vector Bounded::final_trans(size_t i)
+  void Bounded::check(size_t steps)
   {
-    expr_vector rv(context);
-    {
-      rv.push_back(T_i, T_f);
-      rv.push_back(card__f);
-      bt_push();
-    }
-    return rv;
+    // fill transitions until steps-1
+    solver.check(final(steps));
   }
 
-  expr_vector Bounded::transition(size_t steps)
+  void Bounded::transition(size_t steps)
   {
     for (size_t i = 0; i < steps; i++)
     {
-      expr_vector new_t = i < steps - 1 ? next_trans(i) : final_trans(i);
+      expr_vector new_t = next_trans(i);
       assert(new_t.size() == 2);
-      solver.add(new_t[0]); // transition
-      solver.add(new_t[1]); // cardinality
+      solver.add(new_t);
     }
   }
 

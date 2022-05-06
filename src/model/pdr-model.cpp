@@ -76,11 +76,12 @@ namespace pebbling
       {
         expr child_node = ctx.bool_const(child.c_str());
         int child_i     = lits.indexof(child_node);
-
-        transition.push_back(lits(i) || !lits.p(i) || lits(child_i));
-        transition.push_back(!lits(i) || lits.p(i) || lits(child_i));
-        transition.push_back(lits(i) || !lits.p(i) || lits.p(child_i));
-        transition.push_back(!lits(i) || lits.p(i) || lits.p(child_i));
+        // clang-format off
+        transition.push_back( lits(i) || !lits.p(i) || lits(child_i));
+        transition.push_back(!lits(i) ||  lits.p(i) || lits(child_i));
+        transition.push_back( lits(i) || !lits.p(i) || lits.p(child_i));
+        transition.push_back(!lits(i) ||  lits.p(i) || lits.p(child_i));
+        // clang-format on
       }
     }
   }

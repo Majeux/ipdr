@@ -2,6 +2,7 @@
 #define BOUNDED_H
 
 #include "dag.h"
+#include <optional>
 #include <z3++.h>
 
 namespace bounded
@@ -28,7 +29,7 @@ namespace bounded
     Bounded(const dag::Graph& G);
 
     // transition relations for an amount of steps
-    z3::expr_vector transition(size_t steps);
+    void transition(size_t steps);
 
     // formula for an amount of steps
     z3::expr iteration(size_t steps);
@@ -39,17 +40,18 @@ namespace bounded
     z3::solver solver;
     size_t bt_points = 0;
 
-    const std::set<std::string>& lit_names;
+    const std::set<std::string, std::less<>>& lit_names;
     const size_t n_lits;
 
-    z3::expr lit(std::string_view name, size_t time);
+    std::optional<size_t> cardinality;
+
+    z3::expr lit(std::string_view name, size_t time_step);
+    z3::expr initial();
+    z3::expr_vector final(size_t i);
     void push_time_frame();
     // returns the transition for step i -> i+1
     // with the cardinality clause for step i+1
     z3::expr_vector next_trans(size_t i);
-    // returns the transition for step i -> k
-    // with the cardinality clause for step k
-    z3::expr_vector final_trans(size_t i);
 
     void bt_push();
     void bt_pop();
