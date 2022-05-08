@@ -32,7 +32,7 @@ namespace bounded
     }
   };
 
-  class Bounded
+  class BoundedPebbling
   {
    public:
     // using Literals = std::vector<Literal>;
@@ -40,13 +40,9 @@ namespace bounded
 
     std::vector<Literals> lits_at_time;
 
-    Bounded(const dag::Graph& G);
+    BoundedPebbling(const dag::Graph& G);
 
-    // transition relations for an amount of steps
-    void push_transitions(size_t steps);
-
-    // formula for an amount of steps
-    z3::expr iteration(size_t steps);
+    bool find_for(size_t pebbles);
 
    private:
     z3::context context;
@@ -58,19 +54,25 @@ namespace bounded
     const size_t n_lits;
 
     std::optional<size_t> cardinality;
-    // the amount of steps that are added to the solver (bound = source state)
-    size_t current_bound;
+    // the amount of steps that are added to the solver
+    // the last transition is from `current_bound-1` to `current_bound`
+    std::optional<size_t> current_bound;
 
     z3::expr lit(std::string_view name, size_t time_step);
     z3::expr constraint(const z3::expr_vector& lits);
+    // empty state and cardinality clase (index 0)
     ConstrainedExpr initial();
-    ConstrainedExpr final(size_t i);
-    void push_time_frame();
+    // final state for the last state and cardinality
+    ConstrainedExpr final();
     // returns the transition for step i -> i+1
     // with the cardinality clause for step i+1
     ConstrainedExpr trans_step(size_t i);
+    // transition relations for an amount of steps
+    void push_transitions(size_t steps);
 
     z3::check_result check(size_t steps);
+
+    void dump_strategy() const;
 
     void bt_push();
     void bt_pop();
