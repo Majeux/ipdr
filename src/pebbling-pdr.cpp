@@ -1,4 +1,5 @@
-﻿#include "cli-parse.h"
+﻿#include "bounded.h"
+#include "cli-parse.h"
 #include "dag.h"
 #include "experiments.h"
 #include "h-operator.h"
@@ -147,6 +148,12 @@ void experiment(ArgumentList& clargs)
   std::cout << "experiment done" << std::endl;
 }
 
+void bounded_test(const dag::Graph& G)
+{
+  bounded::BoundedPebbling obj(G);
+  obj.find_for(4);
+}
+
 #warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
@@ -162,6 +169,9 @@ int main(int argc, char* argv[])
 
   const fs::path model_dir = setup_model_path(clargs);
   const dag::Graph G       = setup_graph(clargs);
+
+  bounded_test(G);
+#warning TESTING BOUNDED 
 
   z3::config ctx_settings;
   {

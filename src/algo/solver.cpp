@@ -10,7 +10,7 @@ namespace pdr
       : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
-    //  TODO sat.core.minimize
+#warning  TODO sat.core.minimize
     internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
