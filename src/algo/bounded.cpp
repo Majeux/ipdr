@@ -1,10 +1,7 @@
 #include "bounded.h"
 #include "dag.h"
-<<<<<<< HEAD
 #include <regex>
 #include <tabulate/table.hpp>
-=======
->>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
 #include <z3++.h>
 
 namespace bounded
@@ -19,7 +16,6 @@ namespace bounded
       : context(), graph(G), solver(context), lit_names(),
         n_lits(G.nodes.size())
   {
-<<<<<<< HEAD
     context.set("timeout", 120000);
     context.set("model", true);
     solver.set("sat.cardinality.solver", true);
@@ -28,10 +24,6 @@ namespace bounded
     for (string_view s : G.nodes)
       lit_names.emplace_back(s);
     std::sort(lit_names.begin(), lit_names.end());
-=======
-    solver.add(initial());
-    bt_push(); // backtracking point to no transitions or cardinality
->>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
   }
 
   expr BoundedPebbling::lit(std::string_view name, size_t time_step)
@@ -40,51 +32,13 @@ namespace bounded
     return context.bool_const(full_name.c_str());
   }
 
-<<<<<<< HEAD
   expr BoundedPebbling::constraint(const expr_vector& lits)
-=======
-  expr Bounded::initial()
-  {
-    expr_vector cube(context);
-    expr_vector lits(context);
-    for (string_view n : lit_names)
-    {
-      expr l = lit(n, 0);
-      lits.push_back(l);
-      cube.push_back(!l);
-    }
-    cube.push_back(z3::atmost(lits, cardinality.value()));
-
-    return z3::mk_and(cube);
-  }
-
-  expr_vector Bounded::final(size_t i)
-  {
-    expr_vector cube(context);
-    expr_vector lits(context);
-    for (string_view n : lit_names)
-    {
-      expr l = lit(n, i);
-      lits.push_back(l);
-      if (graph.is_output(n))
-        cube.push_back(l);
-      else
-        cube.push_back(!l);
-    }
-    cube.push_back(z3::atmost(lits, cardinality.value()));
-
-    return cube;
-  }
-
-  void Bounded::push_time_frame()
->>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
   {
     return z3::atmost(lits, cardinality.value());
   }
 
   ConstrainedExpr BoundedPebbling::initial()
   {
-<<<<<<< HEAD
     expr_vector cube(context), lits(context);
     for (string_view n : lit_names)
     {
@@ -229,44 +183,6 @@ namespace bounded
   }
 
   void BoundedPebbling::dump_strategy(size_t length) const
-=======
-    expr_vector rv(context);
-    expr_vector current(context);
-    expr_vector next(context);
-
-    expr_vector T(context);
-    for (std::string_view node : lit_names) // every node has a transition
-    {
-      expr source   = lit(node, i);
-      expr source_p = lit(node, i+1);
-      current.push_back(source);
-      next.push_back(source_p);
-      // pebble if all children are pebbled now and next
-      // or unpebble if all children are pebbled now and next
-      for (std::string_view child : graph.get_children(node))
-      {
-        // clang-format off
-        T.push_back( source || !source_p || lit(child, i));
-        T.push_back(!source ||  source_p || lit(child, i));
-        T.push_back( source || !source_p || lit(child, i+1));
-        T.push_back(!source ||  source_p || lit(child, i+1));
-        // clang-format on
-      }
-    }
-
-    rv.push_back(z3::mk_and(T));
-    rv.push_back(z3::atmost(next, cardinality.value()));
-    return rv;
-  }
-
-  void Bounded::check(size_t steps)
-  {
-    // fill transitions until steps-1
-    solver.check(final(steps));
-  }
-
-  void Bounded::transition(size_t steps)
->>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
   {
     auto l_begin = lit_names.begin();
     auto l_end   = lit_names.end();
@@ -281,7 +197,6 @@ namespace bounded
 
     for (size_t i = 0; i < witness.size(); i++)
     {
-<<<<<<< HEAD
       Marking lit = get_time_step(witness, i);
 
       // fill trace to accomodate literal
@@ -297,11 +212,6 @@ namespace bounded
           trace.at(lit.timestep).mark(index, lit, fill_X);
         }
       }
-=======
-      expr_vector new_t = next_trans(i);
-      assert(new_t.size() == 2);
-      solver.add(new_t);
->>>>>>> c14a806 (todo: start at certain bound. every check: fill up until bound, then check)
     }
 
     std::cout << strategy_table(trace) << std::endl;
