@@ -7,18 +7,22 @@ namespace bounded
 {
   using std::string;
   using std::string_view;
+  using std::vector;
   using z3::expr;
   using z3::expr_vector;
 
   BoundedPebbling::BoundedPebbling(const dag::Graph& G)
-      : context(), graph(G), solver(context), lit_names(G.nodes),
-        n_lits(lit_names.size())
+      : context(), graph(G), solver(context), lit_names(),
+        n_lits(G.nodes.size())
   {
     context.set("timeout", 120000);
     context.set("model", true);
     solver.set("sat.cardinality.solver", true);
     solver.set("cardinality.solver", true);
     // solver.set("sat.random_seed", ctx.seed);
+    for (string_view s : G.nodes)
+      lit_names.emplace_back(s);
+    std::sort(lit_names.begin(), lit_names.end());
   }
 
   expr BoundedPebbling::lit(std::string_view name, size_t time_step)
@@ -118,7 +122,7 @@ namespace bounded
         z3::check_result r = check(i);
         if (r == z3::check_result::sat)
         {
-          dump_strategy();
+          dump_strategy(i);
           return true;
         }
       }
@@ -154,15 +158,36 @@ namespace bounded
     return rv;
   }
 
-  void BoundedPebbling::dump_strategy() const
+  void BoundedPebbling::dump_strategy(size_t length) const
   {
+    auto l_begin = lit_names.begin();
+    auto l_end   = lit_names.end();
+
     z3::model witness = solver.get_model();
+    vector<vector<string>> trace;
+    trace.reserve(length);
+
+    string_view longest_lit = *std::max_element(l_begin, l_end,
+        [](string_view a, string_view b) { return a.size() < b.size(); });
+
     for (size_t i = 0; i < witness.size(); i++)
     {
-      Marking temp = get_time_step(witness, i);
-	  assert(false);
-	  break;
+      Marking lit = get_time_step(witness, i);
+
+	  // fill trace to accomodate literal
+      while (trace.size() < lit.timestep + 1)
+        trace.emplace_back(lit_names.size(), "?");
+
+      {
+        auto it = std::lower_bound(l_begin, l_end, lit.name);
+        if (it != lit_names.end() && *it == lit.name) // it points to s
+        {
+          string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
+          trace.at(lit.timestep).at(it - l_begin) = lit.mark ? "" : fill_X;
+        }
+      }
     }
+	// TODO write matrix to tabulate
   }
 
   void BoundedPebbling::bt_push()
