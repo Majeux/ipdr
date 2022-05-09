@@ -1,5 +1,6 @@
 #include "bounded.h"
 #include "dag.h"
+#include <regex>
 #include <z3++.h>
 
 namespace bounded
@@ -125,11 +126,43 @@ namespace bounded
     return false;
   }
 
+  struct Marking
+  {
+    string name;
+    size_t timestep;
+    bool mark;
+  };
+
+  Marking get_time_step(const z3::model& m, size_t i)
+  {
+    assert(i < m.num_consts());
+    Marking rv;
+    {
+      // matches the [name].[timestep] format
+      std::regex postfix(R"(^([\S]+).([0-9]+)$)");
+      std::smatch postfix_match;
+      std::string lit_str{ m[i]().to_string() };
+      assert(std::regex_match(lit_str, postfix_match, postfix));
+      assert(postfix_match.size() == 3);
+
+      rv.name            = postfix_match[1];
+      string postfix_str = postfix_match[2];
+      sscanf(postfix_str.c_str(), "%zu", &rv.timestep);
+    }
+    rv.mark = m.get_const_interp(m[i]);
+
+    return rv;
+  }
+
   void BoundedPebbling::dump_strategy() const
   {
     z3::model witness = solver.get_model();
-    std::cout << witness << std::endl;
-    std::regex; state("*.[0-9]+");
+    for (size_t i = 0; i < witness.size(); i++)
+    {
+      Marking temp = get_time_step(witness, i);
+	  assert(false);
+	  break;
+    }
   }
 
   void BoundedPebbling::bt_push()
