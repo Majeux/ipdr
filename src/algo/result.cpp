@@ -205,8 +205,7 @@ namespace pdr
     // Write initial state
     {
       expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row =
-          row("I", "0", State(initial_state));
+      Table::Row_t initial_row  = row("I", "0", State(initial_state));
       t.add_row(initial_row);
     }
 
@@ -230,8 +229,7 @@ namespace pdr
     {
       expr_vector final_state = model.n_property.currents();
       Table::Row_t final_row =
-          row("F", format("{}", model.get_f_pebbles()),
-              State(final_state));
+          row("F", format("{}", model.get_f_pebbles()), State(final_state));
       t.add_row(final_row);
     }
 

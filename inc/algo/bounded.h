@@ -50,7 +50,7 @@ namespace bounded
     z3::solver solver;
     size_t bt_points = 0;
 
-    const std::set<std::string, std::less<>>& lit_names;
+    std::vector<std::string> lit_names;
     const size_t n_lits;
 
     std::optional<size_t> cardinality;
@@ -72,7 +72,7 @@ namespace bounded
 
     z3::check_result check(size_t steps);
 
-    void dump_strategy() const;
+    void dump_strategy(size_t length) const;
 
     void bt_push();
     void bt_pop();
