@@ -110,6 +110,7 @@ namespace pdr
       {
         log_finish(state->cube);
         //! s is now inductive to at least F_n
+        #warning TODO: try generalizing before pushing
         auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
