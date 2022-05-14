@@ -3,6 +3,7 @@
 
 #include "dag.h"
 #include <optional>
+#include <tabulate/table.hpp>
 #include <z3++.h>
 
 namespace bounded
@@ -29,6 +30,43 @@ namespace bounded
       rv.push_back(expression);
       rv.push_back(constraint);
       return rv;
+    }
+  };
+
+  struct Marking
+  {
+    std::string name;
+    size_t timestep;
+    bool mark;
+  };
+
+  struct TraceRow
+  {
+    unsigned marked;
+    std::vector<std::string> states;
+
+    operator const std::vector<std::string>&() const { return states; }
+    TraceRow(size_t size, std::string initial)
+        : marked(0), states(size, initial)
+    {
+    }
+
+    void mark(size_t i, const Marking& l, std::string_view fill)
+    {
+      states.at(i) = l.mark ? fill : "";
+      marked++;
+    }
+
+    // std::string& at(size_t i) { return states.at(i); }
+    // const std::string& at(size_t i) const { return states.at(i); }
+
+    std::vector<std::string>::const_iterator begin() const
+    {
+      return states.begin();
+    }
+    std::vector<std::string>::const_iterator end() const
+    {
+      return states.end();
     }
   };
 
@@ -72,6 +110,7 @@ namespace bounded
 
     z3::check_result check(size_t steps);
 
+    std::string strategy_table(const std::vector<TraceRow>& content) const;
     void dump_strategy(size_t length) const;
 
     void bt_push();
