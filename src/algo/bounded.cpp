@@ -1,6 +1,7 @@
 #include "bounded.h"
 #include "dag.h"
 #include <regex>
+#include <tabulate/table.hpp>
 #include <z3++.h>
 
 namespace bounded
@@ -130,13 +131,6 @@ namespace bounded
     return false;
   }
 
-  struct Marking
-  {
-    string name;
-    size_t timestep;
-    bool mark;
-  };
-
   Marking get_time_step(const z3::model& m, size_t i)
   {
     assert(i < m.num_consts());
@@ -158,13 +152,39 @@ namespace bounded
     return rv;
   }
 
+  std::string BoundedPebbling::strategy_table(
+      const vector<TraceRow>& content) const
+  {
+    using std::to_string;
+    using tabulate::Table;
+    Table header, t;
+    {
+      Table::Row_t header{ "", "marked" };
+      header.insert(header.end(), lit_names.begin(), lit_names.end());
+      t.add_row(header);
+    }
+    for (size_t i = 0; i < content.size(); i++)
+    {
+      const TraceRow& tr = content[i];
+      Table::Row_t row({ to_string(i), to_string(tr.marked) });
+      row.insert(row.end(), tr.begin(), tr.end());
+      t.add_row(row);
+    }
+
+    t.format().hide_border_top().hide_border_bottom();
+
+    std::stringstream ss;
+    ss  << t;
+    return ss.str();
+  }
+
   void BoundedPebbling::dump_strategy(size_t length) const
   {
     auto l_begin = lit_names.begin();
     auto l_end   = lit_names.end();
 
     z3::model witness = solver.get_model();
-    vector<vector<string>> trace;
+    vector<TraceRow> trace;
     trace.reserve(length);
 
     string_view longest_lit = *std::max_element(l_begin, l_end,
@@ -174,7 +194,7 @@ namespace bounded
     {
       Marking lit = get_time_step(witness, i);
 
-	  // fill trace to accomodate literal
+      // fill trace to accomodate literal
       while (trace.size() < lit.timestep + 1)
         trace.emplace_back(lit_names.size(), "?");
 
@@ -183,11 +203,13 @@ namespace bounded
         if (it != lit_names.end() && *it == lit.name) // it points to s
         {
           string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
-          trace.at(lit.timestep).at(it - l_begin) = lit.mark ? "" : fill_X;
+          size_t index  = it - l_begin;
+          trace.at(lit.timestep).mark(index, lit, fill_X);
         }
       }
     }
-	// TODO write matrix to tabulate
+
+    std::cout << strategy_table(trace) << std::endl;
   }
 
   void BoundedPebbling::bt_push()
