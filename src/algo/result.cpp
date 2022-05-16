@@ -153,6 +153,7 @@ namespace pdr
 
   void Result::finalize(const pebbling::Model& model)
   {
+#warning double initial state in experiment results
     using fmt::format;
     using std::string_view;
     using tabulate::Table;
