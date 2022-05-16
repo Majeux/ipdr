@@ -18,6 +18,20 @@ namespace bounded
   };
   // clang-format on
 
+  struct ConstrainedExpr
+  {
+    z3::expr expression;
+    z3::expr constraint;
+
+    operator z3::expr_vector()
+    {
+      z3::expr_vector rv(expression.ctx());
+      rv.push_back(expression);
+      rv.push_back(constraint);
+      return rv;
+    }
+  };
+
   class Bounded
   {
    public:
@@ -29,7 +43,7 @@ namespace bounded
     Bounded(const dag::Graph& G);
 
     // transition relations for an amount of steps
-    void transition(size_t steps);
+    void push_transitions(size_t steps);
 
     // formula for an amount of steps
     z3::expr iteration(size_t steps);
@@ -44,14 +58,19 @@ namespace bounded
     const size_t n_lits;
 
     std::optional<size_t> cardinality;
+    // the amount of steps that are added to the solver (bound = source state)
+    size_t current_bound;
 
     z3::expr lit(std::string_view name, size_t time_step);
-    z3::expr initial();
-    z3::expr_vector final(size_t i);
+    z3::expr constraint(const z3::expr_vector& lits);
+    ConstrainedExpr initial();
+    ConstrainedExpr final(size_t i);
     void push_time_frame();
     // returns the transition for step i -> i+1
     // with the cardinality clause for step i+1
-    z3::expr_vector next_trans(size_t i);
+    ConstrainedExpr trans_step(size_t i);
+
+    z3::check_result check(size_t steps);
 
     void bt_push();
     void bt_pop();
