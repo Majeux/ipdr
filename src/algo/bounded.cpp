@@ -137,7 +137,7 @@ namespace bounded
     Marking rv;
     {
       // matches the [name].[timestep] format
-      std::regex postfix(R"(^([\S]+).([0-9]+)$)");
+      std::regex postfix(R"(^([[:alnum:]_]+).([[:digit:]]+)$)");
       std::smatch postfix_match;
       std::string lit_str{ m[i]().to_string() };
       assert(std::regex_match(lit_str, postfix_match, postfix));
@@ -147,7 +147,11 @@ namespace bounded
       string postfix_str = postfix_match[2];
       sscanf(postfix_str.c_str(), "%zu", &rv.timestep);
     }
-    rv.mark = m.get_const_interp(m[i]);
+    {
+      z3::expr assignment = m.get_const_interp(m[i]);
+      assert(assignment.is_bool());
+      rv.mark = assignment.is_true();
+    }
 
     return rv;
   }
@@ -174,7 +178,7 @@ namespace bounded
     t.format().hide_border_top().hide_border_bottom();
 
     std::stringstream ss;
-    ss  << t;
+    ss << t;
     return ss.str();
   }
 
@@ -184,6 +188,7 @@ namespace bounded
     auto l_end   = lit_names.end();
 
     z3::model witness = solver.get_model();
+    // std::cout << witness << std::endl;
     vector<TraceRow> trace;
     trace.reserve(length);
 

@@ -54,7 +54,8 @@ namespace bounded
     void mark(size_t i, const Marking& l, std::string_view fill)
     {
       states.at(i) = l.mark ? fill : "";
-      marked++;
+      if (l.mark)
+        marked++;
     }
 
     // std::string& at(size_t i) { return states.at(i); }
