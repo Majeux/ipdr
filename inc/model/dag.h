@@ -46,7 +46,7 @@ namespace dag
   class Graph
   {
    private:
-    std::map<std::string, std::vector<std::string>> children; // nodes X nodes
+    std::map<std::string, std::vector<std::string>, std::less<>> children; // nodes X nodes
     std::set<Edge> input_edges;                               // nodes X nodes
     std::vector<std::string> empty_vec;
     std::unique_ptr<graphviz::Graph> image;
@@ -55,9 +55,9 @@ namespace dag
     std::string name;
     std::string prefix = "";
 
-    std::set<std::string> input;
-    std::set<std::string> nodes;
-    std::set<std::string> output; // subet of nodes
+    std::set<std::string, std::less<>> input;
+    std::set<std::string, std::less<>> nodes;
+    std::set<std::string, std::less<>> output; // subet of nodes
     std::set<Edge> edges;         // nodes X nodes
 
     std::string node(std::string name) { return prefix + name; }
@@ -82,9 +82,9 @@ namespace dag
 
     std::string dot();
 
-    bool is_output(const std::string& name) const;
+    bool is_output(std::string_view name) const;
 
-    const std::vector<std::string>& get_children(const std::string& key) const;
+    const std::vector<std::string>& get_children(std::string_view key) const;
   };
 } // namespace dag
 
