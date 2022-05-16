@@ -113,9 +113,6 @@ namespace bounded
 
     std::string strategy_table(const std::vector<TraceRow>& content) const;
     void dump_strategy(size_t length) const;
-    // returns the transition for step i -> i+1
-    // with the cardinality clause for step i+1
-    z3::expr_vector next_trans(size_t i);
 
     void bt_push();
     void bt_pop();
