@@ -203,12 +203,12 @@ namespace pdr
     };
 
     // Write initial state
-    {
-      expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row =
-          row("I", "0", State(initial_state));
-      t.add_row(initial_row);
-    }
+    // {
+    //   expr_vector initial_state = model.get_initial();
+    //   Table::Row_t initial_row =
+    //       row("(I) 0", "0", State(initial_state));
+    //   t.add_row(initial_row);
+    // }
 
     // Write strategy states
     {
@@ -216,12 +216,13 @@ namespace pdr
       unsigned i     = 0;
       for (const State& s : *this)
       {
-        i++;
         unsigned pebbles = s.no_marked();
         trace().marked   = std::max(trace().marked, pebbles);
+        string tag = (i == 0 ? "(I) " : "");
         Table::Row_t row_marking =
-            row(std::to_string(i), std::to_string(pebbles), s);
+            row(format("{}{}", tag, i), std::to_string(pebbles), s);
         t.add_row(row_marking);
+        i++;
       }
       trace().length = i + 1;
     }
@@ -230,7 +231,7 @@ namespace pdr
     {
       expr_vector final_state = model.n_property.currents();
       Table::Row_t final_row =
-          row("F", format("{}", model.get_f_pebbles()),
+          row(format("(F) {}", trace().length), format("{}", model.get_f_pebbles()),
               State(final_state));
       t.add_row(final_row);
     }

@@ -63,7 +63,6 @@ namespace parse
         str::extend::trim(line);
         if (line.size() == 0 || line[0] == '#')
           continue;
-        std::cout << line << std::endl;
 
         bool retry;
         do
