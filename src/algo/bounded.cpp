@@ -26,6 +26,13 @@ namespace bounded
     std::sort(lit_names.begin(), lit_names.end());
   }
 
+  void BoundedPebbling::reset()
+  {
+    solver.reset();
+    current_bound = {};
+    cardinality   = {};
+  }
+
   expr BoundedPebbling::lit(std::string_view name, size_t time_step)
   {
     std::string full_name = fmt::format("{}.{}", name, time_step);
@@ -95,6 +102,7 @@ namespace bounded
     push_transitions(steps);
     z3::check_result result = solver.check(final());
     assert(result != z3::check_result::unknown);
+
     return result;
   }
 
@@ -115,20 +123,51 @@ namespace bounded
 
   bool BoundedPebbling::find_for(size_t pebbles)
   {
-    for (; true; pebbles++)
+    total_time = 0.0;
+    sub_times.resize(0);
+    timer.reset();
+
+    std::optional<size_t> found;
+    while (!found)
     {
+      card_timer.reset();
       cardinality = pebbles;
+      std::cout << fmt::format("{} pebbles", pebbles) << std::endl;
       for (size_t i = 1;; i++)
       {
+        step_timer.reset();
+
         z3::check_result r = check(i);
+
+        double dt = step_timer.elapsed().count();
+        std::cout << fmt::format("\t{:>4}: {}", i, dt) << std::endl;
+        sub_times.push_back(dt);
+
         if (r == z3::check_result::sat)
         {
-          dump_strategy(i);
-          return true;
+          std::cout << "FOUND" << std::endl;
+          found = i;
+          break;
         }
+        else if (card_timer.elapsed().count() >= 120.0)
+        {
+          std::cout << "timeout" << std::endl;
+          reset();
+          break;
+        }
+
+        assert(r != z3::check_result::unknown);
       }
+      pebbles++;
     }
-    return false;
+
+    total_time = timer.elapsed().count();
+
+    dump_times();
+
+    if (found)
+      dump_strategy(*found);
+    return found.has_value();
   }
 
   Marking get_time_step(const z3::model& m, size_t i)
@@ -215,6 +254,15 @@ namespace bounded
     }
 
     std::cout << strategy_table(trace) << std::endl;
+  }
+
+  void BoundedPebbling::dump_times() const
+  {
+    std::cout << fmt::format("Total time: {}", total_time) << std::endl
+              << std::endl;
+
+    // for (double t : sub_times)
+    // std::cout << fmt::format("{}", t) << std::endl;
   }
 
   void BoundedPebbling::bt_push()

@@ -3,6 +3,7 @@
 
 #include "dag.h"
 #include <optional>
+#include <spdlog/stopwatch.h>
 #include <tabulate/table.hpp>
 #include <z3++.h>
 
@@ -97,6 +98,13 @@ namespace bounded
     // the last transition is from `current_bound-1` to `current_bound`
     std::optional<size_t> current_bound;
 
+    spdlog::stopwatch timer;
+    spdlog::stopwatch card_timer;
+    spdlog::stopwatch step_timer;
+	double total_time;
+	std::vector<double> sub_times;
+
+	void reset();
     z3::expr lit(std::string_view name, size_t time_step);
     z3::expr constraint(const z3::expr_vector& lits);
     // empty state and cardinality clase (index 0)
@@ -113,6 +121,7 @@ namespace bounded
 
     std::string strategy_table(const std::vector<TraceRow>& content) const;
     void dump_strategy(size_t length) const;
+    void dump_times() const;
 
     void bt_push();
     void bt_pop();
