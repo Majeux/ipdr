@@ -151,7 +151,7 @@ void experiment(ArgumentList& clargs)
 void bounded_test(const dag::Graph& G)
 {
   bounded::BoundedPebbling obj(G);
-  obj.find_for(G.output.size());
+  obj.find_for(G.nodes.size());
 }
 
 #warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints

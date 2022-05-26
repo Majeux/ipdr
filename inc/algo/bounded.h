@@ -88,7 +88,9 @@ namespace bounded
     z3::context context;
     const dag::Graph& graph;
     z3::solver solver;
-    size_t bt_points = 0;
+
+    const int time_limit{ 120 };
+    const double dtime_limit{ (double)time_limit };
 
     std::vector<std::string> lit_names;
     const size_t n_lits;
@@ -97,14 +99,15 @@ namespace bounded
     // the amount of steps that are added to the solver
     // the last transition is from `current_bound-1` to `current_bound`
     std::optional<size_t> current_bound;
+    std::vector<TraceRow> trace;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch card_timer;
     spdlog::stopwatch step_timer;
-	double total_time;
-	std::vector<double> sub_times;
+    double total_time;
+    std::vector<double> sub_times;
 
-	void reset();
+    void reset();
     z3::expr lit(std::string_view name, size_t time_step);
     z3::expr constraint(const z3::expr_vector& lits);
     // empty state and cardinality clase (index 0)
@@ -117,14 +120,12 @@ namespace bounded
     // transition relations for an amount of steps
     void push_transitions(size_t steps);
 
-    z3::check_result check(size_t steps);
+    z3::check_result check(size_t steps, double allowance);
 
     std::string strategy_table(const std::vector<TraceRow>& content) const;
-    void dump_strategy(size_t length) const;
+    void store_strategy(size_t length);
     void dump_times() const;
 
-    void bt_push();
-    void bt_pop();
   }; // class Bounded
 } // namespace bounded
 

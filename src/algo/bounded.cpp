@@ -16,7 +16,7 @@ namespace bounded
       : context(), graph(G), solver(context), lit_names(),
         n_lits(G.nodes.size())
   {
-    context.set("timeout", 120000);
+    context.set("timeout", time_limit * 1000);
     context.set("model", true);
     solver.set("sat.cardinality.solver", true);
     solver.set("cardinality.solver", true);
@@ -97,11 +97,12 @@ namespace bounded
     return { z3::mk_and(T), constraint(next) };
   }
 
-  z3::check_result BoundedPebbling::check(size_t steps)
+  z3::check_result BoundedPebbling::check(size_t steps, double allowance)
   {
     push_transitions(steps);
+    context.set("timeout", (int)(allowance * 1000.0));
     z3::check_result result = solver.check(final());
-    assert(result != z3::check_result::unknown);
+    // assert(result != z3::check_result::unknown);
 
     return result;
   }
@@ -127,47 +128,52 @@ namespace bounded
     sub_times.resize(0);
     timer.reset();
 
-    std::optional<size_t> found;
-    while (!found)
+    bool done = false;
+    while (!done && pebbles >= graph.output.size())
     {
       card_timer.reset();
+
+      auto elapsed = [this]() { return card_timer.elapsed().count(); };
+
       cardinality = pebbles;
       std::cout << fmt::format("{} pebbles", pebbles) << std::endl;
-      for (size_t i = 1;; i++)
+      for (size_t length = 1;; length++)
       {
         step_timer.reset();
 
-        z3::check_result r = check(i);
+        z3::check_result r = check(length, dtime_limit - elapsed());
 
-        double dt = step_timer.elapsed().count();
-        std::cout << fmt::format("\t{:>4}: {}", i, dt) << std::endl;
-        sub_times.push_back(dt);
+        // double dt = step_timer.elapsed().count();
+        // std::cout << fmt::format("\t{:>4}: {}", length, dt) << std::endl;
+        // sub_times.push_back(dt);
 
         if (r == z3::check_result::sat)
         {
-          std::cout << "FOUND" << std::endl;
-          found = i;
-          break;
-        }
-        else if (card_timer.elapsed().count() >= 120.0)
-        {
-          std::cout << "timeout" << std::endl;
+          std::cout << "FOUND at " << cardinality.value() << std::endl;
+          store_strategy(length);
           reset();
           break;
         }
 
-        assert(r != z3::check_result::unknown);
+        if (r == z3::check_result::unknown || elapsed() >= dtime_limit)
+        {
+          done = true;
+
+          std::cout << "timeout" << std::endl;
+          std::cout << strategy_table(trace) << std::endl;
+          break;
+        }
       }
-      pebbles++;
+      pebbles--;
     }
 
     total_time = timer.elapsed().count();
 
+    if (trace.size() == 0)
+      std::cout << "no strategy" << std::endl;
     dump_times();
 
-    if (found)
-      dump_strategy(*found);
-    return found.has_value();
+    return done;
   }
 
   Marking get_time_step(const z3::model& m, size_t i)
@@ -221,14 +227,13 @@ namespace bounded
     return ss.str();
   }
 
-  void BoundedPebbling::dump_strategy(size_t length) const
+  void BoundedPebbling::store_strategy(size_t length)
   {
     auto l_begin = lit_names.begin();
     auto l_end   = lit_names.end();
 
     z3::model witness = solver.get_model();
-    // std::cout << witness << std::endl;
-    vector<TraceRow> trace;
+    trace.clear();
     trace.reserve(length);
 
     string_view longest_lit = *std::max_element(l_begin, l_end,
@@ -242,18 +247,14 @@ namespace bounded
       while (trace.size() < lit.timestep + 1)
         trace.emplace_back(lit_names.size(), "?");
 
+      auto it = std::lower_bound(l_begin, l_end, lit.name);
+      if (it != lit_names.end() && *it == lit.name) // it points to s
       {
-        auto it = std::lower_bound(l_begin, l_end, lit.name);
-        if (it != lit_names.end() && *it == lit.name) // it points to s
-        {
-          string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
-          size_t index  = it - l_begin;
-          trace.at(lit.timestep).mark(index, lit, fill_X);
-        }
+        string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
+        size_t index  = it - l_begin;
+        trace.at(lit.timestep).mark(index, lit, fill_X);
       }
     }
-
-    std::cout << strategy_table(trace) << std::endl;
   }
 
   void BoundedPebbling::dump_times() const
@@ -264,17 +265,4 @@ namespace bounded
     // for (double t : sub_times)
     // std::cout << fmt::format("{}", t) << std::endl;
   }
-
-  void BoundedPebbling::bt_push()
-  {
-    solver.push();
-    bt_points++;
-  }
-
-  void BoundedPebbling::bt_pop()
-  {
-    solver.pop();
-    bt_points--;
-  }
-
 } // namespace bounded
