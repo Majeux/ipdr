@@ -113,6 +113,8 @@ namespace my::cli
        value<unsigned>(), "(uint:P)")
       (inc_one_str, "Test two runs: one with P pebbles and the other with P+1.",
        value<unsigned>(), "(uint:P)")
+      ("bounded", "Run pebbling model using bounded model checking",
+       value<bool>(clargs.bounded))
 
       ("show-only", "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(clargs.onlyshow))
@@ -138,6 +140,10 @@ namespace my::cli
 
   void parse_tactic(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
   {
+    if (clresult.count("bounded"))
+    {
+      clargs.tactic = pdr::Tactic::decrement;
+    }
     if (clresult.count("optimize"))
     {
       std::string tactic = clresult["optimize"].as<std::string>();
@@ -162,8 +168,9 @@ namespace my::cli
     else
     {
       clargs.tactic = pdr::Tactic::basic;
-      if (!clresult.count("pebbles"))
-        throw std::invalid_argument("Basis run requires a \"pebbles\" value.");
+      if (!clresult.count("bounded"))
+        if (!clresult.count("pebbles"))
+          throw std::invalid_argument("Basic run requires a \"pebbles\" value.");
 
       // clargs.max_pebbles = clresult["pebbles"].as<unsigned>();
       // if (clargs.max_pebbles < 0)

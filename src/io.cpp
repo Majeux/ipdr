@@ -24,7 +24,7 @@ namespace my::io
         format("{}-{}", args.model_name, to_string(args.tactic));
 
     if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement))
+            args.tactic == pdr::Tactic::decrement) && !args.bounded)
       file_string += format("-{}", args.max_pebbles.value());
     if (args.delta)
       file_string += "-delta";
@@ -45,7 +45,7 @@ namespace my::io
     }
 
     if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement))
+            args.tactic == pdr::Tactic::decrement) && !args.bounded)
       folder_string += format("-{}", args.max_pebbles.value());
     if (args.delta)
       folder_string += "-delta";
@@ -55,8 +55,14 @@ namespace my::io
 
   fs::path setup_model_path(const ArgumentList& args)
   {
-    fs::path results_folder =
-        base_out() / (args.exp_sample ? "experiments" : "results");
+    fs::path results_folder = base_out();
+    if (args.bounded)
+      results_folder /= "bounded";
+    else if (args.exp_sample)
+      results_folder /= "experiments";
+    else
+      results_folder /= "results";
+
     fs::create_directory(results_folder);
     fs::path model_dir = results_folder / args.model_name;
     fs::create_directory(model_dir);

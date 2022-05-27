@@ -1,6 +1,7 @@
 #ifndef BOUNDED_H
 #define BOUNDED_H
 
+#include "cli-parse.h"
 #include "dag.h"
 #include <optional>
 #include <spdlog/stopwatch.h>
@@ -80,7 +81,7 @@ namespace bounded
 
     std::vector<Literals> lits_at_time;
 
-    BoundedPebbling(const dag::Graph& G);
+    BoundedPebbling(const dag::Graph& G, my::cli::ArgumentList& args);
 
     bool find_for(size_t pebbles);
 
@@ -107,6 +108,8 @@ namespace bounded
     double total_time;
     std::vector<double> sub_times;
 
+    std::ofstream result_out;
+
     void reset();
     z3::expr lit(std::string_view name, size_t time_step);
     z3::expr constraint(const z3::expr_vector& lits);
@@ -124,7 +127,7 @@ namespace bounded
 
     std::string strategy_table(const std::vector<TraceRow>& content) const;
     void store_strategy(size_t length);
-    void dump_times() const;
+    void dump_times(std::ostream& out) const;
 
   }; // class Bounded
 } // namespace bounded

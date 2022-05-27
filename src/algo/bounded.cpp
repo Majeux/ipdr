@@ -1,5 +1,7 @@
 #include "bounded.h"
+#include "cli-parse.h"
 #include "dag.h"
+#include "io.h"
 #include <regex>
 #include <tabulate/table.hpp>
 #include <z3++.h>
@@ -12,10 +14,13 @@ namespace bounded
   using z3::expr;
   using z3::expr_vector;
 
-  BoundedPebbling::BoundedPebbling(const dag::Graph& G)
+  BoundedPebbling::BoundedPebbling(
+      const dag::Graph& G, my::cli::ArgumentList& args)
       : context(), graph(G), solver(context), lit_names(),
         n_lits(G.nodes.size())
   {
+    using namespace my::io;
+
     context.set("timeout", time_limit * 1000);
     context.set("model", true);
     solver.set("sat.cardinality.solver", true);
@@ -24,6 +29,11 @@ namespace bounded
     for (string_view s : G.nodes)
       lit_names.emplace_back(s);
     std::sort(lit_names.begin(), lit_names.end());
+
+    const fs::path model_dir = setup_model_path(args);
+    const string filename    = file_name(args);
+    const fs::path run_dir   = setup_path(model_dir / folder_name(args));
+    result_out               = trunc_file(run_dir, filename, "strategy");
   }
 
   void BoundedPebbling::reset()
@@ -124,6 +134,9 @@ namespace bounded
 
   bool BoundedPebbling::find_for(size_t pebbles)
   {
+    using std::endl;
+    using fmt::format;
+
     total_time = 0.0;
     sub_times.resize(0);
     timer.reset();
@@ -136,7 +149,7 @@ namespace bounded
       auto elapsed = [this]() { return card_timer.elapsed().count(); };
 
       cardinality = pebbles;
-      std::cout << fmt::format("{} pebbles", pebbles) << std::endl;
+      // std::cout << fmt::format("{} pebbles", pebbles) << std::endl;
       for (size_t length = 1;; length++)
       {
         step_timer.reset();
@@ -149,7 +162,7 @@ namespace bounded
 
         if (r == z3::check_result::sat)
         {
-          std::cout << "FOUND at " << cardinality.value() << std::endl;
+          // std::cout << "FOUND at " << cardinality.value() << std::endl;
           store_strategy(length);
           reset();
           break;
@@ -159,8 +172,11 @@ namespace bounded
         {
           done = true;
 
-          std::cout << "timeout" << std::endl;
-          std::cout << strategy_table(trace) << std::endl;
+          // std::cout << "timeout" << std::endl;
+          result_out << strategy_table(trace) << endl
+                     << format("Min pebbles:  {}", cardinality.value()) << endl
+                     << format("Trace length: {}", trace.size() - 1) << endl;
+          // skip header in trace length
           break;
         }
       }
@@ -170,8 +186,8 @@ namespace bounded
     total_time = timer.elapsed().count();
 
     if (trace.size() == 0)
-      std::cout << "no strategy" << std::endl;
-    dump_times();
+      result_out << "no strategy" << std::endl;
+    dump_times(result_out);
 
     return done;
   }
@@ -257,10 +273,9 @@ namespace bounded
     }
   }
 
-  void BoundedPebbling::dump_times() const
+  void BoundedPebbling::dump_times(std::ostream& out) const
   {
-    std::cout << fmt::format("Total time: {}", total_time) << std::endl
-              << std::endl;
+    out << fmt::format("Total time: {}", total_time) << std::endl << std::endl;
 
     // for (double t : sub_times)
     // std::cout << fmt::format("{}", t) << std::endl;

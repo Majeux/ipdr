@@ -22,15 +22,17 @@ do
 	then
 		echo -e "${bold}============\n============\n"
 		echo -e "Running experiment for $filename\n"
-		folderarg="--dir=$BENCHMARKS"
-		modelarg="--tfc=$m"
-		optarg="--optimize=dec"
-		exparg="--experiment=$sample"
+		folder="--dir=$BENCHMARKS"
+		model="--tfc=$m"
+		# type="--optimize=dec"
+		type="--bounded"
+		# exp="--experiment=$sample"
+		exp=""
 
-		command="$EXEC --silent --delta $optarg $exparg $folderarg $modelarg"
+		command="$EXEC --silent --delta $type $exp $folder $model"
 
 		echo "${bold}$command${normal}"
-		# $command
+		$command
 		echo -e "done\n"
 	else
 		echo "$m is not a valid .tfc file"

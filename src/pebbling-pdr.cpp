@@ -148,9 +148,9 @@ void experiment(ArgumentList& clargs)
   std::cout << "experiment done" << std::endl;
 }
 
-void bounded_test(const dag::Graph& G)
+void bounded_experiment(const dag::Graph& G, ArgumentList& clargs)
 {
-  bounded::BoundedPebbling obj(G);
+  bounded::BoundedPebbling obj(G, clargs);
   obj.find_for(G.nodes.size());
 }
 
@@ -170,8 +170,11 @@ int main(int argc, char* argv[])
   const fs::path model_dir = setup_model_path(clargs);
   const dag::Graph G       = setup_graph(clargs);
 
-  bounded_test(G);
-#warning TESTING BOUNDED 
+  if (clargs.bounded)
+  {
+    bounded_experiment(G, clargs);
+    return 0;
+  } 
 
   z3::config ctx_settings;
   {
