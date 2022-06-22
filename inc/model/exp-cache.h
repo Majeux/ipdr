@@ -12,6 +12,108 @@
 #include "string-ext.h"
 #include "z3-ext.h"
 
+class PrimedExpression
+{
+ public:
+  PrimedExpression(z3::context& ctx) : current(ctx), next(ctx) {}
+
+  operator const z3::expr&() { return current; }
+  const z3::expr& p() { return next; }
+
+  static PrimedExpression array(
+      z3::context& ctx, std::string_view n, z3::sort element_type)
+  {
+    std::string name(n);
+    std::string next_name = fmt::format("{}.p", name);
+    z3::sort Array        = ctx.array_sort(ctx.int_sort(), element_type);
+
+    z3::expr e  = ctx.constant(name.c_str(), Array);
+    z3::expr ep = ctx.constant(next_name.c_str(), Array);
+
+    return PrimedExpression(e, ep);
+  }
+
+ private:
+  z3::expr current;
+  z3::expr next;
+
+  PrimedExpression(const z3::expr& e, const z3::expr& ep) : current(e), next(ep)
+  {
+  }
+};
+
+class PrimedExpressions
+{
+ public:
+  PrimedExpressions(z3::context& c) : ctx(c), current(ctx), next(ctx) {}
+
+  size_t size() const
+  {
+    assert(current.size() == next.size());
+    return current.size();
+  }
+
+  operator const z3::expr_vector&() { return current; }
+  const z3::expr_vector& p() { return next; }
+
+  z3::expr operator()(size_t i) const { return current[i]; }
+  z3::expr p(size_t i) const { return next[i]; }
+
+  PrimedExpressions& add_array(const std::string& name, z3::sort element_type)
+  {
+    assert(!finished);
+    std::string next_name = fmt::format("{}.p", name);
+    z3::sort Array        = ctx.array_sort(ctx.int_sort(), element_type);
+
+    current.push_back(ctx.constant(name.c_str(), Array));
+    next.push_back(ctx.constant(next_name.c_str(), Array));
+
+    return *this;
+  }
+
+  PrimedExpressions& add_bitvec(const std::string& name, unsigned size)
+  {
+    assert(!finished);
+    std::string next_name = fmt::format("{}.p", name);
+
+    current.push_back(ctx.bv_const(name.c_str(), size));
+    next.push_back(ctx.bv_const(next_name.c_str(), size));
+
+    return *this;
+  }
+
+  PrimedExpressions& add_bool(const std::string& name)
+  {
+    assert(!finished);
+    std::string next_name = fmt::format("{}.p", name);
+
+    current.push_back(ctx.bool_const(name.c_str()));
+    next.push_back(ctx.bool_const(next_name.c_str()));
+
+    return *this;
+  }
+
+  PrimedExpressions& add_int(const std::string& name)
+  {
+    assert(!finished);
+    std::string next_name = fmt::format("{}.p", name);
+
+    current.push_back(ctx.int_const(name.c_str()));
+    next.push_back(ctx.int_const(next_name.c_str()));
+
+    return *this;
+  }
+
+  void finish() { finished = true; }
+
+ private:
+  bool finished{ false };
+  z3::context& ctx;
+
+  z3::expr_vector current;
+  z3::expr_vector next;
+};
+
 class ExpressionCache
 {
  private:
@@ -75,10 +177,10 @@ class ExpressionCache
     return current[index];
   }
   z3::expr operator()(int index) const { return current[index]; }
-  z3::expr operator()(const std::string& s) const 
-  { 
+  z3::expr operator()(const std::string& s) const
+  {
     z3::expr e = ctx.bool_const(s.c_str());
-    return current[indexof(e)]; 
+    return current[indexof(e)];
   }
 
   // not used
@@ -107,10 +209,10 @@ class ExpressionCache
   // not used
   z3::expr p(int index) const { return next[index]; }
   // not used
-  z3::expr p(const std::string& s) const 
-  { 
+  z3::expr p(const std::string& s) const
+  {
     z3::expr e = ctx.bool_const(s.c_str());
-    return next[indexof(e)]; 
+    return next[indexof(e)];
   }
 
   // converts a vector of literals into a vector of literals in the next state

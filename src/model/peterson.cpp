@@ -1,46 +1,150 @@
 #include "peterson.h"
 #include <fmt/color.h>
+#include <z3++.h>
 
 namespace peterson
 {
   using z3::expr;
+  using z3::expr_vector;
+  using z3::forall;
+  using z3::implies;
+  using z3::mk_and;
+  using z3::select;
 
   Model::Model(z3::config& settings, unsigned n_processes)
       : ctx(settings), N(n_processes), pc(ctx), l(ctx), last(ctx), initial(ctx),
-        transition(ctx)
+        transition(ctx), x(ctx), array_range(ctx)
   {
     using fmt::format;
+    assert(N < INT_MAX);
 
-    size_t n_bits = std::ceil(std::log2(N));
+    x              = ctx.int_const("x");
+    array_range    = (x >= 0) & (x < (int)N);
+    size_t pc_bits = std::ceil(std::log2(5));
+    // 0 = idle, take to aquire lock
+    // 1 = aquiring, take to bound check
+    // 2 = aquiring, take to set last
+    // 3 = aquiring, take to await
+    // 4 = in critical section, take to release
+
+    last = PrimedExpression::array(ctx, "last", ctx.int_sort());
 
     for (unsigned i = 0; i < N; i++)
     {
       std::string pc_i = format("pc_{}", i);
-      pc.push_back( ctx.bv_const(pc_i.c_str(), 2) );
+      pc.add_bitvec(pc_i.c_str(), pc_bits);
 
       std::string l_i = format("l_{}", i);
-      l.push_back( ctx.int_const(l_i.c_str()) );
+      l.add_int(l_i.c_str());
       // pc.push_back( ctx.bv_const(l_i.c_str(), n_bits) );
 
-      std::string last_i = format("last_{}", i);
-      last.push_back( ctx.int_const(last_i.c_str()) );
-      // pc.push_back( ctx.bv_const(last_i.c_str(), n_bits) );
+      initial.push_back(pc(i) == 0);
+      initial.push_back(l(i) < 0);
+    }
+    pc.finish();
+    l.finish();
 
-      initial.push_back(pc[i] == 0);
-      initial.push_back(l[i] < 0);
-      initial.push_back(last[i] < 0);
+    // set all `last` elements to -1
+    initial.push_back(forall(x, array_range & (select(last, x) == -1)));
 
-      transition.push_back();
+    for (unsigned i = 0; i < N; i++)
+    {
+      transition.push_back(T_start(i));
+      transition.push_back(T_boundcheckfail(i));
     }
   }
 
-  expr Model::T_init(unsigned i)
+  void Model::stays(const PrimedExpressions& E, expr_vector& add_to)
   {
-    
+    for (size_t i = 0; i < E.size(); i++)
+      add_to.push_back(E(i) == E.p(i));
   }
 
-  expr Model::T_boundcheck(unsigned i)
+  void Model::stays_except(
+      const PrimedExpressions& E, z3::expr_vector& add_to, size_t exception)
   {
-    
+    for (size_t i = 0; i < E.size(); i++)
+    {
+      if (i == exception)
+        continue;
+      add_to.push_back(E(i) == E.p(i));
+    }
+  }
+
+  expr Model::T_start(unsigned i)
+  {
+    expr_vector conj(ctx);
+
+    // advance program counter
+    conj.push_back(pc(i) == 0);
+    conj.push_back(pc.p(i) == 1);
+
+    // l[i] <- 0
+    conj.push_back(l(i) == -1);
+    conj.push_back(l.p(i) == 0);
+
+    // all else stays
+    stays_except(pc, conj, i);
+    stays_except(l, conj, i);
+    conj.push_back(forall(
+        x, implies(array_range, select(last, x) == select(last.p(), x))));
+
+    return z3::mk_and(conj);
+  }
+
+  expr Model::T_boundcheckfail(unsigned i)
+  {
+    expr_vector conj(ctx);
+
+    conj.push_back(pc(i) == 1);
+    conj.push_back(pc.p(i) == 4);
+
+    conj.push_back(l(i) >= (int)N);
+
+    // all else stays
+    stays_except(pc, conj, i);
+    stays(l, conj);
+    conj.push_back(forall(
+        x, implies(array_range, select(last, x) == select(last.p(), x))));
+
+    return z3::mk_and(conj);
+  }
+
+  expr Model::T_boundchecksucc(unsigned i)
+  {
+    expr_vector conj(ctx);
+
+    conj.push_back(pc(i) == 1);
+    conj.push_back(pc.p(i) == 2);
+
+    conj.push_back(l(i) < (int)N);
+
+    // all else stays
+    stays_except(pc, conj, i);
+    stays(l, conj);
+    conj.push_back(forall(
+        x, implies(array_range, select(last, x) == select(last.p(), x))));
+
+    return z3::mk_and(conj);
+  }
+
+  expr Model::T_setlast(unsigned i)
+  {
+    expr_vector conj(ctx);
+
+    conj.push_back(pc(i) == 2);
+    conj.push_back(pc.p(i) == 3);
+
+    // last[l[i]] <- i
+    expr x = ctx.int_const("x");
+    expr e = z3::exists(x, x == l(i) &&);
+    conj.push_back(last.p(i) ==);
+
+    // all else stays
+    stays_except(pc, conj, i);
+    stays(l, conj);
+    stays(last, conj);
+
+    return z3::mk_and(conj);
   }
 } // namespace peterson
