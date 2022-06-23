@@ -1,6 +1,7 @@
 #include "peterson.h"
 #include <fmt/color.h>
 #include <z3++.h>
+#include <z3_api.h>
 
 namespace peterson
 {
@@ -10,6 +11,33 @@ namespace peterson
   using z3::implies;
   using z3::mk_and;
   using z3::select;
+
+  // forall expression with a single pattern for a single bound variable
+  // the Z3_pattern is the only Z3 object created in this function, the rest
+  // is taken from existing cpp-objects and does not need to be reference
+  // counted explicitly
+  inline expr forall_st(expr const& x, const expr& pattern, expr const& body)
+  {
+    check_context(x, body);
+    check_context(pattern, body);
+
+    unsigned num_bound = 1;
+    Z3_app vars[]      = { (Z3_app)x };
+
+    unsigned num_patt  = 1;
+    Z3_ast patt_body[] = { (Z3_ast)pattern };
+    Z3_pattern patt    = Z3_mk_pattern(body.ctx(), num_patt, patt_body);
+    Z3_inc_ref(body.ctx(), Z3_pattern_to_ast(body.ctx(), patt));
+
+    Z3_pattern patterns[] = { patt };
+
+    Z3_ast r = Z3_mk_forall_const(
+        body.ctx(), 0, num_bound, vars, num_patt, patterns, body);
+    body.check_error();
+
+    Z3_dec_ref(body.ctx(), Z3_pattern_to_ast(body.ctx(), patt));
+    return expr(body.ctx(), r);
+  }
 
   Model::Model(z3::config& settings, unsigned n_processes)
       : ctx(settings), N(n_processes), pc(ctx), l(ctx), last(ctx), initial(ctx),
@@ -51,7 +79,12 @@ namespace peterson
     {
       transition.push_back(T_start(i));
       transition.push_back(T_boundcheckfail(i));
+      transition.push_back(T_boundchecksucc(i));
+      transition.push_back(T_setlast(i));
     }
+
+    std::cout << "peterson transition" << std::endl;
+    std::cout << transition << std::endl;
   }
 
   void Model::stays(const PrimedExpressions& E, expr_vector& add_to)
@@ -73,6 +106,7 @@ namespace peterson
 
   expr Model::T_start(unsigned i)
   {
+    assert(i < N);
     expr_vector conj(ctx);
 
     // advance program counter
@@ -94,6 +128,7 @@ namespace peterson
 
   expr Model::T_boundcheckfail(unsigned i)
   {
+    assert(i < N);
     expr_vector conj(ctx);
 
     conj.push_back(pc(i) == 1);
@@ -104,14 +139,15 @@ namespace peterson
     // all else stays
     stays_except(pc, conj, i);
     stays(l, conj);
-    conj.push_back(forall(
-        x, implies(array_range, select(last, x) == select(last.p(), x))));
+    conj.push_back( // TODO separate conjunction into multiple
+        forall_st(x, array_range, select(last, x) == select(last.p(), x)));
 
     return z3::mk_and(conj);
   }
 
   expr Model::T_boundchecksucc(unsigned i)
   {
+    assert(i < N);
     expr_vector conj(ctx);
 
     conj.push_back(pc(i) == 1);
@@ -122,29 +158,31 @@ namespace peterson
     // all else stays
     stays_except(pc, conj, i);
     stays(l, conj);
-    conj.push_back(forall(
-        x, implies(array_range, select(last, x) == select(last.p(), x))));
+    conj.push_back(
+        forall_st(x, array_range, select(last, x) == select(last.p(), x)));
 
     return z3::mk_and(conj);
   }
 
   expr Model::T_setlast(unsigned i)
   {
+    assert(i < N);
     expr_vector conj(ctx);
 
     conj.push_back(pc(i) == 2);
     conj.push_back(pc.p(i) == 3);
 
-    // last[l[i]] <- i
-    expr x = ctx.int_const("x");
-    expr e = z3::exists(x, x == l(i) &&);
-    conj.push_back(last.p(i) ==);
+    // last[l[i]] <- i:
+    // last[x] <- i, where x == l[i]
+    conj.push_back(x == l(i) && select(last.p(), x) == (int)i);
 
     // all else stays
     stays_except(pc, conj, i);
     stays(l, conj);
-    stays(last, conj);
+    conj.push_back(forall_st(
+        x, array_range && x != l(i), select(last, x) == select(last.p(), x)));
 
     return z3::mk_and(conj);
   }
+
 } // namespace peterson

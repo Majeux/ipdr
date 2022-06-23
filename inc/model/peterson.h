@@ -31,6 +31,7 @@ namespace peterson
 
     z3::expr x;
     z3::expr array_range;
+
   }; // class Model
 } // namespace peterson
 
