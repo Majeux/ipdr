@@ -21,10 +21,14 @@ namespace peterson
     z3::expr T_boundchecksucc(unsigned i);
     z3::expr T_setlast(unsigned i);
 
-    unsigned N;            // no. processes
-    PrimedExpressions pc;  // vector of ints[0-4]. program counter for process i
-    PrimedExpressions l;   // vector of ints. level for process i
-    PrimedExpression last; // int array. last process to enter level j
+    // no. processes
+    unsigned N;
+    // vector of ints[0-4]. program counter for process i
+    std::vector<mysat::primed::BitVec> pc;
+    // vector of ints. level for process i
+    PrimedExpressions l;
+    // int array. last process to enter level j
+    PrimedExpression last;
 
     z3::expr_vector initial;    // each array index to '-1;. pc to 0
     z3::expr_vector transition; // or of ands, all possible transitions

@@ -1,7 +1,9 @@
 #ifndef EXP_CACHE
 #define EXP_CACHE
 
+#include <bitset>
 #include <cassert>
+#include <cmath>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -12,12 +14,88 @@
 #include "string-ext.h"
 #include "z3-ext.h"
 
+namespace mysat::primed
+{
+  class BitVec
+  {
+   public:
+    // name = base name for the vector, each bit is "name[0], name[1], ..."
+    // max = the maximum (unsigned) integer value the vector should describe
+    BitVec(z3::context& c, const std::string& name, size_t max)
+        : size(std::ceil(std::log2(max))), ctx(c), current(ctx), next(ctx)
+    {
+      for (size_t i = 0; i < size; i++)
+      {
+        using fmt::format;
+
+        std::string curr_name = format("{}[{}]", name, i);
+        std::string next_name = format("{}[{}].p", name, i);
+        current.push_back(ctx.bool_const(curr_name.c_str()));
+        next.push_back(ctx.bool_const(next_name.c_str()));
+      }
+    }
+
+    // return all literals comprising the vector
+    operator const z3::expr_vector&() { return current; }
+    const z3::expr_vector& operator()() { return current; }
+    const z3::expr_vector& p() { return next; }
+
+    // access individual literals
+    z3::expr operator()(size_t i) { return current[i]; }
+    z3::expr p(size_t i) { return next[i]; }
+
+    // bitvector to unsigned integer conversions
+    z3::expr_vector uint(unsigned n) const { return unint_to_lits(n, false); }
+    z3::expr_vector uint_p(unsigned n) const { return unint_to_lits(n, true); }
+
+    // operator to expression conversions
+    z3::expr equals(unsigned n) const { return z3::mk_and(uint(n)); }
+    z3::expr p_equals(unsigned n) const { return z3::mk_and(uint_p(n)); }
+
+    z3::expr unchanged() const
+    {
+      z3::expr_vector conj(ctx);
+      for (size_t i = 0; i < size; i++)
+        conj.push_back(current[i] == next[i]);
+
+      return z3::mk_and(conj);
+    }
+
+   private:
+    size_t size;
+    z3::context& ctx;
+
+    z3::expr_vector current;
+    z3::expr_vector next;
+
+    z3::expr_vector unint_to_lits(unsigned n, bool primed) const
+    {
+      z3::expr_vector rv(ctx), reversed(ctx);
+      for (unsigned i = 0; i < current.size(); i++)
+      {
+        if (n & 1) // first bit is 1
+          reversed.push_back(primed ? next[i] : current[i]);
+        else
+          reversed.push_back(primed ? !next[i] : !current[i]);
+
+        n >>= 1;
+      }
+
+      for (int i = reversed.size() - 1; i >= 0; i--)
+        rv.push_back(reversed[i]);
+
+      return rv;
+    }
+  };
+} // namespace mysat::primed
+
 class PrimedExpression
 {
  public:
   PrimedExpression(z3::context& ctx) : current(ctx), next(ctx) {}
 
   operator const z3::expr&() { return current; }
+  const z3::expr& operator()() { return current; }
   const z3::expr& p() { return next; }
 
   static PrimedExpression array(
@@ -54,6 +132,7 @@ class PrimedExpressions
   }
 
   operator const z3::expr_vector&() { return current; }
+  const z3::expr_vector& operator()() { return current; }
   const z3::expr_vector& p() { return next; }
 
   z3::expr operator()(size_t i) const { return current[i]; }
