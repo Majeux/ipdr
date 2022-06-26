@@ -1,6 +1,7 @@
 #ifndef EXP_CACHE
 #define EXP_CACHE
 
+#include <algorithm>
 #include <bitset>
 #include <cassert>
 #include <cmath>
@@ -16,20 +17,45 @@
 
 namespace mysat::primed
 {
+  class Lit
+  {
+   public:
+    Lit(z3::context& c, const std::string& name)
+        : ctx(c), current(ctx), next(ctx)
+    {
+      std::string next_name = fmt::format("{}.p", name);
+      current               = ctx.bool_const(name.c_str());
+      next                  = ctx.bool_const(next_name.c_str());
+    }
+
+    operator const z3::expr&() { return current; }
+    const z3::expr& operator()() { return current; }
+    const z3::expr& p() { return next; }
+
+    z3::expr unchanged() const { return current == next; }
+
+   private:
+    z3::context& ctx;
+
+    z3::expr current;
+    z3::expr next;
+  }; // class Lit
+
   class BitVec
   {
    public:
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
     BitVec(z3::context& c, const std::string& name, size_t max)
-        : size(std::ceil(std::log2(max))), ctx(c), current(ctx), next(ctx)
+        : size(std::log2(max) + 1), ctx(c), current(ctx), next(ctx)
     {
+      assert(max < INT_MAX);
       for (size_t i = 0; i < size; i++)
       {
         using fmt::format;
 
-        std::string curr_name = format("{}[{}]", name, i);
-        std::string next_name = format("{}[{}].p", name, i);
+        std::string curr_name = format("{}_{}", name, i);
+        std::string next_name = format("{}_{}.p", name, i);
         current.push_back(ctx.bool_const(curr_name.c_str()));
         next.push_back(ctx.bool_const(next_name.c_str()));
       }
@@ -61,6 +87,59 @@ namespace mysat::primed
       return z3::mk_and(conj);
     }
 
+    z3::expr less(unsigned n) const
+    {
+      if (n == 0)
+        return ctx.bool_val(false); // unsigned, so impossible
+
+      std::bitset<sizeof(n)> bits(n);
+      assert(size <= bits.size());
+
+      z3::expr_vector pre_set(ctx), post_set(ctx);
+      bool set = false;
+      for (int i = bits.size() - 1; i >= 0; i--)
+      {
+        if (bits.test(i))
+        {
+          if (!set)
+          {
+            if (i > (int)size - 1) // n is larger than the bv can hold
+              return ctx.bool_val(false);
+          }
+          set = true;
+          post_set.push_back(!current[i]);
+        }
+        else if (!set && i <= (int)size - 1)
+          pre_set.push_back(!current[i]);
+      }
+
+      z3::expr cube(ctx), clause(ctx);
+
+      // simplify resulting expression
+      if (pre_set.size() == 1)
+        cube = pre_set[0];
+      else
+        cube = z3::mk_and(pre_set);
+
+      if (post_set.size() == 1)
+        clause = post_set[0];
+      else
+        clause = z3::mk_or(post_set);
+
+      if (pre_set.size() == 0)
+      {
+        assert(post_set.size() > 0);
+        return clause;
+      }
+      if (post_set.size() == 0)
+      {
+        assert(pre_set.size() > 0);
+        return cube;
+      }
+
+      return cube & clause;
+    }
+
    private:
     size_t size;
     z3::context& ctx;
@@ -71,7 +150,9 @@ namespace mysat::primed
     z3::expr_vector unint_to_lits(unsigned n, bool primed) const
     {
       z3::expr_vector rv(ctx), reversed(ctx);
-      for (unsigned i = 0; i < current.size(); i++)
+      std::bitset<sizeof(n)> bits(n);
+      assert(size <= bits.size());
+      for (size_t i = 0; i < current.size(); i++)
       {
         if (n & 1) // first bit is 1
           reversed.push_back(primed ? next[i] : current[i]);

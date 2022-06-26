@@ -26,7 +26,9 @@ namespace peterson
     // vector of ints[0-4]. program counter for process i
     std::vector<mysat::primed::BitVec> pc;
     // vector of ints. level for process i
-    PrimedExpressions l;
+    std::vector<mysat::primed::BitVec> l;
+    // flag that denotes if process i has released the resource
+    std::vector<mysat::primed::Lit> free;
     // int array. last process to enter level j
     PrimedExpression last;
 

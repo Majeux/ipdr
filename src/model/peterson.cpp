@@ -1,5 +1,6 @@
 #include "peterson.h"
 #include <fmt/color.h>
+#include <fmt/core.h>
 #include <z3++.h>
 #include <z3_api.h>
 
@@ -40,22 +41,41 @@ namespace peterson
   }
 
   Model::Model(z3::config& settings, unsigned n_processes)
-      : ctx(settings), N(n_processes), pc(ctx), l(ctx), last(ctx), initial(ctx),
+      : ctx(settings), N(n_processes), pc(), l(), last(ctx), initial(ctx),
         transition(ctx), x(ctx), array_range(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
 
-    x              = ctx.int_const("x");
-    array_range    = (x >= 0) & (x < (int)N);
-    size_t pc_bits = std::ceil(std::log2(5));
+    x                = ctx.int_const("x");
+    array_range      = (x >= 0) & (x < (int)N);
+    size_t max_state = 4;
+    size_t pc_bits   = std::ceil(std::log2(max_state) + 1);
+    size_t N_bits    = std::ceil(std::log2(N - 1) + 1);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release
 
-    return;
+    // mysat::primed::BitVec bv(ctx, "b", 7);
+    // for (unsigned i = 2; i <= 7; i++)
+    // {
+    //   for (unsigned j = 0; j <= 7; j++)
+    //   {
+    //     z3::solver s(ctx);
+    //     std::cout << fmt::format("{} < {}", i, j) << std::endl;
+
+    //     s.add(bv.equals(i));
+    //     s.add(bv.less(j));
+    //     z3::check_result r = s.check();
+    //     if (r == z3::check_result::sat)
+    //       std::cout << "\tsat" << std::endl;
+    //     if (r == z3::check_result::unsat)
+    //       std::cout << "\tunsat" << std::endl;
+    //   }
+    // }
+    // return;
 
     last = PrimedExpression::array(ctx, "last", ctx.int_sort());
 
@@ -63,17 +83,20 @@ namespace peterson
     {
       std::string pc_i = format("pc_{}", i);
       pc.emplace_back(ctx, pc_i.c_str(), pc_bits);
+      std::cout << pc[i]() << std::endl;
 
       std::string l_i = format("l_{}", i);
-      l.add_int(l_i.c_str());
-      // pc.push_back( ctx.bv_const(l_i.c_str(), n_bits) );
+      l.emplace_back(ctx, l_i.c_str(), N_bits);
+
+      std::string free_i = format("free_{}", i);
+      free.emplace_back(ctx, free_i.c_str());
 
       initial.push_back(pc[i].equals(0));
-      std::cout << initial.back() << std::endl;
-      initial.push_back(l(i) < 0);
+      initial.push_back(l[i].equals(0));
+      initial.push_back(free[i]);
     }
-    l.finish();
-
+    std::cout << initial << std::endl;
+    return;
     // set all `last` elements to -1
     initial.push_back(forall(x, array_range & (select(last, x) == -1)));
 
@@ -116,14 +139,23 @@ namespace peterson
     conj.push_back(pc[i].p_equals(1));
 
     // l[i] <- 0
-    conj.push_back(l(i) == -1);
-    conj.push_back(l.p(i) == 0);
+    conj.push_back(free[i]);
+    conj.push_back(l[i].p_equals(0));
+    conj.push_back(!free[i].p());
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
       if (j != i)
         conj.push_back(pc[i].unchanged());
-    stays_except(l, conj, i);
+
+    for (size_t j = 0; j < N; j++)
+    {
+      if (j != i)
+      {
+        conj.push_back(l[i].unchanged());
+        conj.push_back(free[i].unchanged());
+      }
+    }
     conj.push_back(forall(
         x, implies(array_range, select(last, x) == select(last.p(), x))));
 
@@ -138,13 +170,18 @@ namespace peterson
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(4));
 
-    conj.push_back(l(i) >= (int)N);
+    conj.push_back(!l[i].less(N)); // l[i] >= N
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
       if (j != i)
         conj.push_back(pc[i].unchanged());
-    stays(l, conj);
+
+    for (size_t j = 0; j < N; j++)
+    {
+      conj.push_back(l[i].unchanged());
+      conj.push_back(free[i].unchanged());
+    }
     conj.push_back( // TODO separate conjunction into multiple
         forall_st(x, array_range, select(last, x) == select(last.p(), x)));
 
@@ -159,13 +196,18 @@ namespace peterson
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(2));
 
-    conj.push_back(l(i) < (int)N);
+    conj.push_back(l[i].less(N));
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
       if (j != i)
         conj.push_back(pc[i].unchanged());
-    stays(l, conj);
+
+    for (size_t j = 0; j < N; j++)
+    {
+      conj.push_back(l[i].unchanged());
+      conj.push_back(free[i].unchanged());
+    }
     conj.push_back(
         forall_st(x, array_range, select(last, x) == select(last.p(), x)));
 
@@ -182,15 +224,20 @@ namespace peterson
 
     // last[l[i]] <- i:
     // last[x] <- i, where x == l[i]
-    conj.push_back(x == l(i) && select(last.p(), x) == (int)i);
+    // conj.push_back(x == l(i) && select(last.p(), x) == (int)i);
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
       if (j != i)
         conj.push_back(pc[i].unchanged());
-    stays(l, conj);
-    conj.push_back(forall_st(
-        x, array_range && x != l(i), select(last, x) == select(last.p(), x)));
+
+    for (size_t j = 0; j < N; j++)
+    {
+      conj.push_back(l[i].unchanged());
+      conj.push_back(free[i].unchanged());
+    }
+    // conj.push_back(forall_st(
+    //     x, array_range && x != l(i), select(last, x) == select(last.p(), x)));
 
     return z3::mk_and(conj);
   }
