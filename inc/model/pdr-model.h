@@ -45,15 +45,6 @@ namespace pebbling
     void load_pebble_transition_raw1(const dag::Graph& G);
     void load_pebble_transition_raw2(const dag::Graph& G);
     void load_property(const dag::Graph& G);
-
-    z3::expr tseytin_and(z3::expr_vector& sub_defs, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
-    z3::expr tseytin_or(z3::expr_vector& sub_defs, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
-    z3::expr tseytin_implies(z3::expr_vector& sub_defs, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
-    z3::expr tseytin_xor(z3::expr_vector& sub_defs, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
   };
 } // namespace pebbling
 

@@ -58,24 +58,31 @@ namespace peterson
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release
 
-    // mysat::primed::BitVec bv(ctx, "b", 7);
-    // for (unsigned i = 2; i <= 7; i++)
-    // {
-    //   for (unsigned j = 0; j <= 7; j++)
-    //   {
-    //     z3::solver s(ctx);
-    //     std::cout << fmt::format("{} < {}", i, j) << std::endl;
+    mysat::primed::BitVec bv(ctx, "b", 15);
+    for (unsigned i = 2; i <= 7; i++)
+    {
+      for (unsigned j = 0; j <= 7; j++)
+      {
+        z3::solver s(ctx);
 
-    //     s.add(bv.equals(i));
-    //     s.add(bv.less(j));
-    //     z3::check_result r = s.check();
-    //     if (r == z3::check_result::sat)
-    //       std::cout << "\tsat" << std::endl;
-    //     if (r == z3::check_result::unsat)
-    //       std::cout << "\tunsat" << std::endl;
-    //   }
-    // }
-    // return;
+        s.add(bv.equals(i));
+        s.add(bv.lt(j));
+        z3::check_result r = s.check();
+        if (i >= j && r == z3::check_result::sat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl;
+          std::cout << "\tfalse sat" << std::endl;
+          std::cout << "---" << std::endl;
+        }
+        if (i < j && r == z3::check_result::unsat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl;
+          std::cout << "\tfalse unsat" << std::endl;
+          std::cout << "---" << std::endl;
+        }
+      }
+    }
+    return;
 
     last = PrimedExpression::array(ctx, "last", ctx.int_sort());
 
@@ -237,7 +244,8 @@ namespace peterson
       conj.push_back(free[i].unchanged());
     }
     // conj.push_back(forall_st(
-    //     x, array_range && x != l(i), select(last, x) == select(last.p(), x)));
+    //     x, array_range && x != l(i), select(last, x) == select(last.p(),
+    //     x)));
 
     return z3::mk_and(conj);
   }

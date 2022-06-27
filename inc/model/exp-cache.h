@@ -87,6 +87,40 @@ namespace mysat::primed
       return z3::mk_and(conj);
     }
 
+    z3::expr lt(unsigned n) const
+    {
+      assert(n < 16); // for now
+      if (n == 0)
+        return ctx.bool_val(false); // unsigned, so impossible
+
+      std::bitset<sizeof(n)> bits(n);
+      assert(size <= bits.size());
+
+      z3::tactic t1(ctx, "simplify");
+      z3::tactic t2(ctx, "tseitin-cnf");
+      z3::tactic t = t1 & t2;
+      z3::goal g(ctx);
+
+	  auto set = [this, &bits](size_t i) { 
+		if (bits.test(i))
+			return ctx.bool_val(true);
+		else
+			return ctx.bool_val(false);
+	  };
+
+      z3::expr_vector conj(ctx); // TODO automate pattern
+      conj.push_back(!current[3] && set(3));
+	  // std::cout << (!current[3] && set(3)) << std::endl;
+      conj.push_back(!(current[3] ^ set(3)) && !current[2] && set(2));
+      conj.push_back(!(current[3] ^ set(3)) && !(current[2] && set(2)) && !current[1] && set(1));
+      conj.push_back(!(current[3] ^ set(3)) && !(current[2] && set(2)) && !(current[1] && set(1)) && !current[0] && set(0));
+	  std::cout << z3::mk_or(conj) << std::endl;
+	  g.add(z3::mk_or(conj));
+	  std::cout << t(g) << std::endl;
+
+	  return ctx.bool_val(true);
+    }
+
     z3::expr less(unsigned n) const
     {
       if (n == 0)

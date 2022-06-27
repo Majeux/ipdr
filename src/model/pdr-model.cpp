@@ -13,8 +13,8 @@ namespace pebbling
   using z3::expr_vector;
 
 #warning pass NDEBUG flag for experiment runs
-  Model::Model(z3::config& settings,
-      const my::cli::ArgumentList& args, const dag::Graph& G)
+  Model::Model(z3::config& settings, const my::cli::ArgumentList& args,
+      const dag::Graph& G)
       : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
         transition(ctx)
   {
@@ -56,10 +56,7 @@ namespace pebbling
     //   std::cout << param_out << std::endl;
   }
 
-  const expr_vector& Model::get_transition() const
-  {
-    return transition;
-  }
+  const expr_vector& Model::get_transition() const { return transition; }
 
   const expr_vector& Model::get_initial() const { return initial; }
 
@@ -88,13 +85,14 @@ namespace pebbling
 
   void Model::load_pebble_transition_tseytin(const dag::Graph& G)
   {
+    using namespace z3ext::tseytin;
     transition.resize(0);
     // ((pv,i ^ pv,i+1 ) => (pw,i & pw,i+1 ))
     std::map<string, expr> stay_expr;
     for (const string& n : G.nodes)
     {
       string stay_name = fmt::format("_stay[{}]_", n);
-      expr stay        = tseytin_and(transition, stay_name, lits(n), lits.p(n));
+      expr stay        = add_and(transition, stay_name, lits(n), lits.p(n));
       stay_expr.emplace(n, stay);
     }
 
@@ -103,14 +101,14 @@ namespace pebbling
     {
       string name      = lits(i).to_string();
       string flip_name = fmt::format("_flip[{}]_", name);
-      expr flip        = tseytin_xor(transition, flip_name, lits(i), lits.p(i));
+      expr flip        = add_xor(transition, flip_name, lits(i), lits.p(i));
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const string& child : G.get_children(name))
       {
         expr child_stay = stay_expr.at(child);
         string move_str = fmt::format("_flip[{}] => stay[{}]_", name, child);
-        expr move = tseytin_implies(transition, move_str, flip, child_stay);
+        expr move       = add_implies(transition, move_str, flip, child_stay);
         moves.push_back(move);
       }
     }
@@ -211,45 +209,4 @@ namespace pebbling
     out << "not_property: " << endl;
     n_property.show(out);
   }
-
-  // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
-  expr Model::tseytin_and(
-      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
-  {
-    expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(c || !a || !b);
-    sub_defs.push_back(!c || a);
-    sub_defs.push_back(!c || b);
-    return c;
-  }
-
-  // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
-  expr Model::tseytin_or(
-      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
-  {
-    expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(!c || a || b);
-    sub_defs.push_back(c || !a);
-    sub_defs.push_back(c || !b);
-    return c;
-  }
-
-  // a => b <=> !a | b
-  expr Model::tseytin_implies(
-      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
-  {
-    return tseytin_or(sub_defs, name, !a, b);
-  }
-
-  // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
-  expr Model::tseytin_xor(
-      expr_vector& sub_defs, const string& name, const expr& a, const expr& b)
-  {
-    expr c = ctx.bool_const(name.c_str());
-    sub_defs.push_back(!c || !a || !b);
-    sub_defs.push_back(!c || a || b);
-    sub_defs.push_back(c || a || !b);
-    sub_defs.push_back(c || !a || b);
-    return c;
-  }
-} // namespace pdr
+} // namespace pebbling

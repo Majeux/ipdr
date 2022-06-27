@@ -103,7 +103,8 @@ namespace z3ext
     return l.id() < r.id();
   };
 
-  bool expr_vector_less::operator()(const expr_vector& l, const expr_vector& r) const
+  bool expr_vector_less::operator()(
+      const expr_vector& l, const expr_vector& r) const
   {
     auto l_it = l.begin();
     auto r_it = r.begin();
@@ -119,4 +120,56 @@ namespace z3ext
     return l.size() < r.size();
   }
 
+  // TSEYTIN ENCODING
+  //
+  namespace tseytin
+  {
+    expr add_and(
+        expr_vector& cnf, const string& name, const expr& a, const expr& b)
+    {
+      expr c = cnf.ctx().bool_const(name.c_str());
+      cnf.push_back(c || !a || !b);
+      cnf.push_back(!c || a);
+      cnf.push_back(!c || b);
+      return c;
+    }
+
+    expr add_or(
+        expr_vector& cnf, const string& name, const expr& a, const expr& b)
+    {
+      expr c = cnf.ctx().bool_const(name.c_str());
+      cnf.push_back(!c || a || b);
+      cnf.push_back(c || !a);
+      cnf.push_back(c || !b);
+      return c;
+    }
+
+    expr add_implies(
+        expr_vector& cnf, const string& name, const expr& a, const expr& b)
+    {
+      return add_or(cnf, name, !a, b);
+    }
+
+    expr add_xor(
+        expr_vector& cnf, const string& name, const expr& a, const expr& b)
+    {
+      expr c = cnf.ctx().bool_const(name.c_str());
+      cnf.push_back(!c || !a || !b);
+      cnf.push_back(!c || a || b);
+      cnf.push_back(c || a || !b);
+      cnf.push_back(c || !a || b);
+      return c;
+    }
+
+    expr add_xnor(
+        expr_vector& cnf, const string& name, const expr& a, const expr& b)
+    {
+      expr c = cnf.ctx().bool_const(name.c_str());
+      cnf.push_back(c || !a || !b);
+      cnf.push_back(c || a || b);
+      cnf.push_back(!c || a || !b);
+      cnf.push_back(!c || !a || b);
+      return c;
+    }
+  } // namespace tseytin
 } // namespace z3ext
