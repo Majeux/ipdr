@@ -105,6 +105,10 @@ namespace z3ext
 
   namespace tseytin
   {
+    // convert e to cnf using z3's simplify and tseitin conversion tactics
+    z3::expr_vector to_cnf_vec(const z3::expr& e);
+    z3::expr to_cnf(const z3::expr& e);
+
     // add a tseytin encoded AND statement to "cnf"
     // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
     z3::expr add_and(z3::expr_vector& cnf, const std::string& name,

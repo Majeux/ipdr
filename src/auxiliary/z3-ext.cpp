@@ -124,6 +124,24 @@ namespace z3ext
   //
   namespace tseytin
   {
+    expr_vector to_cnf_vec(const z3::expr& e)
+    {
+      z3::tactic t1(e.ctx(), "simplify"), t2(e.ctx(), "tseitin-cnf");
+      z3::tactic t = t1 & t2;
+      z3::goal g(e.ctx());
+
+      g.add(e);
+      z3::apply_result r = t(g);
+      assert(r.size() == 1);
+      z3::expr_vector cnf(e.ctx());
+      for (size_t i = 0; i < r[0].size(); i++)
+        cnf.push_back(r[0][i]);
+
+      return cnf;
+    }
+
+    expr to_cnf(const z3::expr& e) { return z3::mk_and(to_cnf_vec(e)); }
+
     expr add_and(
         expr_vector& cnf, const string& name, const expr& a, const expr& b)
     {

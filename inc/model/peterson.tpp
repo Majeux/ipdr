@@ -1,8 +1,10 @@
-#include "peterson.h"
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <z3++.h>
 #include <z3_api.h>
+
+#include "expr.h"
+#include "peterson.h" // uncomment for coc syntax check
 
 namespace peterson
 {
@@ -40,12 +42,53 @@ namespace peterson
     return expr(body.ctx(), r);
   }
 
-  Model::Model(z3::config& settings, unsigned n_processes)
+  template <unsigned Bits>
+  void Model<Bits>::bitvector_test(size_t max_value)
+  {
+    mysat::primed::BitVec bv(ctx, "b", Bits);
+    unsigned wrong{ 0 };
+
+    for (unsigned i = 2; i < max_value; i++)
+    {
+      for (unsigned j = std::pow(2, 4); j < max_value; j++)
+      {
+        assert(i < value && j < max_value);
+        z3::solver s(ctx);
+
+        s.add(bv.equals(i));
+        s.add(bv.less<Bits>(j));
+        z3::check_result r = s.check();
+        if (i >= j && r == z3::check_result::sat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse sat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+        if (i < j && r == z3::check_result::unsat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse unsat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+      }
+    }
+    std::cout << fmt::format("{} wrong comparisons", wrong) << std::endl;
+    return;
+
+  }
+
+  template <unsigned Bits>
+  Model<Bits>::Model(z3::config& settings, unsigned n_processes)
       : ctx(settings), N(n_processes), pc(), l(), last(ctx), initial(ctx),
         transition(ctx), x(ctx), array_range(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
+    static_assert(Bits <= std::numeric_limits<unsigned>::digits);
 
     x                = ctx.int_const("x");
     array_range      = (x >= 0) & (x < (int)N);
@@ -57,32 +100,6 @@ namespace peterson
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release
-
-    mysat::primed::BitVec bv(ctx, "b", 15);
-    for (unsigned i = 2; i <= 7; i++)
-    {
-      for (unsigned j = 0; j <= 7; j++)
-      {
-        z3::solver s(ctx);
-
-        s.add(bv.equals(i));
-        s.add(bv.lt(j));
-        z3::check_result r = s.check();
-        if (i >= j && r == z3::check_result::sat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl;
-          std::cout << "\tfalse sat" << std::endl;
-          std::cout << "---" << std::endl;
-        }
-        if (i < j && r == z3::check_result::unsat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl;
-          std::cout << "\tfalse unsat" << std::endl;
-          std::cout << "---" << std::endl;
-        }
-      }
-    }
-    return;
 
     last = PrimedExpression::array(ctx, "last", ctx.int_sort());
 
@@ -119,24 +136,23 @@ namespace peterson
     std::cout << transition << std::endl;
   }
 
-  void Model::stays(const PrimedExpressions& E, expr_vector& add_to)
+  template <unsigned Bits>
+  void Model<Bits>::stays(const std::vector<BitVec>& v, expr_vector& add_to)
   {
-    for (size_t i = 0; i < E.size(); i++)
-      add_to.push_back(E(i) == E.p(i));
+    for (const BitVec& bv : v)
+      add_to.push_back(bv.unchanged());
   }
 
-  void Model::stays_except(
-      const PrimedExpressions& E, z3::expr_vector& add_to, size_t exception)
+  template <unsigned Bits>
+  void Model<Bits>::stays_except(
+      const std::vector<BitVec>& v, z3::expr_vector& add_to, size_t exception)
   {
-    for (size_t i = 0; i < E.size(); i++)
-    {
-      if (i == exception)
-        continue;
-      add_to.push_back(E(i) == E.p(i));
-    }
+    for (size_t i = 0; i < v.size(); i++)
+      if (i != exception)
+        add_to.push_back(v[i].unchanged());
   }
 
-  expr Model::T_start(unsigned i)
+  template <unsigned Bits> expr Model<Bits>::T_start(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -151,25 +167,18 @@ namespace peterson
     conj.push_back(!free[i].p());
 
     // all else stays
-    for (size_t j = 0; j < pc.size(); j++)
+    stays_except(pc, conj, i);
+    stays_except(l, conj, i);
+    for (unsigned j = 0; j < free.size(); j++)
       if (j != i)
-        conj.push_back(pc[i].unchanged());
-
-    for (size_t j = 0; j < N; j++)
-    {
-      if (j != i)
-      {
-        conj.push_back(l[i].unchanged());
-        conj.push_back(free[i].unchanged());
-      }
-    }
+        conj.push_back(free[j] == free[j].p());
     conj.push_back(forall(
         x, implies(array_range, select(last, x) == select(last.p(), x))));
 
     return z3::mk_and(conj);
   }
 
-  expr Model::T_boundcheckfail(unsigned i)
+  template <unsigned Bits> expr Model<Bits>::T_boundcheckfail(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -177,7 +186,7 @@ namespace peterson
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(4));
 
-    conj.push_back(!l[i].less(N)); // l[i] >= N
+    conj.push_back(~l[i].less<Bits>(N)); // l[i] >= N
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
@@ -195,7 +204,7 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
-  expr Model::T_boundchecksucc(unsigned i)
+  template <unsigned Bits> expr Model<Bits>::T_boundchecksucc(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -203,7 +212,7 @@ namespace peterson
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(2));
 
-    conj.push_back(l[i].less(N));
+    conj.push_back(l[i].less<Bits>(N));
 
     // all else stays
     for (size_t j = 0; j < pc.size(); j++)
@@ -221,7 +230,7 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
-  expr Model::T_setlast(unsigned i)
+  template <unsigned Bits> expr Model<Bits>::T_setlast(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
