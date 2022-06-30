@@ -12,7 +12,10 @@ namespace peterson
   // Nbits must fit an unsigned type
   template <unsigned Nbits> class Model
   {
+    using IStays = mysat::primed::IStays;
+    using Lit    = mysat::primed::Lit;
     using BitVec = mysat::primed::BitVec;
+    using Array  = mysat::primed::Array;
 
    public:
     Model(z3::config& settings, unsigned n_processes);
@@ -21,9 +24,6 @@ namespace peterson
     z3::context ctx;
 
     void bitvector_test(size_t max_value);
-    void stays(const std::vector<BitVec>& E, z3::expr_vector& add_to);
-    void stays_except(const std::vector<BitVec>& E, z3::expr_vector& add_to,
-        size_t exception);
     z3::expr T_start(unsigned i);
     z3::expr T_boundcheckfail(unsigned i);
     z3::expr T_boundchecksucc(unsigned i);
@@ -38,7 +38,8 @@ namespace peterson
     // flag that denotes if process i has released the resource
     std::vector<mysat::primed::Lit> free;
     // int array. last process to enter level j
-    PrimedExpression last;
+    Array last;
+    PrimedExpression old_last;
 
     z3::expr_vector initial;    // each array index to '-1;. pc to 0
     z3::expr_vector transition; // or of ands, all possible transitions
