@@ -192,25 +192,49 @@ namespace mysat::primed
   }
 
 
-  expr Array::store(unsigned i, unsigned v) const
+  expr Array::store(size_t i, BitVec::numrep_t v) const
   {
     return z3::implies(mk_and(index.uint(i)), mk_and(value.uint(v)));
   }
 
-  expr Array::store_p(unsigned i, unsigned v) const
+  expr Array::store_p(size_t i, BitVec::numrep_t v) const
   {
     return z3::implies(mk_and(index.uint_p(i)), mk_and(value.uint_p(v)));
   }
 
   // to be appended to an array-statement: a series of store() expressions
-  expr Array::contains(unsigned i, unsigned v) const
+  expr Array::contains(size_t i, BitVec::numrep_t v) const
   {
     return mk_and(index.uint(i)) && mk_and(value.uint(v));
   }
 
-  expr Array::contains_p(unsigned i, unsigned v) const
+  expr Array::contains_p(size_t i, BitVec::numrep_t v) const
   {
     return mk_and(index.uint_p(i)) && mk_and(value.uint_p(v));
+  }
+
+  expr Array::cube_idx_store(const expr_vector x, BitVec::numrep_t v) const
+  {
+    expr_vector conj(x.ctx());
+
+    for (size_t i = 0; i < x.size(); i++)
+      conj.push_back(!(x[i] ^ index(i))); // x[i] <=> index[i]
+    for (const expr l : value.uint(v))
+      conj.push_back(l);
+
+    return mk_and(conj);
+  }
+
+  expr Array::cube_idx_store_p(const expr_vector x, BitVec::numrep_t v) const
+  {
+    expr_vector conj(x.ctx());
+
+    for (size_t i = 0; i < x.size(); i++)
+      conj.push_back(!(x[i] ^ index(i))); // x[i] <=> index[i]
+    for (const expr l : value.uint(v))
+      conj.push_back(l);
+    // TODO link to value
+    return mk_and(conj);
   }
 
   expr_vector Array::get_value(const expr& A, size_t i)

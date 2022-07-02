@@ -248,6 +248,8 @@ namespace peterson
     // old_last[l[i]] <- i:
     // old_last[x] <- i, where x == l[i]
     // conj.push_back(x == l(i) && select(old_last.p(), x) == (int)i);
+      // Ai{ l[i] } => Av{ i }
+    conj.push_back(last.store_p(, i));
 
     // all else stays
     stays_except(conj, pc, i);

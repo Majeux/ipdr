@@ -113,11 +113,15 @@ namespace mysat::primed
     const BitVec::numrep_t n_vals;
 
     // A{i] <- v
-    z3::expr store(unsigned i, unsigned v) const;
-    z3::expr store_p(unsigned i, unsigned v) const;
+    z3::expr store(size_t i, BitVec::numrep_t v) const;
+    z3::expr store_p(size_t i, BitVec::numrep_t v) const;
     // A{i] == v
-    z3::expr contains(unsigned i, unsigned v) const;
-    z3::expr contains_p(unsigned i, unsigned v) const;
+    z3::expr contains(size_t i, BitVec::numrep_t v) const;
+    z3::expr contains_p(size_t i, BitVec::numrep_t v) const;
+
+    //A[x] <- v, where x is a cube
+    z3::expr cube_idx_store(const z3::expr_vector x, BitVec::numrep_t v) const;
+    z3::expr cube_idx_store_p(const z3::expr_vector x, BitVec::numrep_t v) const;
 
     // return a cube representing the value of A[i], expressed in variables of
     // "value"
