@@ -8,7 +8,6 @@
 #include <z3++.h>
 namespace mysat::primed
 {
-  constexpr size_t MAX_BITS = std::numeric_limits<unsigned>::digits;
 
   class IStays
   {
@@ -52,12 +51,15 @@ namespace mysat::primed
   class BitVec final : public IPrimed<z3::expr_vector>, public IStays
   {
    public:
+    using numrep_t = unsigned;
+    static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
+
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
     BitVec(z3::context& c, const std::string& n, size_t Nbits);
 
     // construct a bitvector capable of holding the number in max_val
-    static BitVec holding(z3::context& c, const std::string& n, size_t max_val);
+    static BitVec holding(z3::context& c, const std::string& n, numrep_t max_val);
 
     // return all literals comprising the vector
     operator const z3::expr_vector&() const override;
@@ -72,42 +74,43 @@ namespace mysat::primed
     z3::expr p(size_t i) const;
 
     // uint to bitvector representation
-    z3::expr_vector uint(unsigned n) const;
-    z3::expr_vector uint_p(unsigned n) const;
+    z3::expr_vector uint(numrep_t n) const;
+    z3::expr_vector uint_p(numrep_t n) const;
 
     // cube to uint conversion
-    unsigned extract_value(const z3::expr_vector& cube) const;
+    numrep_t extract_value(const z3::expr_vector& cube) const;
 
     // equality operator to expression conversions
-    z3::expr equals(unsigned n) const;
-    z3::expr p_equals(unsigned n) const;
+    z3::expr equals(numrep_t n) const;
+    z3::expr p_equals(numrep_t n) const;
 
     //  N-bit less comparison
     //  returns a formula in cnf
-    template <unsigned N> z3::expr less(unsigned n) const;
+    z3::expr less(numrep_t n) const;
 
    private:
     size_t size;
 
     std::string index_str(std::string_view n, size_t i) const;
-    z3::expr_vector unint_to_lits(unsigned n, bool primed) const;
+    z3::expr_vector unint_to_lits(numrep_t n, bool primed) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"
     // 'i' is the most significant bit
-    z3::expr less_4b(size_t i, unsigned n) const;
+    z3::expr less_4b(size_t i, numrep_t n) const;
 
-    // compares the 'Nbits' most significant bits, starting from 'N-1' down
-    template <unsigned N, unsigned Nbits> z3::expr eq(unsigned n) const;
-    // compares the 'Nbits' most significant bits, starting from 'N-1' down
-    template <unsigned N, unsigned Nbits> z3::expr rec_less(unsigned n) const;
+    // compares the 'nbits' most significant bits, starting from 'msb' down
+    z3::expr eq(numrep_t n, size_t msb, size_t nbits) const;
+    // compares the 'Nbits' most significant bits, starting from 'msb' down
+    z3::expr rec_less(numrep_t x, size_t msb, size_t nbits) const;
   };
 
   class Array
   {
    public:
-    Array(z3::context& c, const std::string& name, unsigned s, unsigned bits);
+    Array(z3::context& c, const std::string& name, size_t s, size_t bits);
 
-    unsigned size() const;
+    const size_t size;
+    const BitVec::numrep_t n_vals;
 
     // A{i] <- v
     z3::expr store(unsigned i, unsigned v) const;
@@ -118,11 +121,10 @@ namespace mysat::primed
 
     // return a cube representing the value of A[i], expressed in variables of
     // "value"
-    z3::expr_vector get_value(const z3::expr& A, unsigned i);
-    unsigned get_value_uint(const z3::expr& A, unsigned i);
+    z3::expr_vector get_value(const z3::expr& A, size_t i);
+    BitVec::numrep_t get_value_uint(const z3::expr& A, size_t i);
 
    private:
-    unsigned _size;
 
     BitVec index;
     BitVec value;
@@ -130,111 +132,5 @@ namespace mysat::primed
     z3::solver index_solver;
   }; // class Array
 } // namespace mysat::primed
-
-class PrimedExpression
-{
- public:
-  PrimedExpression(z3::context& ctx) : current(ctx), next(ctx) {}
-
-  operator const z3::expr&() { return current; }
-  const z3::expr& operator()() { return current; }
-  const z3::expr& p() { return next; }
-
-  static PrimedExpression array(
-      z3::context& ctx, std::string_view n, z3::sort element_type)
-  {
-    std::string name(n);
-    std::string next_name = fmt::format("{}.p", name);
-    z3::sort Array        = ctx.array_sort(ctx.int_sort(), element_type);
-
-    z3::expr e  = ctx.constant(name.c_str(), Array);
-    z3::expr ep = ctx.constant(next_name.c_str(), Array);
-
-    return PrimedExpression(e, ep);
-  }
-
- private:
-  z3::expr current;
-  z3::expr next;
-
-  PrimedExpression(const z3::expr& e, const z3::expr& ep) : current(e), next(ep)
-  {
-  }
-};
-
-class PrimedExpressions
-{
- public:
-  PrimedExpressions(z3::context& c) : ctx(c), current(ctx), next(ctx) {}
-
-  size_t size() const
-  {
-    assert(current.size() == next.size());
-    return current.size();
-  }
-
-  operator const z3::expr_vector&() { return current; }
-  const z3::expr_vector& operator()() { return current; }
-  const z3::expr_vector& p() { return next; }
-
-  z3::expr operator()(size_t i) const { return current[i]; }
-  z3::expr p(size_t i) const { return next[i]; }
-
-  PrimedExpressions& add_array(const std::string& name, z3::sort element_type)
-  {
-    assert(!finished);
-    std::string next_name = fmt::format("{}.p", name);
-    z3::sort Array        = ctx.array_sort(ctx.int_sort(), element_type);
-
-    current.push_back(ctx.constant(name.c_str(), Array));
-    next.push_back(ctx.constant(next_name.c_str(), Array));
-
-    return *this;
-  }
-
-  PrimedExpressions& add_bitvec(const std::string& name, unsigned size)
-  {
-    assert(!finished);
-    std::string next_name = fmt::format("{}.p", name);
-
-    current.push_back(ctx.bv_const(name.c_str(), size));
-    next.push_back(ctx.bv_const(next_name.c_str(), size));
-
-    return *this;
-  }
-
-  PrimedExpressions& add_bool(const std::string& name)
-  {
-    assert(!finished);
-    std::string next_name = fmt::format("{}.p", name);
-
-    current.push_back(ctx.bool_const(name.c_str()));
-    next.push_back(ctx.bool_const(next_name.c_str()));
-
-    return *this;
-  }
-
-  PrimedExpressions& add_int(const std::string& name)
-  {
-    assert(!finished);
-    std::string next_name = fmt::format("{}.p", name);
-
-    current.push_back(ctx.int_const(name.c_str()));
-    next.push_back(ctx.int_const(next_name.c_str()));
-
-    return *this;
-  }
-
-  void finish() { finished = true; }
-
- private:
-  bool finished{ false };
-  z3::context& ctx;
-
-  z3::expr_vector current;
-  z3::expr_vector next;
-};
-
-#include "expr.hpp"
 
 #endif // MY_EXPR_H

@@ -35,7 +35,7 @@ namespace mysat::primed
     }
   }
 
-  BitVec BitVec::holding(z3::context& c, const std::string& n, size_t max_val)
+  BitVec BitVec::holding(z3::context& c, const std::string& n, numrep_t max_val)
   {
     return BitVec(c, n, std::log2(max_val) + 1);
   }
@@ -52,13 +52,13 @@ namespace mysat::primed
   expr BitVec::operator()(size_t i) const { return current[i]; }
   expr BitVec::p(size_t i) const { return next[i]; }
 
-  expr_vector BitVec::uint(unsigned n) const { return unint_to_lits(n, false); }
-  expr_vector BitVec::uint_p(unsigned n) const
+  expr_vector BitVec::uint(numrep_t n) const { return unint_to_lits(n, false); }
+  expr_vector BitVec::uint_p(numrep_t n) const
   {
     return unint_to_lits(n, true);
   }
 
-  unsigned BitVec::extract_value(const expr_vector& cube) const
+  BitVec::numrep_t BitVec::extract_value(const expr_vector& cube) const
   {
     std::bitset<MAX_BITS> n;
     // matches name[i], extracts name and i
@@ -77,7 +77,7 @@ namespace mysat::primed
       if (match[1] != name)
         continue;
 
-      unsigned i = std::stoul(match[2]);
+      numrep_t i = std::stoul(match[2]);
 
       n.set(i, !l.is_not());
     }
@@ -85,8 +85,8 @@ namespace mysat::primed
     return n.to_ulong();
   }
 
-  expr BitVec::equals(unsigned n) const { return mk_and(uint(n)); }
-  expr BitVec::p_equals(unsigned n) const { return mk_and(uint_p(n)); }
+  expr BitVec::equals(numrep_t n) const { return mk_and(uint(n)); }
+  expr BitVec::p_equals(numrep_t n) const { return mk_and(uint_p(n)); }
 
   expr BitVec::unchanged() const
   {
@@ -98,7 +98,7 @@ namespace mysat::primed
   }
 
   // private
-  expr_vector BitVec::unint_to_lits(unsigned n, bool primed) const
+  expr_vector BitVec::unint_to_lits(numrep_t n, bool primed) const
   {
     expr_vector rv(ctx), reversed(ctx);
     std::bitset<MAX_BITS> bits(n);
@@ -120,7 +120,7 @@ namespace mysat::primed
     return rv;
   }
 
-  expr BitVec::less_4b(size_t i, unsigned n) const
+  expr BitVec::less_4b(size_t i, numrep_t n) const
   {
     assert(i >= 4 && (i % 4 == 0)); // i == 4, 8, 12, 16
     const std::bitset<MAX_BITS> bits(n);
@@ -145,15 +145,52 @@ namespace mysat::primed
     return z3::mk_or(disj);
   }
 
+  z3::expr BitVec::less(numrep_t x) const
+  {
+    return rec_less(x, size - 1, size - 1);
+  }
+
+  z3::expr BitVec::rec_less(numrep_t n, size_t msb, size_t nbits) const
+  {
+    if (nbits == 4)
+      return less_4b(msb - 1, n);
+
+    assert(nbits > 4);
+    assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
+
+    // terminate early
+    z3::expr significant_less = rec_less(n, msb, msb / 2);
+    // compare rest
+    z3::expr significant_eq   = eq(n, msb, msb / 2);
+    z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
+
+    return significant_less || (significant_eq && remainder_less);
+  }
+
+  z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
+  {
+    const std::bitset<MAX_BITS> bits(n);
+
+    z3::expr_vector conj(ctx);
+    for (size_t i = 0; i < nbits; i++)
+    {
+      assert(i < size);
+      if (bits.test(msb - i))
+        conj.push_back(current[msb - i]);
+      else
+        conj.push_back(!current[msb - i]);
+    }
+
+    return z3::mk_and(conj);
+  }
   // Array
   // public
-  Array::Array(z3::context& c, const std::string& n, unsigned s, unsigned bits)
-      : _size(s), index(c, n + "_i", bits), value(c, n + "_v", bits),
+  Array::Array(z3::context& c, const std::string& n, size_t s, size_t bits)
+      : size{s}, n_vals{}, index(c, n + "_i", bits), value(c, n + "_v", bits),
         index_solver(c)
   {
   }
 
-  unsigned Array::size() const { return _size; }
 
   expr Array::store(unsigned i, unsigned v) const
   {
@@ -176,7 +213,7 @@ namespace mysat::primed
     return mk_and(index.uint_p(i)) && mk_and(value.uint_p(v));
   }
 
-  expr_vector Array::get_value(const expr& A, unsigned i)
+  expr_vector Array::get_value(const expr& A, size_t i)
   {
     index_solver.reset();
     index_solver.add(A);
@@ -189,8 +226,8 @@ namespace mysat::primed
     return witness;
   }
 
-  unsigned Array::get_value_uint(const expr& A, unsigned i) 
+  BitVec::numrep_t Array::get_value_uint(const expr& A, size_t i)
   {
-    return value.extract_value(get_value(A,i));
+    return value.extract_value(get_value(A, i));
   }
 } // namespace mysat::primed

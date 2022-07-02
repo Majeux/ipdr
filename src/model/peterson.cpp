@@ -5,7 +5,7 @@
 #include <z3_api.h>
 
 #include "expr.h"
-#include "peterson.h" // uncomment for coc syntax check
+#include "peterson.h"
 
 namespace peterson
 {
@@ -43,9 +43,9 @@ namespace peterson
     return expr(body.ctx(), r);
   }
 
-  template <unsigned Bits> void Model<Bits>::bitvector_test(size_t max_value)
+  void Model::bitvector_test(size_t max_value)
   {
-    mysat::primed::BitVec bv(ctx, "b", Bits);
+    mysat::primed::BitVec bv(ctx, "b", nbits);
     unsigned wrong{ 0 };
 
     for (unsigned i = 2; i < max_value; i++)
@@ -56,7 +56,7 @@ namespace peterson
         z3::solver s(ctx);
 
         s.add(bv.equals(i));
-        s.add(bv.less<Bits>(j));
+        s.add(bv.less(j));
         z3::check_result r = s.check();
         if (i >= j && r == z3::check_result::sat)
         {
@@ -80,17 +80,14 @@ namespace peterson
     return;
   }
 
-  template <unsigned Bits>
-  Model<Bits>::Model(z3::config& settings, unsigned n_processes)
-      : ctx(settings), N(n_processes), pc(), l(), last(ctx, "last", N, Bits),
-        old_last(ctx), initial(ctx), transition(ctx), x(ctx), array_range(ctx)
+  Model::Model(size_t bits, z3::config& settings, numrep_t n_processes)
+      : ctx(settings), nbits(bits), N(n_processes), pc(), l(),
+        last(ctx, "last", N, nbits), initial(ctx), transition(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
-    static_assert(Bits <= std::numeric_limits<unsigned>::digits);
+    assert(nbits <= std::numeric_limits<numrep_t>::digits);
 
-    x                = ctx.int_const("x");
-    array_range      = (x >= 0) & (x < (int)N);
     size_t max_state = 4;
     size_t pc_bits   = std::ceil(std::log2(max_state) + 1);
     size_t N_bits    = std::ceil(std::log2(N - 1) + 1);
@@ -99,8 +96,6 @@ namespace peterson
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release
-
-    old_last = PrimedExpression::array(ctx, "old_last", ctx.int_sort());
 
     for (unsigned i = 0; i < N; i++)
     {
@@ -120,8 +115,6 @@ namespace peterson
     }
 
     std::cout << initial << std::endl;
-    // set all `old_last` elements to -1
-    initial.push_back(forall(x, array_range & (select(old_last, x) == -1)));
 
     for (unsigned i = 0; i < N; i++)
     {
@@ -155,9 +148,35 @@ namespace peterson
         container.push_back(v[i].unchanged());
   }
 
-  template <unsigned Bits> expr Model<Bits>::T_start(unsigned i)
+  void array_stays(z3::expr_vector& container, const Model::Array& A)
+  {
+    for (unsigned i = 0; i < A.size; i++)
+      for (unsigned v = 0; v < A.n_vals; v++)
+      {
+        // (A{i] == v) => (A.p[i] <- v.p)
+        z3::expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
+        container.push_back(e);
+      }
+  }
+
+  void array_stays_except(
+      z3::expr_vector& container, const Model::Array& A, size_t exception)
+  {
+    for (unsigned i = 0; i < A.size; i++)
+      for (unsigned v = 0; v < A.n_vals; v++)
+      {
+        if (i == exception)
+          continue;
+        // (A{i] == v) => (A.p[i] <- v.p)
+        z3::expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
+        container.push_back(e);
+      }
+  }
+
+  expr Model::T_start(unsigned i)
   {
     assert(i < N);
+    assert(N == last.size);
     expr_vector conj(ctx);
 
     // advance program counter
@@ -174,46 +193,32 @@ namespace peterson
     stays_except(conj, l, i);
     stays_except(conj, free, i);
 
-    assert(N == last.size());
-    for (unsigned i = 0; i < N; i++)
-      for (unsigned v = 0; v < N; v++)
-      {
-        // (A{i] == v) => (A.p[i] <- v.p)
-        z3::expr e = z3::implies(last.contains(i, v), last.store_p(i, v));
-        conj.push_back(e);
-      }
+    array_stays(conj, last);
 
     return z3::mk_and(conj);
   }
 
-  template <unsigned Bits> expr Model<Bits>::T_boundcheckfail(unsigned i)
+  expr Model::T_boundcheckfail(unsigned i)
   {
     assert(i < N);
+    assert(N == last.size);
     expr_vector conj(ctx);
 
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(4));
 
-    conj.push_back(~l[i].less<Bits>(N)); // l[i] >= N
+    conj.push_back(!l[i].less(N)); // l[i] >= N
 
     // all else stays
-    for (size_t j = 0; j < pc.size(); j++)
-      if (j != i)
-        conj.push_back(pc[i].unchanged());
-
-    for (size_t j = 0; j < N; j++)
-    {
-      conj.push_back(l[i].unchanged());
-      conj.push_back(free[i].unchanged());
-    }
-    conj.push_back( // TODO separate conjunction into multiple
-        forall_st(
-            x, array_range, select(old_last, x) == select(old_last.p(), x)));
+    stays_except(conj, pc, i);
+    stays(conj, l);
+    stays(conj, free);
+    array_stays(conj, last);
 
     return z3::mk_and(conj);
   }
 
-  template <unsigned Bits> expr Model<Bits>::T_boundchecksucc(unsigned i)
+  expr Model::T_boundchecksucc(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -221,25 +226,18 @@ namespace peterson
     conj.push_back(pc[i].equals(1));
     conj.push_back(pc[i].p_equals(2));
 
-    conj.push_back(l[i].less<Bits>(N));
+    conj.push_back(l[i].less(N));
 
     // all else stays
-    for (size_t j = 0; j < pc.size(); j++)
-      if (j != i)
-        conj.push_back(pc[i].unchanged());
-
-    for (size_t j = 0; j < N; j++)
-    {
-      conj.push_back(l[i].unchanged());
-      conj.push_back(free[i].unchanged());
-    }
-    conj.push_back(forall_st(
-        x, array_range, select(old_last, x) == select(old_last.p(), x)));
+    stays_except(conj, pc, i);
+    stays(conj, l);
+    stays(conj, free);
+    array_stays(conj, last);
 
     return z3::mk_and(conj);
   }
 
-  template <unsigned Bits> expr Model<Bits>::T_setlast(unsigned i)
+  expr Model::T_setlast(unsigned i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -252,15 +250,9 @@ namespace peterson
     // conj.push_back(x == l(i) && select(old_last.p(), x) == (int)i);
 
     // all else stays
-    for (size_t j = 0; j < pc.size(); j++)
-      if (j != i)
-        conj.push_back(pc[i].unchanged());
-
-    for (size_t j = 0; j < N; j++)
-    {
-      conj.push_back(l[i].unchanged());
-      conj.push_back(free[i].unchanged());
-    }
+    stays_except(conj, pc, i);
+    stays(conj, l);
+    stays(conj, free);
     // conj.push_back(forall_st(
     //     x, array_range && x != l(i), select(old_last, x) ==
     //     select(old_last.p(), x)));
