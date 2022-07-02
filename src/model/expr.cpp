@@ -1,18 +1,20 @@
 #include "expr.h"
+#include "z3-ext.h"
+#include <cstdlib>
+#include <regex>
 
 namespace mysat::primed
 {
-  using z3::mk_and;
   using z3::expr;
   using z3::expr_vector;
+  using z3::mk_and;
 
   // Lit
   //
-  Lit::Lit(z3::context& c, const std::string& name) : IPrimed<expr>(c)
+  Lit::Lit(z3::context& c, const std::string& n) : IPrimed<expr>(c, n)
   {
-    std::string next_name = fmt::format("{}.p", name);
-    current               = ctx.bool_const(name.c_str());
-    next                  = ctx.bool_const(next_name.c_str());
+    current = ctx.bool_const(name.c_str());
+    next    = ctx.bool_const(next_name.c_str());
   }
 
   Lit::operator const expr&() const { return current; }
@@ -23,51 +25,69 @@ namespace mysat::primed
 
   // BitVec
   // public
-  BitVec::BitVec(z3::context& c, const std::string& name, size_t Nbits)
-      : IPrimed<expr_vector>(c), size(Nbits)
+  BitVec::BitVec(z3::context& c, const std::string& n, size_t Nbits)
+      : IPrimed<expr_vector>(c, n), size(Nbits)
   {
     for (size_t i = 0; i < size; i++)
     {
-      using fmt::format;
-
-      std::string curr_name = format("{}_{}", name, i);
-      std::string next_name = format("{}_{}.p", name, i);
-      current.push_back(ctx.bool_const(curr_name.c_str()));
-      next.push_back(ctx.bool_const(next_name.c_str()));
+      current.push_back(ctx.bool_const(index_str(name, i).c_str()));
+      next.push_back(ctx.bool_const(index_str(next_name, i).c_str()));
     }
   }
 
-  // construct a bitvector capable of holding the number in max_val
-  BitVec BitVec::holding(
-      z3::context& c, const std::string& name, size_t max_val)
+  BitVec BitVec::holding(z3::context& c, const std::string& n, size_t max_val)
   {
-    return BitVec(c, name, std::log2(max_val) + 1);
+    return BitVec(c, n, std::log2(max_val) + 1);
   }
 
-  // return all literals comprising the vector
+  std::string BitVec::index_str(std::string_view n, size_t i) const
+  {
+    return fmt::format("{}[{}]", n, i);
+  }
+
   BitVec::operator const expr_vector&() const { return current; }
   const expr_vector& BitVec::operator()() const { return current; }
   const expr_vector& BitVec::p() const { return next; }
 
-  // access individual literals
   expr BitVec::operator()(size_t i) const { return current[i]; }
   expr BitVec::p(size_t i) const { return next[i]; }
 
-  // bitvector to unsigned integer conversions
-  expr_vector BitVec::uint(unsigned n) const
-  {
-    return unint_to_lits(n, false);
-  }
+  expr_vector BitVec::uint(unsigned n) const { return unint_to_lits(n, false); }
   expr_vector BitVec::uint_p(unsigned n) const
   {
     return unint_to_lits(n, true);
   }
 
-  // equality operator to expression conversions
+  unsigned BitVec::extract_value(const expr_vector& cube) const
+  {
+    std::bitset<MAX_BITS> n;
+    // matches name[i], extracts name and i
+    std::regex is_value(R"(([[:alnum:]_]+)\[([[:digit:]]+)\])");
+    std::smatch match;
+
+    for (const expr l : cube)
+    {
+      assert(z3ext::is_lit(l));
+      {
+        std::string l_str = l.to_string();
+        assert(std::regex_search(l_str, match, is_value));
+        assert(match.size() == 3);
+      }
+
+      if (match[1] != name)
+        continue;
+
+      unsigned i = std::stoul(match[2]);
+
+      n.set(i, !l.is_not());
+    }
+
+    return n.to_ulong();
+  }
+
   expr BitVec::equals(unsigned n) const { return mk_and(uint(n)); }
   expr BitVec::p_equals(unsigned n) const { return mk_and(uint_p(n)); }
 
-  // all bits equal in current and next
   expr BitVec::unchanged() const
   {
     expr_vector conj(ctx);
@@ -127,9 +147,9 @@ namespace mysat::primed
 
   // Array
   // public
-  Array::Array(z3::context& c, const std::string& name, unsigned s,
-      unsigned bits)
-      : _size(s), index(c, name + "_i", bits), value(c, name + "_v", bits), index_solver(c)
+  Array::Array(z3::context& c, const std::string& n, unsigned s, unsigned bits)
+      : _size(s), index(c, n + "_i", bits), value(c, n + "_v", bits),
+        index_solver(c)
   {
   }
 
@@ -151,6 +171,11 @@ namespace mysat::primed
     return mk_and(index.uint(i)) && mk_and(value.uint(v));
   }
 
+  expr Array::contains_p(unsigned i, unsigned v) const
+  {
+    return mk_and(index.uint_p(i)) && mk_and(value.uint_p(v));
+  }
+
   expr_vector Array::get_value(const expr& A, unsigned i)
   {
     index_solver.reset();
@@ -158,10 +183,14 @@ namespace mysat::primed
     z3::check_result r = index_solver.check(index.uint(i));
 
     assert(r == z3::check_result::sat);
-    z3::model witness = index_solver.get_model();
-    // TODO convert to ordered vector
-    std::cout << witness << std::endl << "---" << std::endl;
+    expr_vector witness = z3ext::solver::get_witness(index_solver);
+    z3ext::sort_cube(witness);
 
-    return expr_vector(index_solver.ctx());
+    return witness;
+  }
+
+  unsigned Array::get_value_uint(const expr& A, unsigned i) 
+  {
+    return value.extract_value(get_value(A,i));
   }
 } // namespace mysat::primed

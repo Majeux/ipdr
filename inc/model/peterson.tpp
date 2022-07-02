@@ -101,35 +101,25 @@ namespace peterson
     // 4 = in critical section, take to release
 
     old_last = PrimedExpression::array(ctx, "old_last", ctx.int_sort());
-    z3::expr A = ctx.bool_val(true);
 
     for (unsigned i = 0; i < N; i++)
     {
       std::string pc_i = format("pc_{}", i);
-      pc.emplace_back(ctx, pc_i.c_str(), pc_bits);
-      std::cout << pc[i]() << std::endl;
+      pc.emplace_back(ctx, pc_i, pc_bits);
 
       std::string l_i = format("l_{}", i);
-      l.emplace_back(ctx, l_i.c_str(), N_bits);
+      l.emplace_back(ctx, l_i, N_bits);
 
       std::string free_i = format("free_{}", i);
-      free.emplace_back(ctx, free_i.c_str());
+      free.emplace_back(ctx, free_i);
 
       initial.push_back(pc[i].equals(0));
       initial.push_back(l[i].equals(0));
       initial.push_back(free[i]);
       initial.push_back(last.store(i, 0));
-
-      A = A && last.store(i, N-1-i);
     }
 
-    std::cout << A << std::endl << "======" << std::endl;
-    for (unsigned i = 0; i < N; i++)
-      last.get_value(A, i);
-    return;
-
     std::cout << initial << std::endl;
-    return;
     // set all `old_last` elements to -1
     initial.push_back(forall(x, array_range & (select(old_last, x) == -1)));
 
@@ -184,14 +174,14 @@ namespace peterson
     stays_except(conj, l, i);
     stays_except(conj, free, i);
 
-    // for (unsigned j = 0; j)
-    for (unsigned i = 0; i < last.size(); i++)
-    {
-      // if A{i] => x then A.p[i] => x
-    }
-
-    conj.push_back(forall(x,
-        implies(array_range, select(old_last, x) == select(old_last.p(), x))));
+    assert(N == last.size());
+    for (unsigned i = 0; i < N; i++)
+      for (unsigned v = 0; v < N; v++)
+      {
+        // (A{i] == v) => (A.p[i] <- v.p)
+        z3::expr e = z3::implies(last.contains(i, v), last.store_p(i, v));
+        conj.push_back(e);
+      }
 
     return z3::mk_and(conj);
   }

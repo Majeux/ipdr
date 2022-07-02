@@ -11,6 +11,7 @@
 namespace z3ext
 {
   z3::expr minus(const z3::expr& e);
+  bool is_lit(const z3::expr& e);
 
   // allocates new vector
   // by default, assignment and copy constructors copy a reference to an
@@ -33,7 +34,12 @@ namespace z3ext
   // list all arguments of an expression
   z3::expr_vector args(const z3::expr& e);
 
+  // sort based on literals
   void sort(z3::expr_vector& v);
+
+  // sort based on symbols
+  // @ v is a cube of literals
+  void sort_cube(z3::expr_vector& v);
 
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
@@ -44,6 +50,12 @@ namespace z3ext
 
   // COMPARATOR FUNCTORS
   //
+  // compares literals by their symbol
+  struct lit_less
+  {
+    bool operator()(const z3::expr& l, const z3::expr& r) const;
+  };
+
   // z3::expr comparator
   struct expr_less
   {
@@ -102,6 +114,45 @@ namespace z3ext
   }
 
   using CubeSet = std::set<z3::expr_vector, expr_vector_less>;
+
+  namespace solver
+  {
+    // retrieve the current model in the solver as a cube
+    // the resulting cube is sorted by id()
+    // @ s has just completed a satisfiable check()
+    z3::expr_vector get_witness(const z3::solver& s);
+    std::vector<z3::expr> get_std_witness(const z3::solver& s);
+
+    template <typename UnaryPredicate>
+    std::vector<z3::expr> std_witness_st(const z3::model& m, UnaryPredicate p)
+    {
+      std::vector<z3::expr> v;
+      v.reserve(m.num_consts());
+      for (unsigned i = 0; i < m.size(); i++)
+      {
+        z3::func_decl f  = m[i];
+        z3::expr b_value = m.get_const_interp(f);
+        z3::expr literal = f();
+        if (p(literal))
+        {
+          if (b_value.is_true())
+            v.push_back(literal);
+          else if (b_value.is_false())
+            v.push_back(!literal);
+          else
+            throw std::runtime_error("model contains non-constant");
+        }
+      }
+      std::sort(v.begin(), v.end(), z3ext::expr_less());
+      return v;
+    }
+
+    template <typename UnaryPredicate>
+    z3::expr_vector witness_st(const z3::solver& s, UnaryPredicate p)
+    {
+      return convert(std_witness_st(s, p));
+    }
+  } // namespace solver
 
   namespace tseytin
   {

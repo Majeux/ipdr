@@ -19,7 +19,13 @@ namespace mysat::primed
   template <typename Tcontainer> class IPrimed
   {
    public:
-    IPrimed(z3::context& c) : ctx(c), current(ctx), next(ctx) {}
+    const std::string name;
+    const std::string next_name;
+
+    IPrimed(z3::context& c, const std::string& n)
+        : name(n), next_name(n + ".p"), ctx(c), current(ctx), next(ctx)
+    {
+    }
 
     virtual operator const Tcontainer&() const   = 0;
     virtual const Tcontainer& operator()() const = 0;
@@ -48,11 +54,10 @@ namespace mysat::primed
    public:
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
-    BitVec(z3::context& c, const std::string& name, size_t Nbits);
+    BitVec(z3::context& c, const std::string& n, size_t Nbits);
 
     // construct a bitvector capable of holding the number in max_val
-    static BitVec holding(
-        z3::context& c, const std::string& name, size_t max_val);
+    static BitVec holding(z3::context& c, const std::string& n, size_t max_val);
 
     // return all literals comprising the vector
     operator const z3::expr_vector&() const override;
@@ -66,9 +71,12 @@ namespace mysat::primed
     z3::expr operator()(size_t i) const;
     z3::expr p(size_t i) const;
 
-    // bitvector to unsigned integer conversions
+    // uint to bitvector representation
     z3::expr_vector uint(unsigned n) const;
     z3::expr_vector uint_p(unsigned n) const;
+
+    // cube to uint conversion
+    unsigned extract_value(const z3::expr_vector& cube) const;
 
     // equality operator to expression conversions
     z3::expr equals(unsigned n) const;
@@ -81,6 +89,7 @@ namespace mysat::primed
    private:
     size_t size;
 
+    std::string index_str(std::string_view n, size_t i) const;
     z3::expr_vector unint_to_lits(unsigned n, bool primed) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"
@@ -100,13 +109,17 @@ namespace mysat::primed
 
     unsigned size() const;
 
+    // A{i] <- v
     z3::expr store(unsigned i, unsigned v) const;
     z3::expr store_p(unsigned i, unsigned v) const;
+    // A{i] == v
     z3::expr contains(unsigned i, unsigned v) const;
+    z3::expr contains_p(unsigned i, unsigned v) const;
 
     // return a cube representing the value of A[i], expressed in variables of
     // "value"
     z3::expr_vector get_value(const z3::expr& A, unsigned i);
+    unsigned get_value_uint(const z3::expr& A, unsigned i);
 
    private:
     unsigned _size;
