@@ -145,27 +145,57 @@ namespace mysat::primed
     return z3::mk_or(disj);
   }
 
-  z3::expr BitVec::less(numrep_t x) const
+  expr BitVec::less_4b(size_t msb, const BitVec& cube) const
   {
-    return rec_less(x, size - 1, size - 1);
+    assert(msb >= 4 && (msb % 4 == 0)); // i == 4, 8, 12, 16
+    assert(cube.size >= 4);
+    assert(size <= cube.size);
+
+    expr_vector disj(ctx); // TODO automate pattern
+    // clang-format off
+      disj.push_back(!current[msb] && cube(msb));
+      disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] && cube(msb-1));
+      disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
+      disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] && cube(msb-3));
+    // clang-format on
+
+    return z3::mk_or(disj);
   }
 
-  z3::expr BitVec::rec_less(numrep_t n, size_t msb, size_t nbits) const
-  {
-    if (nbits == 4)
-      return less_4b(msb - 1, n);
+  // z3::expr BitVec::rec_less(numrep_t n, size_t msb, size_t nbits) const
+  // {
+  //   if (nbits == 4)
+  //     return less_4b(msb - 1, n);
 
-    assert(nbits > 4);
-    assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
+  //   assert(nbits > 4);
+  //   assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
 
-    // terminate early
-    z3::expr significant_less = rec_less(n, msb, msb / 2);
-    // compare rest
-    z3::expr significant_eq   = eq(n, msb, msb / 2);
-    z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
+  //   // terminate early
+  //   z3::expr significant_less = rec_less(n, msb, msb / 2);
+  //   // compare rest
+  //   z3::expr significant_eq   = eq(n, msb, msb / 2);
+  //   z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
 
-    return significant_less || (significant_eq && remainder_less);
-  }
+  //   return significant_less || (significant_eq && remainder_less);
+  // }
+
+  // z3::expr BitVec::rec_less(const BitVec& n, size_t msb, size_t nbits) const
+  // {
+  //   if (nbits == 4)
+  //     return less_4b(msb - 1, n);
+
+  //   assert(nbits > 4);
+  //   assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
+
+  //   // terminate early
+  //   z3::expr significant_less = rec_less(n, msb, msb / 2);
+  //   // compare rest
+  //   z3::expr significant_eq   = eq(n, msb, msb / 2);
+  //   z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
+
+  //   return significant_less || (significant_eq && remainder_less);
+  // }
+
 
   z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
   {
@@ -183,6 +213,19 @@ namespace mysat::primed
 
     return z3::mk_and(conj);
   }
+
+  z3::expr BitVec::eq(const BitVec& n, size_t msb, size_t nbits) const
+  {
+    z3::expr_vector conj(ctx);
+    for (size_t i = 0; i < nbits; i++)
+    {
+      assert(i < size && i < n.size);
+      conj.push_back(!(n(msb-i) ^ current[msb-i])); // n[i] <=> current[i]
+    }
+
+    return z3::mk_and(conj);
+  }
+
   // Array
   // public
   Array::Array(z3::context& c, const std::string& n, size_t s, size_t bits)

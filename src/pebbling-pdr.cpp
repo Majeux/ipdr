@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
   if (clargs.peter)
   {
     std::cout << "peterson" << std::endl;
-    peterson::Model<8> m(ctx_settings, 4);
+    peterson::Model m(8, ctx_settings, 4);
     return 0;
   }
 

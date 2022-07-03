@@ -196,7 +196,7 @@ namespace z3ext
       return cnf;
     }
 
-    expr to_cnf(const z3::expr& e) { return z3::mk_and(to_cnf_vec(e)); }
+    expr to_cnf(const expr& e) { return z3::mk_and(to_cnf_vec(e)); }
 
     expr add_and(
         expr_vector& cnf, const string& name, const expr& a, const expr& b)

@@ -51,7 +51,7 @@ namespace mysat::primed
   class BitVec final : public IPrimed<z3::expr_vector>, public IStays
   {
    public:
-    using numrep_t = unsigned;
+    using numrep_t                   = unsigned;
     static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
@@ -59,7 +59,8 @@ namespace mysat::primed
     BitVec(z3::context& c, const std::string& n, size_t Nbits);
 
     // construct a bitvector capable of holding the number in max_val
-    static BitVec holding(z3::context& c, const std::string& n, numrep_t max_val);
+    static BitVec holding(
+        z3::context& c, const std::string& n, numrep_t max_val);
 
     // return all literals comprising the vector
     operator const z3::expr_vector&() const override;
@@ -86,7 +87,13 @@ namespace mysat::primed
 
     //  N-bit less comparison
     //  returns a formula in cnf
-    z3::expr less(numrep_t n) const;
+    template <typename Tnum> z3::expr less(const Tnum& n) const
+    {
+      static_assert(std::is_same<Tnum, numrep_t>::value ||
+                        std::is_same<Tnum, BitVec>::value,
+          "Number must either be respresented by an unsigned or a cube");
+      return rec_less(n, size - 1, size);
+    }
 
    private:
     size_t size;
@@ -97,20 +104,45 @@ namespace mysat::primed
     // compare bits 4 bits of of "bv" with 4 bits of "n"
     // 'i' is the most significant bit
     z3::expr less_4b(size_t i, numrep_t n) const;
+    z3::expr less_4b(size_t msb, const BitVec& cube) const;
 
     // compares the 'nbits' most significant bits, starting from 'msb' down
     z3::expr eq(numrep_t n, size_t msb, size_t nbits) const;
+    z3::expr eq(const BitVec& n, size_t msb, size_t nbits) const;
     // compares the 'Nbits' most significant bits, starting from 'msb' down
-    z3::expr rec_less(numrep_t x, size_t msb, size_t nbits) const;
+    template <typename Tnum>
+    z3::expr rec_less(const Tnum& n, size_t msb, size_t nbits) const
+    {
+      static_assert(std::is_same<Tnum, numrep_t>::value ||
+                        std::is_same<Tnum, BitVec>::value,
+          "Number must either be respresented by an unsigned or a cube");
+
+      if (nbits == 4)
+        return less_4b(msb, n);
+
+      assert(nbits > 4);
+      assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
+
+      // terminate early
+      z3::expr significant_less = rec_less(n, msb, msb / 2);
+      // compare rest
+      z3::expr significant_eq   = eq(n, msb, msb / 2);
+      z3::expr remainder_less   = rec_less(n, msb / 2 - 1, msb / 2);
+
+      return significant_less || (significant_eq && remainder_less);
+    }
+    // z3::expr rec_less(const BitVec& x, size_t msb, size_t nbits) const;
   };
 
   class Array
   {
    public:
-    Array(z3::context& c, const std::string& name, size_t s, size_t bits);
+    using numrep_t = BitVec::numrep_t;
 
     const size_t size;
     const BitVec::numrep_t n_vals;
+
+    Array(z3::context& c, const std::string& name, size_t s, size_t bits);
 
     // A{i] <- v
     z3::expr store(size_t i, BitVec::numrep_t v) const;
@@ -119,9 +151,10 @@ namespace mysat::primed
     z3::expr contains(size_t i, BitVec::numrep_t v) const;
     z3::expr contains_p(size_t i, BitVec::numrep_t v) const;
 
-    //A[x] <- v, where x is a cube
+    // A[x] <- v, where x is a cube
     z3::expr cube_idx_store(const z3::expr_vector x, BitVec::numrep_t v) const;
-    z3::expr cube_idx_store_p(const z3::expr_vector x, BitVec::numrep_t v) const;
+    z3::expr cube_idx_store_p(
+        const z3::expr_vector x, BitVec::numrep_t v) const;
 
     // return a cube representing the value of A[i], expressed in variables of
     // "value"
@@ -129,7 +162,6 @@ namespace mysat::primed
     BitVec::numrep_t get_value_uint(const z3::expr& A, size_t i);
 
    private:
-
     BitVec index;
     BitVec value;
 

@@ -29,18 +29,21 @@ namespace peterson
     // vector of ints. level for process i
     std::vector<BitVec> l;
     // flag that denotes if process i has released the resource
+    // alternatively viewed as a sign bit for l
     std::vector<Lit> free;
     // int array. last process to enter level j
-    Array last;
+    std::vector<BitVec> last;
+    // Array last;
 
     z3::expr_vector initial;    // each array index to '-1;. pc to 0
-    z3::expr_vector transition; // or of ands, all possible transitions
+    z3::expr transition; // converted into cnf via tseytin
 
     void bitvector_test(size_t max_value);
     z3::expr T_start(numrep_t i);
-    z3::expr T_boundcheckfail(numrep_t i);
-    z3::expr T_boundchecksucc(numrep_t i);
+    z3::expr T_boundcheck(numrep_t i);
     z3::expr T_setlast(numrep_t i);
+    z3::expr T_await(numrep_t i);
+    z3::expr T_release(numrep_t i);
   }; // class Model
 } // namespace peterson
 

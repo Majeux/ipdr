@@ -81,8 +81,8 @@ namespace peterson
   }
 
   Model::Model(size_t bits, z3::config& settings, numrep_t n_processes)
-      : ctx(settings), nbits(bits), N(n_processes), pc(), l(),
-        last(ctx, "last", N, nbits), initial(ctx), transition(ctx)
+      : ctx(settings), nbits(bits), N(n_processes), pc(), l(), last(),
+        initial(ctx), transition(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
@@ -95,37 +95,52 @@ namespace peterson
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
-    // 4 = in critical section, take to release
+    // 4 = in critical section, take to release (l[i] = N-1)
 
-    for (unsigned i = 0; i < N; i++)
+    for (numrep_t i = 0; i < N; i++)
     {
-      std::string pc_i = format("pc_{}", i);
-      pc.emplace_back(ctx, pc_i, pc_bits);
-
-      std::string l_i = format("l_{}", i);
-      l.emplace_back(ctx, l_i, N_bits);
-
-      std::string free_i = format("free_{}", i);
-      free.emplace_back(ctx, free_i);
+      {
+        std::string pc_i = format("pc_{}", i);
+        pc.emplace_back(ctx, pc_i, pc_bits);
+      }
+      {
+        std::string l_i = format("l_{}", i);
+        l.emplace_back(ctx, l_i, N_bits);
+      }
+      {
+        std::string free_i = format("free_{}", i);
+        free.emplace_back(ctx, free_i);
+      }
+      if (i < N - 1)
+      {
+        std::string last_i = format("last_{}", i);
+        last.emplace_back(ctx, last_i, N_bits);
+      }
 
       initial.push_back(pc[i].equals(0));
       initial.push_back(l[i].equals(0));
       initial.push_back(free[i]);
-      initial.push_back(last.store(i, 0));
+      if (i < N - 1)
+        initial.push_back(last[i].equals(0));
     }
 
     std::cout << initial << std::endl;
 
-    for (unsigned i = 0; i < N; i++)
     {
-      transition.push_back(T_start(i));
-      transition.push_back(T_boundcheckfail(i));
-      transition.push_back(T_boundchecksucc(i));
-      transition.push_back(T_setlast(i));
+      expr_vector disj(ctx);
+      for (numrep_t i = 0; i < N; i++)
+      {
+        disj.push_back(T_start(i));
+        disj.push_back(T_boundcheck(i));
+        disj.push_back(T_setlast(i));
+        disj.push_back(T_await(i));
+        disj.push_back(T_release(i));
+      }
+      transition = mk_or(disj);
+      std::cout << "peterson transition" << std::endl;
+      std::cout << transition << std::endl;
+      transition = z3ext::tseytin::to_cnf(transition);
     }
-
-    std::cout << "peterson transition" << std::endl;
-    std::cout << transition << std::endl;
   }
 
   template <typename T,
@@ -151,7 +166,7 @@ namespace peterson
   void array_stays(z3::expr_vector& container, const Model::Array& A)
   {
     for (unsigned i = 0; i < A.size; i++)
-      for (unsigned v = 0; v < A.n_vals; v++)
+      for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
       {
         // (A{i] == v) => (A.p[i] <- v.p)
         z3::expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
@@ -163,7 +178,7 @@ namespace peterson
       z3::expr_vector& container, const Model::Array& A, size_t exception)
   {
     for (unsigned i = 0; i < A.size; i++)
-      for (unsigned v = 0; v < A.n_vals; v++)
+      for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
       {
         if (i == exception)
           continue;
@@ -173,93 +188,147 @@ namespace peterson
       }
   }
 
-  expr Model::T_start(unsigned i)
+  expr Model::T_start(numrep_t i)
   {
     assert(i < N);
-    assert(N == last.size);
     expr_vector conj(ctx);
 
-    // advance program counter
+    // pc[i] == 0
     conj.push_back(pc[i].equals(0));
+    // pc[i].p <- 1
     conj.push_back(pc[i].p_equals(1));
 
-    // l[i] <- 0
+    // l[i] was released, but now enters the queue
     conj.push_back(free[i]);
-    conj.push_back(l[i].p_equals(0));
     conj.push_back(!free[i].p());
+    // l[i] <- 0
+    conj.push_back(l[i].p_equals(0));
 
     // all else stays
     stays_except(conj, pc, i);
     stays_except(conj, l, i);
     stays_except(conj, free, i);
-
-    array_stays(conj, last);
+    stays(conj, last);
 
     return z3::mk_and(conj);
   }
 
-  expr Model::T_boundcheckfail(unsigned i)
+  expr if_then_else(const expr& i, const expr& t, const expr& e)
+  {
+    return implies(i, t) && implies(!i, e);
+  }
+
+  expr Model::T_boundcheck(numrep_t i)
   {
     assert(i < N);
-    assert(N == last.size);
     expr_vector conj(ctx);
 
+    // pc[i] == 1
     conj.push_back(pc[i].equals(1));
-    conj.push_back(pc[i].p_equals(4));
 
-    conj.push_back(!l[i].less(N)); // l[i] >= N
+    // IF l[i] < N-1
+    // THEN pc[i].p <- 2
+    // ELSE pc[i].p <- 4
+    conj.push_back(
+        if_then_else(l[i].less(N - 1), pc[i].p_equals(2), pc[i].p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);
     stays(conj, l);
     stays(conj, free);
-    array_stays(conj, last);
+    stays(conj, last);
 
     return z3::mk_and(conj);
   }
 
-  expr Model::T_boundchecksucc(unsigned i)
+  expr Model::T_setlast(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
 
-    conj.push_back(pc[i].equals(1));
-    conj.push_back(pc[i].p_equals(2));
-
-    conj.push_back(l[i].less(N));
-
-    // all else stays
-    stays_except(conj, pc, i);
-    stays(conj, l);
-    stays(conj, free);
-    array_stays(conj, last);
-
-    return z3::mk_and(conj);
-  }
-
-  expr Model::T_setlast(unsigned i)
-  {
-    assert(i < N);
-    expr_vector conj(ctx);
-
+    // pc[i] == 2
     conj.push_back(pc[i].equals(2));
+    // pc[i].p <- 3
     conj.push_back(pc[i].p_equals(3));
 
     // old_last[l[i]] <- i:
-    // old_last[x] <- i, where x == l[i]
-    // conj.push_back(x == l(i) && select(old_last.p(), x) == (int)i);
-      // Ai{ l[i] } => Av{ i }
-    conj.push_back(last.store_p(, i));
+    for (numrep_t x = 0; x < N; x++)
+    {
+      expr branch = if_then_else(
+          l[i].equals(x), last[i].p_equals(i), last[i].unchanged());
+      conj.push_back(branch);
+    }
 
     // all else stays
     stays_except(conj, pc, i);
     stays(conj, l);
     stays(conj, free);
-    // conj.push_back(forall_st(
-    //     x, array_range && x != l(i), select(old_last, x) ==
-    //     select(old_last.p(), x)));
 
     return z3::mk_and(conj);
   }
 
+  expr Model::T_await(numrep_t i)
+  {
+    assert(i < N);
+    expr_vector conj(ctx);
+
+    // pc[i] == 3
+    conj.push_back(pc[i].equals(3));
+
+    // IF last[i] == i AND EXISTS k != i: level[k] >= last[i]
+    // THEN repeat 3
+    // ELSE increment and go to loop bound
+    expr branch(ctx);
+    {
+      expr_vector any_higher(ctx);
+      {
+        for (numrep_t k = 0; k < N; k++)
+          if (k != i)             // forall k != i:
+            any_higher.push_back( // l[k] >= last[i]
+                !free[i]() && !l[k].less(last[i]));
+      }
+      expr check = last[i].equals(i) && mk_or(any_higher);
+
+      // l[i]++
+      expr_vector increment(ctx);
+      for (numrep_t x = 0; x < N - 1; x++)
+      {
+        expr set_index  = implies(l[i].equals(x), l[i].p_equals(x + 1));
+        expr rest_stays = implies(!l[i].equals(x), l[i].unchanged());
+        increment.push_back(set_index && rest_stays);
+      }
+
+      expr wait     = pc[i].p_equals(3) && l[i].unchanged();
+      expr end_loop = pc[i].p_equals(1) && mk_and(increment);
+
+      branch = if_then_else(check, wait, end_loop);
+    }
+    conj.push_back(branch);
+
+    // all else stays
+    stays_except(conj, pc, i); // pc[i] stays or changes based on logic above
+    stays_except(conj, l, i);
+    stays(conj, free);
+    stays(conj, last);
+
+    return mk_and(conj);
+  }
+
+  expr Model::T_release(numrep_t i)
+  {
+    assert(i < N);
+    expr_vector conj(ctx);
+
+    // pc[i] == 4
+    conj.push_back(pc[i].equals(4));
+    conj.push_back(l[i].equals(N - 1)); // not needed?
+
+    // pc[i] <- 0
+    conj.push_back(pc[i].equals(0));
+    // release lock
+    conj.push_back(!free[i]());
+    conj.push_back(free[i].p());
+
+    return mk_and(conj);
+  }
 } // namespace peterson
