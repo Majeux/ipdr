@@ -120,44 +120,63 @@ namespace mysat::primed
     return rv;
   }
 
-  expr BitVec::less_4b(size_t i, numrep_t n) const
+  expr BitVec::less_4b(size_t msb, numrep_t n) const
   {
-    assert(i >= 4 && (i % 4 == 0)); // i == 4, 8, 12, 16
+    assert(msb < INT_MAX);
     const std::bitset<MAX_BITS> bits(n);
-    std::bitset<MAX_BITS> relevant(0);
-    for (size_t j = i - 3; j <= i; j++)
-      relevant.set(j);
-
-    auto set = [this, &bits](size_t i) { return ctx.bool_val(bits.test(i)); };
-
     assert(size <= bits.size());
+
+    std::bitset<MAX_BITS> relevant(0);
+    for (size_t i = msb - 3; i <= msb; i++)
+      relevant.set(i, bits.test(i));
+
     if (relevant.to_ulong() == 0)
       return ctx.bool_val(false); // unsigned, so impossible
 
-    expr_vector disj(ctx); // TODO automate pattern
-    // clang-format off
-      disj.push_back(!current[i] && set(i));
-      disj.push_back(!(current[i] ^ set(i)) && !current[i-1] && set(i-1));
-      disj.push_back(!(current[i] ^ set(i)) && !(current[i-1] ^ set(i-1)) && !current[i-2] && set(i-2));
-      disj.push_back(!(current[i] ^ set(i)) && !(current[i-1] ^ set(i-1)) && !(current[i-2] ^ set(i-2)) && !current[i-3] && set(i-3));
-    // clang-format on
+    auto set = [this, &bits](size_t i) { return ctx.bool_val(bits.test(i)); };
+
+    expr_vector disj(ctx);
+    for (size_t i = 0; i <= msb; i++)
+    {
+      expr e = ctx.bool_val(true);
+      for (int j = i; j >= 0; j--)
+      {
+        // handle if BitVec does not store msb+1 bits
+        expr c_bit = j < (int)size ? current[j] : ctx.bool_val(false);
+        if (j == 0)
+          e = !c_bit && set(j) && e;
+        else
+          e = !(c_bit ^ set(j)) && e;
+      }
+      disj.push_back(e);
+    }
 
     return z3::mk_or(disj);
   }
 
   expr BitVec::less_4b(size_t msb, const BitVec& cube) const
   {
-    assert(msb >= 4 && (msb % 4 == 0)); // i == 4, 8, 12, 16
-    assert(cube.size >= 4);
     assert(size <= cube.size);
 
-    expr_vector disj(ctx); // TODO automate pattern
-    // clang-format off
-      disj.push_back(!current[msb] && cube(msb));
-      disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] && cube(msb-1));
-      disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
-      disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] && cube(msb-3));
-    // clang-format on
+      // disj.push_back(!current[msb] && cube(msb));
+      // disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] && cube(msb-1));
+      // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
+      // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] && cube(msb-3));
+    expr_vector disj(ctx);
+    for (size_t i = 0; i <= msb; i++)
+    {
+      expr e = ctx.bool_val(true);
+      for (int j = i; j >= 0; j--)
+      {
+        // handle if BitVec does not store i+1 bits
+        expr c_bit = j < (int)size ? current[j] : ctx.bool_val(false);
+        if (j == 0)
+          e = !c_bit && cube(j) && e;
+        else
+          e = !(c_bit ^ cube(j)) && e;
+      }
+      disj.push_back(e);
+    }
 
     return z3::mk_or(disj);
   }
@@ -196,7 +215,6 @@ namespace mysat::primed
   //   return significant_less || (significant_eq && remainder_less);
   // }
 
-
   z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
   {
     const std::bitset<MAX_BITS> bits(n);
@@ -220,7 +238,7 @@ namespace mysat::primed
     for (size_t i = 0; i < nbits; i++)
     {
       assert(i < size && i < n.size);
-      conj.push_back(!(n(msb-i) ^ current[msb-i])); // n[i] <=> current[i]
+      conj.push_back(!(n(msb - i) ^ current[msb - i])); // n[i] <=> current[i]
     }
 
     return z3::mk_and(conj);
@@ -229,11 +247,10 @@ namespace mysat::primed
   // Array
   // public
   Array::Array(z3::context& c, const std::string& n, size_t s, size_t bits)
-      : size{s}, n_vals{}, index(c, n + "_i", bits), value(c, n + "_v", bits),
+      : size{ s }, n_vals{}, index(c, n + "_i", bits), value(c, n + "_v", bits),
         index_solver(c)
   {
   }
-
 
   expr Array::store(size_t i, BitVec::numrep_t v) const
   {

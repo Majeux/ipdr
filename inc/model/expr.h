@@ -117,17 +117,23 @@ namespace mysat::primed
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
 
-      if (nbits == 4)
-        return less_4b(msb, n);
+      assert(nbits != 0);
+      assert(msb < nbits);
+      if (nbits <= 4)
+        return less_4b(msb, 4);
+      else if ((nbits & (nbits - 1)) != 0)          // is not a power of 2
+        nbits += std::pow(2, std::log2(nbits) + 1); // next power of 2
 
       assert(nbits > 4);
       assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
+      // msb must be in second half, otherwise select a smaller nbits in call
+      assert(msb >= nbits / 2);
 
       // terminate early
-      z3::expr significant_less = rec_less(n, msb, msb / 2);
+      z3::expr significant_less = rec_less(n, msb, nbits / 2);
       // compare rest
-      z3::expr significant_eq   = eq(n, msb, msb / 2);
-      z3::expr remainder_less   = rec_less(n, msb / 2 - 1, msb / 2);
+      z3::expr significant_eq   = eq(n, msb, nbits / 2);
+      z3::expr remainder_less   = rec_less(n, nbits / 2 - 1, nbits / 2);
 
       return significant_less || (significant_eq && remainder_less);
     }

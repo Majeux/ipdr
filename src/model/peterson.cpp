@@ -117,11 +117,11 @@ namespace peterson
         last.emplace_back(ctx, last_i, N_bits);
       }
 
-      initial.push_back(pc[i].equals(0));
-      initial.push_back(l[i].equals(0));
-      initial.push_back(free[i]);
+      initial.push_back(pc.at(i).equals(0));
+      initial.push_back(l.at(i).equals(0));
+      initial.push_back(free.at(i));
       if (i < N - 1)
-        initial.push_back(last[i].equals(0));
+        initial.push_back(last.at(i).equals(0));
     }
 
     std::cout << initial << std::endl;
@@ -137,9 +137,11 @@ namespace peterson
         disj.push_back(T_release(i));
       }
       transition = mk_or(disj);
-      std::cout << "peterson transition" << std::endl;
+      std::cout << "RAW TRANSITION" << std::endl;
       std::cout << transition << std::endl;
       transition = z3ext::tseytin::to_cnf(transition);
+      std::cout << "CNF TRANSITION" << std::endl;
+      std::cout << transition << std::endl;
     }
   }
 
@@ -160,7 +162,7 @@ namespace peterson
   {
     for (size_t i = 0; i < v.size(); i++)
       if (i != exception)
-        container.push_back(v[i].unchanged());
+        container.push_back(v.at(i).unchanged());
   }
 
   void array_stays(z3::expr_vector& container, const Model::Array& A)
@@ -194,15 +196,15 @@ namespace peterson
     expr_vector conj(ctx);
 
     // pc[i] == 0
-    conj.push_back(pc[i].equals(0));
+    conj.push_back(pc.at(i).equals(0));
     // pc[i].p <- 1
-    conj.push_back(pc[i].p_equals(1));
+    conj.push_back(pc.at(i).p_equals(1));
 
     // l[i] was released, but now enters the queue
-    conj.push_back(free[i]);
-    conj.push_back(!free[i].p());
+    conj.push_back(free.at(i));
+    conj.push_back(!free.at(i).p());
     // l[i] <- 0
-    conj.push_back(l[i].p_equals(0));
+    conj.push_back(l.at(i).p_equals(0));
 
     // all else stays
     stays_except(conj, pc, i);
@@ -224,13 +226,13 @@ namespace peterson
     expr_vector conj(ctx);
 
     // pc[i] == 1
-    conj.push_back(pc[i].equals(1));
+    conj.push_back(pc.at(i).equals(1));
 
     // IF l[i] < N-1
     // THEN pc[i].p <- 2
     // ELSE pc[i].p <- 4
     conj.push_back(
-        if_then_else(l[i].less(N - 1), pc[i].p_equals(2), pc[i].p_equals(4)));
+        if_then_else(l.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);
@@ -247,15 +249,15 @@ namespace peterson
     expr_vector conj(ctx);
 
     // pc[i] == 2
-    conj.push_back(pc[i].equals(2));
+    conj.push_back(pc.at(i).equals(2));
     // pc[i].p <- 3
-    conj.push_back(pc[i].p_equals(3));
+    conj.push_back(pc.at(i).p_equals(3));
 
     // old_last[l[i]] <- i:
-    for (numrep_t x = 0; x < N; x++)
+    for (numrep_t x = 0; x < N - 1; x++)
     {
       expr branch = if_then_else(
-          l[i].equals(x), last[i].p_equals(i), last[i].unchanged());
+          l.at(i).equals(x), last.at(x).p_equals(i), last.at(x).unchanged());
       conj.push_back(branch);
     }
 
@@ -273,7 +275,7 @@ namespace peterson
     expr_vector conj(ctx);
 
     // pc[i] == 3
-    conj.push_back(pc[i].equals(3));
+    conj.push_back(pc.at(i).equals(3));
 
     // IF last[i] == i AND EXISTS k != i: level[k] >= last[i]
     // THEN repeat 3
@@ -284,22 +286,31 @@ namespace peterson
       {
         for (numrep_t k = 0; k < N; k++)
           if (k != i)             // forall k != i:
-            any_higher.push_back( // l[k] >= last[i]
-                !free[i]() && !l[k].less(last[i]));
+            any_higher.push_back( // l[i] < l[k]
+                !free.at(k)() &&
+                (free.at(i) || l.at(i).less(l.at(k)))); // if free[i], l[i]=-1
       }
-      expr check = last[i].equals(i) && mk_or(any_higher);
+      // last[l[i]] = i:
+      expr_vector eq_i(ctx);
+      for (numrep_t x = 0; x < N - 1; x++)
+      {
+		// if l[i] = x, we require last[x] = i
+        expr branch = implies(l.at(i).equals(x), last.at(x).equals(i));
+        eq_i.push_back(branch);
+      }
+      expr check = mk_or(eq_i) && mk_or(any_higher);
 
       // l[i]++
       expr_vector increment(ctx);
       for (numrep_t x = 0; x < N - 1; x++)
       {
-        expr set_index  = implies(l[i].equals(x), l[i].p_equals(x + 1));
-        expr rest_stays = implies(!l[i].equals(x), l[i].unchanged());
+        expr set_index  = implies(l.at(i).equals(x), l.at(i).p_equals(x + 1));
+        expr rest_stays = implies(!l.at(i).equals(x), l.at(i).unchanged());
         increment.push_back(set_index && rest_stays);
       }
 
-      expr wait     = pc[i].p_equals(3) && l[i].unchanged();
-      expr end_loop = pc[i].p_equals(1) && mk_and(increment);
+      expr wait     = pc.at(i).p_equals(3) && l.at(i).unchanged();
+      expr end_loop = pc.at(i).p_equals(1) && mk_and(increment);
 
       branch = if_then_else(check, wait, end_loop);
     }
@@ -320,14 +331,14 @@ namespace peterson
     expr_vector conj(ctx);
 
     // pc[i] == 4
-    conj.push_back(pc[i].equals(4));
-    conj.push_back(l[i].equals(N - 1)); // not needed?
+    conj.push_back(pc.at(i).equals(4));
+    conj.push_back(l.at(i).equals(N - 1)); // not needed?
 
     // pc[i] <- 0
-    conj.push_back(pc[i].equals(0));
+    conj.push_back(pc.at(i).equals(0));
     // release lock
-    conj.push_back(!free[i]());
-    conj.push_back(free[i].p());
+    conj.push_back(!free.at(i)());
+    conj.push_back(free.at(i).p());
 
     return mk_and(conj);
   }
