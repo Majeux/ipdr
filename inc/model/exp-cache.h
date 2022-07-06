@@ -1,7 +1,9 @@
 #ifndef EXP_CACHE
 #define EXP_CACHE
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -75,10 +77,10 @@ class ExpressionCache
     return current[index];
   }
   z3::expr operator()(int index) const { return current[index]; }
-  z3::expr operator()(const std::string& s) const 
-  { 
+  z3::expr operator()(const std::string& s) const
+  {
     z3::expr e = ctx.bool_const(s.c_str());
-    return current[indexof(e)]; 
+    return current[indexof(e)];
   }
 
   // not used
@@ -107,10 +109,10 @@ class ExpressionCache
   // not used
   z3::expr p(int index) const { return next[index]; }
   // not used
-  z3::expr p(const std::string& s) const 
-  { 
+  z3::expr p(const std::string& s) const
+  {
     z3::expr e = ctx.bool_const(s.c_str());
-    return next[indexof(e)]; 
+    return next[indexof(e)];
   }
 
   // converts a vector of literals into a vector of literals in the next state

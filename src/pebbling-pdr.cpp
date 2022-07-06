@@ -11,6 +11,7 @@
 #include "pdr-context.h"
 #include "pdr-model.h"
 #include "pdr.h"
+#include "peterson.h"
 
 #include <algorithm>
 #include <array>
@@ -181,6 +182,15 @@ int main(int argc, char* argv[])
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
+  // ///
+  if (clargs.peter)
+  {
+    std::cout << "peterson" << std::endl;
+    peterson::Model m(2, ctx_settings, 2);
+    return 0;
+  }
+
+  // ///
   pebbling::Model model(ctx_settings, clargs, G);
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);

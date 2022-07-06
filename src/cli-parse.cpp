@@ -115,6 +115,8 @@ namespace my::cli
        value<unsigned>(), "(uint:P)")
       ("bounded", "Run pebbling model using bounded model checking",
        value<bool>(clargs.bounded))
+      ("peter", "Run verification for Peterson's algorithm",
+       value<bool>(clargs.peter))
 
       ("show-only", "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(clargs.onlyshow))
@@ -229,6 +231,9 @@ namespace my::cli
         std::cerr << clopt.help() << std::endl;
         exit(0);
       }
+
+      if (clresult.count("peter"))
+        return clargs;
 
       parse_verbosity(clargs, clresult);
       parse_model(clargs, clresult);

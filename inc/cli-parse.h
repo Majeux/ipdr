@@ -54,6 +54,7 @@ namespace my::cli
     bool onlyshow; // only read in and produce the model image and description
 
     bool bounded;
+    bool peter;
 
     bool _failed = false;
   };

@@ -62,28 +62,24 @@ namespace pdr::experiments
     std_dev_time = std::sqrt(total_variance / results.size());
   }
 
-  namespace
+  tabulate::Format& format_base(tabulate::Format& f)
   {
-    tabulate::Format& format_base(tabulate::Format& f)
-    {
-      return f.font_align(tabulate::FontAlign::right)
-          .hide_border_top()
-          .hide_border_bottom();
-    }
+    return f.font_align(tabulate::FontAlign::right)
+        .hide_border_top()
+        .hide_border_bottom();
+  }
 
-    tabulate::Format& format_base(tabulate::Table& t)
-    {
-      return format_base(t.format());
-    }
+  tabulate::Format& format_base(tabulate::Table& t)
+  {
+    return format_base(t.format());
+  }
 
-    tabulate::Table init_table()
-    {
-      tabulate::Table t;
-      format_base(t);
-      return t;
-    }
-
-  } // namespace
+  tabulate::Table init_table()
+  {
+    tabulate::Table t;
+    format_base(t);
+    return t;
+  }
 
   std::string Run::str(output_format fmt) const
   {
