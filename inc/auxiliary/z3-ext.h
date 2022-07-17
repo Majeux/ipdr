@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <fmt/core.h>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -122,6 +123,11 @@ namespace z3ext
     // @ s has just completed a satisfiable check()
     z3::expr_vector get_witness(const z3::solver& s);
     std::vector<z3::expr> get_std_witness(const z3::solver& s);
+
+    // perform a solver.check() and return the resulting witness
+    std::optional<z3::expr_vector> check_witness(z3::solver& s);
+    std::optional<z3::expr_vector> check_witness(
+        z3::solver& s, const z3::expr_vector& assumptions);
 
     template <typename UnaryPredicate>
     std::vector<z3::expr> std_witness_st(const z3::model& m, UnaryPredicate p)

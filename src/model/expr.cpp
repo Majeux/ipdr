@@ -1,6 +1,7 @@
 #include "expr.h"
 #include "z3-ext.h"
 #include <cstdlib>
+#include <optional>
 #include <regex>
 
 namespace mysat::primed
@@ -22,6 +23,47 @@ namespace mysat::primed
   const expr& Lit::p() const { return next; }
 
   expr Lit::unchanged() const { return current == next; }
+
+  bool Lit::extract_value(const z3::expr_vector& cube, lit_type t) const
+  {
+    // matches name[i], extracts name and i
+    std::regex is_value;
+    std::smatch match;
+    std::string match_name;
+    if (t == primed)
+    {
+      // is_value = (R"(([[:alnum:]_]+).p)"); // primed variable
+      is_value = next_name;
+      match_name = next_name;
+    }
+    else
+    {
+      // is_value = (R"(([[:alnum:]_]+))");
+      is_value = name;
+      match_name = name;
+    }
+
+    std::optional<bool> v;
+
+    for (const expr& l : cube)
+    {
+      assert(z3ext::is_lit(l));
+      std::string l_str = l.to_string();
+      // if (std::regex_search(l_str, match, is_value))
+      if (l_str.find(match_name) != std::string::npos)
+      {
+        // assert(match.size() == 2);
+        // if (match[1] == match_name)
+        // {
+          // no contradicting literals
+          assert(not v.has_value() || (v == not l.is_not()));
+          v = not l.is_not();
+        // }
+      }
+    }
+
+    return v.value();
+  }
 
   // BitVec
   // public
@@ -58,28 +100,41 @@ namespace mysat::primed
     return unint_to_lits(n, true);
   }
 
-  BitVec::numrep_t BitVec::extract_value(const expr_vector& cube) const
+  BitVec::numrep_t BitVec::extract_value(
+      const expr_vector& cube, lit_type t) const
   {
     std::bitset<MAX_BITS> n;
     // matches name[i], extracts name and i
-    std::regex is_value(R"(([[:alnum:]_]+)\[([[:digit:]]+)\])");
+    std::regex is_value;
     std::smatch match;
+    std::string match_name;
+    if (t == primed)
+    {
+      // is_value = R"(([[:alnum:]_]+).p\[([[:digit:]]+)\])"; // primed variable
+      is_value = fmt::format("{}\\[([[:digit:]]+)\\]", next_name);
+      match_name = next_name;
+    }
+    else
+    {
+      // is_value = R"(([[:alnum:]_]+)\[([[:digit:]]+)\])";
+      is_value = fmt::format("{}\\[([[:digit:]]+)\\]", name);
+      match_name = name;
+    }
 
-    for (const expr l : cube)
+    for (const expr& l : cube)
     {
       assert(z3ext::is_lit(l));
+      std::string l_str = l.to_string();
+      if (std::regex_search(l_str, match, is_value))
       {
-        std::string l_str = l.to_string();
-        assert(std::regex_search(l_str, match, is_value));
-        assert(match.size() == 3);
+        assert(match.size() == 2);
+        // if (match[1] != match_name)
+        //   continue;
+
+        numrep_t i = std::stoul(match[1]);
+
+        n.set(i, !l.is_not());
       }
-
-      if (match[1] != name)
-        continue;
-
-      numrep_t i = std::stoul(match[2]);
-
-      n.set(i, !l.is_not());
     }
 
     return n.to_ulong();
@@ -158,10 +213,13 @@ namespace mysat::primed
   {
     assert(size <= cube.size);
 
-      // disj.push_back(!current[msb] && cube(msb));
-      // disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] && cube(msb-1));
-      // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
-      // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^ cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] && cube(msb-3));
+    // disj.push_back(!current[msb] && cube(msb));
+    // disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] &&
+    // cube(msb-1)); disj.push_back(!(current[msb] ^ cube(msb)) &&
+    // !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
+    // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^
+    // cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] &&
+    // cube(msb-3));
     expr_vector disj(ctx);
     for (size_t i = 0; i <= msb; i++)
     {

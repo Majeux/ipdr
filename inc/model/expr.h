@@ -9,6 +9,12 @@
 namespace mysat::primed
 {
 
+  enum lit_type
+  {
+    base,
+    primed
+  };
+
   class IStays
   {
    public:
@@ -46,6 +52,8 @@ namespace mysat::primed
     const z3::expr& p() const override;
     z3::expr unchanged() const override;
 
+    bool extract_value(const z3::expr_vector& cube, lit_type t = base) const;
+
   }; // class Lit
 
   class BitVec final : public IPrimed<z3::expr_vector>, public IStays
@@ -79,7 +87,8 @@ namespace mysat::primed
     z3::expr_vector uint_p(numrep_t n) const;
 
     // cube to uint conversion
-    numrep_t extract_value(const z3::expr_vector& cube) const;
+    numrep_t extract_value(
+        const z3::expr_vector& cube, lit_type t = base) const;
 
     // equality operator to expression conversions
     z3::expr equals(numrep_t n) const;

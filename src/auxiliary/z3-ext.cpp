@@ -174,6 +174,27 @@ namespace z3ext
       std::sort(std_vec.begin(), std_vec.end(), z3ext::expr_less());
       return std_vec;
     }
+
+    std::optional<z3::expr_vector> check_witness(z3::solver& s)
+    {
+      z3::check_result r = s.check();
+      assert(not(r == z3::check_result::unknown));
+      if (r == z3::check_result::sat)
+        return get_witness(s);
+      else
+        return {};
+    }
+
+    std::optional<z3::expr_vector> check_witness(
+        z3::solver& s, const z3::expr_vector& assumptions)
+    {
+      z3::check_result r = s.check(assumptions);
+      assert(not(r == z3::check_result::unknown));
+      if (r == z3::check_result::sat)
+        return get_witness(s);
+      else
+        return {};
+    }
   } // namespace solver
 
   // TSEYTIN ENCODING
