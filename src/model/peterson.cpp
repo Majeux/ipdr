@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <fmt/color.h>
 #include <fmt/core.h>
+#include <map>
+#include <queue>
 #include <z3++.h>
 #include <z3_api.h>
 
@@ -16,7 +18,50 @@ namespace peterson
 
   // STATE MEMBERS
   //
-  std::ostream& operator<<(std::ostream& out, const Model::State& s)
+  bool State::operator<(const State& s) const
+  {
+    if (pc < s.pc)
+      return true;
+    if (level < s.level)
+      return true;
+    if (free < s.free)
+      return true;
+    if (last < s.last)
+      return true;
+
+    return false;
+  }
+
+  expr_vector State::cube(Model& m) const
+  {
+    using num_vec = std::vector<Model::numrep_t>;
+    using bv_vec  = std::vector<Model::BitVec>;
+
+    expr_vector conj(m.ctx);
+
+    auto bv_assign = [&conj](const num_vec& N, const bv_vec& B)
+    {
+      assert(N.size() == B.size());
+      for (size_t i = 0; i < N.size(); i++)
+        for (const expr& e : B[i].uint(N[i]))
+        {
+          std::cout << e << std::endl;
+          conj.push_back(e);
+        }
+    };
+
+    bv_assign(pc, m.pc);
+    bv_assign(level, m.level);
+    bv_assign(last, m.last);
+
+    assert(free.size() == m.free.size());
+    for (size_t i = 0; i < free.size(); i++)
+      conj.push_back(free[i] ? m.free[i] : !m.free[i]());
+
+    return conj;
+  }
+
+  std::ostream& operator<<(std::ostream& out, const State& s)
   {
     using fmt::format;
     using std::endl;
@@ -48,7 +93,7 @@ namespace peterson
         out << tab(2) << format("{}: {},", i, s.last.at(i)) << endl;
       out << tab(1) << "]" << endl;
     }
-    out << "}" << endl;
+    out << "}";
 
     return out;
   }
@@ -92,15 +137,20 @@ namespace peterson
         last.emplace_back(ctx, last_i, N_bits);
       }
 
-      initial.push_back(pc.at(i).equals(0));
-      initial.push_back(level.at(i).equals(0));
+      for (const expr& e : pc.at(i).uint(0))
+        initial.push_back(e);
+
+      for (const expr& e : level.at(i).uint(0))
+        initial.push_back(e);
+
       initial.push_back(free.at(i));
+
       if (i < N - 1)
-        initial.push_back(last.at(i).equals(0));
+        for (const expr& e : last.at(i).uint(0))
+          initial.push_back(e);
     }
 
     std::cout << "INITIAL" << std::endl;
-    std::cout << initial << std::endl << std::endl;
 
     {
       expr_vector disj(ctx);
@@ -122,10 +172,9 @@ namespace peterson
     test_room();
   }
 
-  Model::State Model::make_state(const z3::expr_vector& cube, mysat::primed::lit_type t)
+  State Model::make_state(const expr_vector& cube, mysat::primed::lit_type t)
   {
     State s(N);
-    std::cout << cube << std::endl;
 
     for (numrep_t i = 0; i < N; i++)
     {
@@ -139,28 +188,62 @@ namespace peterson
     return s;
   }
 
+  std::set<State> Model::successors(const expr_vector& v)
+  {
+    return successors(make_state(v));
+  }
+
+  std::set<State> Model::successors(const State& s)
+  {
+    using mysat::primed::lit_type;
+    using std::optional;
+    using z3ext::solver::check_witness;
+
+    std::set<State> S;
+
+    z3::solver solver(ctx);
+    solver.add(s.cube(*this));
+
+    while (optional<expr_vector> w = check_witness(solver, transition))
+    {
+      S.insert(make_state(*w, lit_type::primed));
+      solver.add(!mk_and(*w)); // exclude from future search
+    }
+
+    return S;
+  }
+
   void Model::test_room()
   {
     using mysat::primed::lit_type;
+    using std::cout;
+    using std::endl;
 
     z3::solver solver(ctx);
     solver.add(initial);
 
-    z3::expr_vector i_witness = z3ext::solver::check_witness(solver).value();
-    z3::expr_vector t_witness =
-        z3ext::solver::check_witness(solver, transition).value();
+    expr_vector i_witness = z3ext::solver::check_witness(solver).value();
 
-    std::cout << i_witness << std::endl;
-    std::cout << t_witness << std::endl;
+    std::queue<State> Q;
+    std::set<State> visited;
 
-    std::cout << make_state(i_witness) << std::endl;
-    std::cout << make_state(t_witness, lit_type::primed) << std::endl;
+    State I = make_state(i_witness);
+    Q.push(I);
+    visited.insert(I);
+    std::multimap<State, State, std::less<>> edges;
+
+    cout << I << endl << endl;
+    cout << "SUCCESSORS:" << endl;
+    for (const State& s : successors(initial))
+    {
+      cout << s << endl << "-" << endl;
+    }
   }
 
   template <typename T,
       std::enable_if_t<std::is_base_of_v<mysat::primed::IStays, T>, bool> =
           true>
-  void stays(z3::expr_vector& container, const std::vector<T>& v)
+  void stays(expr_vector& container, const std::vector<T>& v)
   {
     for (const auto& primed : v)
       container.push_back(primed.unchanged());
@@ -170,26 +253,26 @@ namespace peterson
       std::enable_if_t<std::is_base_of_v<mysat::primed::IStays, T>, bool> =
           true>
   void stays_except(
-      z3::expr_vector& container, const std::vector<T>& v, size_t exception)
+      expr_vector& container, const std::vector<T>& v, size_t exception)
   {
     for (size_t i = 0; i < v.size(); i++)
       if (i != exception)
         container.push_back(v.at(i).unchanged());
   }
 
-  void array_stays(z3::expr_vector& container, const Model::Array& A)
+  void array_stays(expr_vector& container, const Model::Array& A)
   {
     for (unsigned i = 0; i < A.size; i++)
       for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
       {
         // (A{i] == v) => (A.p[i] <- v.p)
-        z3::expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
+        expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
         container.push_back(e);
       }
   }
 
   void array_stays_except(
-      z3::expr_vector& container, const Model::Array& A, size_t exception)
+      expr_vector& container, const Model::Array& A, size_t exception)
   {
     for (unsigned i = 0; i < A.size; i++)
       for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
@@ -197,7 +280,7 @@ namespace peterson
         if (i == exception)
           continue;
         // (A{i] == v) => (A.p[i] <- v.p)
-        z3::expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
+        expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
         container.push_back(e);
       }
   }

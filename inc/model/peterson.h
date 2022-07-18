@@ -7,6 +7,7 @@
 
 namespace peterson
 {
+  struct State;
 
   class Model
   {
@@ -17,16 +18,7 @@ namespace peterson
     using Array    = mysat::primed::Array;
     using numrep_t = BitVec::numrep_t;
 
-    struct State
-    {
-      std::vector<numrep_t> pc;
-      std::vector<numrep_t> level;
-      std::vector<bool> free;
-      std::vector<numrep_t> last;
-
-      // TODO use model vector sizes
-      State(numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
-    };
+    friend State;
 
     Model(size_t Nbits, z3::config& settings, numrep_t n_processes);
 
@@ -51,6 +43,9 @@ namespace peterson
 
     State make_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);
+    std::set<State> successors(const z3::expr_vector& v);
+    std::set<State> successors(const State& s);
+
     void test_room();
 
     z3::expr T_start(numrep_t i);
@@ -61,6 +56,21 @@ namespace peterson
 
     void bitvector_test(size_t max_value);
   }; // class Model
+
+  struct State
+  {
+    std::vector<Model::numrep_t> pc;
+    std::vector<Model::numrep_t> level;
+    std::vector<bool> free;
+    std::vector<Model::numrep_t> last;
+
+    // TODO use model vector sizes
+    State(Model::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
+    z3::expr_vector cube(Model& m) const;
+
+    bool operator<(const State&) const;
+  };
+
 } // namespace peterson
 
 #endif // PETERSON_H

@@ -39,7 +39,7 @@ namespace mysat::primed
     else
     {
       // is_value = (R"(([[:alnum:]_]+))");
-      is_value = name;
+      is_value = fmt::format("{}(?!.p)", name); // name not followed by .p
       match_name = name;
     }
 
@@ -49,10 +49,10 @@ namespace mysat::primed
     {
       assert(z3ext::is_lit(l));
       std::string l_str = l.to_string();
-      // if (std::regex_search(l_str, match, is_value))
-      if (l_str.find(match_name) != std::string::npos)
+      // if (l_str.find(match_name) != std::string::npos)
+      if (std::regex_search(l_str, match, is_value))
       {
-        // assert(match.size() == 2);
+        assert(match.size() == 1);
         // if (match[1] == match_name)
         // {
           // no contradicting literals
