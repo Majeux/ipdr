@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <fmt/color.h>
 #include <fmt/core.h>
+#include <fstream>
 #include <map>
 #include <queue>
+#include <regex>
 #include <z3++.h>
 #include <z3_api.h>
 
@@ -32,6 +34,25 @@ namespace peterson
     return false;
   }
 
+  bool State::operator==(const State& s) const
+  {
+    if (pc != s.pc)
+      return false;
+    if (level != s.level)
+      return false;
+    if (free != s.free)
+      return false;
+    if (last != s.last)
+      return false;
+
+    return true;
+  }
+
+  bool State::operator!=(const State& s) const
+  {
+    return not(*this == s);
+  }
+
   expr_vector State::cube(Model& m) const
   {
     using num_vec = std::vector<Model::numrep_t>;
@@ -44,10 +65,7 @@ namespace peterson
       assert(N.size() == B.size());
       for (size_t i = 0; i < N.size(); i++)
         for (const expr& e : B[i].uint(N[i]))
-        {
-          std::cout << e << std::endl;
           conj.push_back(e);
-        }
     };
 
     bv_assign(pc, m.pc);
@@ -96,6 +114,13 @@ namespace peterson
     out << "}";
 
     return out;
+  }
+
+  std::string State::to_string() const
+  {
+    std::stringstream ss;
+    ss << *this;
+    return ss.str();
   }
 
   // MODEL MEMBERS
@@ -226,17 +251,59 @@ namespace peterson
 
     std::queue<State> Q;
     std::set<State> visited;
-
-    State I = make_state(i_witness);
-    Q.push(I);
-    visited.insert(I);
     std::multimap<State, State, std::less<>> edges;
 
-    cout << I << endl << endl;
-    cout << "SUCCESSORS:" << endl;
-    for (const State& s : successors(initial))
+    const State I = make_state(i_witness);
+    Q.push(I);
+    while (not Q.empty())
     {
-      cout << s << endl << "-" << endl;
+      const State& source = Q.front();
+      if (visited.insert(source).second) // if source was not done already
+      {
+        for (const State& dest : successors(source))
+        {
+          if (visited.find(dest) == visited.end())
+            Q.push(dest);
+          edges.emplace(source, dest);
+        }
+      }
+      Q.pop();
+    }
+
+    cout << fmt::format("No. edges = {}", edges.size()) << endl;
+
+    auto indent = [](const std::string& str, size_t level)
+    {
+      std::string tab(2 * level, ' ');
+      tab = "|" + tab;
+      return tab + std::regex_replace(str, std::regex("\n"), "\n" + tab);
+    };
+
+    // std::ofstream outfile("petersontest.txt");
+    std::ostream& outfile = cout;
+
+    State prev;
+    for (auto it = edges.begin(); it != edges.end(); it++)
+    {
+      if (it->first != prev)
+      {
+        outfile << "==================" << endl;
+        outfile << it->first << endl << "-------------------" << endl;
+      }
+
+      outfile << "-> " << endl << indent(it->second.to_string(), 1) << endl;
+      prev = it->first;
+    }
+return;
+    for (auto src_it = edges.begin(); src_it != edges.end();)
+    {
+      outfile << "==================" << endl;
+      outfile << src_it->first << endl << "-------------------" << endl;
+      auto step = edges.equal_range(src_it->first);
+      for (auto it = step.first; it != step.second; it++)
+        outfile << "-> " << endl << indent(it->second.to_string(), 1) << endl;
+
+      src_it = edges.upper_bound(src_it->first);
     }
   }
 
