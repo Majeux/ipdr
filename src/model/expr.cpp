@@ -33,13 +33,13 @@ namespace mysat::primed
     if (t == primed)
     {
       // is_value = (R"(([[:alnum:]_]+).p)"); // primed variable
-      is_value = next_name;
+      is_value   = next_name;
       match_name = next_name;
     }
     else
     {
       // is_value = (R"(([[:alnum:]_]+))");
-      is_value = fmt::format("{}(?!.p)", name); // name not followed by .p
+      is_value   = fmt::format("{}(?!.p)", name); // name not followed by .p
       match_name = name;
     }
 
@@ -55,9 +55,9 @@ namespace mysat::primed
         assert(match.size() == 1);
         // if (match[1] == match_name)
         // {
-          // no contradicting literals
-          assert(not v.has_value() || (v == not l.is_not()));
-          v = not l.is_not();
+        // no contradicting literals
+        assert(not v.has_value() || (v == not l.is_not()));
+        v = not l.is_not();
         // }
       }
     }
@@ -111,13 +111,13 @@ namespace mysat::primed
     if (t == primed)
     {
       // is_value = R"(([[:alnum:]_]+).p\[([[:digit:]]+)\])"; // primed variable
-      is_value = fmt::format("{}\\[([[:digit:]]+)\\]", next_name);
+      is_value   = fmt::format("{}\\[([[:digit:]]+)\\]", next_name);
       match_name = next_name;
     }
     else
     {
       // is_value = R"(([[:alnum:]_]+)\[([[:digit:]]+)\])";
-      is_value = fmt::format("{}\\[([[:digit:]]+)\\]", name);
+      is_value   = fmt::format("{}\\[([[:digit:]]+)\\]", name);
       match_name = name;
     }
 
@@ -175,15 +175,19 @@ namespace mysat::primed
     return rv;
   }
 
-  expr BitVec::less_4b(size_t msb, numrep_t n) const
+  expr BitVec::less_4b(numrep_t n, size_t msb) const
   {
     assert(msb < INT_MAX);
     const std::bitset<MAX_BITS> bits(n);
     assert(size <= bits.size());
 
     std::bitset<MAX_BITS> relevant(0);
-    for (size_t i = msb - 3; i <= msb; i++)
+    size_t lsb = msb - 3;
+    for (size_t i = std::min((size_t)0, lsb); i <= msb; i++)
+    {
       relevant.set(i, bits.test(i));
+    }
+    std::cout << std::endl;
 
     if (relevant.to_ulong() == 0)
       return ctx.bool_val(false); // unsigned, so impossible
@@ -209,17 +213,10 @@ namespace mysat::primed
     return z3::mk_or(disj);
   }
 
-  expr BitVec::less_4b(size_t msb, const BitVec& cube) const
+  expr BitVec::less_4b(const BitVec& cube, size_t msb) const
   {
     assert(size <= cube.size);
 
-    // disj.push_back(!current[msb] && cube(msb));
-    // disj.push_back(!(current[msb] ^ cube(msb)) && !current[msb-1] &&
-    // cube(msb-1)); disj.push_back(!(current[msb] ^ cube(msb)) &&
-    // !(current[msb-1] ^ cube(msb-1)) && !current[msb-2] && cube(msb-2));
-    // disj.push_back(!(current[msb] ^ cube(msb)) && !(current[msb-1] ^
-    // cube(msb-1)) && !(current[msb-2] ^ cube(msb-2)) && !current[msb-3] &&
-    // cube(msb-3));
     expr_vector disj(ctx);
     for (size_t i = 0; i <= msb; i++)
     {
@@ -238,40 +235,6 @@ namespace mysat::primed
 
     return z3::mk_or(disj);
   }
-
-  // z3::expr BitVec::rec_less(numrep_t n, size_t msb, size_t nbits) const
-  // {
-  //   if (nbits == 4)
-  //     return less_4b(msb - 1, n);
-
-  //   assert(nbits > 4);
-  //   assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
-
-  //   // terminate early
-  //   z3::expr significant_less = rec_less(n, msb, msb / 2);
-  //   // compare rest
-  //   z3::expr significant_eq   = eq(n, msb, msb / 2);
-  //   z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
-
-  //   return significant_less || (significant_eq && remainder_less);
-  // }
-
-  // z3::expr BitVec::rec_less(const BitVec& n, size_t msb, size_t nbits) const
-  // {
-  //   if (nbits == 4)
-  //     return less_4b(msb - 1, n);
-
-  //   assert(nbits > 4);
-  //   assert((nbits & (nbits - 1)) == 0); // Nbits must be a power of 2
-
-  //   // terminate early
-  //   z3::expr significant_less = rec_less(n, msb, msb / 2);
-  //   // compare rest
-  //   z3::expr significant_eq   = eq(n, msb, msb / 2);
-  //   z3::expr remainder_less   = rec_less(n, msb / 2, msb / 2);
-
-  //   return significant_less || (significant_eq && remainder_less);
-  // }
 
   z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
   {

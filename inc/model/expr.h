@@ -112,8 +112,8 @@ namespace mysat::primed
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"
     // 'i' is the most significant bit
-    z3::expr less_4b(size_t i, numrep_t n) const;
-    z3::expr less_4b(size_t msb, const BitVec& cube) const;
+    z3::expr less_4b(numrep_t n, size_t msb) const;
+    z3::expr less_4b(const BitVec& cube, size_t msb) const;
 
     // compares the 'nbits' most significant bits, starting from 'msb' down
     z3::expr eq(numrep_t n, size_t msb, size_t nbits) const;
@@ -129,7 +129,7 @@ namespace mysat::primed
       assert(nbits != 0);
       assert(msb < nbits);
       if (nbits <= 4)
-        return less_4b(msb, 4);
+        return less_4b(n, msb);
       else if ((nbits & (nbits - 1)) != 0)          // is not a power of 2
         nbits += std::pow(2, std::log2(nbits) + 1); // next power of 2
 

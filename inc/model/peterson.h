@@ -67,11 +67,10 @@ namespace peterson
     // TODO use model vector sizes
     State() : pc(0), level(0), free(0), last(0) {}
     State(Model::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
-    // State(const State& s) : pc(s.pc), level(s.level), free(s.free), last(s.last)
-    // {
-    // }
+
     z3::expr_vector cube(Model& m) const;
-    std::string to_string() const;
+    std::string to_string(bool inl = false) const;
+    std::string inline_string() const;
 
     bool operator<(const State&) const;
     bool operator==(const State&) const;

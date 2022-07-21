@@ -5,6 +5,7 @@
 #include <map>
 #include <queue>
 #include <regex>
+#include <tabulate/table.hpp>
 #include <z3++.h>
 #include <z3_api.h>
 
@@ -48,10 +49,7 @@ namespace peterson
     return true;
   }
 
-  bool State::operator!=(const State& s) const
-  {
-    return not(*this == s);
-  }
+  bool State::operator!=(const State& s) const { return not(*this == s); }
 
   expr_vector State::cube(Model& m) const
   {
@@ -81,46 +79,53 @@ namespace peterson
 
   std::ostream& operator<<(std::ostream& out, const State& s)
   {
-    using fmt::format;
-    using std::endl;
-
-    auto tab = [](unsigned n) { return std::string(2 * n, ' '); };
-    out << "State {" << endl;
-    {
-      out << tab(1) << "pc [" << endl;
-      for (Model::numrep_t i = 0; i < s.pc.size(); i++)
-        out << tab(2) << format("{}: {},", i, s.pc.at(i)) << endl;
-      out << tab(1) << "]" << endl << endl;
-    }
-    {
-      out << tab(1) << "level [" << endl;
-      for (Model::numrep_t i = 0; i < s.level.size(); i++)
-        out << tab(2) << format("{}: {},", i, s.level.at(i)) << endl;
-      out << tab(1) << "]" << endl << endl;
-    }
-    {
-      out << tab(1) << "free [" << endl;
-      for (Model::numrep_t i = 0; i < s.free.size(); i++)
-        out << tab(2) << format("{}: {},", i, s.free.at(i) ? "true" : "false")
-            << endl;
-      out << tab(1) << "]" << endl << endl;
-    }
-    {
-      out << tab(1) << "last [" << endl;
-      for (Model::numrep_t i = 0; i < s.last.size(); i++)
-        out << tab(2) << format("{}: {},", i, s.last.at(i)) << endl;
-      out << tab(1) << "]" << endl;
-    }
-    out << "}";
-
+    out << s.to_string(false);
     return out;
   }
 
-  std::string State::to_string() const
+  std::string State::to_string(bool inl) const
   {
+    using fmt::format;
+    using std::endl;
+
     std::stringstream ss;
-    ss << *this;
+    auto end = [inl]() { return inl ? "" : "\n"; };
+    auto tab = [inl](unsigned n) { return inl ? " " : std::string(2 * n, ' '); };
+
+    ss << "State {" << end();
+    {
+      ss << tab(1) << "pc [" << end();
+      for (Model::numrep_t i = 0; i < pc.size(); i++)
+        ss << tab(2) << format("{}: {},", i, pc.at(i)) << end();
+      ss << tab(1) << "]" << end() << endl;
+    }
+    {
+      ss << tab(1) << "level [" << end();
+      for (Model::numrep_t i = 0; i < level.size(); i++)
+        ss << tab(2) << format("{}: {},", i, level.at(i)) << end();
+      ss << tab(1) << "]" << end() << endl;
+    }
+    {
+      ss << tab(1) << "free [" << end();
+      for (Model::numrep_t i = 0; i < free.size(); i++)
+        ss << tab(2) << format("{}: {},", i, free.at(i) ? "true" : "false")
+            << end();
+      ss << tab(1) << "]" << end() << endl;
+    }
+    {
+      ss << tab(1) << "last [" << end();
+      for (Model::numrep_t i = 0; i < last.size(); i++)
+        ss << tab(2) << format("{}: {},", i, last.at(i)) << end();
+      ss << tab(1) << "]" << end();
+    }
+    ss << "}";
+
     return ss.str();
+  }
+
+  std::string State::inline_string() const
+  {
+    return to_string(true);
   }
 
   // MODEL MEMBERS
@@ -280,31 +285,31 @@ namespace peterson
     };
 
     // std::ofstream outfile("petersontest.txt");
-    std::ostream& outfile = cout;
+    std::ostream& out = cout;
 
-    State prev;
+    // State prev;
+    // for (auto it = edges.begin(); it != edges.end(); it++)
+    // {
+    //   if (it->first != prev)
+    //   {
+    //     tabulate::Table src;
+    //     src.add_row({ it->first.to_string() });
+    //     out << endl << src << endl;
+    //   }
+
+    //   out << "-> " << endl << indent(it->second.to_string(), 1) << endl;
+    //   prev = it->first;
+    // }
+
+    out << "digraph G {" << endl;
+    out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
     for (auto it = edges.begin(); it != edges.end(); it++)
     {
-      if (it->first != prev)
-      {
-        outfile << "==================" << endl;
-        outfile << it->first << endl << "-------------------" << endl;
-      }
-
-      outfile << "-> " << endl << indent(it->second.to_string(), 1) << endl;
-      prev = it->first;
+      out << fmt::format("\t\"{}\" -> \"{}\"", it->first.inline_string(),
+                 it->second.inline_string())
+          << endl;
     }
-return;
-    for (auto src_it = edges.begin(); src_it != edges.end();)
-    {
-      outfile << "==================" << endl;
-      outfile << src_it->first << endl << "-------------------" << endl;
-      auto step = edges.equal_range(src_it->first);
-      for (auto it = step.first; it != step.second; it++)
-        outfile << "-> " << endl << indent(it->second.to_string(), 1) << endl;
-
-      src_it = edges.upper_bound(src_it->first);
-    }
+    out << "}" << endl;
   }
 
   template <typename T,
@@ -498,12 +503,19 @@ return;
     // pc[i] == 4
     conj.push_back(pc.at(i).equals(4));
     conj.push_back(level.at(i).equals(N - 1)); // not needed?
+    conj.push_back(level.at(i).p_equals(0)); // not needed?
 
     // pc[i] <- 0
-    conj.push_back(pc.at(i).equals(0));
+    conj.push_back(pc.at(i).p_equals(0));
     // release lock
     conj.push_back(!free.at(i)());
     conj.push_back(free.at(i).p());
+
+    // all else stays
+    stays_except(conj, pc, i); // pc[i] stays or changes based on logic above
+    stays_except(conj, level, i);
+    stays(conj, free);
+    stays(conj, last);
 
     return mk_and(conj);
   }
