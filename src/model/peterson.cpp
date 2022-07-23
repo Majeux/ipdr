@@ -357,6 +357,20 @@ namespace peterson
       }
   }
 
+  //  T
+  //  0: idle
+  //    -> 1. level[i] <- 0
+  //  1: boundcheck
+  //    -> if level[i] < N-1 then 2. 
+  //    -> if level[i] >= N-1 then 4. 
+  //  2: set last
+  //    -> 3. last[level[i]] <- i
+  //  3: wait
+  //    -> if last[level[i]] == i && E k != i: level[k] >= level[i] then 3.
+  //    -> else then 1. level[i] <- level[i] + 1
+  //  4: critical section
+  //    ->
+
   expr Model::T_start(numrep_t i)
   {
     assert(i < N);
@@ -474,9 +488,9 @@ namespace peterson
       {
         expr set_index =
             implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
-        expr rest_stays =
-            implies(!level.at(i).equals(x), level.at(i).unchanged());
-        increment.push_back(set_index && rest_stays);
+        // expr rest_stays =
+        //     implies(!level.at(i).equals(x), level.at(i).unchanged()); // uhmm
+        increment.push_back(set_index);
       }
 
       expr wait     = pc.at(i).p_equals(3) && level.at(i).unchanged();
@@ -514,7 +528,7 @@ namespace peterson
     // all else stays
     stays_except(conj, pc, i); // pc[i] stays or changes based on logic above
     stays_except(conj, level, i);
-    stays(conj, free);
+    stays_except(conj, free, i);
     stays(conj, last);
 
     return mk_and(conj);
