@@ -20,7 +20,7 @@ namespace peterson
 
     friend State;
 
-    Model(size_t Nbits, z3::config& settings, numrep_t n_processes);
+    Model(z3::config& settings, numrep_t n_processes);
 
    private:
     z3::context ctx;

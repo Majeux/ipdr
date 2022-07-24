@@ -128,17 +128,17 @@ namespace peterson
 
   // MODEL MEMBERS
   //
-  Model::Model(size_t bits, z3::config& settings, numrep_t n_processes)
-      : ctx(settings), nbits(bits), N(n_processes), pc(), level(), last(),
+  Model::Model(z3::config& settings, numrep_t n_processes)
+      : ctx(settings), N(n_processes), pc(), level(), last(),
         initial(ctx), transition(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
-    assert(nbits <= std::numeric_limits<numrep_t>::digits);
 
     size_t max_state = 4;
     size_t pc_bits   = std::ceil(std::log2(max_state) + 1);
     size_t N_bits    = std::ceil(std::log2(N - 1) + 1);
+    assert(N_bits <= std::numeric_limits<numrep_t>::digits);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
@@ -277,15 +277,8 @@ namespace peterson
 
     cout << fmt::format("No. edges = {}", edges.size()) << endl;
 
-    auto indent = [](const std::string& str, size_t level)
-    {
-      std::string tab(2 * level, ' ');
-      tab = "|" + tab;
-      return tab + std::regex_replace(str, std::regex("\n"), "\n" + tab);
-    };
-
-    // std::ofstream outfile("petersontest.txt");
-    std::ostream& out = cout;
+    std::ofstream out("peter-out.txt");
+    // std::ostream& out = cout;
 
     out << "digraph G {" << endl;
     out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
@@ -406,6 +399,9 @@ namespace peterson
     stays(conj, level);
     stays(conj, free);
     stays(conj, last);
+
+    std::cout << i << std::endl;
+    std::cout << conj << std::endl << std::endl;
 
     return z3::mk_and(conj);
   }
