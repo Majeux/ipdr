@@ -41,12 +41,15 @@ namespace peterson
     z3::expr_vector initial;    // each array index to '-1;. pc to 0
     z3::expr_vector transition; // converted into cnf via tseytin
 
-    State make_state(const z3::expr_vector& witness,
+    State extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);
+    State extract_state_p(const z3::expr_vector& witness);
+
     std::set<State> successors(const z3::expr_vector& v);
     std::set<State> successors(const State& s);
 
     void test_room();
+    void test_wait(numrep_t i);
 
     z3::expr T_start(numrep_t i);
     z3::expr T_boundcheck(numrep_t i);
@@ -67,6 +70,11 @@ namespace peterson
     // TODO use model vector sizes
     State() : pc(0), level(0), free(0), last(0) {}
     State(Model::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
+    State(std::vector<Model::numrep_t>&& p, std::vector<Model::numrep_t>&& l,
+        std::vector<bool>&& f, std::vector<Model::numrep_t>&& lst)
+        : pc(p), level(l), free(f), last(lst)
+    {
+    }
 
     z3::expr_vector cube(Model& m) const;
     std::string to_string(bool inl = false) const;

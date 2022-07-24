@@ -90,7 +90,8 @@ namespace peterson
 
     std::stringstream ss;
     auto end = [inl]() { return inl ? "" : "\n"; };
-    auto tab = [inl](unsigned n) { return inl ? " " : std::string(2 * n, ' '); };
+    auto tab = [inl](unsigned n)
+    { return inl ? " " : std::string(2 * n, ' '); };
 
     ss << "State {" << end();
     {
@@ -109,7 +110,7 @@ namespace peterson
       ss << tab(1) << "free [" << end();
       for (Model::numrep_t i = 0; i < free.size(); i++)
         ss << tab(2) << format("{}: {},", i, free.at(i) ? "true" : "false")
-            << end();
+           << end();
       ss << tab(1) << "]" << end() << endl;
     }
     {
@@ -123,10 +124,7 @@ namespace peterson
     return ss.str();
   }
 
-  std::string State::inline_string() const
-  {
-    return to_string(true);
-  }
+  std::string State::inline_string() const { return to_string(true); }
 
   // MODEL MEMBERS
   //
@@ -200,9 +198,11 @@ namespace peterson
       // std::cout << transition << std::endl;
     }
     test_room();
+    // test_wait(0);
+    // test_wait(1);
   }
 
-  State Model::make_state(const expr_vector& cube, mysat::primed::lit_type t)
+  State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
   {
     State s(N);
 
@@ -218,9 +218,14 @@ namespace peterson
     return s;
   }
 
+  State Model::extract_state_p(const expr_vector& cube)
+  {
+    return extract_state(cube, mysat::primed::lit_type::primed);
+  }
+
   std::set<State> Model::successors(const expr_vector& v)
   {
-    return successors(make_state(v));
+    return successors(extract_state(v));
   }
 
   std::set<State> Model::successors(const State& s)
@@ -236,7 +241,7 @@ namespace peterson
 
     while (optional<expr_vector> w = check_witness(solver, transition))
     {
-      S.insert(make_state(*w, lit_type::primed));
+      S.insert(extract_state(*w, lit_type::primed));
       solver.add(!mk_and(*w)); // exclude from future search
     }
 
@@ -249,16 +254,11 @@ namespace peterson
     using std::cout;
     using std::endl;
 
-    z3::solver solver(ctx);
-    solver.add(initial);
-
-    expr_vector i_witness = z3ext::solver::check_witness(solver).value();
-
     std::queue<State> Q;
     std::set<State> visited;
     std::multimap<State, State, std::less<>> edges;
 
-    const State I = make_state(i_witness);
+    const State I = extract_state(initial);
     Q.push(I);
     while (not Q.empty())
     {
@@ -286,20 +286,6 @@ namespace peterson
 
     // std::ofstream outfile("petersontest.txt");
     std::ostream& out = cout;
-
-    // State prev;
-    // for (auto it = edges.begin(); it != edges.end(); it++)
-    // {
-    //   if (it->first != prev)
-    //   {
-    //     tabulate::Table src;
-    //     src.add_row({ it->first.to_string() });
-    //     out << endl << src << endl;
-    //   }
-
-    //   out << "-> " << endl << indent(it->second.to_string(), 1) << endl;
-    //   prev = it->first;
-    // }
 
     out << "digraph G {" << endl;
     out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
@@ -361,8 +347,8 @@ namespace peterson
   //  0: idle
   //    -> 1. level[i] <- 0
   //  1: boundcheck
-  //    -> if level[i] < N-1 then 2. 
-  //    -> if level[i] >= N-1 then 4. 
+  //    -> if level[i] < N-1 then 2.
+  //    -> if level[i] >= N-1 then 4.
   //  2: set last
   //    -> 3. last[level[i]] <- i
   //  3: wait
@@ -450,6 +436,48 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
+  void Model::test_wait(numrep_t i)
+  {
+    using z3::check_result;
+
+    z3::solver s(ctx);
+    State both_waiting{ { 3, 3 }, { 0, 0 }, { false, false }, { 1 } };
+    s.add(both_waiting.cube(*this));
+
+    expr_vector eq_i(ctx); // last[l[i]] = i:
+    for (numrep_t x = 0; x < N - 1; x++)
+    {
+      // if l[i] = x, we require last[x] = i
+      eq_i.push_back(implies(level.at(i).equals(x), last.at(x).equals(i)));
+    }
+
+    expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= level[i]
+    for (numrep_t k = 0; k < N; k++)
+    {
+      if (k != i)             // forall k != i:
+        any_higher.push_back( // !(l[k] < l[i]), free acts as a sign bit
+            !free.at(k)() && (free.at(i) || !level.at(k).less(level.at(i))));
+    }
+
+    // expr query = mk_and(eq_i);
+    expr query = mk_and(eq_i) & mk_or(any_higher);
+    // std::cout << s << std::endl;
+    std::cout << query << std::endl << std::endl;
+
+    check_result r = s.check(1, &query);
+    switch (r)
+    {
+      case check_result::sat: std::cout << i << " sat" << std::endl; break;
+      case check_result::unsat: std::cout << i << " unsat" << std::endl; break;
+      case check_result::unknown:
+        std::cout << i << " unknown" << std::endl;
+        break;
+    }
+
+    // expr_vector witness = z3ext::solver::check_witness(s).value();
+    // State dst = extract_state_p(witness);
+  }
+
   expr Model::T_await(numrep_t i)
   {
     assert(i < N);
@@ -463,24 +491,26 @@ namespace peterson
     // ELSE increment and go to loop bound
     expr branch(ctx);
     {
-      expr_vector any_higher(ctx);
+      expr check(ctx); // last[i] == i AND EXISTS k != i: level[k] >= last[i]
       {
+        expr_vector eq_i(ctx); // last[l[i]] = i:
+        for (numrep_t x = 0; x < N - 1; x++)
+        {
+          // if l[i] = x, we require last[x] = i
+          eq_i.push_back(implies(level.at(i).equals(x), last.at(x).equals(i)));
+        }
+
+        expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= last[i]
         for (numrep_t k = 0; k < N; k++)
+        {
           if (k != i)             // forall k != i:
-            any_higher.push_back( // l[i] < l[k]
+            any_higher.push_back( // l[i] < l[k], free acts as a sign bit
                 !free.at(k)() &&
                 (free.at(i) ||
-                    level.at(i).less(level.at(k)))); // if free[i], l[i]=-1
+                    !level.at(k).less(level.at(i)))); // if free[i], l[i]=-1
+        }
+        check = mk_and(eq_i) && mk_or(any_higher);
       }
-      // last[l[i]] = i:
-      expr_vector eq_i(ctx);
-      for (numrep_t x = 0; x < N - 1; x++)
-      {
-        // if l[i] = x, we require last[x] = i
-        expr branch = implies(level.at(i).equals(x), last.at(x).equals(i));
-        eq_i.push_back(branch);
-      }
-      expr check = mk_or(eq_i) && mk_or(any_higher);
 
       // l[i]++
       expr_vector increment(ctx);
@@ -517,7 +547,7 @@ namespace peterson
     // pc[i] == 4
     conj.push_back(pc.at(i).equals(4));
     conj.push_back(level.at(i).equals(N - 1)); // not needed?
-    conj.push_back(level.at(i).p_equals(0)); // not needed?
+    conj.push_back(level.at(i).p_equals(0));   // not needed?
 
     // pc[i] <- 0
     conj.push_back(pc.at(i).p_equals(0));
