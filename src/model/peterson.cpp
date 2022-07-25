@@ -128,6 +128,13 @@ namespace peterson
 
   // MODEL MEMBERS
   //
+  size_t bits_for(Model::numrep_t n)
+  {
+    size_t bits    = std::ceil(std::log2(n - 1) + 1);
+    assert(bits <= std::numeric_limits<Model::numrep_t>::digits);
+	return bits;
+  }
+
   Model::Model(z3::config& settings, numrep_t n_processes)
       : ctx(settings), N(n_processes), pc(), level(), last(),
         initial(ctx), transition(ctx)
@@ -135,10 +142,8 @@ namespace peterson
     using fmt::format;
     assert(N < INT_MAX);
 
-    size_t max_state = 4;
-    size_t pc_bits   = std::ceil(std::log2(max_state) + 1);
-    size_t N_bits    = std::ceil(std::log2(N - 1) + 1);
-    assert(N_bits <= std::numeric_limits<numrep_t>::digits);
+    size_t pc_bits   = bits_for(pc_num);
+    size_t N_bits    = bits_for(N);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
@@ -197,9 +202,11 @@ namespace peterson
       // std::cout << "CNF TRANSITION" << std::endl;
       // std::cout << transition << std::endl;
     }
-    test_room();
+    // test_room();
     // test_wait(0);
     // test_wait(1);
+	bv_val_test(10);
+	bv_comp_test(10);
   }
 
   State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
@@ -400,9 +407,6 @@ namespace peterson
     stays(conj, free);
     stays(conj, last);
 
-    std::cout << i << std::endl;
-    std::cout << conj << std::endl << std::endl;
-
     return z3::mk_and(conj);
   }
 
@@ -560,16 +564,53 @@ namespace peterson
     return mk_and(conj);
   }
 
-  void Model::bitvector_test(size_t max_value)
+  void Model::bv_comp_test(size_t max_value)
   {
-    mysat::primed::BitVec bv(ctx, "b", nbits);
+    mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value+1));
+    mysat::primed::BitVec bv2(ctx, "b2", bits_for(max_value+1));
     unsigned wrong{ 0 };
 
-    for (unsigned i = 2; i < max_value; i++)
+    for (unsigned i = 0; i <= max_value; i++)
     {
-      for (unsigned j = std::pow(2, 4); j < max_value; j++)
+      for (unsigned j = 0; j <= max_value; j++)
       {
-        assert(i < max_value && j < max_value);
+        z3::solver s(ctx);
+
+        s.add(bv1.equals(i));
+        s.add(bv2.equals(j));
+        s.add(bv1.less(bv2));
+        z3::check_result r = s.check();
+        if (i >= j && r == z3::check_result::sat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse sat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+        if (i < j && r == z3::check_result::unsat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse unsat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+      }
+    }
+    std::cout << fmt::format("{} wrong bv comparisons", wrong) << std::endl;
+    return;
+  }
+
+  void Model::bv_val_test(size_t max_value)
+  {
+    mysat::primed::BitVec bv(ctx, "b", bits_for(max_value+1));
+    unsigned wrong{ 0 };
+
+    for (unsigned i = 0; i <= max_value; i++)
+    {
+      for (unsigned j = 0; j <= max_value; j++)
+      {
         z3::solver s(ctx);
 
         s.add(bv.equals(i));
@@ -593,7 +634,7 @@ namespace peterson
         }
       }
     }
-    std::cout << fmt::format("{} wrong comparisons", wrong) << std::endl;
+    std::cout << fmt::format("{} wrong bv - uint comparisons", wrong) << std::endl;
     return;
   }
 } // namespace peterson

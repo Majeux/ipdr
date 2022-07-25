@@ -24,11 +24,11 @@ namespace peterson
 
    private:
     z3::context ctx;
-    size_t nbits;
     // no. processes
     numrep_t N;
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
+	const static numrep_t pc_num = 5;
     // vector of ints. level for process i
     std::vector<BitVec> level;
     // flag that denotes if process i has released the resource
@@ -57,7 +57,8 @@ namespace peterson
     z3::expr T_await(numrep_t i);
     z3::expr T_release(numrep_t i);
 
-    void bitvector_test(size_t max_value);
+    void bv_comp_test(size_t max_value);
+    void bv_val_test(size_t max_value);
   }; // class Model
 
   struct State

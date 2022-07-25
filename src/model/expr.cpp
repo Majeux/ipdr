@@ -178,16 +178,15 @@ namespace mysat::primed
   expr BitVec::less_4b(numrep_t n, size_t msb) const
   {
     assert(msb < INT_MAX);
+    assert((msb + 1) % 4 == 0);
+    size_t lsb = msb - 3;
+
     const std::bitset<MAX_BITS> bits(n);
     assert(size <= bits.size());
 
     std::bitset<MAX_BITS> relevant(0);
-    size_t lsb = msb - 3;
-    for (size_t i = std::min((size_t)0, lsb); i <= msb; i++)
-    {
+    for (size_t i = lsb; i <= msb; i++)
       relevant.set(i, bits.test(i));
-    }
-    std::cout << std::endl;
 
     if (relevant.to_ulong() == 0)
       return ctx.bool_val(false); // unsigned, so impossible
@@ -195,17 +194,15 @@ namespace mysat::primed
     auto set = [this, &bits](size_t i) { return ctx.bool_val(bits.test(i)); };
 
     expr_vector disj(ctx);
-    for (size_t i = 0; i <= msb; i++)
+    for (int i = msb; i >= (int)lsb; i--)
     {
-      expr e = ctx.bool_val(true);
-      for (int j = i; j >= 0; j--)
+      expr bit = i < (int)size ? current[i] : ctx.bool_val(false);
+      expr e   = !bit && set(i);
+      for (size_t j = i + 1; j <= msb; j++)
       {
-        // handle if BitVec does not store msb+1 bits
-        expr c_bit = j < (int)size ? current[j] : ctx.bool_val(false);
-        if (j == 0)
-          e = !c_bit && set(j) && e;
-        else
-          e = !(c_bit ^ set(j)) && e;
+        // handle if BitVec does not store i+1 bits
+        expr bit = j < size ? current[j] : ctx.bool_val(false);
+        e        = !(bit ^ set(j)) && e;
       }
       disj.push_back(e);
     }
@@ -215,20 +212,23 @@ namespace mysat::primed
 
   expr BitVec::less_4b(const BitVec& cube, size_t msb) const
   {
-    assert(size <= cube.size);
+    assert(size == cube.size);
+    assert(msb < INT_MAX);
+    assert((msb + 1) % 4 == 0);
+    size_t lsb = msb - 3;
 
     expr_vector disj(ctx);
-    for (size_t i = 0; i <= msb; i++)
+    for (int i = msb; i >= (int)lsb; i--)
     {
-      expr e = ctx.bool_val(true);
-      for (int j = i; j >= 0; j--)
+      expr bit      = i < (int)size ? current[i] : ctx.bool_val(false);
+      expr cube_bit = i < (int)size ? cube(i) : ctx.bool_val(false);
+      expr e        = !bit && cube_bit;
+      for (size_t j = i + 1; j <= msb; j++)
       {
         // handle if BitVec does not store i+1 bits
-        expr c_bit = j < (int)size ? current[j] : ctx.bool_val(false);
-        if (j == 0)
-          e = !c_bit && cube(j) && e;
-        else
-          e = !(c_bit ^ cube(j)) && e;
+        expr bit      = j < size ? current[j] : ctx.bool_val(false);
+        expr cube_bit = j < size ? cube(j) : ctx.bool_val(false);
+        e             = !(bit ^ cube_bit) && e;
       }
       disj.push_back(e);
     }
@@ -238,28 +238,38 @@ namespace mysat::primed
 
   z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
   {
+    assert((msb + 1) % 4 == 0);
+    assert((msb + 1) >= nbits);
+    size_t lsb = msb - (nbits-1);
+
     const std::bitset<MAX_BITS> bits(n);
 
     z3::expr_vector conj(ctx);
-    for (size_t i = 0; i < nbits; i++)
+    for (size_t i = lsb; i <= msb; i++)
     {
-      assert(i < size);
-      if (bits.test(msb - i))
-        conj.push_back(current[msb - i]);
+      expr bit = i < size ? current[i] : ctx.bool_val(false);
+      if (bits.test(i))
+        conj.push_back(bit);
       else
-        conj.push_back(!current[msb - i]);
+        conj.push_back(!bit);
     }
 
     return z3::mk_and(conj);
   }
 
-  z3::expr BitVec::eq(const BitVec& n, size_t msb, size_t nbits) const
+  z3::expr BitVec::eq(const BitVec& cube, size_t msb, size_t nbits) const
   {
+    assert(size == cube.size);
+    assert((msb + 1) % 4 == 0);
+    assert((msb + 1) >= nbits);
+    size_t lsb = msb - (nbits-1);
+
     z3::expr_vector conj(ctx);
-    for (size_t i = 0; i < nbits; i++)
+    for (size_t i = lsb; i <= msb; i++)
     {
-      assert(i < size && i < n.size);
-      conj.push_back(!(n(msb - i) ^ current[msb - i])); // n[i] <=> current[i]
+      expr bit      = i < size ? current[i] : ctx.bool_val(false);
+      expr cube_bit = i < size ? cube(i) : ctx.bool_val(false);
+      conj.push_back(!(cube_bit ^ bit)); // n[i] <=> current[i]
     }
 
     return z3::mk_and(conj);

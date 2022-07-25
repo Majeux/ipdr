@@ -101,7 +101,9 @@ namespace mysat::primed
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
-      return rec_less(n, size - 1, size);
+      // less_4b assigns default values if size is too smalle
+      size_t nbits = size + (4 - size%4);
+      return rec_less(n, nbits - 1, nbits);
     }
 
    private:
@@ -126,9 +128,8 @@ namespace mysat::primed
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
 
-      assert(nbits != 0);
-      assert(msb < nbits);
-      if (nbits <= 4)
+      assert(nbits % 4 == 0);
+      if (nbits == 4)
         return less_4b(n, msb);
       else if ((nbits & (nbits - 1)) != 0)          // is not a power of 2
         nbits += std::pow(2, std::log2(nbits) + 1); // next power of 2
