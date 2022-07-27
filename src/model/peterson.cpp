@@ -3,6 +3,7 @@
 #include <fmt/core.h>
 #include <fstream>
 #include <map>
+#include <numeric>
 #include <queue>
 #include <regex>
 #include <tabulate/table.hpp>
@@ -25,13 +26,23 @@ namespace peterson
   {
     if (pc < s.pc)
       return true;
+    if (s.pc < pc)
+      return false;
+
     if (level < s.level)
       return true;
+    if (s.level < level)
+      return false;
+
     if (free < s.free)
       return true;
+    if (s.free < free)
+      return false;
+
     if (last < s.last)
       return true;
 
+    // return inline_string() < s.inline_string();
     return false;
   }
 
@@ -130,20 +141,20 @@ namespace peterson
   //
   size_t bits_for(Model::numrep_t n)
   {
-    size_t bits    = std::ceil(std::log2(n - 1) + 1);
+    size_t bits = std::ceil(std::log2(n - 1) + 1);
     assert(bits <= std::numeric_limits<Model::numrep_t>::digits);
-	return bits;
+    return bits;
   }
 
   Model::Model(z3::config& settings, numrep_t n_processes)
-      : ctx(settings), N(n_processes), pc(), level(), last(),
-        initial(ctx), transition(ctx)
+      : ctx(settings), N(n_processes), pc(), level(), last(), initial(ctx),
+        transition(ctx)
   {
     using fmt::format;
     assert(N < INT_MAX);
 
-    size_t pc_bits   = bits_for(pc_num);
-    size_t N_bits    = bits_for(N);
+    size_t pc_bits = bits_for(pc_num);
+    size_t N_bits  = bits_for(N);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
@@ -202,11 +213,9 @@ namespace peterson
       // std::cout << "CNF TRANSITION" << std::endl;
       // std::cout << transition << std::endl;
     }
-    // test_room();
-    // test_wait(0);
-    // test_wait(1);
-	bv_val_test(10);
-	bv_comp_test(10);
+    test_room();
+    // bv_val_test(10);
+    // bv_comp_test(10);
   }
 
   State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
@@ -260,13 +269,27 @@ namespace peterson
     using mysat::primed::lit_type;
     using std::cout;
     using std::endl;
+    using std::map;
+    using std::queue;
+    using std::set;
 
-    std::queue<State> Q;
-    std::set<State> visited;
-    std::multimap<State, State, std::less<>> edges;
+    std::ofstream out("peter-out.txt");
+    // std::ostream& out = cout;
+    //
+    queue<State> Q;
+    set<State> visited;
+    map<State, set<State>> edges;
+    // create a set if none exists, and insert destination
+    auto edges_insert = [&edges](const State& src, const State& dst)
+    {
+      set<State> s;
+      set<State>& dst_set = edges.emplace(src, s).first->second;
+      dst_set.insert(dst);
+    };
 
     const State I = extract_state(initial);
     Q.push(I);
+
     while (not Q.empty())
     {
       const State& source = Q.front();
@@ -276,24 +299,26 @@ namespace peterson
         {
           if (visited.find(dest) == visited.end())
             Q.push(dest);
-          edges.emplace(source, dest);
+          edges_insert(source, dest);
         }
       }
       Q.pop();
     }
 
-    cout << fmt::format("No. edges = {}", edges.size()) << endl;
+    unsigned size = std::accumulate(edges.begin(), edges.end(), 0,
+        [](unsigned a, const auto& s) { return a + s.second.size(); });
 
-    std::ofstream out("peter-out.txt");
-    // std::ostream& out = cout;
+    cout << fmt::format("No. edges = {}", size) << endl;
 
     out << "digraph G {" << endl;
     out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
-    for (auto it = edges.begin(); it != edges.end(); it++)
+    for (const auto& map_pair : edges)
     {
-      out << fmt::format("\t\"{}\" -> \"{}\"", it->first.inline_string(),
-                 it->second.inline_string())
-          << endl;
+      std::string src_str = map_pair.first.inline_string();
+      assert(map_pair.second.size() == 2);
+      for (const State& dst : map_pair.second)
+        out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
+            << endl << endl;
     }
     out << "}" << endl;
   }
@@ -436,48 +461,6 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
-  void Model::test_wait(numrep_t i)
-  {
-    using z3::check_result;
-
-    z3::solver s(ctx);
-    State both_waiting{ { 3, 3 }, { 0, 0 }, { false, false }, { 1 } };
-    s.add(both_waiting.cube(*this));
-
-    expr_vector eq_i(ctx); // last[l[i]] = i:
-    for (numrep_t x = 0; x < N - 1; x++)
-    {
-      // if l[i] = x, we require last[x] = i
-      eq_i.push_back(implies(level.at(i).equals(x), last.at(x).equals(i)));
-    }
-
-    expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= level[i]
-    for (numrep_t k = 0; k < N; k++)
-    {
-      if (k != i)             // forall k != i:
-        any_higher.push_back( // !(l[k] < l[i]), free acts as a sign bit
-            !free.at(k)() && (free.at(i) || !level.at(k).less(level.at(i))));
-    }
-
-    // expr query = mk_and(eq_i);
-    expr query = mk_and(eq_i) & mk_or(any_higher);
-    // std::cout << s << std::endl;
-    std::cout << query << std::endl << std::endl;
-
-    check_result r = s.check(1, &query);
-    switch (r)
-    {
-      case check_result::sat: std::cout << i << " sat" << std::endl; break;
-      case check_result::unsat: std::cout << i << " unsat" << std::endl; break;
-      case check_result::unknown:
-        std::cout << i << " unknown" << std::endl;
-        break;
-    }
-
-    // expr_vector witness = z3ext::solver::check_witness(s).value();
-    // State dst = extract_state_p(witness);
-  }
-
   expr Model::T_await(numrep_t i)
   {
     assert(i < N);
@@ -566,8 +549,8 @@ namespace peterson
 
   void Model::bv_comp_test(size_t max_value)
   {
-    mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value+1));
-    mysat::primed::BitVec bv2(ctx, "b2", bits_for(max_value+1));
+    mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value + 1));
+    mysat::primed::BitVec bv2(ctx, "b2", bits_for(max_value + 1));
     unsigned wrong{ 0 };
 
     for (unsigned i = 0; i <= max_value; i++)
@@ -604,7 +587,7 @@ namespace peterson
 
   void Model::bv_val_test(size_t max_value)
   {
-    mysat::primed::BitVec bv(ctx, "b", bits_for(max_value+1));
+    mysat::primed::BitVec bv(ctx, "b", bits_for(max_value + 1));
     unsigned wrong{ 0 };
 
     for (unsigned i = 0; i <= max_value; i++)
@@ -634,7 +617,8 @@ namespace peterson
         }
       }
     }
-    std::cout << fmt::format("{} wrong bv - uint comparisons", wrong) << std::endl;
+    std::cout << fmt::format("{} wrong bv - uint comparisons", wrong)
+              << std::endl;
     return;
   }
 } // namespace peterson
