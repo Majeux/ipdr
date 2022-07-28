@@ -41,6 +41,8 @@ namespace peterson
     z3::expr_vector initial;    // each array index to '-1;. pc to 0
     z3::expr_vector transition; // converted into cnf via tseytin
 
+    z3::expr_vector mutex; // cnf property
+
     State extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);
     State extract_state_p(const z3::expr_vector& witness);

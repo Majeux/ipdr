@@ -108,26 +108,25 @@ namespace peterson
     {
       ss << tab(1) << "pc [" << end();
       for (Model::numrep_t i = 0; i < pc.size(); i++)
-        ss << tab(2) << format("{}: {},", i, pc.at(i)) << end();
-      ss << tab(1) << "]" << end() << endl;
+        ss << tab(2) << format("{},", pc.at(i)) << end();
+      ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "level [" << end();
       for (Model::numrep_t i = 0; i < level.size(); i++)
-        ss << tab(2) << format("{}: {},", i, level.at(i)) << end();
-      ss << tab(1) << "]" << end() << endl;
+        ss << tab(2) << format("{},", level.at(i)) << end();
+      ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "free [" << end();
       for (Model::numrep_t i = 0; i < free.size(); i++)
-        ss << tab(2) << format("{}: {},", i, free.at(i) ? "true" : "false")
-           << end();
-      ss << tab(1) << "]" << end() << endl;
+        ss << tab(2) << format("{},", free.at(i) ? "true" : "false") << end();
+      ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "last [" << end();
       for (Model::numrep_t i = 0; i < last.size(); i++)
-        ss << tab(2) << format("{}: {},", i, last.at(i)) << end();
+        ss << tab(2) << format("{},", last.at(i)) << end();
       ss << tab(1) << "]" << end();
     }
     ss << "}";
@@ -148,9 +147,11 @@ namespace peterson
 
   Model::Model(z3::config& settings, numrep_t n_processes)
       : ctx(settings), N(n_processes), pc(), level(), last(), initial(ctx),
-        transition(ctx)
+        transition(ctx), mutex(ctx)
   {
     using fmt::format;
+    using z3ext::tseytin::to_cnf_vec;
+
     assert(N < INT_MAX);
 
     size_t pc_bits = bits_for(pc_num);
@@ -209,11 +210,25 @@ namespace peterson
       // transition = disj; // no
       // std::cout << "RAW TRANSITION" << std::endl;
       // std::cout << disj << std::endl;
-      transition = z3ext::tseytin::to_cnf_vec(mk_or(disj));
+      transition = to_cnf_vec(mk_or(disj));
       // std::cout << "CNF TRANSITION" << std::endl;
       // std::cout << transition << std::endl;
     }
-    test_room();
+
+    expr_vector conj(ctx), critical(ctx);
+    {
+      for (numrep_t i = 0; i < N; i++)
+      {
+        expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
+        critical.push_back(crit_i);
+
+        conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
+      }
+    }
+    mutex = to_cnf_vec(mk_and(conj));
+    mutex.push_back(z3::atmost(critical, 1));
+
+        test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
   }
@@ -275,7 +290,8 @@ namespace peterson
 
     std::ofstream out("peter-out.txt");
     // std::ostream& out = cout;
-    //
+    cout << "N = " << N << std::endl;
+
     queue<State> Q;
     set<State> visited;
     map<State, set<State>> edges;
@@ -314,11 +330,14 @@ namespace peterson
     out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
     for (const auto& map_pair : edges)
     {
+      assert(map_pair.second.size() <= N);
+
       std::string src_str = map_pair.first.inline_string();
-      assert(map_pair.second.size() == 2);
+
       for (const State& dst : map_pair.second)
         out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
-            << endl << endl;
+            << endl
+            << endl;
     }
     out << "}" << endl;
   }
