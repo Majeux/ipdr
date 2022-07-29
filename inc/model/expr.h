@@ -28,7 +28,7 @@ namespace mysat::primed
     const std::string next_name;
 
     IPrimed(z3::context& c, const std::string& n)
-        : name(n), next_name(n + ".p"), ctx(c), current(ctx), next(ctx)
+        : name(n), next_name(prime(n)), ctx(c), current(ctx), next(ctx)
     {
     }
 
@@ -40,6 +40,13 @@ namespace mysat::primed
     z3::context& ctx;
     Tcontainer current;
     Tcontainer next;
+
+    std::string prime(std::string_view s) const
+    {
+      assert(s.size() > 0);
+      assert(s.size() < 2 || s.substr(s.size() - 2, 2) != ".p");
+      return std::string(s) + ".p";
+    }
   }; // class IPrimed
 
   class Lit final : public IPrimed<z3::expr>, public IStays
@@ -55,6 +62,27 @@ namespace mysat::primed
     bool extract_value(const z3::expr_vector& cube, lit_type t = base) const;
 
   }; // class Lit
+
+  class LitVec final : public IPrimed<z3::expr_vector>
+  {
+   public:
+    LitVec(z3::context& c, const std::vector<std::string> names);
+
+    operator const z3::expr_vector&() const override;
+    const z3::expr_vector& operator()() const override;
+    const z3::expr_vector& p() const override;
+
+    z3::expr operator()(const z3::expr& e) const;
+    z3::expr p(const z3::expr& e) const;
+
+    bool lit_is_current(const z3::expr& e) const;
+    bool lit_is_p(const z3::expr& e) const;
+
+   private:
+    std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_current;
+    std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_next;
+
+  }; // class LitVec
 
   class BitVec final : public IPrimed<z3::expr_vector>, public IStays
   {
@@ -102,7 +130,7 @@ namespace mysat::primed
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
       // less_4b assigns default values if size is too smalle
-      size_t nbits = size + (4 - size%4);
+      size_t nbits = size + (4 - size % 4);
       return rec_less(n, nbits - 1, nbits);
     }
 

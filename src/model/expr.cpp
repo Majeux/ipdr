@@ -67,6 +67,49 @@ namespace mysat::primed
 
   // BitVec
   // public
+  LitVec::LitVec(z3::context& c, const std::vector<std::string> names)
+      : IPrimed<expr_vector>(c, "litvec")
+  {
+    for (const std::string& name : names)
+    {
+      const expr new_curr = ctx.bool_const(name.c_str());
+      const expr new_next = ctx.bool_const(prime(name).c_str());
+
+      current.push_back(new_curr);
+      next.push_back(new_next);
+
+      to_current.emplace(new_next, new_curr);
+      to_next.emplace(new_curr, new_next);
+    }
+  }
+
+  LitVec::operator const expr_vector&() const { return current; }
+  const expr_vector& LitVec::operator()() const { return current; }
+  const expr_vector& LitVec::p() const { return next; }
+
+  expr LitVec::operator()(const expr& e) const
+  {
+    if (e.is_not())
+    {
+      assert(e.arg(0).is_const());
+      return !to_current.at(e.arg(0));
+    }
+    assert(e.arg(0).is_const());
+    return to_current.at(e);
+  }
+  expr LitVec::p(const expr& e) const 
+  { 
+    if (e.is_not())
+    {
+      assert(e.arg(0).is_const());
+      return !to_next.at(e.arg(0)); 
+    }
+    assert(e.arg(0).is_const());
+    return to_next.at(e); 
+  }
+
+  // BitVec
+  // public
   BitVec::BitVec(z3::context& c, const std::string& n, size_t Nbits)
       : IPrimed<expr_vector>(c, n), size(Nbits)
   {
@@ -240,7 +283,7 @@ namespace mysat::primed
   {
     assert((msb + 1) % 4 == 0);
     assert((msb + 1) >= nbits);
-    size_t lsb = msb - (nbits-1);
+    size_t lsb = msb - (nbits - 1);
 
     const std::bitset<MAX_BITS> bits(n);
 
@@ -262,7 +305,7 @@ namespace mysat::primed
     assert(size == cube.size);
     assert((msb + 1) % 4 == 0);
     assert((msb + 1) >= nbits);
-    size_t lsb = msb - (nbits-1);
+    size_t lsb = msb - (nbits - 1);
 
     z3::expr_vector conj(ctx);
     for (size_t i = lsb; i <= msb; i++)

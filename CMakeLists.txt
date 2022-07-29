@@ -19,12 +19,13 @@ find_package(Z3 CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
+file(GLOB PDR_MODEL_SOURCES "src/model/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 file(GLOB SOLVER_SOURCES "src/solver/*.cpp")
 file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
 file(GLOB TEST_SOURCES "src/testing/*.cpp")
 
-add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_SOURCES} ${TEST_SOURCES})
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${PDR_MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_SOURCES} ${TEST_SOURCES})
 
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -53,7 +54,7 @@ else ()
   message(STATUS "! logging turned off")
 endif (DO_LOG)
 
-target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/algo inc/solver inc/testing)
+target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/model/pdr inc/algo inc/solver inc/testing)
 target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include inc/ext/mockturtle/include)
 
 add_library(fmt INTERFACE) # override mockturtle's local version with current

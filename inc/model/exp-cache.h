@@ -46,7 +46,7 @@ class ExpressionCache
     return literal_index.find(e.id()) != literal_index.end();
   }
   // returns true if e is a literal in current. else false
-  bool literal_is_current(const z3::expr& e) const
+  bool lit_is_current(const z3::expr& e) const
   {
     if (e.is_not())
       return literal_index.find(e.arg(0).id()) != literal_index.end();
@@ -54,7 +54,7 @@ class ExpressionCache
   }
 
   //  not used
-  bool literal_is_p(const z3::expr& e) const
+  bool lit_is_p(const z3::expr& e) const
   {
     if (e.is_not())
       return literal_index_p.find(e.arg(0).id()) != literal_index.end();

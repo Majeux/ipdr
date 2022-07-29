@@ -63,6 +63,12 @@ namespace z3ext
     bool operator()(const z3::expr& l, const z3::expr& r) const;
   };
 
+  // z3::expr hash function
+  struct expr_hash
+  {
+    size_t operator()(const z3::expr& l) const;
+  };
+
   // z3::expr_vector comparator
   struct expr_vector_less
   {

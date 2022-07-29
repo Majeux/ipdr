@@ -1,15 +1,17 @@
 #ifndef PETERSON_H
 #define PETERSON_H
 
+#include <z3++.h>
+
 #include "exp-cache.h"
 #include "expr.h"
-#include <z3++.h>
+#include "pdr-model.h"
 
 namespace peterson
 {
   struct State;
 
-  class Model
+  class Model : public pdr::IModel
   {
    public:
     using IStays   = mysat::primed::IStays;
@@ -23,12 +25,11 @@ namespace peterson
     Model(z3::config& settings, numrep_t n_processes);
 
    private:
-    z3::context ctx;
     // no. processes
     numrep_t N;
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
-	const static numrep_t pc_num = 5;
+    const static numrep_t pc_num = 5;
     // vector of ints. level for process i
     std::vector<BitVec> level;
     // flag that denotes if process i has released the resource
@@ -38,10 +39,8 @@ namespace peterson
     std::vector<BitVec> last;
     // Array last;
 
-    z3::expr_vector initial;    // each array index to '-1;. pc to 0
-    z3::expr_vector transition; // converted into cnf via tseytin
-
-    z3::expr_vector mutex; // cnf property
+    // z3::expr_vector initial;    // each array index to '-1;. pc to 0
+    // z3::expr_vector transition; // converted into cnf via tseytin
 
     State extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);

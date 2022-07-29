@@ -47,7 +47,7 @@ namespace pdr
       // F_result & !cube & T & cube' = UNSAT
       // => F_result & !cube & T & core' = UNSAT
       auto next_lits = [this](const expr& e)
-      { return ctx.model().lits.literal_is_p(e); };
+      { return ctx.model().lits.lit_is_p(e); };
       auto to_current = [this](const expr& e)
       { return ctx.model().lits(e); };
 
@@ -123,7 +123,7 @@ namespace pdr
     assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
     auto is_current_in_state = [this, &state](const expr& e)
     {
-      return ctx.model().lits.literal_is_current(e) &&
+      return ctx.model().lits.lit_is_current(e) &&
              std::binary_search(
                  state.begin(), state.end(), e, z3ext::expr_less());
     };

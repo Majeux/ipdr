@@ -124,6 +124,12 @@ namespace z3ext
     return l.id() < r.id();
   };
 
+  size_t expr_hash::operator()(const z3::expr& l) const
+  {
+    return l.id();
+  };
+
+
   bool expr_vector_less::operator()(
       const expr_vector& l, const expr_vector& r) const
   {

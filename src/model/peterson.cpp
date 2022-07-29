@@ -146,8 +146,7 @@ namespace peterson
   }
 
   Model::Model(z3::config& settings, numrep_t n_processes)
-      : ctx(settings), N(n_processes), pc(), level(), last(), initial(ctx),
-        transition(ctx), mutex(ctx)
+      : IModel(settings), N(n_processes), pc(), level(), last(), mutex(ctx)
   {
     using fmt::format;
     using z3ext::tseytin::to_cnf_vec;
@@ -225,12 +224,17 @@ namespace peterson
         conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
       }
     }
-    mutex = to_cnf_vec(mk_and(conj));
+    conj = to_cnf_vec(mk_and(conj));
     mutex.push_back(z3::atmost(critical, 1));
 
         test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
+  }
+
+  z3::expr_vector constraint(std::optional<unsigned> x) 
+  {
+    
   }
 
   State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)

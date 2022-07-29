@@ -1,4 +1,4 @@
-#include "pdr-model.h"
+#include "pebbling-model.h"
 #include "cli-parse.h"
 #include <TextTable.h>
 #include <numeric>
@@ -9,26 +9,19 @@
 namespace pebbling
 {
   using std::string;
+  using std::pair;
   using z3::expr;
   using z3::expr_vector;
 
-#warning pass NDEBUG flag for experiment runs
   Model::Model(z3::config& settings, const my::cli::ArgumentList& args,
       const dag::Graph& G)
-      : ctx(settings), lits(ctx), property(ctx), n_property(ctx), initial(ctx),
-        transition(ctx)
+      : IModel(settings), lits(ctx)
   {
     name = args.model_name;
 
     for (string node : G.nodes)
       lits.add_literal(node);
     lits.finish();
-    // for (auto l : lits.currents())
-    //   std::cout << l.id() << " ";
-    // std::cout << std::endl;
-    // for (auto l : lits.nexts())
-    //   std::cout << l.id() << " ";
-    // std::cout << std::endl;
 
     for (const expr& e : lits.currents())
       initial.push_back(!e);
@@ -55,10 +48,6 @@ namespace pebbling
     // }
     //   std::cout << param_out << std::endl;
   }
-
-  const expr_vector& Model::get_transition() const { return transition; }
-
-  const expr_vector& Model::get_initial() const { return initial; }
 
   size_t Model::n_nodes() const { return initial.size(); }
 
@@ -181,32 +170,17 @@ namespace pebbling
     property.finish();
   }
 
-  expr_vector Model::constraint(std::optional<unsigned> x)
+  pair<expr_vector, expr_vector> Model::constraint(std::optional<unsigned> x)
   {
-    expr_vector v(ctx);
+    pair rv ={ expr_vector(ctx), expr_vector(ctx) };
     if (!x)
-      return v;
+      return rv;
 
-    v.push_back(z3::atmost(lits.currents(), *x));
+    rv.push_back(z3::atmost(lits.currents(), *x));
     v.push_back(z3::atmost(lits.nexts(), *x));
 
     return v;
   }
 
   unsigned Model::get_f_pebbles() const { return final_pebbles; }
-
-  void Model::show(std::ostream& out) const
-  {
-    using std::endl;
-    lits.show(out);
-    unsigned t_size = std::accumulate(transition.begin(), transition.end(), 0,
-        [](unsigned acc, const expr& e) { return acc + e.num_args(); });
-
-    out << fmt::format("Transition Relation (size = {}):", t_size) << endl
-        << transition << endl;
-    out << "property: " << endl;
-    property.show(out);
-    out << "not_property: " << endl;
-    n_property.show(out);
-  }
 } // namespace pebbling
