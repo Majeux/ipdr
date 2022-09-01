@@ -175,7 +175,7 @@ namespace pdr
 
     std::vector<std::string> lits;
     {
-      expr_vector z3_lits = model.lits.currents();
+      expr_vector z3_lits = model.vars.currents();
       std::transform(z3_lits.begin(), z3_lits.end(), std::back_inserter(lits),
           [](expr l) { return l.to_string(); });
       std::sort(lits.begin(), lits.end());

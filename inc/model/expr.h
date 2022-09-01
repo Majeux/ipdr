@@ -63,26 +63,51 @@ namespace mysat::primed
 
   }; // class Lit
 
-  class LitVec final : public IPrimed<z3::expr_vector>
+  // a of vector propositional variables
+  class VarVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    LitVec(z3::context& c, const std::vector<std::string> names);
+    VarVec(z3::context& c, const std::set<std::string> names);
 
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
 
+    z3::expr operator()(size_t i) const;
+    z3::expr p(size_t i) const;
     z3::expr operator()(const z3::expr& e) const;
     z3::expr p(const z3::expr& e) const;
 
-    bool lit_is_current(const z3::expr& e) const;
+    bool var_is_current(const z3::expr& e) const;
     bool lit_is_p(const z3::expr& e) const;
 
    private:
     std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_current;
     std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_next;
 
-  }; // class LitVec
+  }; // class VarVec
+
+  // a vector of boolean expressionos
+  // initialized with a vector of vars that describe the expressions
+  // expressions are added after construction
+  class ExpVec final : public IPrimed<z3::expr_vector>
+  {
+   public:
+    ExpVec(z3::context& c, const VarVec& names);
+
+    operator const z3::expr_vector&() const override;
+    const z3::expr_vector& operator()() const override;
+    const z3::expr_vector& p() const override;
+
+    void add(z3::expr e);
+    // ensure that no further expressions can be added
+    void finish();
+
+   private:
+    const VarVec& vars;
+    bool finished{false};
+
+  }; // class ExpVec
 
   class BitVec final : public IPrimed<z3::expr_vector>, public IStays
   {

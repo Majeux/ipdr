@@ -9,7 +9,7 @@
 
 #include "cli-parse.h"
 #include "dag.h"
-#include "exp-cache.h"
+#include "expr.h"
 #include "pdr-model.h"
 
 namespace pebbling
@@ -22,7 +22,6 @@ namespace pebbling
     // ExpressionCache lits;
     // ExpressionCache property;
     // ExpressionCache n_property;
-    ExpressionCache lits;
 
     // const z3::expr_vector& get_transition() const;
     // const z3::expr_vector& get_initial() const;
@@ -32,7 +31,8 @@ namespace pebbling
     Model(z3::config& settings, const my::cli::ArgumentList& model_name,
         const dag::Graph& G);
 
-    z3::expr_vector constraint(std::optional<unsigned> x) override;
+    std::pair<z3::expr_vector, z3::expr_vector> constraint(
+        std::optional<unsigned> x) override;
 
     size_t n_nodes() const;
     // return the number of pebbles in the final state

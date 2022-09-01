@@ -65,10 +65,10 @@ namespace mysat::primed
     return v.value();
   }
 
-  // BitVec
+  // VarVec
   // public
-  LitVec::LitVec(z3::context& c, const std::vector<std::string> names)
-      : IPrimed<expr_vector>(c, "litvec")
+  VarVec::VarVec(z3::context& c, const std::set<std::string> names)
+      : IPrimed<expr_vector>(c, "varvec")
   {
     for (const std::string& name : names)
     {
@@ -83,11 +83,22 @@ namespace mysat::primed
     }
   }
 
-  LitVec::operator const expr_vector&() const { return current; }
-  const expr_vector& LitVec::operator()() const { return current; }
-  const expr_vector& LitVec::p() const { return next; }
+  VarVec::operator const expr_vector&() const { return current; }
+  const expr_vector& VarVec::operator()() const { return current; }
+  const expr_vector& VarVec::p() const { return next; }
 
-  expr LitVec::operator()(const expr& e) const
+  expr VarVec::operator()(size_t i) const
+  {
+    assert(i < current.size());
+    return current[i];
+  }
+  expr VarVec::p(size_t i) const
+  {
+    assert(i < next.size());
+    return next[i];
+  }
+
+  expr VarVec::operator()(const expr& e) const
   {
     if (e.is_not())
     {
@@ -97,16 +108,39 @@ namespace mysat::primed
     assert(e.arg(0).is_const());
     return to_current.at(e);
   }
-  expr LitVec::p(const expr& e) const 
-  { 
+  expr VarVec::p(const expr& e) const
+  {
     if (e.is_not())
     {
       assert(e.arg(0).is_const());
-      return !to_next.at(e.arg(0)); 
+      return !to_next.at(e.arg(0));
     }
     assert(e.arg(0).is_const());
-    return to_next.at(e); 
+    return to_next.at(e);
   }
+
+  // ExpVec
+  // public
+
+  ExpVec::ExpVec(z3::context& c, const VarVec& v)
+      : IPrimed<expr_vector>(c, "expvec"), vars(v)
+  {
+  }
+
+  ExpVec::operator const expr_vector&() const { return current; }
+  const expr_vector& ExpVec::operator()() const { return current; }
+  const expr_vector& ExpVec::p() const { return next; }
+
+  void ExpVec::add(z3::expr e)
+  {
+    assert(!finished);
+
+    current.push_back(e);
+    z3::expr e_p = e.substitute(vars(), vars.p());
+    next.push_back(e_p);
+  }
+
+  void ExpVec::finish() { finished = true; }
 
   // BitVec
   // public

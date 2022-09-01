@@ -113,7 +113,7 @@ namespace pdr
       z3::expr boolean_value = m.get_const_interp(f);
       z3::expr literal       = f();
 
-      if (ctx.model().lits.atom_is_current(literal))
+      if (ctx.model().vars.atom_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);

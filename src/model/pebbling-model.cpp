@@ -1,29 +1,26 @@
-#include "pebbling-model.h"
-#include "cli-parse.h"
 #include <TextTable.h>
 #include <numeric>
 #include <optional>
 #include <z3++.h>
 #include <z3_api.h>
 
+#include "cli-parse.h"
+#include "pebbling-model.h"
+
 namespace pebbling
 {
-  using std::string;
   using std::pair;
+  using std::string;
   using z3::expr;
   using z3::expr_vector;
 
   Model::Model(z3::config& settings, const my::cli::ArgumentList& args,
       const dag::Graph& G)
-      : IModel(settings), lits(ctx)
+      : IModel(settings, G.nodes)
   {
     name = args.model_name;
 
-    for (string node : G.nodes)
-      lits.add_literal(node);
-    lits.finish();
-
-    for (const expr& e : lits.currents())
+    for (const expr& e : vars())
       initial.push_back(!e);
 
     // load_pebble_transition_raw2(G);
@@ -53,20 +50,20 @@ namespace pebbling
 
   void Model::load_pebble_transition(const dag::Graph& G)
   {
-    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
-      string name = lits(i).to_string();
+      string name = vars(i).to_string();
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const string& child : G.get_children(name))
       {
-        expr child_node = ctx.bool_const(child.c_str());
-        int child_i     = lits.indexof(child_node);
+        expr child_node   = ctx.bool_const(child.c_str());
+        expr child_node_p = vars.p(child_node_p);
         // clang-format off
-        transition.push_back( lits(i) || !lits.p(i) || lits(child_i));
-        transition.push_back(!lits(i) ||  lits.p(i) || lits(child_i));
-        transition.push_back( lits(i) || !lits.p(i) || lits.p(child_i));
-        transition.push_back(!lits(i) ||  lits.p(i) || lits.p(child_i));
+        transition.push_back( vars(i) || !vars.p(i) || child_node);
+        transition.push_back(!vars(i) ||  vars.p(i) || child_node);
+        transition.push_back( vars(i) || !vars.p(i) || child_node_p);
+        transition.push_back(!vars(i) ||  vars.p(i) || child_node_p);
         // clang-format on
       }
     }
@@ -81,16 +78,19 @@ namespace pebbling
     for (const string& n : G.nodes)
     {
       string stay_name = fmt::format("_stay[{}]_", n);
-      expr stay        = add_and(transition, stay_name, lits(n), lits.p(n));
+      expr curr        = ctx.bool_const(n.c_str());
+      expr next        = vars.p(curr);
+
+      expr stay = add_and(transition, stay_name, curr, next);
       stay_expr.emplace(n, stay);
     }
 
     expr_vector moves(ctx);
-    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
-      string name      = lits(i).to_string();
+      string name      = vars(i).to_string();
       string flip_name = fmt::format("_flip[{}]_", name);
-      expr flip        = add_xor(transition, flip_name, lits(i), lits.p(i));
+      expr flip        = add_xor(transition, flip_name, vars(i), vars.p(i));
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const string& child : G.get_children(name))
@@ -107,17 +107,17 @@ namespace pebbling
 
   void Model::load_pebble_transition_raw1(const dag::Graph& G)
   {
-    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
-      string name      = lits(i).to_string();
-      expr parent_flip = lits(i) ^ lits.p(i);
+      string name      = vars(i).to_string();
+      expr parent_flip = vars(i) ^ vars.p(i);
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       for (const string& child : G.get_children(name))
       {
         expr child_node    = ctx.bool_const(child.c_str());
-        int child_i        = lits.indexof(child_node);
-        expr child_pebbled = lits(child_i) & lits.p(child_i);
+        expr child_node_p  = vars.p(child_node);
+        expr child_pebbled = child_node & child_node_p;
 
         transition.push_back(z3::implies(parent_flip, child_pebbled));
       }
@@ -126,19 +126,19 @@ namespace pebbling
 
   void Model::load_pebble_transition_raw2(const dag::Graph& G)
   {
-    for (int i = 0; i < lits.size(); i++) // every node has a transition
+    for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
-      string name      = lits(i).to_string();
-      expr parent_flip = lits(i) ^ lits.p(i);
+      string name      = vars(i).to_string();
+      expr parent_flip = vars(i) ^ vars.p(i);
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       expr_vector children_pebbled(ctx);
       for (const string& child : G.get_children(name))
       {
         expr child_node = ctx.bool_const(child.c_str());
-        int child_i     = lits.indexof(child_node);
-        children_pebbled.push_back(lits(child_i));
-        children_pebbled.push_back(lits.p(child_i));
+        expr child_node_p  = vars.p(child_node);
+        children_pebbled.push_back(child_node);
+        children_pebbled.push_back(child_node_p);
       }
       transition.push_back(
           z3::implies(parent_flip, z3::mk_and(children_pebbled)));
@@ -148,38 +148,38 @@ namespace pebbling
   void Model::load_property(const dag::Graph& G)
   {
     // final nodes are pebbled and others are not
-    for (const expr& e : lits.currents())
+    for (const expr& e : vars())
     {
       if (G.is_output(e.to_string()))
-        n_property.add_expression(e, lits);
+        n_property.add(e);
       else
-        n_property.add_expression(!e, lits);
+        n_property.add(!e);
     }
     n_property.finish();
 
     // final nodes are unpebbled and others are
     expr_vector disjunction(ctx);
-    for (const expr& e : lits.currents())
+    for (const expr& e : vars())
     {
       if (G.is_output(e.to_string()))
         disjunction.push_back(!e);
       else
         disjunction.push_back(e);
     }
-    property.add_expression(z3::mk_or(disjunction), lits);
+    property.add(z3::mk_or(disjunction));
     property.finish();
   }
 
   pair<expr_vector, expr_vector> Model::constraint(std::optional<unsigned> x)
   {
-    pair rv ={ expr_vector(ctx), expr_vector(ctx) };
+    pair rv = { expr_vector(ctx), expr_vector(ctx) };
     if (!x)
       return rv;
 
-    rv.push_back(z3::atmost(lits.currents(), *x));
-    v.push_back(z3::atmost(lits.nexts(), *x));
+    rv.first.push_back(z3::atmost(vars(), *x));
+    rv.second.push_back(z3::atmost(vars.p(), *x));
 
-    return v;
+    return rv;
   }
 
   unsigned Model::get_f_pebbles() const { return final_pebbles; }

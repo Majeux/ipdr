@@ -55,8 +55,8 @@ namespace dag
     std::string name;
     std::string prefix = "";
 
-    std::set<std::string, std::less<>> input;
-    std::set<std::string, std::less<>> nodes;
+    std::set<std::string> input;
+    std::set<std::string> nodes;
     std::set<std::string, std::less<>> output; // subet of nodes
     std::set<Edge> edges;         // nodes X nodes
 
