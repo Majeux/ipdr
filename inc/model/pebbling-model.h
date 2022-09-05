@@ -12,7 +12,7 @@
 #include "expr.h"
 #include "pdr-model.h"
 
-namespace pebbling
+namespace pdr::pebbling
 {
   class Model : public pdr::IModel
   {

@@ -17,7 +17,6 @@ namespace peterson
     using IStays   = mysat::primed::IStays;
     using Lit      = mysat::primed::Lit;
     using BitVec   = mysat::primed::BitVec;
-    using Array    = mysat::primed::Array;
     using numrep_t = BitVec::numrep_t;
 
     friend State;
@@ -37,10 +36,11 @@ namespace peterson
     std::vector<Lit> free;
     // int array. last process to enter level j
     std::vector<BitVec> last;
-    // Array last;
 
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
+
+    std::set<std::string> create_vars();
 
     State extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);

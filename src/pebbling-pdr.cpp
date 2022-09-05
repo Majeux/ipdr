@@ -9,7 +9,7 @@
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-context.h"
-#include "pdr-model.h"
+#include "pebbling-model.h"
 #include "pdr.h"
 #include "peterson.h"
 
@@ -130,7 +130,7 @@ void experiment(ArgumentList& clargs)
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
-  pebbling::Model model(ctx_settings, clargs, G);
+  pdr::pebbling::Model model(ctx_settings, clargs, G);
 
   const fs::path model_dir = setup_model_path(clargs);
   const string filename    = file_name(clargs);
@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
-  // ///
+  
   if (clargs.peter)
   {
     std::cout << "peterson" << std::endl;
@@ -190,8 +190,7 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  // ///
-  pebbling::Model model(ctx_settings, clargs, G);
+  pdr::pebbling::Model model(ctx_settings, clargs, G);
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 

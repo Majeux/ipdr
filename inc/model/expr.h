@@ -15,13 +15,22 @@ namespace mysat::primed
     primed
   };
 
+  // this class can return an expression that ensures its value does not change
+  // in the next state
   class IStays
   {
    public:
     virtual z3::expr unchanged() const = 0;
   };
 
-  template <typename Tcontainer> class IPrimed
+  // this class can return the names of its variables as strings
+  class INamed
+  {
+   public:
+    virtual std::vector<std::string> names() const = 0;
+  };
+
+  template <typename Tcontainer> class IPrimed : public INamed
   {
    public:
     const std::string name;
@@ -58,6 +67,7 @@ namespace mysat::primed
     const z3::expr& operator()() const override;
     const z3::expr& p() const override;
     z3::expr unchanged() const override;
+    std::vector<std::string> names() const override;
 
     bool extract_value(const z3::expr_vector& cube, lit_type t = base) const;
 
@@ -72,6 +82,7 @@ namespace mysat::primed
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
+    std::vector<std::string> names() const override;
 
     z3::expr operator()(size_t i) const;
     z3::expr p(size_t i) const;
@@ -98,14 +109,15 @@ namespace mysat::primed
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
+    std::vector<std::string> names() const override;
 
-    void add(z3::expr e);
+    ExpVec& add(z3::expr e);
     // ensure that no further expressions can be added
     void finish();
 
    private:
     const VarVec& vars;
-    bool finished{false};
+    bool finished{ false };
 
   }; // class ExpVec
 
@@ -127,6 +139,7 @@ namespace mysat::primed
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
+    std::vector<std::string> names() const override;
 
     // all bits equal in current and next
     z3::expr unchanged() const override;
@@ -203,39 +216,6 @@ namespace mysat::primed
     // z3::expr rec_less(const BitVec& x, size_t msb, size_t nbits) const;
   };
 
-  class Array
-  {
-   public:
-    using numrep_t = BitVec::numrep_t;
-
-    const size_t size;
-    const BitVec::numrep_t n_vals;
-
-    Array(z3::context& c, const std::string& name, size_t s, size_t bits);
-
-    // A{i] <- v
-    z3::expr store(size_t i, BitVec::numrep_t v) const;
-    z3::expr store_p(size_t i, BitVec::numrep_t v) const;
-    // A{i] == v
-    z3::expr contains(size_t i, BitVec::numrep_t v) const;
-    z3::expr contains_p(size_t i, BitVec::numrep_t v) const;
-
-    // A[x] <- v, where x is a cube
-    z3::expr cube_idx_store(const z3::expr_vector x, BitVec::numrep_t v) const;
-    z3::expr cube_idx_store_p(
-        const z3::expr_vector x, BitVec::numrep_t v) const;
-
-    // return a cube representing the value of A[i], expressed in variables of
-    // "value"
-    z3::expr_vector get_value(const z3::expr& A, size_t i);
-    BitVec::numrep_t get_value_uint(const z3::expr& A, size_t i);
-
-   private:
-    BitVec index;
-    BitVec value;
-
-    z3::solver index_solver;
-  }; // class Array
 } // namespace mysat::primed
 
 #endif // MY_EXPR_H

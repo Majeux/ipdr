@@ -1,6 +1,7 @@
 #ifndef EXPERIMENTS_H
 #define EXPERIMENTS_H
 
+#include "cli-parse.h"
 #include "logger.h"
 #include "pdr-context.h"
 #include "pdr.h"
@@ -32,7 +33,7 @@ namespace pdr::experiments
     Table_t combined_listing(const Run& other) const;
   };
 
-  void model_run(::pebbling::Model& model, pdr::Logger& log,
+  void model_run(IModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 } // namespace pdr::experiments
 

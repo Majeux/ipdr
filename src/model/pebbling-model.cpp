@@ -7,7 +7,7 @@
 #include "cli-parse.h"
 #include "pebbling-model.h"
 
-namespace pebbling
+namespace pdr::pebbling
 {
   using std::pair;
   using std::string;

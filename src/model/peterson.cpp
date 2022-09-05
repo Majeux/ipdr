@@ -15,6 +15,8 @@
 
 namespace peterson
 {
+  using std::string;
+  using std::vector;
   using z3::expr;
   using z3::expr_vector;
   using z3::implies;
@@ -94,15 +96,14 @@ namespace peterson
     return out;
   }
 
-  std::string State::to_string(bool inl) const
+  string State::to_string(bool inl) const
   {
     using fmt::format;
     using std::endl;
 
     std::stringstream ss;
     auto end = [inl]() { return inl ? "" : "\n"; };
-    auto tab = [inl](unsigned n)
-    { return inl ? " " : std::string(2 * n, ' '); };
+    auto tab = [inl](unsigned n) { return inl ? " " : string(2 * n, ' '); };
 
     ss << "State {" << end();
     {
@@ -134,7 +135,7 @@ namespace peterson
     return ss.str();
   }
 
-  std::string State::inline_string() const { return to_string(true); }
+  string State::inline_string() const { return to_string(true); }
 
   // MODEL MEMBERS
   //
@@ -145,13 +146,9 @@ namespace peterson
     return bits;
   }
 
-  Model::Model(z3::config& settings, numrep_t n_processes)
-      : IModel(settings), N(n_processes), pc(), level(), last(), mutex(ctx)
+  std::set<string> Model::create_vars()
   {
     using fmt::format;
-    using z3ext::tseytin::to_cnf_vec;
-
-    assert(N < INT_MAX);
 
     size_t pc_bits = bits_for(pc_num);
     size_t N_bits  = bits_for(N);
@@ -164,23 +161,71 @@ namespace peterson
     for (numrep_t i = 0; i < N; i++)
     {
       {
-        std::string pc_i = format("pc_{}", i);
+        string pc_i = format("pc_{}", i);
         pc.emplace_back(ctx, pc_i, pc_bits);
       }
       {
-        std::string l_i = format("l_{}", i);
+        string l_i = format("l_{}", i);
         level.emplace_back(ctx, l_i, N_bits);
       }
       {
-        std::string free_i = format("free_{}", i);
+        string free_i = format("free_{}", i);
         free.emplace_back(ctx, free_i);
       }
       if (i < N - 1)
       {
-        std::string last_i = format("last_{}", i);
+        string last_i = format("last_{}", i);
         last.emplace_back(ctx, last_i, N_bits);
       }
+    }
 
+    expr_vector conj(ctx), critical(ctx);
+    {
+      for (numrep_t i = 0; i < N; i++)
+      {
+        expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
+        critical.push_back(crit_i);
+
+        conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
+      }
+    }
+    conj = z3ext::tseytin::to_cnf_vec(mk_and(conj));
+    property.add(z3::atmost(critical, 1)).finish();
+    n_property.add(z3::atleast(critical, 2)).finish();
+
+    std::set<string> rv;
+    auto append_names = [&rv](const mysat::primed::INamed& v)
+    {
+      for (std::string_view n : v.names())
+        rv.emplace(n);
+    };
+
+    for (const BitVec& var : pc)
+      append_names(var);
+
+    for (const BitVec& var : level)
+      append_names(var);
+
+    for (const Lit& var : free)
+      append_names(var);
+
+    for (const BitVec& var : last)
+      append_names(var);
+
+    return rv;
+  }
+
+  Model::Model(z3::config& settings, numrep_t n_processes)
+      : IModel(settings, create_vars()), N(n_processes), pc(), level(), last()
+  {
+    using fmt::format;
+    using z3ext::tseytin::to_cnf_vec;
+
+    assert(N < INT_MAX);
+
+    // initialize vars at 0
+    for (numrep_t i = 0; i < N; i++)
+    {
       for (const expr& e : pc.at(i).uint(0))
         initial.push_back(e);
 
@@ -195,7 +240,6 @@ namespace peterson
     }
 
     std::cout << "INITIAL" << std::endl;
-
     {
       expr_vector disj(ctx);
       for (numrep_t i = 0; i < N; i++)
@@ -214,28 +258,12 @@ namespace peterson
       // std::cout << transition << std::endl;
     }
 
-    expr_vector conj(ctx), critical(ctx);
-    {
-      for (numrep_t i = 0; i < N; i++)
-      {
-        expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
-        critical.push_back(crit_i);
-
-        conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
-      }
-    }
-    conj = to_cnf_vec(mk_and(conj));
-    mutex.push_back(z3::atmost(critical, 1));
-
-        test_room();
+    test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
   }
 
-  z3::expr_vector constraint(std::optional<unsigned> x) 
-  {
-    
-  }
+  z3::expr_vector constraint(std::optional<unsigned> x) {}
 
   State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
   {
@@ -336,7 +364,7 @@ namespace peterson
     {
       assert(map_pair.second.size() <= N);
 
-      std::string src_str = map_pair.first.inline_string();
+      string src_str = map_pair.first.inline_string();
 
       for (const State& dst : map_pair.second)
         out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
@@ -349,7 +377,7 @@ namespace peterson
   template <typename T,
       std::enable_if_t<std::is_base_of_v<mysat::primed::IStays, T>, bool> =
           true>
-  void stays(expr_vector& container, const std::vector<T>& v)
+  void stays(expr_vector& container, const vector<T>& v)
   {
     for (const auto& primed : v)
       container.push_back(primed.unchanged());
@@ -359,36 +387,11 @@ namespace peterson
       std::enable_if_t<std::is_base_of_v<mysat::primed::IStays, T>, bool> =
           true>
   void stays_except(
-      expr_vector& container, const std::vector<T>& v, size_t exception)
+      expr_vector& container, const vector<T>& v, size_t exception)
   {
     for (size_t i = 0; i < v.size(); i++)
       if (i != exception)
         container.push_back(v.at(i).unchanged());
-  }
-
-  void array_stays(expr_vector& container, const Model::Array& A)
-  {
-    for (unsigned i = 0; i < A.size; i++)
-      for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
-      {
-        // (A{i] == v) => (A.p[i] <- v.p)
-        expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
-        container.push_back(e);
-      }
-  }
-
-  void array_stays_except(
-      expr_vector& container, const Model::Array& A, size_t exception)
-  {
-    for (unsigned i = 0; i < A.size; i++)
-      for (Model::Array::numrep_t v = 0; v < A.n_vals; v++)
-      {
-        if (i == exception)
-          continue;
-        // (A{i] == v) => (A.p[i] <- v.p)
-        expr e = z3::implies(A.contains(i, v), A.store_p(i, v));
-        container.push_back(e);
-      }
   }
 
   //  T

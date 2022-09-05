@@ -19,7 +19,7 @@ find_package(Z3 CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
-file(GLOB PDR_MODEL_SOURCES "src/model/*.cpp")
+file(GLOB PDR_MODEL_SOURCES "src/model/pdr/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 file(GLOB SOLVER_SOURCES "src/solver/*.cpp")
 file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")

@@ -6,13 +6,23 @@
 
 namespace mysat::primed
 {
+  using std::vector;
+  using std::string;
   using z3::expr;
   using z3::expr_vector;
   using z3::mk_and;
 
+  vector<string> extract_names(const expr_vector& v)
+  {
+    vector<string> rv; rv.reserve(v.size());
+    for(const expr& e : v)
+      rv.push_back(e.to_string());
+    return rv;
+  }
+
   // Lit
   //
-  Lit::Lit(z3::context& c, const std::string& n) : IPrimed<expr>(c, n)
+  Lit::Lit(z3::context& c, const string& n) : IPrimed<expr>(c, n)
   {
     current = ctx.bool_const(name.c_str());
     next    = ctx.bool_const(next_name.c_str());
@@ -24,12 +34,17 @@ namespace mysat::primed
 
   expr Lit::unchanged() const { return current == next; }
 
+  vector<string> Lit::names() const
+  {
+    return { current.to_string() };
+  }
+
   bool Lit::extract_value(const z3::expr_vector& cube, lit_type t) const
   {
     // matches name[i], extracts name and i
     std::regex is_value;
     std::smatch match;
-    std::string match_name;
+    string match_name;
     if (t == primed)
     {
       // is_value = (R"(([[:alnum:]_]+).p)"); // primed variable
@@ -48,8 +63,8 @@ namespace mysat::primed
     for (const expr& l : cube)
     {
       assert(z3ext::is_lit(l));
-      std::string l_str = l.to_string();
-      // if (l_str.find(match_name) != std::string::npos)
+      string l_str = l.to_string();
+      // if (l_str.find(match_name) != string::npos)
       if (std::regex_search(l_str, match, is_value))
       {
         assert(match.size() == 1);
@@ -67,10 +82,10 @@ namespace mysat::primed
 
   // VarVec
   // public
-  VarVec::VarVec(z3::context& c, const std::set<std::string> names)
+  VarVec::VarVec(z3::context& c, const std::set<string> names)
       : IPrimed<expr_vector>(c, "varvec")
   {
-    for (const std::string& name : names)
+    for (const string& name : names)
     {
       const expr new_curr = ctx.bool_const(name.c_str());
       const expr new_next = ctx.bool_const(prime(name).c_str());
@@ -119,6 +134,11 @@ namespace mysat::primed
     return to_next.at(e);
   }
 
+  vector<string> VarVec::names() const
+  {
+    return extract_names(current);
+  }
+
   // ExpVec
   // public
 
@@ -131,20 +151,27 @@ namespace mysat::primed
   const expr_vector& ExpVec::operator()() const { return current; }
   const expr_vector& ExpVec::p() const { return next; }
 
-  void ExpVec::add(z3::expr e)
+  vector<string> ExpVec::names() const
+  {
+    return extract_names(current);
+  }
+
+  ExpVec& ExpVec::add(z3::expr e)
   {
     assert(!finished);
 
     current.push_back(e);
     z3::expr e_p = e.substitute(vars(), vars.p());
     next.push_back(e_p);
+
+    return *this;
   }
 
   void ExpVec::finish() { finished = true; }
 
   // BitVec
   // public
-  BitVec::BitVec(z3::context& c, const std::string& n, size_t Nbits)
+  BitVec::BitVec(z3::context& c, const string& n, size_t Nbits)
       : IPrimed<expr_vector>(c, n), size(Nbits)
   {
     for (size_t i = 0; i < size; i++)
@@ -154,12 +181,12 @@ namespace mysat::primed
     }
   }
 
-  BitVec BitVec::holding(z3::context& c, const std::string& n, numrep_t max_val)
+  BitVec BitVec::holding(z3::context& c, const string& n, numrep_t max_val)
   {
     return BitVec(c, n, std::log2(max_val) + 1);
   }
 
-  std::string BitVec::index_str(std::string_view n, size_t i) const
+  string BitVec::index_str(std::string_view n, size_t i) const
   {
     return fmt::format("{}[{}]", n, i);
   }
@@ -170,6 +197,11 @@ namespace mysat::primed
 
   expr BitVec::operator()(size_t i) const { return current[i]; }
   expr BitVec::p(size_t i) const { return next[i]; }
+
+  vector<string> BitVec::names() const
+  {
+    return extract_names(current);
+  }
 
   expr_vector BitVec::uint(numrep_t n) const { return unint_to_lits(n, false); }
   expr_vector BitVec::uint_p(numrep_t n) const
@@ -184,7 +216,7 @@ namespace mysat::primed
     // matches name[i], extracts name and i
     std::regex is_value;
     std::smatch match;
-    std::string match_name;
+    string match_name;
     if (t == primed)
     {
       // is_value = R"(([[:alnum:]_]+).p\[([[:digit:]]+)\])"; // primed variable
@@ -201,7 +233,7 @@ namespace mysat::primed
     for (const expr& l : cube)
     {
       assert(z3ext::is_lit(l));
-      std::string l_str = l.to_string();
+      string l_str = l.to_string();
       if (std::regex_search(l_str, match, is_value))
       {
         assert(match.size() == 2);
@@ -350,76 +382,5 @@ namespace mysat::primed
     }
 
     return z3::mk_and(conj);
-  }
-
-  // Array
-  // public
-  Array::Array(z3::context& c, const std::string& n, size_t s, size_t bits)
-      : size{ s }, n_vals{}, index(c, n + "_i", bits), value(c, n + "_v", bits),
-        index_solver(c)
-  {
-  }
-
-  expr Array::store(size_t i, BitVec::numrep_t v) const
-  {
-    return z3::implies(mk_and(index.uint(i)), mk_and(value.uint(v)));
-  }
-
-  expr Array::store_p(size_t i, BitVec::numrep_t v) const
-  {
-    return z3::implies(mk_and(index.uint_p(i)), mk_and(value.uint_p(v)));
-  }
-
-  // to be appended to an array-statement: a series of store() expressions
-  expr Array::contains(size_t i, BitVec::numrep_t v) const
-  {
-    return mk_and(index.uint(i)) && mk_and(value.uint(v));
-  }
-
-  expr Array::contains_p(size_t i, BitVec::numrep_t v) const
-  {
-    return mk_and(index.uint_p(i)) && mk_and(value.uint_p(v));
-  }
-
-  expr Array::cube_idx_store(const expr_vector x, BitVec::numrep_t v) const
-  {
-    expr_vector conj(x.ctx());
-
-    for (size_t i = 0; i < x.size(); i++)
-      conj.push_back(!(x[i] ^ index(i))); // x[i] <=> index[i]
-    for (const expr l : value.uint(v))
-      conj.push_back(l);
-
-    return mk_and(conj);
-  }
-
-  expr Array::cube_idx_store_p(const expr_vector x, BitVec::numrep_t v) const
-  {
-    expr_vector conj(x.ctx());
-
-    for (size_t i = 0; i < x.size(); i++)
-      conj.push_back(!(x[i] ^ index(i))); // x[i] <=> index[i]
-    for (const expr l : value.uint(v))
-      conj.push_back(l);
-    // TODO link to value
-    return mk_and(conj);
-  }
-
-  expr_vector Array::get_value(const expr& A, size_t i)
-  {
-    index_solver.reset();
-    index_solver.add(A);
-    z3::check_result r = index_solver.check(index.uint(i));
-
-    assert(r == z3::check_result::sat);
-    expr_vector witness = z3ext::solver::get_witness(index_solver);
-    z3ext::sort_cube(witness);
-
-    return witness;
-  }
-
-  BitVec::numrep_t Array::get_value_uint(const expr& A, size_t i)
-  {
-    return value.extract_value(get_value(A, i));
   }
 } // namespace mysat::primed

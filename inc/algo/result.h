@@ -5,6 +5,8 @@
 #include "obligation.h"
 #include "output.h"
 #include "pdr-model.h"
+#include "tactic.h"
+
 #include <cassert>
 #include <fmt/format.h>
 #include <memory>
@@ -13,6 +15,7 @@
 #include <tabulate/table.hpp>
 #include <variant>
 #include <vector>
+
 namespace pdr
 {
   // converts to bool: true there is an invariant, false if there is a trace
@@ -67,7 +70,7 @@ namespace pdr
 
     void clean_trace();
     ResultRow listing() const;
-    void finalize(const pebbling::Model& model);
+    void finalize(const IModel& model);
     // iterators over the Trace. empty if there is an Invariant
     const_iterator begin();
     const_iterator end();
@@ -107,7 +110,7 @@ namespace pdr
   class Results
   {
    public:
-    Results(const pebbling::Model& m);
+    Results(const IModel& m);
     virtual ~Results();
     tabulate::Table new_table() const;
     void reset();
@@ -119,7 +122,7 @@ namespace pdr
     friend Results& operator<<(Results& rs, Result& r);
 
    protected:
-    const pebbling::Model& model;
+    const IModel& model;
     const tabulate::Table::Row_t header = { "constraint", "pebbles used",
       "invariant index", "trace length", "time" };
     std::vector<tabulate::Table::Row_t> rows;
@@ -141,7 +144,7 @@ namespace pdr
       std::optional<Result::Trace> trace;
     };
 
-    ExperimentResults(const pebbling::Model& m, Tactic t);
+    ExperimentResults(const IModel& m, Tactic t);
     ExperimentResults(const Results& r, Tactic t);
     Data_t get_total() const;
     void add_to(tabulate::Table& t) const;
