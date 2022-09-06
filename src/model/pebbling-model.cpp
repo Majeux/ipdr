@@ -170,13 +170,13 @@ namespace pdr::pebbling
     property.finish();
   }
 
-  pair<expr_vector, expr_vector> Model::constraint(std::optional<unsigned> x)
+  pair<expr_vector, expr_vector> Model::make_constraint(std::optional<unsigned> x)
   {
     pair rv = { expr_vector(ctx), expr_vector(ctx) };
     if (!x)
       return rv;
 
-    rv.first.push_back(z3::atmost(vars(), *x));
+    rv.first.push_back(z3::atmost(vars, *x));
     rv.second.push_back(z3::atmost(vars.p(), *x));
 
     return rv;

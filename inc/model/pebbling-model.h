@@ -31,7 +31,7 @@ namespace pdr::pebbling
     Model(z3::config& settings, const my::cli::ArgumentList& model_name,
         const dag::Graph& G);
 
-    std::pair<z3::expr_vector, z3::expr_vector> constraint(
+    std::pair<z3::expr_vector, z3::expr_vector> make_constraint(
         std::optional<unsigned> x) override;
 
     size_t n_nodes() const;

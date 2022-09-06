@@ -123,7 +123,7 @@ namespace pdr
     assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
     auto is_current_in_state = [this, &state](const expr& e)
     {
-      return ctx.model().vars.lit_is_current(e) &&
+      return ctx.model().vars.var_is_current(e) &&
              std::binary_search(
                  state.begin(), state.end(), e, z3ext::expr_less());
     };

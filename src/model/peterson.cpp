@@ -17,6 +17,7 @@ namespace peterson
 {
   using std::string;
   using std::vector;
+  using std::set;
   using z3::expr;
   using z3::expr_vector;
   using z3::implies;
@@ -146,7 +147,7 @@ namespace peterson
     return bits;
   }
 
-  std::set<string> Model::create_vars()
+  set<string> Model::create_vars()
   {
     using fmt::format;
 
@@ -184,16 +185,16 @@ namespace peterson
       for (numrep_t i = 0; i < N; i++)
       {
         expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
-        critical.push_back(crit_i);
+        critical.push_back(crit_i); // add to rv
 
         conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
       }
     }
-    conj = z3ext::tseytin::to_cnf_vec(mk_and(conj));
+    conj = z3ext::tseytin::to_cnf_vec(mk_and(conj)); // TODO add to all queries
     property.add(z3::atmost(critical, 1)).finish();
-    n_property.add(z3::atleast(critical, 2)).finish();
+    n_property.add(z3::atleast(critical, 2)).finish(); 
 
-    std::set<string> rv;
+    set<string> rv;
     auto append_names = [&rv](const mysat::primed::INamed& v)
     {
       for (std::string_view n : v.names())
@@ -286,18 +287,18 @@ namespace peterson
     return extract_state(cube, mysat::primed::lit_type::primed);
   }
 
-  std::set<State> Model::successors(const expr_vector& v)
+  set<State> Model::successors(const expr_vector& v)
   {
     return successors(extract_state(v));
   }
 
-  std::set<State> Model::successors(const State& s)
+  set<State> Model::successors(const State& s)
   {
     using mysat::primed::lit_type;
     using std::optional;
     using z3ext::solver::check_witness;
 
-    std::set<State> S;
+    set<State> S;
 
     z3::solver solver(ctx);
     solver.add(s.cube(*this));

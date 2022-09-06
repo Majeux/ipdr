@@ -26,11 +26,9 @@ namespace pdr
   Frames::Frames(Context& c, Logger& l)
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx())
   {
-    pebbling::Model& m = ctx.model();
-    { // the initial states always remain the same
-      init_solver.reset();
-      init_solver.add(m.get_initial());
-    }
+    // the initial states always remain the same
+    init_solver.reset();
+    init_solver.add(ctx.model().get_initial());
 
     reset();
   }
@@ -39,11 +37,9 @@ namespace pdr
       : ctx(c), logger(l), frame_base(ctx()), init_solver(ctx()),
         max_pebbles(constraint)
   {
-    pebbling::Model& m = ctx.model();
-    { // the initial states always remain the same
-      init_solver.reset();
-      init_solver.add(m.get_initial());
-    }
+    // the initial states always remain the same
+    init_solver.reset();
+    init_solver.add(ctx.model().get_initial());
 
     reset(constraint);
   }
@@ -56,14 +52,15 @@ namespace pdr
 
   void Frames::reset()
   {
-    pebbling::Model& m = ctx.model();
+    pdr::IModel& m = ctx.model();
 
-    frame_base = m.property.currents(); // all frames are initialized to P
+    frame_base = m.property; // all frames are initialized to P
 
     if (ctx.delta)
     {
       const expr_vector& T   = m.get_transition();
-      expr_vector constraint = m.constraint(max_pebbles);
+#warning implement constraint and assume it was set outside
+      expr_vector constraint = m.get_constraint();
       delta_solver = make_unique<Solver>(ctx, frame_base, T, constraint);
     }
 
@@ -83,8 +80,8 @@ namespace pdr
     assert(x < max_pebbles.value());
 
     max_pebbles = x;
-    delta_solver->reconstrain(ctx.model().constraint(x));
-    
+    delta_solver->reconstrain(ctx.model().get_constraint());
+
     // with fewer transitions, new cubes may be propagated
     logger.and_show("Redoing last propagation: {}", frontier() - 1);
     return propagate(frontier() - 1);
@@ -98,7 +95,7 @@ namespace pdr
     logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
 
     max_pebbles = x;
-    delta_solver->reconstrain(ctx.model().constraint(x));
+    delta_solver->reconstrain(ctx.model().get_constraint());
     z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);                      // reset sequence to { F_0 }
     extend();                            // reinstate level 1
@@ -127,10 +124,10 @@ namespace pdr
 
   void Frames::init_frame_I()
   {
-    pebbling::Model& m     = ctx.model();
+    pdr::IModel& m     = ctx.model();
     const expr_vector& I   = m.get_initial();
     const expr_vector& T   = m.get_transition();
-    expr_vector constraint = m.constraint(max_pebbles);
+    expr_vector constraint = m.get_constraint();
 
     if (ctx.delta)
     {
@@ -175,9 +172,9 @@ namespace pdr
     }
     else
     { // frame with its own solver
-      pebbling::Model& m       = ctx.model();
+      pdr::IModel& m       = ctx.model();
       const z3::expr_vector& t = m.get_transition();
-      expr_vector constr       = m.constraint(max_pebbles);
+      expr_vector constr       = m.get_constraint();
 
       auto frame_solver = make_unique<Solver>(ctx, frame_base, t, constr);
       auto new_frame =
@@ -388,7 +385,7 @@ namespace pdr
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
     z3::expr_vector assumptions =
-        ctx.model().lits.p(cube); // cube in next state
+        ctx.model().vars.p(cube); // cube in next state
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
@@ -427,7 +424,7 @@ namespace pdr
     if (LOG_SAT_CALLS)
       logger.tabbed("transition check, frame {}", frame);
     if (!primed) // cube is in current, bring to next
-      return SAT(frame, ctx.model().lits.p(dest_cube));
+      return SAT(frame, ctx.model().vars.p(dest_cube));
 
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
@@ -439,7 +436,7 @@ namespace pdr
       logger.tabbed("transition query, frame {}", frame);
 
     if (!primed) // cube is in current, bring to next
-      if (!SAT(frame, ctx.model().lits.p(dest_cube)))
+      if (!SAT(frame, ctx.model().vars.p(dest_cube)))
         return {};
 
     if (!SAT(frame, dest_cube))

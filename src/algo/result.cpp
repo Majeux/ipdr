@@ -1,5 +1,7 @@
 #include "result.h"
 #include "output.h"
+#include "pebbling-model.h"
+
 #include <TextTable.h>
 #include <algorithm>
 #include <array>
@@ -173,13 +175,8 @@ namespace pdr
       return;
     }
 
-    std::vector<std::string> lits;
-    {
-      expr_vector z3_lits = model.vars.currents();
-      std::transform(z3_lits.begin(), z3_lits.end(), std::back_inserter(lits),
-          [](expr l) { return l.to_string(); });
-      std::sort(lits.begin(), lits.end());
-    }
+    std::vector<std::string> lits = model.vars.names();
+    std::sort(lits.begin(), lits.end());
 
     auto str_size_cmp = [](string_view a, string_view b)
     { return a.size() < b.size(); };
@@ -228,7 +225,7 @@ namespace pdr
 
     // Write final state
     {
-      expr_vector final_state = model.n_property.currents();
+      expr_vector final_state = model.n_property;
       Table::Row_t final_row =
           row("F", format("{}", model.get_f_pebbles()), State(final_state));
       t.add_row(final_row);

@@ -6,17 +6,18 @@
 
 namespace mysat::primed
 {
-  using std::vector;
   using std::string;
+  using std::vector;
   using z3::expr;
   using z3::expr_vector;
   using z3::mk_and;
 
   vector<string> extract_names(const expr_vector& v)
   {
-    vector<string> rv; rv.reserve(v.size());
-    for(const expr& e : v)
-      rv.push_back(e.to_string());
+    vector<string> rv;
+    rv.reserve(v.size());
+    std::transform(v.begin(), v.end(), std::back_inserter(rv),
+        [](expr l) { return l.to_string(); });
     return rv;
   }
 
@@ -34,10 +35,7 @@ namespace mysat::primed
 
   expr Lit::unchanged() const { return current == next; }
 
-  vector<string> Lit::names() const
-  {
-    return { current.to_string() };
-  }
+  vector<string> Lit::names() const { return { current.to_string() }; }
 
   bool Lit::extract_value(const z3::expr_vector& cube, lit_type t) const
   {
@@ -134,10 +132,22 @@ namespace mysat::primed
     return to_next.at(e);
   }
 
-  vector<string> VarVec::names() const
+  expr_vector VarVec::operator()(const expr_vector& ev) const
   {
-    return extract_names(current);
+	  expr_vector rv(ctx);
+	  for(expr e : ev)
+	    rv.push_back(e.substitute(next, current));
+	  return rv;
   }
+  expr_vector VarVec::p(const expr_vector& ev) const
+  {
+	  expr_vector rv(ctx);
+	  for(expr e : ev)
+	    rv.push_back(e.substitute(current, next));
+	  return rv;
+  }
+
+  vector<string> VarVec::names() const { return extract_names(current); }
 
   // ExpVec
   // public
@@ -151,10 +161,7 @@ namespace mysat::primed
   const expr_vector& ExpVec::operator()() const { return current; }
   const expr_vector& ExpVec::p() const { return next; }
 
-  vector<string> ExpVec::names() const
-  {
-    return extract_names(current);
-  }
+  vector<string> ExpVec::names() const { return extract_names(current); }
 
   ExpVec& ExpVec::add(z3::expr e)
   {
@@ -198,10 +205,7 @@ namespace mysat::primed
   expr BitVec::operator()(size_t i) const { return current[i]; }
   expr BitVec::p(size_t i) const { return next[i]; }
 
-  vector<string> BitVec::names() const
-  {
-    return extract_names(current);
-  }
+  vector<string> BitVec::names() const { return extract_names(current); }
 
   expr_vector BitVec::uint(numrep_t n) const { return unint_to_lits(n, false); }
   expr_vector BitVec::uint_p(numrep_t n) const
