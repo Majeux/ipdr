@@ -30,9 +30,12 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
-  PDR::PDR(Context& c, Logger& l, optional<unsigned> constraint)
-      : ctx(c), logger(l), frames(ctx, logger, constraint)
+  PDR::PDR(Context& c, IModel& m, Logger& l)
+      : ctx(c), model(m), logger(l), frames(ctx, logger)
+  {
+  }
+  PDR::PDR(Context& c, IModel& m, Logger& l, optional<unsigned> constraint)
+      : ctx(c), model(m), logger(l), frames(ctx, logger, constraint)
   {
   }
 
@@ -98,7 +101,7 @@ namespace pdr
   Result PDR::decrement_run(unsigned max_p)
   {
     ctx.type = Tactic::decrement;
-    if (std::optional<unsigned> inv = frames.decrement_reset(max_p))
+    if (optional<unsigned> inv = frames.decrement_reset(max_p))
       return Result::found_invariant(frames.max_pebbles, *inv);
 
     return _run();
@@ -130,7 +133,7 @@ namespace pdr
     if (!rv)
       shortest_strategy = std::min(shortest_strategy, rv.trace().marked);
     logger.indent = 0;
-    rv.finalize(ctx);
+    rv.finalize(model);
 
     return rv;
   }
@@ -141,17 +144,13 @@ namespace pdr
     logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
 
-    const ::pebbling::Model& m = ctx.model();
-    expr_vector notP         = m.n_property.currents();
-
-    if (frames.init_solver.check(notP))
+    if (frames.init_solver.check(model.n_property))
     {
       logger.whisper("I =/> P");
-      return Result::found_trace(frames.max_pebbles, m.get_initial());
+      return Result::found_trace(frames.max_pebbles, model.get_initial());
     }
 
-    expr_vector notP_next = m.n_property.nexts();
-    if (frames.SAT(0, notP_next))
+    if (frames.SAT(0, model.n_property.p()))
     { // there is a transitions from I to !P
       logger.show("I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
@@ -167,7 +166,6 @@ namespace pdr
   Result PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
-    expr_vector notP_next = ctx.model().n_property.nexts();
     if (ctx.type != Tactic::decrement)
       assert(frames.frontier() == 1);
 
@@ -175,8 +173,8 @@ namespace pdr
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);
-      while (std::optional<expr_vector> cti =
-                 frames.get_trans_source(k, notP_next, true))
+      while (optional<expr_vector> cti =
+                 frames.get_trans_source(k, model.n_property.p(), true))
       {
         log_cti(*cti, k); // cti is an F_i state that leads to a violation
 
@@ -243,7 +241,7 @@ namespace pdr
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> state
-      if (std::optional<expr_vector> pred_cube =
+      if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
         std::shared_ptr<State> pred =

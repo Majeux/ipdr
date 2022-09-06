@@ -33,6 +33,7 @@ namespace pdr
 
    private:
     Context& ctx;
+	IModel& model;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
@@ -83,8 +84,8 @@ namespace pdr
     void log_obligation_done(std::string_view type, unsigned l, double time);
 
    public:
-    PDR(Context& c, Logger& l);
-    PDR(Context& c, Logger& l, std::optional<unsigned> constraint);
+    PDR(Context& c, IModel& m, Logger& l);
+    PDR(Context& c, IModel& m, Logger& l, std::optional<unsigned> constraint);
     // prepare PDR for new run. discards old trace
     void reset();
     const Context& get_ctx() const;
@@ -130,12 +131,12 @@ namespace pdr
     {
      private:
       PDR alg;
+	  const Model& model; // same instance as the IModel in alg
 
      public:
       Results latest_results;
 
-      Optimizer(PDR&& a);
-      Optimizer(Context& c, Logger& l);
+      Optimizer(Context& c, Model& m, Logger& l);
 
       // runs the optimizer as dictated by the argument
       std::optional<unsigned> run(my::cli::ArgumentList args);

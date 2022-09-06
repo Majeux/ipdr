@@ -130,7 +130,11 @@ void experiment(ArgumentList& clargs)
     ctx_settings.set("unsat_core", true);
     ctx_settings.set("model", true);
   }
-  pdr::pebbling::Model model(ctx_settings, clargs, G);
+  pdr::Context context = clargs.seed
+                           ? pdr::Context(ctx_settings, clargs.delta, *clargs.seed)
+                           : pdr::Context(ctx_settings, clargs.delta, clargs.rand);
+
+  pdr::pebbling::Model model(context, clargs, G);
 
   const fs::path model_dir = setup_model_path(clargs);
   const string filename    = file_name(clargs);
@@ -183,6 +187,10 @@ int main(int argc, char* argv[])
     ctx_settings.set("model", true);
   }
   
+  pdr::Context context = clargs.seed
+                           ? pdr::Context(ctx_settings, clargs.delta, *clargs.seed)
+                           : pdr::Context(ctx_settings, clargs.delta, clargs.rand);
+
   if (clargs.peter)
   {
     std::cout << "peterson" << std::endl;
@@ -190,16 +198,12 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  pdr::pebbling::Model model(ctx_settings, clargs, G);
+  pdr::pebbling::Model model(context, clargs, G);
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 
   if (clargs.onlyshow)
     return 0;
-
-  pdr::Context context = clargs.seed
-                           ? pdr::Context(model, clargs.delta, *clargs.seed)
-                           : pdr::Context(model, clargs.delta, clargs.rand);
 
   const std::string filename = file_name(clargs);
   fs::path run_dir           = setup_path(model_dir / folder_name(clargs));
@@ -220,7 +224,7 @@ int main(int argc, char* argv[])
   show_header(clargs);
 
   pdr::Results rs(model);
-  pdr::PDR algorithm(context, logger, clargs.max_pebbles);
+  pdr::PDR algorithm(context, model, logger, clargs.max_pebbles);
 
   if (clargs.tactic == pdr::Tactic::basic)
   {
@@ -232,7 +236,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    pdr::pebbling::Optimizer optimize(std::move(algorithm));
+    pdr::pebbling::Optimizer optimize(context, model, logger);
     std::optional<unsigned> optimum = optimize.run(clargs);
     optimize.latest_results.show(strategy);
     optimize.dump_solver(solver_dump);

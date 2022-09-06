@@ -9,12 +9,7 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  Optimizer::Optimizer(PDR&& a) : alg(std::move(a)), latest_results(alg.ctx) {}
-
-  Optimizer::Optimizer(Context& c, Logger& l)
-      : alg(c, l), latest_results(alg.ctx)
-  {
-  }
+  Optimizer::Optimizer(Context& c, Model& m, Logger& l) : alg(c, m, l), model(m), latest_results(m) {}
 
   optional<unsigned> Optimizer::control_run(my::cli::ArgumentList args)
   {
@@ -57,15 +52,14 @@ namespace pdr::pebbling
   optional<unsigned> Optimizer::increment(bool control)
   {
     alg.logger.and_whisper("! Optimization run: decrement.");
-    const ::pebbling::Model& m = alg.ctx;
     latest_results.reset();
 
-    unsigned N = m.get_f_pebbles(); // need at least this many pebbles
+    unsigned N = model.get_f_pebbles(); // need at least this many pebbles
 
     pdr::Result invariant = alg.run(Tactic::basic, N);
     latest_results << invariant;
 
-    for (N = N + 1; invariant && N <= m.n_nodes(); N++)
+    for (N = N + 1; invariant && N <= model.n_nodes(); N++)
     {
       if (control)
         invariant = alg.run(Tactic::basic, N);
@@ -74,7 +68,7 @@ namespace pdr::pebbling
       latest_results << invariant;
     }
 
-    if (N > m.n_nodes()) // last run did not find a trace
+    if (N > model.n_nodes()) // last run did not find a trace
     {
       alg.logger.and_whisper("! No optimum exists.");
       return {};
@@ -87,17 +81,16 @@ namespace pdr::pebbling
   optional<unsigned> Optimizer::decrement(bool control)
   {
     alg.logger.and_whisper("! Optimization run: decrement.");
-    const ::pebbling::Model& m = alg.ctx;
     latest_results.reset();
 
-    unsigned N = m.n_nodes(); // need at least this many pebbles
+    unsigned N = model.n_nodes(); // need at least this many pebbles
 
     pdr::Result invariant = alg.run(Tactic::basic, N);
     latest_results << invariant;
     if (!invariant)
       N = std::min(N, invariant.trace().marked);
 
-    for (N = N - 1; !invariant && N >= m.get_f_pebbles(); N--)
+    for (N = N - 1; !invariant && N >= model.get_f_pebbles(); N--)
     {
       if (control)
         invariant = alg.run(Tactic::basic, N);
@@ -123,7 +116,6 @@ namespace pdr::pebbling
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
     alg.logger.and_show("start {}. step {}", start, step);
-    const ::pebbling::Model& m = alg.ctx;
     pdr::Result invariant    = alg.run(Tactic::basic, start);
     latest_results << invariant;
 
@@ -131,7 +123,7 @@ namespace pdr::pebbling
     int newp = maxp + step;
     assert(newp > 0);
     assert(maxp < newp);
-    if (newp <= (int)m.n_nodes())
+    if (newp <= (int)model.n_nodes())
     {
       invariant = alg.increment_run(newp);
       latest_results << invariant;

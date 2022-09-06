@@ -32,13 +32,12 @@ namespace pdr
     if (ctx.type != Tactic::decrement) // decr continues from last level
       assert(frames.frontier() == 1);
 
-    expr_vector notP_next = ctx.model().n_property.nexts();
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);
-      while (std::optional<expr_vector> cti =
-                 frames.get_trans_source(k, notP_next, true))
+      while (optional<expr_vector> cti =
+                 frames.get_trans_source(k, model.n_property.p(), true))
       {
         log_cti(*cti, k); // cti is an F_i state that leads to a violation
 

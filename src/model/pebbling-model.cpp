@@ -14,9 +14,9 @@ namespace pdr::pebbling
   using z3::expr;
   using z3::expr_vector;
 
-  Model::Model(z3::config& settings, const my::cli::ArgumentList& args,
-      const dag::Graph& G)
-      : IModel(settings, G.nodes)
+  Model::Model(
+      z3::context& c, const my::cli::ArgumentList& args, const dag::Graph& G)
+      : IModel(c, G.nodes)
   {
     name = args.model_name;
 
@@ -135,8 +135,8 @@ namespace pdr::pebbling
       expr_vector children_pebbled(ctx);
       for (const string& child : G.get_children(name))
       {
-        expr child_node = ctx.bool_const(child.c_str());
-        expr child_node_p  = vars.p(child_node);
+        expr child_node   = ctx.bool_const(child.c_str());
+        expr child_node_p = vars.p(child_node);
         children_pebbled.push_back(child_node);
         children_pebbled.push_back(child_node_p);
       }
@@ -170,7 +170,8 @@ namespace pdr::pebbling
     property.finish();
   }
 
-  pair<expr_vector, expr_vector> Model::make_constraint(std::optional<unsigned> x)
+  pair<expr_vector, expr_vector> Model::make_constraint(
+      std::optional<unsigned> x)
   {
     pair rv = { expr_vector(ctx), expr_vector(ctx) };
     if (!x)
@@ -183,4 +184,4 @@ namespace pdr::pebbling
   }
 
   unsigned Model::get_f_pebbles() const { return final_pebbles; }
-} // namespace pebbling
+} // namespace pdr::pebbling

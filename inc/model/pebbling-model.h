@@ -28,7 +28,7 @@ namespace pdr::pebbling
 
     // void show(std::ostream& out) const;
 
-    Model(z3::config& settings, const my::cli::ArgumentList& model_name,
+    Model(z3::context& c, const my::cli::ArgumentList& model_name,
         const dag::Graph& G);
 
     std::pair<z3::expr_vector, z3::expr_vector> make_constraint(
@@ -44,7 +44,6 @@ namespace pdr::pebbling
 
     unsigned final_pebbles; // number of marked literals in property
 
-    z3::config& set_config(z3::config& settings);
     void load_pebble_transition(const dag::Graph& G);
     void load_pebble_transition_tseytin(const dag::Graph& G);
     void load_pebble_transition_raw1(const dag::Graph& G);
