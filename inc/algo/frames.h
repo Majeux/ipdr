@@ -25,6 +25,7 @@ namespace pdr
   {
    private:
     Context& ctx;
+    IModel& model;
     Logger& logger;
     const bool LOG_SAT_CALLS = false;
 
@@ -45,8 +46,8 @@ namespace pdr
     // cardinality constraint on the maximum allowed marked literals in a state
     std::optional<unsigned> max_pebbles;
 
-    Frames(Context& c, Logger& l);
-    Frames(Context& c, Logger& l, std::optional<unsigned> constraint);
+    Frames(Context& c, IModel& m, Logger& l);
+    Frames(Context& c, IModel& m, Logger& l, std::optional<unsigned> constraint);
 
     // reset the sequence to F_0, F_1 (frontier 0)
     void reset();

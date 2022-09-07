@@ -150,6 +150,7 @@ namespace pdr
   std::string_view Result::string_rep() const
   {
     assert(finalized);
+
     return str;
   }
 

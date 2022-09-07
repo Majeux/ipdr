@@ -134,6 +134,18 @@ namespace pdr
     friend class ExperimentResults;
   };
 
+  namespace pebbling 
+  {
+    class PebResult final : public Result
+    {
+     public:
+      PebResult();
+      
+     private:
+      const pebbling::Model& model;
+    }; // class Result
+  } // namespace pebbling
+
   // results that accumulates results for experiments
   class ExperimentResults : public Results
   {

@@ -31,11 +31,11 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(Context& c, IModel& m, Logger& l)
-      : ctx(c), model(m), logger(l), frames(ctx, logger)
+      : ctx(c), model(m), logger(l), frames(ctx, model, logger)
   {
   }
   PDR::PDR(Context& c, IModel& m, Logger& l, optional<unsigned> constraint)
-      : ctx(c), model(m), logger(l), frames(ctx, logger, constraint)
+      : ctx(c), model(m), logger(l), frames(ctx, model, logger, constraint)
   {
   }
 

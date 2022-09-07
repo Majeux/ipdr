@@ -21,7 +21,7 @@ namespace peterson
 
     friend State;
 
-    Model(z3::config& settings, numrep_t n_processes);
+    Model(z3::context& c, numrep_t n_processes);
 
    private:
     // no. processes

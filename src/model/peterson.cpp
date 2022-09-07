@@ -216,8 +216,8 @@ namespace peterson
     return rv;
   }
 
-  Model::Model(z3::config& settings, numrep_t n_processes)
-      : IModel(settings, create_vars()), N(n_processes), pc(), level(), last()
+  Model::Model(z3::context& c,  numrep_t n_processes)
+      : IModel(c, create_vars()), N(n_processes), pc(), level(), last()
   {
     using fmt::format;
     using z3ext::tseytin::to_cnf_vec;
