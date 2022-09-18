@@ -28,46 +28,16 @@ namespace pdr
   Invariant::Invariant(int l) : level(l) {}
   Invariant::Invariant(optional<unsigned> c, int l) : constraint(c), level(l) {}
 
-  Trace::Trace() : states_ll(nullptr), length(0), marked(0) {}
-  Trace::Trace(unsigned l, unsigned m)
-      : states_ll(nullptr), length(l), marked(m)
+  Trace::Trace() : states_ll(nullptr), length(0) {}
+  Trace::Trace(unsigned l) : states_ll(nullptr), length(l) {}
+  Trace::Trace(shared_ptr<const State> s) : length(0)
   {
-  }
-  Trace::Trace(shared_ptr<State> s) : states_ll(s), length(0), marked(0) {}
-
-  // Result::iterator members
-  //
-  using const_iterator  = Result::const_iterator;
-  using difference_type = std::ptrdiff_t;
-  using value_type      = State;
-  using const_pointer   = std::shared_ptr<const State>;
-  using const_reference = const State&;
-
-  const_iterator::const_iterator(const_pointer ptr) : m_ptr(ptr) {}
-  const_reference const_iterator::operator*() const { return *m_ptr; }
-  const_pointer const_iterator::operator->() { return m_ptr; }
-
-  const_iterator& const_iterator::operator++()
-  {
-    m_ptr = m_ptr->prev;
-    return *this;
-  }
-
-  const_iterator const_iterator::operator++(int)
-  {
-    const_iterator tmp = *this;
-    ++(*this);
-    return tmp;
-  }
-
-  bool operator==(const const_iterator& a, const const_iterator& b)
-  {
-    return a.m_ptr == b.m_ptr;
-  }
-
-  bool operator!=(const const_iterator& a, const const_iterator& b)
-  {
-    return a.m_ptr != b.m_ptr;
+    while (s)
+    {
+      states.push_back(s->cube);
+      length++;
+      s = s->prev;
+    }
   }
 
   // Result members
@@ -138,7 +108,7 @@ namespace pdr
     }
     else
     {
-      rv[1] = to_string(trace().marked);
+      rv[1] = "todo: remove";
       rv[2] = "";
       rv[3] = to_string(trace().length);
     }
@@ -154,7 +124,9 @@ namespace pdr
     return str;
   }
 
-  void Result::finalize(const pebbling::Model& model)
+  // PEBBLING PROCESSING
+  //
+  void Result::process(const pebbling::Model& model)
   {
 #warning double initial state in experiment results
     using fmt::format;
@@ -176,6 +148,8 @@ namespace pdr
       return;
     }
 
+    // process trace
+    std::stringstream ss;
     std::vector<std::string> lits = model.vars.names();
     std::sort(lits.begin(), lits.end());
 
@@ -210,18 +184,17 @@ namespace pdr
 
     // Write strategy states
     {
-      trace().marked = model.get_f_pebbles();
-      unsigned i     = 0;
-      for (const State& s : *this)
+      unsigned marked = model.get_f_pebbles();
+      for (size_t i = 0; i < trace().states.size(); i++)
       {
-        i++;
-        unsigned pebbles = s.no_marked();
-        trace().marked   = std::max(trace().marked, pebbles);
+        const z3::expr_vector& s = trace().states[i];
+        unsigned pebbled         = no_marked(s);
+        marked                   = std::max(marked, pebbled);
         Table::Row_t row_marking =
-            row(std::to_string(i), std::to_string(pebbles), s);
+            row(std::to_string(i), std::to_string(pebbled), s);
         t.add_row(row_marking);
       }
-      trace().length = i + 1;
+      ss << "Strategy for " << marked << " pebbles" << std::endl << std::endl;
     }
 
     // Write final state
@@ -234,10 +207,7 @@ namespace pdr
 
     t.format().font_align(tabulate::FontAlign::right);
 
-    std::stringstream ss;
-    ss << "Strategy for " << trace().marked << " pebbles" << std::endl
-       << std::endl
-       << tabulate::MarkdownExporter().dump(t);
+    ss << tabulate::MarkdownExporter().dump(t);
     str = ss.str();
 
     clean_trace(); // information is stored in string, deallocate trace
@@ -332,6 +302,22 @@ namespace pdr
   }
 
   Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
+
+  // SPECIFIC RESULTS
+  //
+  namespace pebbling
+  {
+    PebblingResult::PebblingResult(const pebbling::Model& m, const Result& r)
+        : Result(r), model(m)
+    {
+      if (r.has_trace())
+      {
+        pebbled = 0;
+        for (const z3::expr_vector& s : r.trace().states)
+          pebbled = std::max(*pebbled, no_marked(s));
+      }
+    }
+  } // namespace pebbling
 
   // ExperimentResults members
   //

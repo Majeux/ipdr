@@ -16,6 +16,7 @@
 #include <tabulate/table.hpp>
 #include <variant>
 #include <vector>
+#include <z3++.h>
 
 namespace pdr
 {
@@ -36,13 +37,13 @@ namespace pdr
 
     struct Trace
     {
+      std::vector<z3::expr_vector> states;
       std::shared_ptr<State> states_ll;
       unsigned length;
-      unsigned marked; // maximum number of marked nodes in trace
 
       Trace();
-      Trace(unsigned l, unsigned m);
-      Trace(std::shared_ptr<State> s);
+      Trace(unsigned l);
+      Trace(std::shared_ptr<const State> s);
     };
 
     std::optional<unsigned> constraint;
@@ -71,31 +72,10 @@ namespace pdr
 
     void clean_trace();
     ResultRow listing() const;
-    void finalize(const pebbling::Model& model);
+    void process(const pebbling::Model& model);
     // iterators over the Trace. empty if there is an Invariant
     const_iterator begin();
     const_iterator end();
-
-    class const_iterator
-    {
-      using iterator_category = std::forward_iterator_tag;
-      using difference_type   = std::ptrdiff_t;
-      using value_type        = State;
-      using const_pointer     = std::shared_ptr<const State>;
-      using const_reference   = const State&;
-
-     private:
-      const_pointer m_ptr;
-
-     public:
-      const_iterator(const_pointer ptr);
-      const_reference operator*() const;
-      const_pointer operator->();
-      const_iterator& operator++();
-      const_iterator operator++(int);
-      friend bool operator==(const const_iterator& a, const const_iterator& b);
-      friend bool operator!=(const const_iterator& a, const const_iterator& b);
-    };
 
    private:
     bool finalized  = false;
@@ -136,13 +116,15 @@ namespace pdr
 
   namespace pebbling 
   {
-    class PebResult final : public Result
+    class PebblingResult final : public Result
     {
      public:
-      PebResult();
+      PebblingResult(const pebbling::Model& m, const Result& r);
       
      private:
       const pebbling::Model& model;
+
+      std::optional<unsigned> pebbled;
     }; // class Result
   } // namespace pebbling
 

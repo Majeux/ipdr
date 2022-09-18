@@ -8,6 +8,8 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
+  // STATE MEMBERS
+  //
   State::State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) {}
   State::State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) {}
   // move constructors
@@ -34,11 +36,6 @@ namespace pdr
     }
 
     return rv;
-  }
-  unsigned State::no_marked() const
-  {
-    return std::accumulate(cube.begin(), cube.end(), 0,
-        [](int x, const expr& e) { return x + (!e.is_not()); });
   }
 
   unsigned State::show(TextTable& table) const
@@ -79,6 +76,18 @@ namespace pdr
     return i_padding;
   }
 
+  // MISC FUNCTIONS
+  //
+  unsigned no_marked(const z3::expr_vector& ev)
+  {
+    return std::accumulate(ev.begin(), ev.end(), 0,
+        [](unsigned x, const z3::expr& e) { return x + (!e.is_not()); });
+  }
+
+  unsigned no_marked(const pdr::State& s) { return no_marked(s.cube); }
+
+  // OBLIGATION MEMBERS
+  //
   Obligation::Obligation(unsigned k, expr_vector&& cube, unsigned d)
       : level(k), state(std::make_shared<State>(std::move(cube))), depth(d)
   {

@@ -133,7 +133,6 @@ namespace pdr
     if (!rv)
       shortest_strategy = std::min(shortest_strategy, rv.trace().marked);
     logger.indent = 0;
-    rv.finalize(model);
 
     return rv;
   }

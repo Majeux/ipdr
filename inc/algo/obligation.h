@@ -25,9 +25,12 @@ namespace pdr
 
     std::vector<std::string> marking(
         std::vector<std::string> header, unsigned width) const;
-    unsigned no_marked() const;
     unsigned show(TextTable& table) const;
+
+    friend unsigned no_marked(const State& s);
   };
+
+  unsigned no_marked(const z3::expr_vector& s);
 
   struct Obligation
   {

@@ -65,6 +65,8 @@ namespace pdr::pebbling
         invariant = alg.run(Tactic::basic, N);
       else
         invariant = alg.increment_run(N);
+
+      invariant.process(model);
       latest_results << invariant;
     }
 
@@ -96,6 +98,8 @@ namespace pdr::pebbling
         invariant = alg.run(Tactic::basic, N);
       else
         invariant = alg.decrement_run(N);
+
+      invariant.process(model);
       latest_results << invariant;
       if (!invariant)
         N = std::min(N, invariant.trace().marked);
@@ -126,6 +130,8 @@ namespace pdr::pebbling
     if (newp <= (int)model.n_nodes())
     {
       invariant = alg.increment_run(newp);
+
+      invariant.process(model);
       latest_results << invariant;
     }
   }
