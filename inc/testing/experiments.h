@@ -10,7 +10,12 @@
 
 namespace pdr::experiments
 {
-  enum output_format {string, latex, markdown};
+  enum output_format
+  {
+    string,
+    latex,
+    markdown
+  };
   struct Run
   {
     using Row_t   = tabulate::Table::Row_t;
@@ -20,11 +25,11 @@ namespace pdr::experiments
 
     double avg_time;
     double std_dev_time;
-    std::optional<Result::Invariant> max_inv;
-    std::optional<Result::Trace> min_strat;
+    std::optional<PdrResult::Invariant> max_inv;
+    std::optional<PdrResult::Trace> min_strat;
 
     Run(const my::cli::ArgumentList& args,
-        const std::vector<ExperimentResults>& r);
+        const std::vector<pebbling::PebblingResult>& r);
     std::string str(output_format fmt) const;
     std::string str_compared(const Run& other, output_format fmt) const;
 
@@ -33,8 +38,8 @@ namespace pdr::experiments
     Table_t combined_listing(const Run& other) const;
   };
 
-  void model_run(IModel& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args);
+  void pebbling_run(
+      IModel& model, pdr::Logger& log, const my::cli::ArgumentList& args);
 } // namespace pdr::experiments
 
 #endif // EXPERIMENTS_H

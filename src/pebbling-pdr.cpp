@@ -134,7 +134,7 @@ void experiment(ArgumentList& clargs)
                            ? pdr::Context(ctx_settings, clargs.delta, *clargs.seed)
                            : pdr::Context(ctx_settings, clargs.delta, clargs.rand);
 
-  pdr::pebbling::Model model(context, clargs, G);
+  pdr::pebbling::PebblingModel model(context, clargs, G);
 
   const fs::path model_dir = setup_model_path(clargs);
   const string filename    = file_name(clargs);
@@ -149,7 +149,7 @@ void experiment(ArgumentList& clargs)
   pdr::Logger logger =
       pdr::Logger(log_file.string(), G, clargs.verbosity, std::move(stats));
 
-  model_run(model, logger, clargs);
+  pebbling_run(model, logger, clargs);
   std::cout << "experiment done" << std::endl;
 }
 
@@ -198,7 +198,7 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  pdr::pebbling::Model model(context, clargs, G);
+  pdr::pebbling::PebblingModel model(context, clargs, G);
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 
@@ -223,12 +223,12 @@ int main(int argc, char* argv[])
 
   show_header(clargs);
 
-  pdr::Results rs(model);
+  pdr::IpdrResult rs(model);
   pdr::PDR algorithm(context, model, logger, clargs.max_pebbles);
 
   if (clargs.tactic == pdr::Tactic::basic)
   {
-    pdr::Result r = algorithm.run(clargs.tactic, clargs.max_pebbles);
+    pdr::PdrResult r = algorithm.run(clargs.tactic, clargs.max_pebbles);
     rs.add(r).show(strategy);
     algorithm.show_solver(solver_dump);
 
@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
   {
     pdr::pebbling::Optimizer optimize(context, model, logger);
     std::optional<unsigned> optimum = optimize.run(clargs);
-    optimize.latest_results.show(strategy);
+    optimize.total_result.show(strategy);
     optimize.dump_solver(solver_dump);
   }
 

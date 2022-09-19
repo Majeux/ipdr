@@ -1,4 +1,5 @@
 #include "result.h"
+#include "obligation.h"
 #include "output.h"
 #include "pebbling-model.h"
 
@@ -23,13 +24,12 @@ namespace pdr
 
   // Result::Invariant and Trace members
   //
-  using Invariant = Result::Invariant;
-  using Trace     = Result::Trace;
+  using Invariant = PdrResult::Invariant;
+  using Trace     = PdrResult::Trace;
   Invariant::Invariant(int l) : level(l) {}
-  Invariant::Invariant(optional<unsigned> c, int l) : constraint(c), level(l) {}
 
-  Trace::Trace() : states_ll(nullptr), length(0) {}
-  Trace::Trace(unsigned l) : states_ll(nullptr), length(l) {}
+  Trace::Trace() : length(0) {}
+  Trace::Trace(unsigned l) : length(l) {}
   Trace::Trace(shared_ptr<const State> s) : length(0)
   {
     while (s)
@@ -42,55 +42,49 @@ namespace pdr
 
   // Result members
   //
-  Result::Result(optional<unsigned> constr, std::shared_ptr<State> s)
+  PdrResult::PdrResult(optional<unsigned> constr, std::shared_ptr<State> s)
       : constraint(constr), output(Trace(s))
   {
   }
 
-  Result::Result(optional<unsigned> constr, int l)
+  PdrResult::PdrResult(optional<unsigned> constr, int l)
       : constraint(constr), output(Invariant(constr, l))
   {
   }
 
-  Result Result::found_trace(
+  PdrResult PdrResult::found_trace(
       optional<unsigned> constraint, std::shared_ptr<State> s)
   {
-    return Result(constraint, s);
+    return PdrResult(constraint, s);
   }
 
-  Result Result::found_trace(optional<unsigned> constraint, State&& s)
+  PdrResult PdrResult::found_trace(optional<unsigned> constraint, State&& s)
   {
-    return Result(constraint, std::make_shared<State>(s));
+    return PdrResult(constraint, std::make_shared<State>(s));
   }
 
 #warning TODO int level to size_t
-  Result Result::found_invariant(optional<unsigned> constraint, int level)
+  PdrResult PdrResult::found_invariant(optional<unsigned> constraint, int level)
   {
-    return Result(constraint, level);
+    return PdrResult(constraint, level);
   }
 
-  Result Result::empty_true() { return Result(0, -1); }
-  Result Result::empty_false() { return Result(0, nullptr); }
+  PdrResult PdrResult::empty_true() { return PdrResult(0, -1); }
+  PdrResult PdrResult::empty_false() { return PdrResult(0, nullptr); }
 
-  Result::operator bool() const { return has_invariant(); }
-  bool Result::has_invariant() const { return output.index() == 0; }
-  bool Result::has_trace() const { return output.index() == 1; }
+  PdrResult::operator bool() const { return has_invariant(); }
+  bool PdrResult::has_invariant() const { return output.index() == 0; }
+  bool PdrResult::has_trace() const { return output.index() == 1; }
 
-  const Invariant& Result::invariant() const { return get<Invariant>(output); }
-  const Trace& Result::trace() const { return get<Trace>(output); }
-  Invariant& Result::invariant() { return get<Invariant>(output); }
-  Trace& Result::trace() { return get<Trace>(output); }
-
-  void Result::clean_trace()
+  const Invariant& PdrResult::invariant() const
   {
-    assert(has_trace()); // we must have a trace
-
-    Trace& trace = get<Trace>(output);
-    assert(trace.states_ll);
-    trace.states_ll.reset();
+    return get<Invariant>(output);
   }
+  const Trace& PdrResult::trace() const { return get<Trace>(output); }
+  Invariant& PdrResult::invariant() { return get<Invariant>(output); }
+  Trace& PdrResult::trace() { return get<Trace>(output); }
 
-  Result::ResultRow Result::listing() const
+  PdrResult::ResultRow PdrResult::listing() const
   {
     using fmt::format;
     using std::to_string;
@@ -117,7 +111,7 @@ namespace pdr
     return rv;
   }
 
-  std::string_view Result::string_rep() const
+  std::string_view PdrResult::string_rep() const
   {
     assert(finalized);
 
@@ -126,7 +120,7 @@ namespace pdr
 
   // PEBBLING PROCESSING
   //
-  void Result::process(const pebbling::Model& model)
+  void PdrResult::process(const pebbling::PebblingModel& model)
   {
 #warning double initial state in experiment results
     using fmt::format;
@@ -213,37 +207,24 @@ namespace pdr
     clean_trace(); // information is stored in string, deallocate trace
   }
 
-  const_iterator Result::begin()
-  {
-    if (has_invariant())
-      return end();
-    // we have a Trace
-    const Trace& trace = std::get<Trace>(output);
-    assert(trace.states_ll);
-    return const_iterator(trace.states_ll);
-  }
-  const_iterator Result::end() { return const_iterator(nullptr); }
-
   // Results members
   //
-  Results::Results(const pebbling::Model& m) : model(m) {}
+  IpdrResult::~IpdrResult() {}
 
-  Results::~Results() {}
-
-  tabulate::Table Results::new_table() const
+  tabulate::Table IpdrResult::new_table() const
   {
     tabulate::Table t;
-    t.add_row(header);
+    t.add_row(header());
     return t;
   }
 
-  void Results::reset()
+  void IpdrResult::reset()
   {
     rows.resize(0);
     traces.resize(0);
   }
 
-  void Results::show(std::ostream& out) const
+  void IpdrResult::show(std::ostream& out) const
   {
     tabulate::Table t = raw_table();
     out << t << std::endl << std::endl;
@@ -252,10 +233,10 @@ namespace pdr
       out << trace << std::endl;
   }
 
-  Results& Results::add(Result& r)
+  IpdrResult& IpdrResult::add(PdrResult& r)
   {
     string trace(r.string_rep());
-    Result::ResultRow listing = r.listing();
+    PdrResult::ResultRow listing = r.listing();
 
     {
       tabulate::Table::Row_t row;
@@ -269,15 +250,15 @@ namespace pdr
     return *this;
   }
 
-  std::vector<double> Results::g_times() const
+  std::vector<double> IpdrResult::g_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
-        [](const Result& r) { return r.time; });
+        [](const PdrResult& r) { return r.time; });
     return times;
   }
 
-  tabulate::Table Results::raw_table() const
+  tabulate::Table IpdrResult::raw_table() const
   {
     tabulate::Table t = new_table();
     {
@@ -295,148 +276,155 @@ namespace pdr
     return t;
   }
 
-  void Results::show_traces(std::ostream& out) const
+  void IpdrResult::show_traces(std::ostream& out) const
   {
     for (const std::string& t : traces)
       out << t << std::endl;
   }
 
-  Results& operator<<(Results& rs, Result& r) { return rs.add(r); }
+  IpdrResult& operator<<(IpdrResult& rs, PdrResult& r) { return rs.add(r); }
 
-  // SPECIFIC RESULTS
-  //
+  const tabulate::Table::Row_t IpdrResult::header() const
+  {
+    return { "invariant index", "trace length", "time" };
+  }
+
   namespace pebbling
   {
-    PebblingResult::PebblingResult(const pebbling::Model& m, const Result& r)
-        : Result(r), model(m)
+    // PebblingResult members
+    //
+    PebblingResult::PebblingResult(const PebblingModel& m, Tactic t)
+        : IpdrResult(), model(m), tactic(t)
     {
-      if (r.has_trace())
+      assert(t == Tactic::decrement || t == Tactic::increment);
+    }
+
+    PebblingResult::PebblingResult(
+        const IpdrResult& r, const PebblingModel& m, Tactic t)
+        : IpdrResult(r), model(m), tactic(t)
+    {
+      for (const PdrResult& r : original)
+        acc_update(r);
+    }
+
+    void PebblingResult::add_to_table(tabulate::Table& t) const
+    {
+      using fmt::format;
+      using std::to_string;
+
+      string time_str = format("{}", total.time);
+
+      string inv_constr, inv_level;
+      if (total.inv)
       {
-        pebbled = 0;
-        for (const z3::expr_vector& s : r.trace().states)
-          pebbled = std::max(*pebbled, no_marked(s));
+        inv_constr = to_string(total.inv->constraint.value());
+        inv_level  = format("F_{}", total.inv->invariant.level);
+      }
+      else
+      {
+        assert(tactic == Tactic::decrement &&
+               total.strategy->pebbled == model.get_f_pebbles());
+        // the maximal invariant did not need to be considered and added
+        inv_constr = "strategy uses minimal";
+        inv_level  = "--";
+      }
+
+      string trace_marked, trace_length;
+      if (total.strategy)
+      {
+        trace_marked = to_string(total.strategy->pebbled);
+        trace_length = to_string(total.strategy->trace.length);
+      }
+      else
+      {
+        assert(total.inv->constraint == model.n_nodes());
+        // never encountered a strategy, no. nodes is the invariant
+        trace_marked = "no strategy";
+        trace_length = "--";
+      }
+
+      t.add_row(
+          { time_str, inv_constr, inv_level, trace_marked, trace_length });
+    }
+
+    void PebblingResult::show(std::ostream& out) const
+    {
+      using fmt::format;
+      using std::to_string;
+
+      tabulate::Table table;
+      table.format().font_align(tabulate::FontAlign::right);
+
+      table.add_row({ "runtime", "max constraint with invariant", "level",
+          "min constraint with strategy", "length" });
+      add_to_table(table);
+
+      out << table << std::endl;
+      auto latex = tabulate::LatexExporter().dump(table);
+      out << latex << std::endl;
+    }
+
+    void PebblingResult::show_raw(std::ostream& out) const
+    {
+      IpdrResult::show(out);
+    }
+
+    unsigned total_pebbled(const Trace& t)
+    {
+      unsigned pebbled = 0;
+      for (const z3::expr_vector& s : t.states)
+        pebbled = std::max(pebbled, no_marked(s));
+      return pebbled;
+    }
+
+    void PebblingResult::acc_update(const PdrResult& r)
+    {
+      total.time += r.time;
+
+      if (r.has_invariant()) // only happens multiple times in increasing
+      {
+        invariants++;
+        if (tactic == Tactic::decrement)
+        {
+          assert(invariants <= 1);
+        }
+
+        optional<unsigned> constraint = model.get_max_pebbles();
+        assert(constraint);
+        if (!total.inv || constraint > total.inv->constraint)
+          total.inv = { r.invariant(), constraint };
+      }
+      else // only happens multiple times in decreasing
+      {
+        traces++;
+        if (tactic == Tactic::increment)
+        {
+          assert(traces <= 1);
+        }
+
+        unsigned pebbled = total_pebbled(r.trace());
+
+        if (!total.strategy || pebbled < total.strategy->pebbled)
+          total.strategy = { r.trace(), pebbled };
       }
     }
-  } // namespace pebbling
 
-  // ExperimentResults members
-  //
-  ExperimentResults::ExperimentResults(const pebbling::Model& m, Tactic t)
-      : Results(m), tactic(t)
-  {
-    assert(t == Tactic::decrement || t == Tactic::increment);
-  }
-
-  ExperimentResults::ExperimentResults(const Results& r, Tactic t)
-      : ExperimentResults(r.model, t)
-  {
-    rows     = r.rows;
-    original = r.original;
-    traces   = r.traces;
-    for (const Result& r : original)
+    PebblingResult& PebblingResult::add(PdrResult& r)
+    {
       acc_update(r);
-  }
-
-  ExperimentResults::Data_t ExperimentResults::get_total() const
-  {
-    return { total_time, max_inv, min_strat };
-  }
-
-  void ExperimentResults::add_to(tabulate::Table& t) const
-  {
-    using fmt::format;
-    using std::to_string;
-
-    auto [time, max_inv, min_strat] = get_total();
-    string time_str                 = format("{}", time);
-
-    string inv_constr, inv_level;
-    if (max_inv)
-    {
-      inv_constr = to_string(max_inv->constraint.value());
-      inv_level  = format("F_{}", max_inv->level);
-    }
-    else
-    {
-      assert(tactic == Tactic::decrement &&
-             min_strat->marked == model.get_f_pebbles());
-      // the maximal invariant did not need to be considered and added
-      inv_constr = "strategy uses minimal";
-      inv_level  = "--";
+      IpdrResult::add(r);
+      return *this;
     }
 
-    string trace_marked, trace_length;
-    if (min_strat)
+    PebblingResult& operator<<(PebblingResult& ars, PdrResult& r)
     {
-      trace_marked = to_string(min_strat->marked);
-      trace_length = to_string(min_strat->length);
-    }
-    else
-    {
-      assert(max_inv->constraint == model.n_nodes());
-      // never encountered a strategy, no. nodes is the invariant
-      trace_marked = "no strategy";
-      trace_length = "--";
+      return ars.add(r);
     }
 
-    t.add_row({ time_str, inv_constr, inv_level, trace_marked, trace_length });
-  }
-
-  void ExperimentResults::show(std::ostream& out) const
-  {
-    using fmt::format;
-    using std::to_string;
-
-    tabulate::Table table;
-    table.format().font_align(tabulate::FontAlign::right);
-
-    table.add_row({ "runtime", "max constraint with invariant", "level",
-        "min constraint with strategy", "length" });
-    add_to(table);
-
-    out << table << std::endl;
-    auto latex = tabulate::LatexExporter().dump(table);
-    out << latex << std::endl;
-  }
-
-  void ExperimentResults::show_raw(std::ostream& out) const
-  {
-    Results::show(out);
-  }
-
-  void ExperimentResults::acc_update(const Result& r)
-  {
-    total_time += r.time;
-
-    if (r.has_invariant())
+    const tabulate::Table::Row_t PebblingResult::header() const
     {
-      assert(r.invariant().constraint);
-      if (max_inv)
-        max_inv = std::max(*max_inv, r.invariant(),
-            [](Invariant a, Invariant b)
-            { return a.constraint < b.constraint; });
-      else
-        max_inv = r.invariant();
+      return { "constraint", "pebbles used", "invariant index", "trace length",
+        "time" };
     }
-    else
-    {
-      if (min_strat)
-        min_strat = std::min(*min_strat, r.trace(),
-            [](const Trace& a, const Trace& b) { return a.marked < b.marked; });
-      else
-        min_strat = r.trace();
-    }
-  }
-
-  ExperimentResults& ExperimentResults::add(Result& r)
-  {
-    acc_update(r);
-    Results::add(r);
-    return *this;
-  }
-
-  ExperimentResults& operator<<(ExperimentResults& ars, Result& r)
-  {
-    return ars.add(r);
-  }
+  } // namespace pebbling
 } // namespace pdr

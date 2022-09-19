@@ -12,6 +12,7 @@
 #include <climits>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <queue>
 #include <spdlog/stopwatch.h>
@@ -33,7 +34,7 @@ namespace pdr
 
    private:
     Context& ctx;
-	IModel& model;
+    IModel& model;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
@@ -49,12 +50,12 @@ namespace pdr
 
     void print_model(const z3::model& m);
     // main algorithm
-    Result _run();
-    Result init();
-    Result iterate();
-    Result block(z3::expr_vector cti, unsigned n);
-    Result iterate_short();
-    Result block_short(z3::expr_vector&& counter, unsigned n);
+    PdrResult _run();
+    PdrResult init();
+    PdrResult iterate();
+    PdrResult block(z3::expr_vector cti, unsigned n);
+    PdrResult iterate_short();
+    PdrResult block_short(z3::expr_vector&& counter, unsigned n);
     // generalization
     // todo return [n, cti ptr]
     int hif_(const z3::expr_vector& cube, int min);
@@ -64,10 +65,10 @@ namespace pdr
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
     // results
-    void make_result(Result& result);
+    void make_result(PdrResult& result);
     // to replace return value in run()
     // stores final logs, stats and result and returns its argument
-    Result finish(Result&& rv);
+    PdrResult finish(PdrResult&& rv);
     void store_frame_strings();
     std::string constraint_str() const;
 
@@ -96,12 +97,12 @@ namespace pdr
     // returns false if there is a trace to a violation
     // max_pebbles: {} gives Frames no constraint
     // any value constrains maximum pebbled literals to the number
-    Result run(Tactic pdr_type);
-    Result run(Tactic pdr_type, std::optional<unsigned> max_pebbles);
+    PdrResult run(Tactic pdr_type);
+    PdrResult run(Tactic pdr_type, std::optional<unsigned> max_pebbles);
 
     // a run loosening the constraint, assuming a previous run was completed
-    Result decrement_run(unsigned max_pebbles);
-    Result increment_run(unsigned max_pebbles);
+    PdrResult decrement_run(unsigned max_pebbles);
+    PdrResult increment_run(unsigned max_pebbles);
 
     // constrain the given model to allow only 'x' literals marked
     void reconstrain(unsigned x);
@@ -131,18 +132,21 @@ namespace pdr
     {
      private:
       PDR alg;
-	  const Model& model; // same instance as the IModel in alg
+      const PebblingModel& model; // same instance as the IModel in alg
+      Tactic tactic{ Tactic::undef };
+      std::optional<unsigned> starting_value;
 
      public:
-      Results latest_results;
+      PebblingResult total_result;
 
-      Optimizer(Context& c, Model& m, Logger& l);
+      Optimizer(
+          Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
-      std::optional<unsigned> run(my::cli::ArgumentList args);
+      std::optional<unsigned> run(bool control);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
-      std::optional<unsigned> control_run(my::cli::ArgumentList args);
+      std::optional<unsigned> control_run();
       std::optional<unsigned> increment(bool control);
       std::optional<unsigned> decrement(bool control);
       void inc_jump_test(unsigned start, int step);

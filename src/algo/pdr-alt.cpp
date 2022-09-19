@@ -26,7 +26,7 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  Result PDR::iterate_short()
+  PdrResult PDR::iterate_short()
   {
     // I => P and I & T ⇒ P' (from init)
     if (ctx.type != Tactic::decrement) // decr continues from last level
@@ -41,7 +41,7 @@ namespace pdr
       {
         log_cti(*cti, k); // cti is an F_i state that leads to a violation
 
-        Result res = block_short(std::move(*cti), k - 1); // is cti reachable from F_k-1 ?
+        PdrResult res = block_short(std::move(*cti), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
           return res;
 
@@ -56,11 +56,11 @@ namespace pdr
       log_propagation(k, time);
 
       if (invariant_level)
-        return Result::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(frames.max_pebbles, *invariant_level);
     }
   }
 
-  Result PDR::block_short(expr_vector&& cti, unsigned n)
+  PdrResult PDR::block_short(expr_vector&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.tabbed("block");
@@ -98,7 +98,7 @@ namespace pdr
         log_pred(pred->cube);
 
         if (n == 0) // intersects with I
-          return Result::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(frames.max_pebbles, pred);
 
         obligations.emplace(n - 1, pred, depth + 1);
 
@@ -115,7 +115,7 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return Result::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(frames.max_pebbles, state);
 
         // !s is inductive to F_m
         expr_vector smaller_state = generalize(core, m);
@@ -137,6 +137,6 @@ namespace pdr
     }
 
     logger.indent--;
-    return Result::empty_true();
+    return PdrResult::empty_true();
   }
 } // namespace pdr

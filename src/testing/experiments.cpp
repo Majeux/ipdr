@@ -2,6 +2,7 @@
 #include "io.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "result.h"
 #include "tactic.h"
 #include <algorithm>
 #include <cassert>
@@ -15,20 +16,22 @@
 namespace pdr::experiments
 {
   using fmt::format;
+  using pebbling::PebblingResult;
   using std::cout;
   using std::endl;
 
+  // aggregate multiple experiments and format
   Run::Run(const my::cli::ArgumentList& args,
-      const std::vector<ExperimentResults>& results)
+      const std::vector<PebblingExperiment>& results)
       : model(args.model_name), tactic(args.tactic), avg_time(0.0)
   {
     using std::min;
-    using Invariant = Result::Invariant;
-    using Trace     = Result::Trace;
+    using Invariant = PdrResult::Invariant;
+    using Trace     = PdrResult::Trace;
 
     double time_sum = 0.0;
     std::vector<double> times;
-    for (const ExperimentResults& r : results)
+    for (const PebblingExperiment& r : results)
     {
       auto [t, inv, trace] = r.get_total();
 
@@ -232,10 +235,11 @@ namespace pdr::experiments
 
   // FUNCTIONS
   //
-  void model_run(::pebbling::Model& model, pdr::Logger& log,
+  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)
   {
     using std::optional;
+    using pdr::pebbling::PebblingResult;
     using namespace my::io;
 
     const fs::path model_dir   = setup_model_path(args);
@@ -245,8 +249,8 @@ namespace pdr::experiments
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
 
     optional<unsigned> optimum;
-    std::vector<ExperimentResults> results;
-    std::vector<ExperimentResults> control;
+    std::vector<PebblingExperiment> repetitions;
+    std::vector<PebblingExperiment> control_repetitions;
 
     tabulate::Table::Row_t header{ "runtime", "max constraint with invariant",
       "level", "min constraint with strategy", "length" };
@@ -284,23 +288,23 @@ namespace pdr::experiments
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
       cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, log);
+      pdr::pebbling::Optimizer opt(ctx, model, args, log);
 
       if (i == 0)
-        optimum = opt.run(args);
+        optimum = opt.run(args.experiment_control);
       else
       {
-        r = opt.run(args);
-        assert(optimum == r);
+        r = opt.run(args.experiment_control);
+        assert(optimum == r); // all results should be same
       }
 
-      results.emplace_back(opt.latest_results, args.tactic);
+      repetitions.emplace_back(opt.total_result, args.tactic);
       // cout << format("## Experiment sample {}", i) << endl;
-      results.back().add_to(sample_table);
+      repetitions.back().add_to(sample_table);
     }
 
-    assert(results.size() == N);
-    Run aggregate(args, results);
+    assert(repetitions.size() == N);
+    Run aggregate(args, repetitions);
     latex << aggregate.str(output_format::latex);
 
     // control runs without incremental functionality
@@ -311,7 +315,7 @@ namespace pdr::experiments
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
       cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, log);
+      pdr::pebbling::Optimizer opt(ctx, model, log);
 
       if (i == 0)
         optimum = opt.control_run(args);
@@ -321,17 +325,17 @@ namespace pdr::experiments
         assert(optimum == r);
       }
 
-      control.emplace_back(opt.latest_results, args.tactic);
-      control.back().add_to(control_table);
+      control_repetitions.emplace_back(opt.total_result, args.tactic);
+      control_repetitions.back().add_to(control_table);
     }
 
-    Run control_aggregate(args, control);
+    Run control_aggregate(args, control_repetitions);
     latex << aggregate.str_compared(control_aggregate, output_format::latex);
 
     // write raw run data as markdown
     {
       tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const ExperimentResults& r, size_t i)
+      auto dump = [&exporter, &raw](const PebblingExperiment& r, size_t i)
       {
         raw << format("### Sample {}", i) << endl;
         tabulate::Table t{ r.raw_table() };
@@ -346,12 +350,12 @@ namespace pdr::experiments
           << endl;
 
       raw << "## Experiment run." << endl;
-      for (size_t i = 0; i < results.size(); i++)
-        dump(results[i], i);
+      for (size_t i = 0; i < repetitions.size(); i++)
+        dump(repetitions[i], i);
 
       raw << "## Control run." << endl;
-      for (size_t i = 0; i < results.size(); i++)
-        dump(control[i], i);
+      for (size_t i = 0; i < repetitions.size(); i++)
+        dump(control_repetitions[i], i);
     }
   }
 

@@ -52,7 +52,7 @@ namespace pdr
     logger.show("}");
   }
 
-  Result PDR::_run()
+  PdrResult PDR::_run()
   {
     timer.reset();
     // TODO run type preparation logic here
@@ -61,7 +61,7 @@ namespace pdr
     if (frames.frontier() == 0)
     {
       logger.indent++;
-      Result init_res = init();
+      PdrResult init_res = init();
       logger.indent--;
       if (!init_res)
       {
@@ -72,7 +72,7 @@ namespace pdr
 
     logger.and_show("\nStart iteration");
     logger.indent++;
-    if (Result it_res = iterate_short())
+    if (PdrResult it_res = iterate_short())
     {
       logger.and_whisper("Property verified");
       logger.indent--;
@@ -85,36 +85,36 @@ namespace pdr
     }
   }
 
-  Result PDR::run(Tactic pdr_type)
+  PdrResult PDR::run(Tactic pdr_type)
   {
     ctx.type = pdr_type;
     return _run();
   }
 
-  Result PDR::run(Tactic pdr_type, optional<unsigned> max_p)
+  PdrResult PDR::run(Tactic pdr_type, optional<unsigned> max_p)
   {
     ctx.type = pdr_type;
     frames.reset(max_p);
     return _run();
   }
 
-  Result PDR::decrement_run(unsigned max_p)
+  PdrResult PDR::decrement_run(unsigned max_p)
   {
     ctx.type = Tactic::decrement;
     if (optional<unsigned> inv = frames.decrement_reset(max_p))
-      return Result::found_invariant(frames.max_pebbles, *inv);
+      return PdrResult::found_invariant(frames.max_pebbles, *inv);
 
     return _run();
   }
 
-  Result PDR::increment_run(unsigned max_p)
+  PdrResult PDR::increment_run(unsigned max_p)
   {
     ctx.type = Tactic::increment;
     frames.increment_reset(max_p);
     return _run();
   }
 
-  Result PDR::finish(Result&& rv)
+  PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
     logger.and_show(format("Total elapsed time {}", final_time));
@@ -138,7 +138,7 @@ namespace pdr
   }
 
   // returns true if the model survives initiation
-  Result PDR::init()
+  PdrResult PDR::init()
   {
     logger.and_whisper("Start initiation");
     assert(frames.frontier() == 0);
@@ -146,23 +146,23 @@ namespace pdr
     if (frames.init_solver.check(model.n_property))
     {
       logger.whisper("I =/> P");
-      return Result::found_trace(frames.max_pebbles, model.get_initial());
+      return PdrResult::found_trace(frames.max_pebbles, model.get_initial());
     }
 
     if (frames.SAT(0, model.n_property.p()))
     { // there is a transitions from I to !P
       logger.show("I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
-      return Result::found_trace(frames.max_pebbles, bad_cube);
+      return PdrResult::found_trace(frames.max_pebbles, bad_cube);
     }
 
     frames.extend();
 
     logger.and_whisper("Survived Initiation");
-    return Result::empty_true();
+    return PdrResult::empty_true();
   }
 
-  Result PDR::iterate()
+  PdrResult PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
     if (ctx.type != Tactic::decrement)
@@ -184,7 +184,7 @@ namespace pdr
         expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
-        Result res = block(*cti, n);
+        PdrResult res = block(*cti, n);
         if (not res)
         {
           logger.and_show("Terminated with trace");
@@ -203,11 +203,11 @@ namespace pdr
       frames.log_solvers(true);
 
       if (invariant_level)
-        return Result::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(frames.max_pebbles, *invariant_level);
     }
   }
 
-  Result PDR::block(expr_vector cti, unsigned n)
+  PdrResult PDR::block(expr_vector cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.tabbed("block");
@@ -252,7 +252,7 @@ namespace pdr
         auto [m, core] = highest_inductive_frame(pred->cube, n - 1);
         // n-1 <= m <= level
         if (m < 0) // intersects with I
-          return Result::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(frames.max_pebbles, pred);
 
         expr_vector smaller_pred = generalize(core, m);
         frames.remove_state(smaller_pred, m + 1);
@@ -275,7 +275,7 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return Result::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(frames.max_pebbles, state);
 
         // !s is inductive to F_m
         expr_vector smaller_state = generalize(core, m);
@@ -311,7 +311,7 @@ namespace pdr
     }
 
     logger.indent--;
-    return Result::empty_true();
+    return PdrResult::empty_true();
   }
 
   string PDR::constraint_str() const

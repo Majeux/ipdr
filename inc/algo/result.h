@@ -22,15 +22,15 @@ namespace pdr
 {
   // converts to bool: true there is an invariant, false if there is a trace
   // iterating walks through the linked list starting with trace
-  struct Result
+  struct PdrResult
   {
     using ResultRow = std::array<std::string, 5>;
     class const_iterator;
 
     struct Invariant
     {
-      std::optional<unsigned> constraint;
       int level; // the F_i that gives the inductive invariant
+
       Invariant(int l = 1);
       Invariant(std::optional<unsigned> c, int l = 1);
     };
@@ -38,7 +38,6 @@ namespace pdr
     struct Trace
     {
       std::vector<z3::expr_vector> states;
-      std::shared_ptr<State> states_ll;
       unsigned length;
 
       Trace();
@@ -51,13 +50,13 @@ namespace pdr
     std::variant<Invariant, Trace> output;
 
     // Result builders
-    static Result found_trace(
+    static PdrResult found_trace(
         std::optional<unsigned> constraint, std::shared_ptr<State> s);
-    static Result found_trace(std::optional<unsigned> constraint, State&& s);
-    static Result found_invariant(
+    static PdrResult found_trace(std::optional<unsigned> constraint, State&& s);
+    static PdrResult found_invariant(
         std::optional<unsigned> constraint, int level);
-    static Result empty_true();
-    static Result empty_false();
+    static PdrResult empty_true();
+    static PdrResult empty_false();
 
     operator bool() const;
     bool has_invariant() const;
@@ -72,7 +71,7 @@ namespace pdr
 
     void clean_trace();
     ResultRow listing() const;
-    void process(const pebbling::Model& model);
+    void process(const pebbling::PebblingModel& model);
     // iterators over the Trace. empty if there is an Invariant
     const_iterator begin();
     const_iterator end();
@@ -81,81 +80,82 @@ namespace pdr
     bool finalized  = false;
     std::string str = "";
 
-    Result(std::optional<unsigned> constr, std::shared_ptr<State> s);
-    Result(std::optional<unsigned> constr, int l);
+    PdrResult(std::optional<unsigned> constr, std::shared_ptr<State> s);
+    PdrResult(std::optional<unsigned> constr, int l);
   };
 
-  // collection of >= 1 pdr runs on the same model with varying constraints
+  // collection of >= 1 pdr results that represents a single ipdr run
   // if decreasing: trace, trace, ..., invariant
   // if increasing: invariant, invariant, ..., trace
-  class Results
+  class IpdrResult
   {
    public:
-    Results(const pebbling::Model& m);
-    virtual ~Results();
+    virtual ~IpdrResult();
     tabulate::Table new_table() const;
     void reset();
     virtual void show(std::ostream& out) const;
     void show_traces(std::ostream& out) const;
-    Results& add(Result& r);
+    IpdrResult& add(PdrResult& r);
     tabulate::Table raw_table() const;
     std::vector<double> g_times() const;
-    friend Results& operator<<(Results& rs, Result& r);
+    friend IpdrResult& operator<<(IpdrResult& rs, PdrResult& r);
 
    protected:
-    const pebbling::Model& model;
-    const tabulate::Table::Row_t header = { "constraint", "pebbles used",
-      "invariant index", "trace length", "time" };
     std::vector<tabulate::Table::Row_t> rows;
 
-    std::vector<Result> original;
+    std::vector<PdrResult> original;
     std::vector<std::string> traces;
+
+    virtual const tabulate::Table::Row_t header() const;
 
     friend class ExperimentResults;
   };
 
-  namespace pebbling 
+  namespace pebbling
   {
-    class PebblingResult final : public Result
+    // aggregates multiple pdr runs into a single ipdr result for pebbling
+    // collects: total time spent, highest level invariant, and trace with the
+    // lowest marking
+    class PebblingResult final : public IpdrResult
     {
      public:
-      PebblingResult(const pebbling::Model& m, const Result& r);
-      
+      struct PebblingInvariant
+      {
+        PdrResult::Invariant invariant;
+        std::optional<unsigned> constraint;
+      };
+      struct PebblingTrace
+      {
+        PdrResult::Trace trace;
+        unsigned pebbled{0};
+      };
+      struct Data_t
+      {
+        double time{0.0};
+        std::optional<PebblingInvariant> inv;
+        std::optional<PebblingTrace> strategy;
+      };
+
+      PebblingResult(const pebbling::PebblingModel& m, Tactic t);
+      PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
+
+      void add_to_table(tabulate::Table& t) const;
+      void show(std::ostream& out) const override;
+      void show_raw(std::ostream& out) const;
+      PebblingResult& add(PdrResult& r);
+      friend PebblingResult& operator<<(PebblingResult& rs, PdrResult& r);
+
      private:
-      const pebbling::Model& model;
+      const PebblingModel& model;
+      const Tactic tactic;
+      Data_t total; // total time, max invariant, min trace
+      unsigned invariants{0};
+      unsigned traces{0};
 
-      std::optional<unsigned> pebbled;
-    }; // class Result
-  } // namespace pebbling
-
-  // results that accumulates results for experiments
-  class ExperimentResults : public Results
-  {
-   public:
-    struct Data_t
-    {
-      double time;
-      std::optional<Result::Invariant> inv;
-      std::optional<Result::Trace> trace;
+      // aggregate result into total
+      void acc_update(const PdrResult& r);
+      const tabulate::Table::Row_t header() const override;
     };
-
-    ExperimentResults(const pebbling::Model& m, Tactic t);
-    ExperimentResults(const Results& r, Tactic t);
-    Data_t get_total() const;
-    void add_to(tabulate::Table& t) const;
-    void show(std::ostream& out) const override;
-    void show_raw(std::ostream& out) const;
-    ExperimentResults& add(Result& r);
-    friend ExperimentResults& operator<<(ExperimentResults& rs, Result& r);
-
-   private:
-    const Tactic tactic;
-
-    double total_time{ 0.0 };
-    std::optional<Result::Invariant> max_inv; // earliest invariant found
-    std::optional<Result::Trace> min_strat;   // shortest trace found
-
-    void acc_update(const Result& r);
-  };
+  } // namespace pebbling
 } // namespace pdr
 #endif // PDR_RES

@@ -30,9 +30,6 @@ namespace pdr
     {
     }
 
-    // parametrized addition to property
-    virtual std::pair<z3::expr_vector, z3::expr_vector> make_constraint(
-        std::optional<unsigned> x);
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_constraint() const;

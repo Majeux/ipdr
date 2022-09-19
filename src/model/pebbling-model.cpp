@@ -14,7 +14,7 @@ namespace pdr::pebbling
   using z3::expr;
   using z3::expr_vector;
 
-  Model::Model(
+  PebblingModel::PebblingModel(
       z3::context& c, const my::cli::ArgumentList& args, const dag::Graph& G)
       : IModel(c, G.nodes)
   {
@@ -46,9 +46,9 @@ namespace pdr::pebbling
     //   std::cout << param_out << std::endl;
   }
 
-  size_t Model::n_nodes() const { return initial.size(); }
+  size_t PebblingModel::n_nodes() const { return initial.size(); }
 
-  void Model::load_pebble_transition(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition(const dag::Graph& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -69,7 +69,7 @@ namespace pdr::pebbling
     }
   }
 
-  void Model::load_pebble_transition_tseytin(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_tseytin(const dag::Graph& G)
   {
     using namespace z3ext::tseytin;
     transition.resize(0);
@@ -105,7 +105,7 @@ namespace pdr::pebbling
       transition.push_back(e);
   }
 
-  void Model::load_pebble_transition_raw1(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_raw1(const dag::Graph& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -124,7 +124,7 @@ namespace pdr::pebbling
     }
   }
 
-  void Model::load_pebble_transition_raw2(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_raw2(const dag::Graph& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -145,7 +145,7 @@ namespace pdr::pebbling
     }
   }
 
-  void Model::load_property(const dag::Graph& G)
+  void PebblingModel::load_property(const dag::Graph& G)
   {
     // final nodes are pebbled and others are not
     for (const expr& e : vars())
@@ -170,18 +170,25 @@ namespace pdr::pebbling
     property.finish();
   }
 
-  pair<expr_vector, expr_vector> Model::make_constraint(
-      std::optional<unsigned> x)
+  void PebblingModel::constrain(std::optional<unsigned> x)
   {
-    pair rv = { expr_vector(ctx), expr_vector(ctx) };
-    if (!x)
-      return rv;
+    constraint.resize(0);
+    assert(constraint.size() == 0);
 
-    rv.first.push_back(z3::atmost(vars, *x));
-    rv.second.push_back(z3::atmost(vars.p(), *x));
+    if (x)
+    {
+      constraint.push_back(z3::atmost(vars, *x));
+      constraint.push_back(z3::atmost(vars.p(), *x));
+    }
 
-    return rv;
+    max_pebbles = x;
+    assert(constraint.size() == 2);
   }
 
-  unsigned Model::get_f_pebbles() const { return final_pebbles; }
+  unsigned PebblingModel::get_f_pebbles() const { return final_pebbles; }
+
+  std::optional<unsigned> PebblingModel::get_max_pebbles() const
+  {
+    return max_pebbles;
+  }
 } // namespace pdr::pebbling
