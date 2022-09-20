@@ -8,7 +8,7 @@
 #include "result.h"
 #include <variant>
 
-namespace pdr::experiments
+namespace pdr::pebbling::experiments
 {
   enum output_format
   {
@@ -25,8 +25,8 @@ namespace pdr::experiments
 
     double avg_time;
     double std_dev_time;
-    std::optional<PdrResult::Invariant> max_inv;
-    std::optional<PdrResult::Trace> min_strat;
+    std::optional<PebblingResult::PebblingInvariant> min_inv;
+    std::optional<PebblingResult::PebblingTrace> min_strat;
 
     Run(const my::cli::ArgumentList& args,
         const std::vector<pebbling::PebblingResult>& r);

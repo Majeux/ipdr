@@ -31,8 +31,8 @@ namespace pdr
     {
       int level; // the F_i that gives the inductive invariant
 
-      Invariant(int l = 1);
-      Invariant(std::optional<unsigned> c, int l = 1);
+      Invariant(int l);
+      Invariant(std::optional<unsigned> c, int l);
     };
 
     struct Trace
@@ -45,16 +45,13 @@ namespace pdr
       Trace(std::shared_ptr<const State> s);
     };
 
-    std::optional<unsigned> constraint;
     double time = 0.0;
     std::variant<Invariant, Trace> output;
 
     // Result builders
-    static PdrResult found_trace(
-        std::optional<unsigned> constraint, std::shared_ptr<State> s);
-    static PdrResult found_trace(std::optional<unsigned> constraint, State&& s);
-    static PdrResult found_invariant(
-        std::optional<unsigned> constraint, int level);
+    static PdrResult found_trace(std::shared_ptr<State> s);
+    static PdrResult found_trace(State&& s);
+    static PdrResult found_invariant(int level);
     static PdrResult empty_true();
     static PdrResult empty_false();
 
@@ -67,21 +64,13 @@ namespace pdr
     const Trace& trace() const;
     Invariant& invariant();
     Trace& trace();
-    std::string_view string_rep() const;
 
     void clean_trace();
     ResultRow listing() const;
-    void process(const pebbling::PebblingModel& model);
-    // iterators over the Trace. empty if there is an Invariant
-    const_iterator begin();
-    const_iterator end();
 
    private:
-    bool finalized  = false;
-    std::string str = "";
-
-    PdrResult(std::optional<unsigned> constr, std::shared_ptr<State> s);
-    PdrResult(std::optional<unsigned> constr, int l);
+    PdrResult(std::shared_ptr<State> s);
+    PdrResult(int l);
   };
 
   // collection of >= 1 pdr results that represents a single ipdr run
@@ -106,7 +95,8 @@ namespace pdr
     std::vector<PdrResult> original;
     std::vector<std::string> traces;
 
-    virtual const tabulate::Table::Row_t header() const;
+    virtual const tabulate::Table::Row_t header() const     = 0;
+    virtual std::string process(const PdrResult& res) const = 0;
 
     friend class ExperimentResults;
   };
@@ -127,11 +117,11 @@ namespace pdr
       struct PebblingTrace
       {
         PdrResult::Trace trace;
-        unsigned pebbled{0};
+        unsigned pebbled{ 0 };
       };
       struct Data_t
       {
-        double time{0.0};
+        double time{ 0.0 };
         std::optional<PebblingInvariant> inv;
         std::optional<PebblingTrace> strategy;
       };
@@ -145,16 +135,19 @@ namespace pdr
       PebblingResult& add(PdrResult& r);
       friend PebblingResult& operator<<(PebblingResult& rs, PdrResult& r);
 
+	  const Data_t& get_total() const;
+
      private:
       const PebblingModel& model;
       const Tactic tactic;
       Data_t total; // total time, max invariant, min trace
-      unsigned invariants{0};
-      unsigned traces{0};
+      unsigned invariants{ 0 };
+      unsigned traces{ 0 };
 
       // aggregate result into total
       void acc_update(const PdrResult& r);
       const tabulate::Table::Row_t header() const override;
+      std::string process(const PdrResult& res) const override;
     };
   } // namespace pebbling
 } // namespace pdr

@@ -23,8 +23,6 @@ namespace pdr
     State(z3::expr_vector&& e);
     State(z3::expr_vector&& e, std::shared_ptr<State> s);
 
-    std::vector<std::string> marking(
-        std::vector<std::string> header, unsigned width) const;
     unsigned show(TextTable& table) const;
 
     friend unsigned no_marked(const State& s);

@@ -13,7 +13,7 @@
 #include <tabulate/table.hpp>
 #include <variant>
 
-namespace pdr::experiments
+namespace pdr::pebbling::experiments
 {
   using fmt::format;
   using pebbling::PebblingResult;
@@ -22,39 +22,33 @@ namespace pdr::experiments
 
   // aggregate multiple experiments and format
   Run::Run(const my::cli::ArgumentList& args,
-      const std::vector<PebblingExperiment>& results)
+      const std::vector<PebblingResult>& results)
       : model(args.model_name), tactic(args.tactic), avg_time(0.0)
   {
     using std::min;
     using Invariant = PdrResult::Invariant;
     using Trace     = PdrResult::Trace;
 
-    double time_sum = 0.0;
+    double time_sum{ 0.0 };
     std::vector<double> times;
-    for (const PebblingExperiment& r : results)
+    for (const PebblingResult& r : results)
     {
-      auto [t, inv, trace] = r.get_total();
+      PebblingResult::Data_t total = r.get_total();
 
-      time_sum += t;
-      times.push_back(t);
+      time_sum += total.time;
+      times.push_back(total.time);
 
-      if (inv) // get the lowest invariant level we found
+      if (total.inv) // get the lowest invariant level we found
       {
-        if (max_inv)
-          max_inv = min(*max_inv, *inv,
-              [](Invariant a, Invariant b) { return a.level < b.level; });
-        else
-          max_inv = inv;
+        if (!min_inv || min_inv->invariant.level < total.inv->invariant.level)
+          min_inv = total.inv;
       }
 
-      if (trace) // get the shortest trace we found
+      if (total.strategy) // get the shortest trace we found
       {
-        if (min_strat)
-          min_strat = min(*min_strat, *trace,
-              [](const Trace& a, const Trace& b)
-              { return a.length < b.length; });
-        else
-          min_strat = trace;
+        if (!min_strat ||
+            min_strat->trace.length < total.strategy->trace.length)
+          min_strat = total.strategy;
       }
     }
     avg_time = time_sum / results.size();
@@ -148,17 +142,17 @@ namespace pdr::experiments
       t.at(i++) = { "avg time", time_str(avg_time) };
       t.at(i++) = { "std dev time", time_str(std_dev_time) };
 
-      if (max_inv)
+      if (min_inv)
       {
         t.at(i++) = { "max inv constraint",
-          to_string(max_inv->constraint.value()) };
-        t.at(i++) = { "max inv level", to_string(max_inv->level) };
+          to_string(min_inv->constraint.value()) };
+        t.at(i++) = { "max inv level", to_string(min_inv->invariant.level) };
       }
 
       if (min_strat)
       {
-        t.at(i++) = { "min strat marked", to_string(min_strat->marked) };
-        t.at(i++) = { "min strat length", to_string(min_strat->length) };
+        t.at(i++) = { "min strat marked", to_string(min_strat->pebbled) };
+        t.at(i++) = { "min strat length", to_string(min_strat->trace.length) };
       }
     }
     return t;
@@ -206,12 +200,13 @@ namespace pdr::experiments
 
       rows.at(i++).push_back(time_str(other.std_dev_time));
 
-      if (other.max_inv)
+      if (other.min_inv)
       {
-        rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
+        rows.at(i++).push_back(to_string(other.min_inv->constraint.value()));
         {
-          rows.at(i).push_back(to_string(other.max_inv->level));
-          double dec = percentage_dec(other.max_inv->level, max_inv->level);
+          rows.at(i).push_back(to_string(other.min_inv->invariant.level));
+          double dec = percentage_dec(
+              other.min_inv->invariant.level, min_inv->invariant.level);
           rows.at(i).push_back(perc_str(dec));
           i++;
         }
@@ -219,11 +214,11 @@ namespace pdr::experiments
 
       if (other.min_strat)
       {
-        rows.at(i++).push_back(to_string(other.min_strat->marked));
+        rows.at(i++).push_back(to_string(other.min_strat->pebbled));
         {
-          rows.at(i).push_back(to_string(other.min_strat->length));
+          rows.at(i).push_back(to_string(other.min_strat->trace.length));
           double dec =
-              percentage_dec(other.min_strat->length, min_strat->length);
+              percentage_dec(other.min_strat->trace.length, min_strat->trace.length);
           rows.at(i).push_back(perc_str(dec));
           i++;
         }
@@ -238,8 +233,8 @@ namespace pdr::experiments
   void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args)
   {
-    using std::optional;
     using pdr::pebbling::PebblingResult;
+    using std::optional;
     using namespace my::io;
 
     const fs::path model_dir   = setup_model_path(args);
@@ -249,8 +244,8 @@ namespace pdr::experiments
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
 
     optional<unsigned> optimum;
-    std::vector<PebblingExperiment> repetitions;
-    std::vector<PebblingExperiment> control_repetitions;
+    std::vector<PebblingResult> repetitions;
+    std::vector<PebblingResult> control_repetitions;
 
     tabulate::Table::Row_t header{ "runtime", "max constraint with invariant",
       "level", "min constraint with strategy", "length" };
@@ -300,7 +295,7 @@ namespace pdr::experiments
 
       repetitions.emplace_back(opt.total_result, args.tactic);
       // cout << format("## Experiment sample {}", i) << endl;
-      repetitions.back().add_to(sample_table);
+      repetitions.back().add_to_table(sample_table);
     }
 
     assert(repetitions.size() == N);
@@ -315,18 +310,18 @@ namespace pdr::experiments
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
       cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, model, log);
+      pdr::pebbling::Optimizer opt(ctx, model, args, log);
 
       if (i == 0)
-        optimum = opt.control_run(args);
+        optimum = opt.control_run();
       else
       {
-        r = opt.control_run(args);
+        r = opt.control_run();
         assert(optimum == r);
       }
 
       control_repetitions.emplace_back(opt.total_result, args.tactic);
-      control_repetitions.back().add_to(control_table);
+      control_repetitions.back().add_to_table(control_table);
     }
 
     Run control_aggregate(args, control_repetitions);
@@ -335,7 +330,7 @@ namespace pdr::experiments
     // write raw run data as markdown
     {
       tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const PebblingExperiment& r, size_t i)
+      auto dump = [&exporter, &raw](const PebblingResult& r, size_t i)
       {
         raw << format("### Sample {}", i) << endl;
         tabulate::Table t{ r.raw_table() };
@@ -359,4 +354,4 @@ namespace pdr::experiments
     }
   }
 
-} // namespace pdr::experiments
+} // namespace pdr::pebbling::experiments

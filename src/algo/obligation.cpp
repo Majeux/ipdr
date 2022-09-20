@@ -21,23 +21,6 @@ namespace pdr
   {
   }
 
-  vector<string> State::marking(vector<string> header, unsigned width) const
-  {
-    vector<string> rv(header.size(), "?");
-    for (const expr& e : cube)
-    {
-      string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
-      auto it  = std::lower_bound(header.begin(), header.end(), s);
-      if (it != header.end() && *it == s) // it points to s
-      {
-        string fill_X           = fmt::format("{:X^{}}", "", width);
-        rv[it - header.begin()] = e.is_not() ? "" : fill_X;
-      }
-    }
-
-    return rv;
-  }
-
   unsigned State::show(TextTable& table) const
   {
     vector<std::tuple<unsigned, string, unsigned>> steps;
