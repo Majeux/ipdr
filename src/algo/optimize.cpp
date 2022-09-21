@@ -71,7 +71,6 @@ namespace pdr::pebbling
       else
         invariant = alg.increment_run(N);
 
-      invariant.process(model);
       total_result << invariant;
     }
 

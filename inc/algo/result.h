@@ -24,8 +24,10 @@ namespace pdr
   // iterating walks through the linked list starting with trace
   struct PdrResult
   {
-    using ResultRow = std::array<std::string, 5>;
-    class const_iterator;
+    using ResultRow = std::array<std::string, 3>;
+
+    inline const static ResultRow header = { "invariant index", "trace length",
+      "Total time" };
 
     struct Invariant
     {
@@ -79,26 +81,31 @@ namespace pdr
   class IpdrResult
   {
    public:
+     IpdrResult(const pebbling::PebblingModel& m);
     virtual ~IpdrResult();
     tabulate::Table new_table() const;
     void reset();
-    virtual void show(std::ostream& out) const;
-    void show_traces(std::ostream& out) const;
-    IpdrResult& add(PdrResult& r);
     tabulate::Table raw_table() const;
+    void show_traces(std::ostream& out) const;
     std::vector<double> g_times() const;
+
+    virtual void show(std::ostream& out) const;
+    virtual IpdrResult& add(const PdrResult& r);
+    virtual tabulate::Table::Row_t table_row(const PdrResult& r);
+
     friend IpdrResult& operator<<(IpdrResult& rs, PdrResult& r);
 
    protected:
     std::vector<tabulate::Table::Row_t> rows;
 
     std::vector<PdrResult> original;
-    std::vector<std::string> traces;
+    std::vector<std::string> trace_strings;
 
-    virtual const tabulate::Table::Row_t header() const     = 0;
-    virtual std::string process(const PdrResult& res) const = 0;
+    virtual const tabulate::Table::Row_t header() const;
+    virtual std::string process_trace(const PdrResult& res) const;
 
-    friend class ExperimentResults;
+   private:
+    const pdr::IModel& model;
   };
 
   namespace pebbling
@@ -130,24 +137,28 @@ namespace pdr
       PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
 
       void add_to_table(tabulate::Table& t) const;
-      void show(std::ostream& out) const override;
       void show_raw(std::ostream& out) const;
-      PebblingResult& add(PdrResult& r);
+
+      void show(std::ostream& out) const override;
+      PebblingResult& add(const PdrResult& r) override;
+      tabulate::Table::Row_t table_row(const PdrResult& r) override;
+      
       friend PebblingResult& operator<<(PebblingResult& rs, PdrResult& r);
 
-	  const Data_t& get_total() const;
+      const Data_t& get_total() const;
+      const std::optional<unsigned> min_pebbles() const;
 
      private:
       const PebblingModel& model;
       const Tactic tactic;
-      Data_t total; // total time, max invariant, min trace
+      Data_t total; // the latest invariant and trace, with the total time spent
       unsigned invariants{ 0 };
       unsigned traces{ 0 };
 
       // aggregate result into total
       void acc_update(const PdrResult& r);
       const tabulate::Table::Row_t header() const override;
-      std::string process(const PdrResult& res) const override;
+      std::string process_trace(const PdrResult& res) const override;
     };
   } // namespace pebbling
 } // namespace pdr
