@@ -25,12 +25,12 @@ namespace pdr
 {
   namespace pebbling
   {
-    class Optimizer;
+    class IPDR;
   }
 
   class PDR
   {
-    friend class pebbling::Optimizer;
+    friend class pebbling::IPDR;
 
    private:
     Context& ctx;
@@ -40,17 +40,15 @@ namespace pdr
     spdlog::stopwatch sub_timer;
     Logger& logger;
 
-    Frames frames;
+    Frames frames; // sequence of candidates
     std::set<Obligation, std::less<Obligation>> obligations;
-
-    unsigned shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = UINT_MAX;
 
     void print_model(const z3::model& m);
     // main algorithm
-    PdrResult _run();
+    PdrResult run();
     PdrResult init();
     PdrResult iterate();
     PdrResult block(z3::expr_vector cti, unsigned n);
@@ -92,34 +90,6 @@ namespace pdr
     const Context& get_ctx() const;
     Context& get_ctx();
 
-    // execute the PDR algorithm using the model and property in the context
-    // returns true if the property is invariant
-    // returns false if there is a trace to a violation
-    // max_pebbles: {} gives Frames no constraint
-    // any value constrains maximum pebbled literals to the number
-    PdrResult run(Tactic pdr_type);
-    PdrResult run(Tactic pdr_type, std::optional<unsigned> max_pebbles);
-
-    // a run loosening the constraint, assuming a previous run was completed
-    PdrResult decrement_run(unsigned max_pebbles);
-    PdrResult increment_run(unsigned max_pebbles);
-
-    // constrain the given model to allow only 'x' literals marked
-    void reconstrain(unsigned x);
-    // reduces the max pebbles of the model to 1 lower than the previous
-    // strategy length. returns true if the is already proven invariant by this.
-    // returns false if this remains to be verified.
-    bool decrement(bool reuse = false);
-
-    // optimization tactics
-    //
-    // Start at max pebbles and decrement until (at the lowest) final pebbles
-    bool dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
-    // start at final pebbles and increment until (at the most) max pebbles
-    bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
-    bool inc_jump_test(unsigned start, int step, std::ofstream& strategy,
-        std::ofstream& solver_dump);
-
     Statistics& stats();
     void show_solver(std::ostream& out) const;
     std::vector<std::string> trace_row(const z3::expr_vector& v);
@@ -128,27 +98,29 @@ namespace pdr
 
   namespace pebbling
   {
-    class Optimizer
+    class IPDR
     {
      private:
       PDR alg;
-      const PebblingModel& model; // same instance as the IModel in alg
+      PebblingModel& model; // same instance as the IModel in alg
       Tactic tactic{ Tactic::undef };
       std::optional<unsigned> starting_value;
 
-     public:
-      PebblingResult total_result;
+      void basic_reset(unsigned pebbles);
+      void increment_reset(unsigned pebbles);
+      std::optional<size_t> decrement_reset(unsigned pebbles);
 
-      Optimizer(
+     public:
+      IPDR(
           Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
-      std::optional<unsigned> run(bool control);
+      PebblingResult run(bool control);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
-      std::optional<unsigned> control_run();
-      std::optional<unsigned> increment(bool control);
-      std::optional<unsigned> decrement(bool control);
+      PebblingResult control_run();
+      PebblingResult increment(bool control);
+      PebblingResult decrement(bool control);
       void inc_jump_test(unsigned start, int step);
 
       void dump_solver(std::ofstream& out) const;

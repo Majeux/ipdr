@@ -43,27 +43,19 @@ namespace pdr
     // solver containing only the intial state
     z3::solver init_solver; // TODO non-mutable interface
 
-    // cardinality constraint on the maximum allowed marked literals in a state
-    std::optional<unsigned> max_pebbles;
-
     Frames(Context& c, IModel& m, Logger& l);
-    Frames(Context& c, IModel& m, Logger& l, std::optional<unsigned> constraint);
 
     // reset the sequence to F_0, F_1 (frontier 0)
     void reset();
 
-    // reset the sequence to F_0, F_1 (frontier 0)
-    // and set 'new_constraint' as the new 'max_pebbles'
-    void reset(std::optional<unsigned> new_constraint);
-
     // reduce the max_pebbles constraint to 'x'
     // redo propagation for the previous level
     // return an invariant level if propagation finds one
-    std::optional<size_t> decrement_reset(unsigned x);
+    std::optional<size_t> reuse();
 
     // increase the max_pebbles constraint to 'x'
     // carry over all learned cubes to F_1 in a new sequence (if valid)
-    void increment_reset(unsigned x);
+    void reset_to_F1();
 
     // frame interface
     //

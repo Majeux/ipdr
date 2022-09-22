@@ -3,20 +3,21 @@
 #include <bits/types/FILE.h>
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 
 namespace pdr::pebbling
 {
   using std::optional;
 
-  Optimizer::Optimizer(
+  IPDR::IPDR(
       Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l)
       : alg(c, m, l), model(m), tactic(args.tactic),
-        starting_value(args.max_pebbles), total_result(m, args.tactic)
+        starting_value(args.max_pebbles)
   {
   }
 
-  optional<unsigned> Optimizer::control_run()
+  PebblingResult IPDR::control_run()
   {
     switch (tactic)
     {
@@ -28,14 +29,13 @@ namespace pdr::pebbling
       case pdr::Tactic::inc_one_test:
         inc_jump_test(starting_value.value(), 1);
         break;
-      default:
-        throw std::invalid_argument(
-            "No optimization pdr tactic has been selected.");
+      default: break;
     }
-    return {};
+    throw std::invalid_argument(
+        "No optimization pdr tactic has been selected.");
   }
 
-  optional<unsigned> Optimizer::run(bool control)
+  PebblingResult IPDR::run(bool control)
   {
     switch (tactic)
     {
@@ -47,85 +47,96 @@ namespace pdr::pebbling
       case pdr::Tactic::inc_one_test:
         inc_jump_test(starting_value.value(), 1);
         break;
-      default:
-        throw std::invalid_argument(
-            "No optimization pdr tactic has been selected.");
+      default: break;
     }
-    return {};
+    throw std::invalid_argument(
+        "No optimization pdr tactic has been selected.");
   }
 
-  optional<unsigned> Optimizer::increment(bool control)
+  PebblingResult IPDR::increment(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: decrement.");
-    total_result.reset();
+    alg.logger.and_whisper("! Optimization run: increment max pebbles.");
 
+    PebblingResult total(model, tactic);
     unsigned N = model.get_f_pebbles(); // need at least this many pebbles
 
-    pdr::PdrResult invariant = alg.run(Tactic::basic, N);
-    total_result << invariant;
+    basic_reset(N);
+    pdr::PdrResult invariant = alg.run();
+    total << invariant;
 
     for (N = N + 1; invariant && N <= model.n_nodes(); N++)
     {
       if (control)
-        invariant = alg.run(Tactic::basic, N);
+        basic_reset(N);
       else
-        invariant = alg.increment_run(N);
+        increment_reset(N);
 
-      total_result << invariant;
+      invariant = alg.run();
+
+      total << invariant;
     }
 
     if (N > model.n_nodes()) // last run did not find a trace
     {
       alg.logger.and_whisper("! No optimum exists.");
-      return {};
+      return total;
     }
     // N is minimal
     alg.logger.and_whisper("! Found optimum: {}.", N);
-    return N;
+    return total;
   }
 
-  optional<unsigned> Optimizer::decrement(bool control)
+  PebblingResult IPDR::decrement(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: decrement.");
-    total_result.reset();
+    alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
 
+    PebblingResult total(model, tactic);
     unsigned N = model.n_nodes(); // need at least this many pebbles
 
-    pdr::PdrResult invariant = alg.run(Tactic::basic, N);
-    total_result << invariant;
+    basic_reset(N);
+    pdr::PdrResult invariant = alg.run();
+    total << invariant;
     if (!invariant)
-      N = std::min(N, invariant.trace().marked);
+      N = std::min(N, total.min_pebbles().value_or(N));
 
     for (N = N - 1; !invariant && N >= model.get_f_pebbles(); N--)
     {
       if (control)
-        invariant = alg.run(Tactic::basic, N);
+      {
+        basic_reset(N);
+        invariant = alg.run();
+      }
       else
-        invariant = alg.decrement_run(N);
+      {
+        optional<size_t> inv_frame = decrement_reset(N);
+        if (inv_frame)
+          invariant = PdrResult::found_invariant(*inv_frame);
+        else
+          invariant = alg.run();
+      }
 
-      invariant.process(model);
-      total_result << invariant;
+      total << invariant;
       if (!invariant)
-        N = std::min(N, invariant.trace().marked);
+        N = std::min(N, total.min_pebbles().value_or(N));
     }
 
     if (invariant) // last run did not find a trace
     {
       alg.logger.and_whisper("! No optimum exists.");
-      return {};
+      return total;
     }
     // the previous N was optimal
     alg.logger.and_whisper("! Found optimum: {}.", N + 1);
-    return N + 1;
+    return total;
   }
 
-  void Optimizer::inc_jump_test(unsigned start, int step)
+  void IPDR::inc_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
     alg.logger.and_show("start {}. step {}", start, step);
     pdr::PdrResult invariant = alg.run(Tactic::basic, start);
-    total_result << invariant;
+    total << invariant;
 
     int maxp = alg.frames.max_pebbles.value();
     int newp = maxp + step;
@@ -136,12 +147,55 @@ namespace pdr::pebbling
       invariant = alg.increment_run(newp);
 
       invariant.process(model);
-      total_result << invariant;
+      total << invariant;
     }
   }
 
-  void Optimizer::dump_solver(std::ofstream& out) const
+  void IPDR::dump_solver(std::ofstream& out) const { alg.show_solver(out); }
+
+  // Private members
+  //
+  void IPDR::basic_reset(unsigned pebbles)
   {
-    alg.show_solver(out);
+    assert(std::addressof(model) == std::addressof(alg.model));
+
+    alg.logger.and_show("naive change from {} -> {} pebbles",
+        model.get_max_pebbles().value(), pebbles);
+
+    model.constrain(pebbles);
+    alg.ctx.type = Tactic::basic;
+    alg.frames.reset();
+  }
+
+  void IPDR::increment_reset(unsigned pebbles)
+  {
+    using fmt::format;
+
+    optional<unsigned> old = model.get_max_pebbles();
+    assert(pebbles > old.value());
+    assert(std::addressof(model) == std::addressof(alg.model));
+    alg.logger.and_show(
+        "increment from {} -> {} pebbles", old.value(), pebbles);
+
+    model.constrain(pebbles);
+
+    alg.ctx.type = Tactic::increment;
+    alg.frames.reset_to_F1();
+  }
+
+  std::optional<size_t> IPDR::decrement_reset(unsigned pebbles)
+  {
+    using fmt::format;
+
+    optional<unsigned> old = model.get_max_pebbles();
+    assert(pebbles < old.value());
+    assert(std::addressof(model) == std::addressof(alg.model));
+    alg.logger.and_show(
+        "decrement from {} -> {} pebbles", old.value(), pebbles);
+
+    model.constrain(pebbles);
+
+    alg.ctx.type = Tactic::decrement;
+    return alg.frames.reuse();
   }
 } // namespace pdr::pebbling

@@ -24,6 +24,15 @@ namespace pdr
     mysat::primed::ExpVec property;
     mysat::primed::ExpVec n_property;
 
+    enum class Diff_t
+    {
+      none,
+      constrained,
+      relaxed
+    };
+    Diff_t diff{ Diff_t::none };
+
+
     IModel(z3::context& c, const std::set<std::string>& varnames)
         : ctx(c), initial(ctx), transition(ctx), constraint(ctx),
           vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars)

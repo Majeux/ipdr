@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-    pdr::pebbling::Optimizer optimize(context, model, logger);
+    pdr::pebbling::IPDR optimize(context, model, logger);
     std::optional<unsigned> optimum = optimize.run();
     optimize.total_result.show(strategy);
     optimize.dump_solver(solver_dump);

@@ -170,18 +170,32 @@ namespace pdr::pebbling
     property.finish();
   }
 
-  void PebblingModel::constrain(std::optional<unsigned> x)
+  void PebblingModel::constrain(std::optional<unsigned> new_p)
   {
     constraint.resize(0);
     assert(constraint.size() == 0);
 
-    if (x)
+    if (new_p && max_pebbles)
     {
-      constraint.push_back(z3::atmost(vars, *x));
-      constraint.push_back(z3::atmost(vars.p(), *x));
+        if (new_p == max_pebbles)
+          diff = Diff_t::none;
+        else
+          diff = new_p < max_pebbles ? Diff_t::constrained : Diff_t::relaxed;
+    }
+    else if (new_p && !max_pebbles)
+      diff = Diff_t::constrained;
+    else if (!new_p && max_pebbles)
+      diff = Diff_t::relaxed;
+    else
+      diff = Diff_t::none;
+
+    if (new_p)
+    {
+      constraint.push_back(z3::atmost(vars, *new_p));
+      constraint.push_back(z3::atmost(vars.p(), *new_p));
     }
 
-    max_pebbles = x;
+    max_pebbles = new_p;
     assert(constraint.size() == 2);
   }
 

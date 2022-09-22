@@ -22,7 +22,7 @@ namespace pdr
 
     unsigned total_count = 0;
     std::vector<unsigned> count;
-    
+
     std::optional<double> total_time = 0.0;
     std::vector<double> time;
 
@@ -49,6 +49,11 @@ namespace pdr
 
     Statistic ctis;
     Statistic subsumed_cubes;
+    struct
+    {
+      unsigned count{ 0 };
+      unsigned total{ 0 };
+    } copied_cubes;
 
     double elapsed = -1.0;
     std::map<std::string, unsigned> model;
@@ -71,6 +76,8 @@ namespace pdr
       propagation_level.clear();
       obligations_handled.clear();
       ctis.clear();
+      subsumed_cubes.clear();
+      copied_cubes = { 0, 0 };
     }
 
     std::string str() const
@@ -115,8 +122,12 @@ namespace pdr
           << s.propagation_it << std::endl
           << "# Propagation per level" << std::endl
           << s.propagation_level << std::endl
-          << "# Subsumed clauses" << std::endl
+          << "# Subsumed cubes" << std::endl
           << s.subsumed_cubes << std::endl
+          << "#" << std::endl
+          << "# Copied cubes" << std::endl
+          << (s.copied_cubes.count / s.copied_cubes.total) * 100 << " %"
+          << std::endl
           << "#" << std::endl;
 
       return out << "######################" << std::endl;

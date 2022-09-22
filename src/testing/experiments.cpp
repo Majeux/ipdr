@@ -283,7 +283,7 @@ namespace pdr::pebbling::experiments
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
       cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, model, args, log);
+      pdr::pebbling::IPDR opt(ctx, model, args, log);
 
       if (i == 0)
         optimum = opt.run(args.experiment_control);
@@ -310,7 +310,7 @@ namespace pdr::pebbling::experiments
       // new context with new random seed
       pdr::Context ctx(model, args.delta, seeds[i]);
       cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, model, args, log);
+      pdr::pebbling::IPDR opt(ctx, model, args, log);
 
       if (i == 0)
         optimum = opt.control_run();

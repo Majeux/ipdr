@@ -33,34 +33,14 @@ namespace pdr
     reset();
   }
 
-  Frames::Frames(
-      Context& c, IModel& m, Logger& l, optional<unsigned> constraint)
-      : ctx(c), model(m), logger(l), frame_base(ctx()), init_solver(ctx()),
-        max_pebbles(constraint)
-  {
-    // the initial states always remain the same
-    init_solver.reset();
-    init_solver.add(model.get_initial());
-
-    reset(constraint);
-  }
-
-  void Frames::reset(optional<unsigned> new_constraint)
-  {
-    max_pebbles = new_constraint;
-    reset();
-  }
-
   void Frames::reset()
   {
     pdr::IModel& m = model;
-
     frame_base = m.property; // all frames are initialized to P
 
     if (ctx.delta)
     {
       const expr_vector& T = m.get_transition();
-#warning implement constraint and assume it was set outside
       expr_vector constraint = m.get_constraint();
       delta_solver = make_unique<Solver>(ctx, frame_base, T, constraint);
     }
@@ -74,40 +54,38 @@ namespace pdr
     assert(frontier() == 0);
   }
 
-  optional<size_t> Frames::decrement_reset(unsigned x)
+  optional<size_t> Frames::reuse()
   {
-    logger.and_show("decrement from {} -> {} pebbles", max_pebbles.value(), x);
     assert(frames.size() > 0);
-    assert(x < max_pebbles.value());
+    assert(model.diff == IModel::Diff_t::constrained);
 
-    max_pebbles = x;
     delta_solver->reconstrain(model.get_constraint());
 
     // with fewer transitions, new cubes may be propagated
     logger.and_show("Redoing last propagation: {}", frontier() - 1);
+
+    model.diff = IModel::Diff_t::none;
     return propagate(frontier() - 1);
   }
 
-  void Frames::increment_reset(unsigned x)
+  void Frames::reset_to_F1()
   {
 #warning increment_reset is delta only
     assert(frames.size() > 0);
-    assert(x > max_pebbles);
-    logger.and_show("increment from {} -> {} pebbles", max_pebbles.value(), x);
+    assert(model.diff == IModel::Diff_t::relaxed);
+    logger("Reset frames to F1");
 
-    max_pebbles = x;
     delta_solver->reconstrain(model.get_constraint());
     z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);                      // reset sequence to { F_0 }
     extend();                            // reinstate level 1
 
-    logger("delta solver after reconstrain to {}\n{}", x,
-        delta_solver->as_str("", false));
     unsigned count = 0;
     for (const z3::expr_vector& cube : old)
     {
       if (SAT(0, cube))
       {
+#warning todo/future work regeneralize cti from this cube (must be possible or counter)
         // TODO regeneralize cti from this cube (must be possible or counter)
         // else it will be reconsidered next iteration
       }
@@ -117,10 +95,13 @@ namespace pdr
         remove_state(cube, 1);
       }
     }
+    logger.stats.copied_cubes.count += count;
+    logger.stats.copied_cubes.total += old.size();
     logger.and_show(
         "pre-INC: {} cubes carried over, out of {}", count, old.size());
-    logger("delta solver after repop1 to {}\n{}", x,
-        delta_solver->as_str("", false));
+    logger("Repopulated delta solver: \n{}", delta_solver->as_str("", false));
+
+    model.diff = IModel::Diff_t::none;
   }
 
   void Frames::init_frame_I()

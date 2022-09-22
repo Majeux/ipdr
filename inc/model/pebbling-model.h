@@ -32,7 +32,7 @@ namespace pdr::pebbling
         const dag::Graph& G);
 
     // set a constraint on the transition relation to reduce the state-space
-    void constrain(std::optional<unsigned> x);
+    void constrain(std::optional<unsigned> new_p);
 
     size_t n_nodes() const;
     // return the number of pebbles in the final state

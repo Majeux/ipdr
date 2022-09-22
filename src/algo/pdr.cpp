@@ -34,15 +34,11 @@ namespace pdr
       : ctx(c), model(m), logger(l), frames(ctx, model, logger)
   {
   }
-  PDR::PDR(Context& c, IModel& m, Logger& l, optional<unsigned> constraint)
-      : ctx(c), model(m), logger(l), frames(ctx, model, logger, constraint)
-  {
-  }
 
   const Context& PDR::get_ctx() const { return ctx; }
   Context& PDR::get_ctx() { return ctx; }
 
-  void PDR::reset() { shortest_strategy = UINT_MAX; }
+  void PDR::reset() { frames.reset(); }
 
   void PDR::print_model(const z3::model& m)
   {
@@ -52,7 +48,7 @@ namespace pdr
     logger.show("}");
   }
 
-  PdrResult PDR::_run()
+  PdrResult PDR::run()
   {
     timer.reset();
     // TODO run type preparation logic here
@@ -85,23 +81,10 @@ namespace pdr
     }
   }
 
-  PdrResult PDR::run(Tactic pdr_type)
-  {
-    ctx.type = pdr_type;
-    return _run();
-  }
-
-  PdrResult PDR::run(Tactic pdr_type, optional<unsigned> max_p)
-  {
-    ctx.type = pdr_type;
-    frames.reset(max_p);
-    return _run();
-  }
-
   PdrResult PDR::decrement_run(unsigned max_p)
   {
     ctx.type = Tactic::decrement;
-    if (optional<unsigned> inv = frames.decrement_reset(max_p))
+    if (optional<unsigned> inv = frames.reuse(max_p))
       return PdrResult::found_invariant(frames.max_pebbles, *inv);
 
     return _run();
@@ -110,7 +93,7 @@ namespace pdr
   PdrResult PDR::increment_run(unsigned max_p)
   {
     ctx.type = Tactic::increment;
-    frames.increment_reset(max_p);
+    frames.reset_to_F1(max_p);
     return _run();
   }
 
