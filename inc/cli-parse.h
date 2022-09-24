@@ -33,7 +33,7 @@ namespace my::cli
     // if given: run an experiment in with this many samples
     std::optional<unsigned> exp_sample;
     // comparison run for optimizer experiments
-    bool experiment_control;
+    bool exp_control;
     ModelType model;
     // folder that contains the model_name file
     fs::path bench_folder;

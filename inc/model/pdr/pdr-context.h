@@ -12,13 +12,16 @@ namespace pdr
   {
    private:
     z3::context ctx;
+    z3::config settings;
+
+    z3::config& make_settings();
 
    public:
     const bool delta;
     uint32_t seed;
     Tactic type;
-    Context(z3::config& settings, bool d, bool random_seed);
-    Context(z3::config& settings, bool d, unsigned seed);
+    Context(bool d, bool random_seed);
+    Context(bool d, unsigned seed);
 
     operator z3::context&();
     operator const z3::context&() const;

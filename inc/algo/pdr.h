@@ -48,7 +48,6 @@ namespace pdr
 
     void print_model(const z3::model& m);
     // main algorithm
-    PdrResult run();
     PdrResult init();
     PdrResult iterate();
     PdrResult block(z3::expr_vector cti, unsigned n);
@@ -85,8 +84,11 @@ namespace pdr
    public:
     PDR(Context& c, IModel& m, Logger& l);
     PDR(Context& c, IModel& m, Logger& l, std::optional<unsigned> constraint);
+
     // prepare PDR for new run. discards old trace
     void reset();
+    PdrResult run();
+
     const Context& get_ctx() const;
     Context& get_ctx();
 
@@ -103,7 +105,6 @@ namespace pdr
      private:
       PDR alg;
       PebblingModel& model; // same instance as the IModel in alg
-      Tactic tactic{ Tactic::undef };
       std::optional<unsigned> starting_value;
 
       void basic_reset(unsigned pebbles);
@@ -115,13 +116,13 @@ namespace pdr
           Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
-      PebblingResult run(bool control);
+      PebblingResult run(Tactic tactic, bool control = false);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
-      PebblingResult control_run();
+      PebblingResult control_run(Tactic tactic);
       PebblingResult increment(bool control);
       PebblingResult decrement(bool control);
-      void inc_jump_test(unsigned start, int step);
+      PebblingResult inc_jump_test(unsigned start, int step);
 
       void dump_solver(std::ofstream& out) const;
     }; // class Optimizer

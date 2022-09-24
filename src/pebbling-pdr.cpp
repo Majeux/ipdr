@@ -9,8 +9,8 @@
 #include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-context.h"
-#include "pebbling-model.h"
 #include "pdr.h"
+#include "pebbling-model.h"
 #include "peterson.h"
 
 #include <algorithm>
@@ -119,20 +119,15 @@ dag::Graph setup_graph(const ArgumentList& clargs)
 
 void experiment(ArgumentList& clargs)
 {
-  using namespace pdr::experiments;
+  using namespace pdr::pebbling::experiments;
   using std::ofstream;
   using std::string;
 
   dag::Graph G = build_dag(clargs);
 
-  static z3::config ctx_settings;
-  {
-    ctx_settings.set("unsat_core", true);
-    ctx_settings.set("model", true);
-  }
-  pdr::Context context = clargs.seed
-                           ? pdr::Context(ctx_settings, clargs.delta, *clargs.seed)
-                           : pdr::Context(ctx_settings, clargs.delta, clargs.rand);
+  pdr::Context context =
+      clargs.seed ? pdr::Context(clargs.delta, *clargs.seed)
+                  : pdr::Context(clargs.delta, clargs.rand);
 
   pdr::pebbling::PebblingModel model(context, clargs, G);
 
@@ -140,7 +135,7 @@ void experiment(ArgumentList& clargs)
   const string filename    = file_name(clargs);
   const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
 
-  string sub        = "analysis";
+  string sub = "analysis";
   fs::create_directory(run_dir / sub);
   ofstream stats    = trunc_file(run_dir / sub, filename, "stats");
   ofstream strategy = trunc_file(run_dir / sub, filename, "strategy");
@@ -179,17 +174,11 @@ int main(int argc, char* argv[])
   {
     bounded_experiment(G, clargs);
     return 0;
-  } 
-
-  z3::config ctx_settings;
-  {
-    ctx_settings.set("unsat_core", true);
-    ctx_settings.set("model", true);
   }
-  
-  pdr::Context context = clargs.seed
-                           ? pdr::Context(ctx_settings, clargs.delta, *clargs.seed)
-                           : pdr::Context(ctx_settings, clargs.delta, clargs.rand);
+
+  pdr::Context context =
+      clargs.seed ? pdr::Context(clargs.delta, *clargs.seed)
+                  : pdr::Context(clargs.delta, clargs.rand);
 
   if (clargs.peter)
   {
@@ -228,7 +217,8 @@ int main(int argc, char* argv[])
 
   if (clargs.tactic == pdr::Tactic::basic)
   {
-    pdr::PdrResult r = algorithm.run(clargs.tactic, clargs.max_pebbles);
+    model.constrain(clargs.max_pebbles);
+    pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strategy);
     algorithm.show_solver(solver_dump);
 
@@ -236,9 +226,10 @@ int main(int argc, char* argv[])
   }
   else
   {
-    pdr::pebbling::IPDR optimize(context, model, logger);
-    std::optional<unsigned> optimum = optimize.run();
-    optimize.total_result.show(strategy);
+    pdr::pebbling::IPDR optimize(context, model, clargs, logger);
+    pdr::pebbling::PebblingResult result = optimize.run(pdr::Tactic::decrement, false);
+
+    result.show(strategy);
     optimize.dump_solver(solver_dump);
   }
 

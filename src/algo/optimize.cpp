@@ -12,21 +12,20 @@ namespace pdr::pebbling
 
   IPDR::IPDR(
       Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l)
-      : alg(c, m, l), model(m), tactic(args.tactic),
-        starting_value(args.max_pebbles)
+      : alg(c, m, l), model(m), starting_value(args.max_pebbles)
   {
   }
 
-  PebblingResult IPDR::control_run()
+  PebblingResult IPDR::control_run(Tactic tactic)
   {
     switch (tactic)
     {
-      case pdr::Tactic::decrement: return decrement(true);
-      case pdr::Tactic::increment: return increment(true);
-      case pdr::Tactic::inc_jump_test:
+      case Tactic::decrement: return decrement(true);
+      case Tactic::increment: return increment(true);
+      case Tactic::inc_jump_test:
         inc_jump_test(starting_value.value(), 10);
         break;
-      case pdr::Tactic::inc_one_test:
+      case Tactic::inc_one_test:
         inc_jump_test(starting_value.value(), 1);
         break;
       default: break;
@@ -35,16 +34,16 @@ namespace pdr::pebbling
         "No optimization pdr tactic has been selected.");
   }
 
-  PebblingResult IPDR::run(bool control)
+  PebblingResult IPDR::run(Tactic tactic, bool control)
   {
     switch (tactic)
     {
-      case pdr::Tactic::decrement: return decrement(control);
-      case pdr::Tactic::increment: return increment(control);
-      case pdr::Tactic::inc_jump_test:
+      case Tactic::decrement: return decrement(control);
+      case Tactic::increment: return increment(control);
+      case Tactic::inc_jump_test:
         inc_jump_test(starting_value.value(), 10);
         break;
-      case pdr::Tactic::inc_one_test:
+      case Tactic::inc_one_test:
         inc_jump_test(starting_value.value(), 1);
         break;
       default: break;
@@ -57,7 +56,7 @@ namespace pdr::pebbling
   {
     alg.logger.and_whisper("! Optimization run: increment max pebbles.");
 
-    PebblingResult total(model, tactic);
+    PebblingResult total(model, Tactic::increment);
     unsigned N = model.get_f_pebbles(); // need at least this many pebbles
 
     basic_reset(N);
@@ -90,7 +89,7 @@ namespace pdr::pebbling
   {
     alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
 
-    PebblingResult total(model, tactic);
+    PebblingResult total(model, Tactic::decrement);
     unsigned N = model.n_nodes(); // need at least this many pebbles
 
     basic_reset(N);
@@ -99,6 +98,8 @@ namespace pdr::pebbling
     if (!invariant)
       N = std::min(N, total.min_pebbles().value_or(N));
 
+    // We need to at least pebble the final state,
+    // so iterate until a strategy is found or until then
     for (N = N - 1; !invariant && N >= model.get_f_pebbles(); N--)
     {
       if (control)
@@ -130,25 +131,30 @@ namespace pdr::pebbling
     return total;
   }
 
-  void IPDR::inc_jump_test(unsigned start, int step)
+  PebblingResult IPDR::inc_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
     alg.logger.and_show("start {}. step {}", start, step);
-    pdr::PdrResult invariant = alg.run(Tactic::basic, start);
+
+    PebblingResult total(model, Tactic::increment);
+    basic_reset(start);
+    pdr::PdrResult invariant = alg.run();
     total << invariant;
 
-    int maxp = alg.frames.max_pebbles.value();
-    int newp = maxp + step;
+    unsigned maxp = model.get_max_pebbles().value();
+    unsigned newp = maxp + step;
     assert(newp > 0);
     assert(maxp < newp);
-    if (newp <= (int)model.n_nodes())
+    if (newp <= model.n_nodes())
     {
-      invariant = alg.increment_run(newp);
+      increment_reset(newp);
+      invariant = alg.run();
 
-      invariant.process(model);
       total << invariant;
     }
+
+    return total;
   }
 
   void IPDR::dump_solver(std::ofstream& out) const { alg.show_solver(out); }

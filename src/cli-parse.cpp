@@ -43,7 +43,7 @@ namespace my::cli
     if (clargs.exp_sample)
       cout << format(
           "Running an experiment with {} samples. ", *clargs.exp_sample);
-    if (clargs.experiment_control)
+    if (clargs.exp_control)
       cout << "(a control run)";
     cout << endl;
 
@@ -83,7 +83,7 @@ namespace my::cli
       ("e,experiment", "Run an for a given optimization tactic.",
         value< optional<unsigned> >(clargs.exp_sample))
       ("control", "Run an optimization tactic with only multiple Basic runs",
-        value<bool>(clargs.experiment_control))
+        value<bool>(clargs.exp_control))
 
       // model options
       ("dir","Directory (relative to ./) than contains runable benchmarks.",
@@ -109,7 +109,7 @@ namespace my::cli
         value<bool>(clargs.tseytin))
 
       // tests
-      (inc_jump_str, "Test two runs: one with pebbles 10 higher than the other.",
+      (inc_jump_str, "Test two runs: one with P pebbles 10 higher than the other.",
        value<unsigned>(), "(uint:P)")
       (inc_one_str, "Test two runs: one with P pebbles and the other with P+1.",
        value<unsigned>(), "(uint:P)")

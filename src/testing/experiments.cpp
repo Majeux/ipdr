@@ -128,11 +128,24 @@ namespace pdr::pebbling::experiments
   namespace
   {
     std::string time_str(double x) { return format("{:.3f} s", x); };
+
+    template <typename T> double percentage_dec(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (double)(a - b) / a * 100;
+    }
+
+    template <typename T> double percentage_inc(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (b - a) / a * 100;
+    }
   } // namespace
 
   Run::Table_t Run::listing() const
   {
-
     Table_t t;
     {
       using fmt::to_string;
@@ -157,23 +170,6 @@ namespace pdr::pebbling::experiments
     }
     return t;
   }
-
-  namespace
-  {
-    template <typename T> double percentage_dec(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (double)(a - b) / a * 100;
-    }
-
-    template <typename T> double percentage_inc(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (b - a) / a * 100;
-    }
-  } // namespace
 
   Run::Table_t Run::combined_listing(const Run& other) const
   {
@@ -217,8 +213,8 @@ namespace pdr::pebbling::experiments
         rows.at(i++).push_back(to_string(other.min_strat->pebbled));
         {
           rows.at(i).push_back(to_string(other.min_strat->trace.length));
-          double dec =
-              percentage_dec(other.min_strat->trace.length, min_strat->trace.length);
+          double dec = percentage_dec(
+              other.min_strat->trace.length, min_strat->trace.length);
           rows.at(i).push_back(perc_str(dec));
           i++;
         }
@@ -235,6 +231,8 @@ namespace pdr::pebbling::experiments
   {
     using pdr::pebbling::PebblingResult;
     using std::optional;
+    using std::vector;
+    using tabulate::Table;
     using namespace my::io;
 
     const fs::path model_dir   = setup_model_path(args);
@@ -243,14 +241,13 @@ namespace pdr::pebbling::experiments
     std::ofstream latex        = trunc_file(run_dir, filename, "tex");
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
 
-    optional<unsigned> optimum;
-    std::vector<PebblingResult> repetitions;
-    std::vector<PebblingResult> control_repetitions;
+    vector<PebblingResult> repetitions;
+    vector<PebblingResult> control_repetitions;
 
-    tabulate::Table::Row_t header{ "runtime", "max constraint with invariant",
-      "level", "min constraint with strategy", "length" };
+    Table::Row_t header{ "runtime", "max constraint with invariant", "level",
+      "min constraint with strategy", "length" };
 
-    tabulate::Table sample_table;
+    Table sample_table;
     {
       sample_table.add_row(header);
       sample_table.format()
@@ -258,73 +255,59 @@ namespace pdr::pebbling::experiments
           .hide_border_top()
           .hide_border_bottom();
     }
-    tabulate::Table control_table;
+    Table control_table;
     {
       control_table.add_row(header);
       control_table.format() = sample_table.format();
     }
 
     unsigned N = args.exp_sample.value();
+    std::string tactic_str{ pdr::tactic::to_string(args.tactic) };
 
-    std::vector<unsigned> seeds(N);
+    vector<unsigned> seeds(N);
     {
       srand(time(0));
       std::generate(seeds.begin(), seeds.end(), rand);
     }
 
-    std::string tactic_str = pdr::tactic::to_string(args.tactic);
+    auto run = [&, N](
+                   vector<PebblingResult>& reps, Table& t, bool control) -> Run
+    {
+      assert(repetitions.empty());
+
+      cout << (control ? "control run" : "ipdr run") << endl;
+
+      for (unsigned i = 0; i < N; i++)
+      {
+        std::optional<unsigned> optimum;
+        // new context with new random seed
+        pdr::Context ctx(args.delta, seeds[i]);
+        cout << format("{}: {}", i, seeds[i]) << endl;
+        pdr::pebbling::IPDR opt(ctx, model, args, log);
+
+        PebblingResult result =
+            control ? opt.control_run(args.tactic) : opt.run(args.tactic);
+
+        if (!optimum)
+          optimum = result.min_pebbles();
+
+        assert(optimum == result.min_pebbles()); // all results should be same
+
+        reps.emplace_back(result, args.tactic);
+        // cout << format("## Experiment sample {}", i) << endl;
+        reps.back().add_to_table(t);
+      }
+
+      return Run(args, reps);
+    };
+
     cout << format("{} run. {} samples. {} tactic", model.name, N, tactic_str)
          << endl;
-    // normal runs
-    cout << "Experiment:" << endl;
-    for (unsigned i = 0; i < N; i++)
-    {
-      std::optional<unsigned> r;
-      // new context with new random seed
-      pdr::Context ctx(model, args.delta, seeds[i]);
-      cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::IPDR opt(ctx, model, args, log);
 
-      if (i == 0)
-        optimum = opt.run(args.experiment_control);
-      else
-      {
-        r = opt.run(args.experiment_control);
-        assert(optimum == r); // all results should be same
-      }
-
-      repetitions.emplace_back(opt.total_result, args.tactic);
-      // cout << format("## Experiment sample {}", i) << endl;
-      repetitions.back().add_to_table(sample_table);
-    }
-
-    assert(repetitions.size() == N);
-    Run aggregate(args, repetitions);
+    Run aggregate = run(repetitions, sample_table, false);
     latex << aggregate.str(output_format::latex);
 
-    // control runs without incremental functionality
-    cout << "Control:" << endl;
-    for (unsigned i = 0; i < N; i++)
-    {
-      std::optional<unsigned> r;
-      // new context with new random seed
-      pdr::Context ctx(model, args.delta, seeds[i]);
-      cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::IPDR opt(ctx, model, args, log);
-
-      if (i == 0)
-        optimum = opt.control_run();
-      else
-      {
-        r = opt.control_run();
-        assert(optimum == r);
-      }
-
-      control_repetitions.emplace_back(opt.total_result, args.tactic);
-      control_repetitions.back().add_to_table(control_table);
-    }
-
-    Run control_aggregate(args, control_repetitions);
+    Run control_aggregate = run(control_repetitions, control_table, true);
     latex << aggregate.str_compared(control_aggregate, output_format::latex);
 
     // write raw run data as markdown

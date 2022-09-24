@@ -81,22 +81,6 @@ namespace pdr
     }
   }
 
-  PdrResult PDR::decrement_run(unsigned max_p)
-  {
-    ctx.type = Tactic::decrement;
-    if (optional<unsigned> inv = frames.reuse(max_p))
-      return PdrResult::found_invariant(frames.max_pebbles, *inv);
-
-    return _run();
-  }
-
-  PdrResult PDR::increment_run(unsigned max_p)
-  {
-    ctx.type = Tactic::increment;
-    frames.reset_to_F1(max_p);
-    return _run();
-  }
-
   PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
@@ -113,8 +97,6 @@ namespace pdr
     logger.stats.write();
     logger.stats.clear();
     store_frame_strings();
-    if (!rv)
-      shortest_strategy = std::min(shortest_strategy, rv.trace().marked);
     logger.indent = 0;
 
     return rv;
@@ -129,14 +111,14 @@ namespace pdr
     if (frames.init_solver.check(model.n_property))
     {
       logger.whisper("I =/> P");
-      return PdrResult::found_trace(frames.max_pebbles, model.get_initial());
+      return PdrResult::found_trace(model.get_initial());
     }
 
     if (frames.SAT(0, model.n_property.p()))
     { // there is a transitions from I to !P
       logger.show("I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
-      return PdrResult::found_trace(frames.max_pebbles, bad_cube);
+      return PdrResult::found_trace(bad_cube);
     }
 
     frames.extend();

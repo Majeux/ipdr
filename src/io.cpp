@@ -39,7 +39,7 @@ namespace my::io
     if (args.exp_sample)
     {
       folder_string += "-";
-      if (args.experiment_control)
+      if (args.exp_control)
         folder_string += "C";
       folder_string += format("exp{}", *args.exp_sample);
     }
