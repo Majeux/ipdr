@@ -41,6 +41,8 @@ namespace mysat::primed
     {
     }
 
+    z3::context& get_ctx() const { return ctx; }
+
     virtual operator const Tcontainer&() const   = 0;
     virtual const Tcontainer& operator()() const = 0;
     virtual const Tcontainer& p() const          = 0;
@@ -88,11 +90,11 @@ namespace mysat::primed
     z3::expr p(size_t i) const;
     z3::expr operator()(const z3::expr& e) const;
     z3::expr p(const z3::expr& e) const;
-	// convert expressions to and form current and next
-  	z3::expr_vector operator()(const z3::expr_vector& ev) const;
-  	z3::expr_vector p(const z3::expr_vector& ev) const;
+    // convert expressions to and form current and next
+    z3::expr_vector operator()(const z3::expr_vector& ev) const;
+    z3::expr_vector p(const z3::expr_vector& ev) const;
 
-    bool var_is_current(const z3::expr& e) const;
+    bool lit_is_current(const z3::expr& e) const;
     bool lit_is_p(const z3::expr& e) const;
 
    private:

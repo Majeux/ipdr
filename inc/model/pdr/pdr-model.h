@@ -42,6 +42,7 @@ namespace pdr
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_constraint() const;
+    virtual const std::string constraint_str() const = 0;
     // return the number of pebbles in the final state
     void show(std::ostream& out) const;
   };

@@ -22,7 +22,7 @@ namespace pdr
   class Solver
   {
    private:
-    const Context& ctx;
+    const mysat::primed::VarVec& vars;
     z3::solver internal_solver;
     SolverState state;
     bool core_available = false;
@@ -30,8 +30,8 @@ namespace pdr
                             // assertions begin
 
    public:
-    Solver(const Context& c, z3::expr_vector base, z3::expr_vector t,
-        z3::expr_vector con);
+    Solver(Context& ctx, const IModel& m, z3::expr_vector base,
+        z3::expr_vector t, z3::expr_vector con);
 
     void reset();
     void reset(const z3ext::CubeSet& cubes);

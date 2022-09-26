@@ -38,8 +38,8 @@ namespace pdr::pebbling::experiments
     Table_t combined_listing(const Run& other) const;
   };
 
-  void pebbling_run(
-      IModel& model, pdr::Logger& log, const my::cli::ArgumentList& args);
-} // namespace pdr::experiments
+  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
+      const my::cli::ArgumentList& args);
+} // namespace pdr::pebbling::experiments
 
 #endif // EXPERIMENTS_H

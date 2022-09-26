@@ -11,7 +11,7 @@ namespace peterson
 {
   struct State;
 
-  class Model : public pdr::IModel
+  class PetersonModel : public pdr::IModel
   {
    public:
     using IStays   = mysat::primed::IStays;
@@ -21,10 +21,14 @@ namespace peterson
 
     friend State;
 
-    Model(z3::context& c, numrep_t n_processes);
+    PetersonModel(z3::context& c, numrep_t n_processes);
+
+    const std::string constraint_str() const override;
 
    private:
     // no. processes
+    numrep_t p;
+    // max no. processes
     numrep_t N;
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
@@ -60,25 +64,29 @@ namespace peterson
 
     void bv_comp_test(size_t max_value);
     void bv_val_test(size_t max_value);
+
+    // Configure IModel
+    void constrain(std::optional<unsigned> processes);
   }; // class Model
 
   struct State
   {
-    std::vector<Model::numrep_t> pc;
-    std::vector<Model::numrep_t> level;
+    std::vector<PetersonModel::numrep_t> pc;
+    std::vector<PetersonModel::numrep_t> level;
     std::vector<bool> free;
-    std::vector<Model::numrep_t> last;
+    std::vector<PetersonModel::numrep_t> last;
 
     // TODO use model vector sizes
     State() : pc(0), level(0), free(0), last(0) {}
-    State(Model::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
-    State(std::vector<Model::numrep_t>&& p, std::vector<Model::numrep_t>&& l,
-        std::vector<bool>&& f, std::vector<Model::numrep_t>&& lst)
+    State(PetersonModel::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
+    State(std::vector<PetersonModel::numrep_t>&& p,
+        std::vector<PetersonModel::numrep_t>&& l, std::vector<bool>&& f,
+        std::vector<PetersonModel::numrep_t>&& lst)
         : pc(p), level(l), free(f), last(lst)
     {
     }
 
-    z3::expr_vector cube(Model& m) const;
+    z3::expr_vector cube(PetersonModel& m) const;
     std::string to_string(bool inl = false) const;
     std::string inline_string() const;
 

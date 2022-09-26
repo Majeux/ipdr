@@ -56,7 +56,7 @@ namespace pdr
       log_propagation(k, time);
 
       if (invariant_level)
-        return PdrResult::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(*invariant_level);
     }
   }
 
@@ -98,7 +98,7 @@ namespace pdr
         log_pred(pred->cube);
 
         if (n == 0) // intersects with I
-          return PdrResult::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(pred);
 
         obligations.emplace(n - 1, pred, depth + 1);
 
@@ -115,7 +115,7 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return PdrResult::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
         expr_vector smaller_state = generalize(core, m);

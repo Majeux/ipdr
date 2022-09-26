@@ -83,7 +83,6 @@ namespace pdr
 
    public:
     PDR(Context& c, IModel& m, Logger& l);
-    PDR(Context& c, IModel& m, Logger& l, std::optional<unsigned> constraint);
 
     // prepare PDR for new run. discards old trace
     void reset();

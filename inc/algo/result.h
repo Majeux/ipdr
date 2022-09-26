@@ -68,6 +68,7 @@ namespace pdr
     Trace& trace();
 
     void clean_trace();
+    // lists { invariant level, trace length, time }
     ResultRow listing() const;
 
    private:
@@ -90,16 +91,17 @@ namespace pdr
     std::vector<double> g_times() const;
 
     virtual void show(std::ostream& out) const;
-    virtual IpdrResult& add(const PdrResult& r);
+    IpdrResult& add(const PdrResult& r);
+    // adds a pdr result to the IpdrResult::rows table
     virtual tabulate::Table::Row_t table_row(const PdrResult& r);
 
-    friend IpdrResult& operator<<(IpdrResult& rs, PdrResult& r);
+    friend IpdrResult& operator<<(IpdrResult& rs, const PdrResult& r);
 
    protected:
-    std::vector<tabulate::Table::Row_t> rows;
-
+    // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
-    std::vector<std::string> trace_strings;
+    // summary of the "original" vector
+    std::vector<tabulate::Table::Row_t> rows;
 
     virtual const tabulate::Table::Row_t header() const;
     virtual std::string process_trace(const PdrResult& res) const;
@@ -140,10 +142,8 @@ namespace pdr
       void show_raw(std::ostream& out) const;
 
       void show(std::ostream& out) const override;
-      PebblingResult& add(const PdrResult& r) override;
+      // expand row with constraint and length, and store the latest in total
       tabulate::Table::Row_t table_row(const PdrResult& r) override;
-      
-      friend PebblingResult& operator<<(PebblingResult& rs, PdrResult& r);
 
       const Data_t& get_total() const;
       const std::optional<unsigned> min_pebbles() const;
@@ -155,8 +155,6 @@ namespace pdr
       unsigned invariants{ 0 };
       unsigned traces{ 0 };
 
-      // aggregate result into total
-      void acc_update(const PdrResult& r);
       const tabulate::Table::Row_t header() const override;
       std::string process_trace(const PdrResult& res) const override;
     };

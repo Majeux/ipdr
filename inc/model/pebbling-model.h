@@ -39,6 +39,8 @@ namespace pdr::pebbling
     unsigned get_f_pebbles() const;
     // return the current maximum number of pebbles
     std::optional<unsigned> get_max_pebbles() const;
+    // return string representation of the constraint
+    const std::string constraint_str() const override;
 
    private:
     // z3::expr_vector initial;

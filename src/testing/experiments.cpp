@@ -26,8 +26,6 @@ namespace pdr::pebbling::experiments
       : model(args.model_name), tactic(args.tactic), avg_time(0.0)
   {
     using std::min;
-    using Invariant = PdrResult::Invariant;
-    using Trace     = PdrResult::Trace;
 
     double time_sum{ 0.0 };
     std::vector<double> times;
@@ -293,7 +291,7 @@ namespace pdr::pebbling::experiments
 
         assert(optimum == result.min_pebbles()); // all results should be same
 
-        reps.emplace_back(result, args.tactic);
+        reps.push_back(result);
         // cout << format("## Experiment sample {}", i) << endl;
         reps.back().add_to_table(t);
       }

@@ -158,7 +158,6 @@ namespace z3ext
 
     std::vector<expr> get_std_witness(const z3::solver& s)
     {
-      z3::context& ctx = s.ctx();
       z3::model m      = s.get_model();
 
       std::vector<z3::expr> std_vec;

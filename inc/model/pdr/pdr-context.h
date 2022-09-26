@@ -26,7 +26,7 @@ namespace pdr
     operator z3::context&();
     operator const z3::context&() const;
 
-    z3::context& operator()() const;
+    z3::context& operator()();
   }; // class PDRcontext
 } // namespace pdr
 #endif // PDRCONTEXT_H

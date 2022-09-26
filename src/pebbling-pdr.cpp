@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
   if (clargs.peter)
   {
     std::cout << "peterson" << std::endl;
-    peterson::Model m(context, 3);
+    peterson::PetersonModel m(context, 3);
     return 0;
   }
 
@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
   show_header(clargs);
 
   pdr::IpdrResult rs(model);
-  pdr::PDR algorithm(context, model, logger, clargs.max_pebbles);
+  pdr::PDR algorithm(context, model, logger);
 
   if (clargs.tactic == pdr::Tactic::basic)
   {

@@ -139,11 +139,7 @@ namespace pdr
     return t;
   }
 
-  void IpdrResult::reset()
-  {
-    rows.resize(0);
-    trace_strings.resize(0);
-  }
+  void IpdrResult::reset() { rows.resize(0); }
 
   std::vector<double> IpdrResult::g_times() const
   {
@@ -173,8 +169,8 @@ namespace pdr
 
   void IpdrResult::show_traces(std::ostream& out) const
   {
-    for (const std::string& t : trace_strings)
-      out << t << std::endl;
+    for (const PdrResult& result : original)
+      out << process_trace(result) << std::endl;
   }
 
   void IpdrResult::show(std::ostream& out) const
@@ -182,21 +178,16 @@ namespace pdr
     tabulate::Table t = raw_table();
     out << t << std::endl << std::endl;
 
-    for (const std::string& trace : trace_strings)
-      out << trace << std::endl;
+    show_traces(out);
   }
 
   IpdrResult& IpdrResult::add(const PdrResult& r)
   {
     original.push_back(r);
 
-    {
-      tabulate::Table::Row_t res_row = table_row(r);
-      assert(res_row.size() == header().size());
-      rows.push_back(res_row);
-    }
-
-    trace_strings.push_back(process_trace(r));
+    tabulate::Table::Row_t res_row = table_row(r);
+    assert(res_row.size() == header().size());
+    rows.push_back(res_row);
 
     return *this;
   }
@@ -211,7 +202,10 @@ namespace pdr
     return row;
   }
 
-  IpdrResult& operator<<(IpdrResult& rs, PdrResult& r) { return rs.add(r); }
+  IpdrResult& operator<<(IpdrResult& rs, const PdrResult& r)
+  {
+    return rs.add(r);
+  }
 
   // Private members
   //
@@ -301,8 +295,13 @@ namespace pdr
         const IpdrResult& r, const PebblingModel& m, Tactic t)
         : IpdrResult(r), model(m), tactic(t)
     {
+      rows.resize(0);
       for (const PdrResult& r : original)
-        acc_update(r);
+      {
+        tabulate::Table::Row_t res_row = table_row(r);
+        assert(res_row.size() == header().size());
+        rows.push_back(res_row);
+      }
     }
 
     void PebblingResult::add_to_table(tabulate::Table& t) const
@@ -367,24 +366,14 @@ namespace pdr
       out << latex << std::endl;
     }
 
-    PebblingResult& PebblingResult::add(const PdrResult& r)
-    {
-      acc_update(r);
-      IpdrResult::add(r);
-      return *this;
-    }
-
     tabulate::Table::Row_t PebblingResult::table_row(const PdrResult& r)
-    {
-      tabulate::Table::Row_t row = IpdrResult::table_row(r);
-      // TODO if was trace: insert marked. else insert constraint
-      row.insert(row.begin(), )
-    }
-
-    void PebblingResult::acc_update(const PdrResult& r)
     {
 #warning takes highest constrained invariant, and lowest number of pebbles used. Vs lowest level and minimal length?? Vs store latest
       total.time += r.time;
+
+      // row with { invariant level, trace length, time }
+      tabulate::Table::Row_t row = IpdrResult::table_row(r);
+      // expand to { constraint, marked, invariant level, trace length, time }
 
       if (r.has_invariant()) // only happens multiple times in increasing
       {
@@ -394,6 +383,10 @@ namespace pdr
         assert(!total.inv || constraint > total.inv->constraint);
 
         total.inv = { r.invariant(), constraint };
+
+        row.insert(row.begin(), "-");
+        std::string inv_str = constraint ? std::to_string(*constraint) : "none";
+        row.insert(row.begin(), inv_str);
 
         if (tactic == Tactic::decrement)
         {
@@ -410,16 +403,16 @@ namespace pdr
 
         total.strategy = { r.trace(), pebbled };
 
+        row.insert(row.begin(), std::to_string(pebbled));
+        row.insert(row.begin(), "-");
+
         if (tactic == Tactic::increment)
         {
           assert(++traces <= 1);
         }
       }
-    }
 
-    PebblingResult& operator<<(PebblingResult& ars, PdrResult& r)
-    {
-      return ars.add(r);
+      return row;
     }
 
     const PebblingResult::Data_t& PebblingResult::get_total() const

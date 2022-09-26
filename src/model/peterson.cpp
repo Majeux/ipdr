@@ -65,10 +65,10 @@ namespace peterson
 
   bool State::operator!=(const State& s) const { return not(*this == s); }
 
-  expr_vector State::cube(Model& m) const
+  expr_vector State::cube(PetersonModel& m) const
   {
-    using num_vec = std::vector<Model::numrep_t>;
-    using bv_vec  = std::vector<Model::BitVec>;
+    using num_vec = std::vector<PetersonModel::numrep_t>;
+    using bv_vec  = std::vector<PetersonModel::BitVec>;
 
     expr_vector conj(m.ctx);
 
@@ -109,25 +109,25 @@ namespace peterson
     ss << "State {" << end();
     {
       ss << tab(1) << "pc [" << end();
-      for (Model::numrep_t i = 0; i < pc.size(); i++)
+      for (PetersonModel::numrep_t i = 0; i < pc.size(); i++)
         ss << tab(2) << format("{},", pc.at(i)) << end();
       ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "level [" << end();
-      for (Model::numrep_t i = 0; i < level.size(); i++)
+      for (PetersonModel::numrep_t i = 0; i < level.size(); i++)
         ss << tab(2) << format("{},", level.at(i)) << end();
       ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "free [" << end();
-      for (Model::numrep_t i = 0; i < free.size(); i++)
+      for (PetersonModel::numrep_t i = 0; i < free.size(); i++)
         ss << tab(2) << format("{},", free.at(i) ? "true" : "false") << end();
       ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "last [" << end();
-      for (Model::numrep_t i = 0; i < last.size(); i++)
+      for (PetersonModel::numrep_t i = 0; i < last.size(); i++)
         ss << tab(2) << format("{},", last.at(i)) << end();
       ss << tab(1) << "]" << end();
     }
@@ -138,16 +138,16 @@ namespace peterson
 
   string State::inline_string() const { return to_string(true); }
 
-  // MODEL MEMBERS
+  // PETERSONMODEL MEMBERS
   //
-  size_t bits_for(Model::numrep_t n)
+  size_t bits_for(PetersonModel::numrep_t n)
   {
     size_t bits = std::ceil(std::log2(n - 1) + 1);
-    assert(bits <= std::numeric_limits<Model::numrep_t>::digits);
+    assert(bits <= std::numeric_limits<PetersonModel::numrep_t>::digits);
     return bits;
   }
 
-  set<string> Model::create_vars()
+  set<string> PetersonModel::create_vars()
   {
     using fmt::format;
 
@@ -216,7 +216,7 @@ namespace peterson
     return rv;
   }
 
-  Model::Model(z3::context& c,  numrep_t n_processes)
+  PetersonModel::PetersonModel(z3::context& c,  numrep_t n_processes)
       : IModel(c, create_vars()), N(n_processes), pc(), level(), last()
   {
     using fmt::format;
@@ -264,9 +264,17 @@ namespace peterson
     // bv_comp_test(10);
   }
 
-  z3::expr_vector constraint(std::optional<unsigned> x) {}
+  const std::string PetersonModel::constraint_str() const 
+  {
+    return fmt::format("{} active processes, out of {} max", p, N);
+  }
 
-  State Model::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
+  void PetersonModel::constrain(std::optional<unsigned> processes) {
+    expr_vector c(ctx);
+    constraint = c;
+  }
+
+  State PetersonModel::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
   {
     State s(N);
 
@@ -282,17 +290,17 @@ namespace peterson
     return s;
   }
 
-  State Model::extract_state_p(const expr_vector& cube)
+  State PetersonModel::extract_state_p(const expr_vector& cube)
   {
     return extract_state(cube, mysat::primed::lit_type::primed);
   }
 
-  set<State> Model::successors(const expr_vector& v)
+  set<State> PetersonModel::successors(const expr_vector& v)
   {
     return successors(extract_state(v));
   }
 
-  set<State> Model::successors(const State& s)
+  set<State> PetersonModel::successors(const State& s)
   {
     using mysat::primed::lit_type;
     using std::optional;
@@ -312,7 +320,7 @@ namespace peterson
     return S;
   }
 
-  void Model::test_room()
+  void PetersonModel::test_room()
   {
     using mysat::primed::lit_type;
     using std::cout;
@@ -409,7 +417,7 @@ namespace peterson
   //  4: critical section
   //    ->
 
-  expr Model::T_start(numrep_t i)
+  expr PetersonModel::T_start(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -439,7 +447,7 @@ namespace peterson
     return implies(i, t) && implies(!i, e);
   }
 
-  expr Model::T_boundcheck(numrep_t i)
+  expr PetersonModel::T_boundcheck(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -462,7 +470,7 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
-  expr Model::T_setlast(numrep_t i)
+  expr PetersonModel::T_setlast(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -488,7 +496,7 @@ namespace peterson
     return z3::mk_and(conj);
   }
 
-  expr Model::T_await(numrep_t i)
+  expr PetersonModel::T_await(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -549,7 +557,7 @@ namespace peterson
     return mk_and(conj);
   }
 
-  expr Model::T_release(numrep_t i)
+  expr PetersonModel::T_release(numrep_t i)
   {
     assert(i < N);
     expr_vector conj(ctx);
@@ -574,7 +582,7 @@ namespace peterson
     return mk_and(conj);
   }
 
-  void Model::bv_comp_test(size_t max_value)
+  void PetersonModel::bv_comp_test(size_t max_value)
   {
     mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value + 1));
     mysat::primed::BitVec bv2(ctx, "b2", bits_for(max_value + 1));
@@ -612,7 +620,7 @@ namespace peterson
     return;
   }
 
-  void Model::bv_val_test(size_t max_value)
+  void PetersonModel::bv_val_test(size_t max_value)
   {
     mysat::primed::BitVec bv(ctx, "b", bits_for(max_value + 1));
     unsigned wrong{ 0 };

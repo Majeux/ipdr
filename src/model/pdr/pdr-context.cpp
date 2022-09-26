@@ -23,4 +23,6 @@ namespace pdr
 
   Context::operator z3::context&() { return ctx; }
   Context::operator const z3::context&() const { return ctx; }
+
+  z3::context& Context::operator()() { return ctx; }
 } // namespace pdr

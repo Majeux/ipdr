@@ -177,10 +177,10 @@ namespace pdr::pebbling
 
     if (new_p && max_pebbles)
     {
-        if (new_p == max_pebbles)
-          diff = Diff_t::none;
-        else
-          diff = new_p < max_pebbles ? Diff_t::constrained : Diff_t::relaxed;
+      if (new_p == max_pebbles)
+        diff = Diff_t::none;
+      else
+        diff = new_p < max_pebbles ? Diff_t::constrained : Diff_t::relaxed;
     }
     else if (new_p && !max_pebbles)
       diff = Diff_t::constrained;
@@ -205,4 +205,16 @@ namespace pdr::pebbling
   {
     return max_pebbles;
   }
+
+  const std::string PebblingModel::constraint_str() const
+  {
+    if (max_pebbles)
+    {
+      assert(constraint.empty());
+      return fmt::format("cardinality {}", *max_pebbles);
+    }
+    else
+      return "no constraint";
+  }
+
 } // namespace pdr::pebbling

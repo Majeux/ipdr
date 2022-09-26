@@ -5,9 +5,9 @@
 namespace pdr
 {
 #warning still duplicates in solver in dump
-  Solver::Solver(const Context& c, z3::expr_vector base,
+  Solver::Solver(Context& ctx, const IModel& m, z3::expr_vector base,
       z3::expr_vector transition, z3::expr_vector constraint)
-      : ctx(c), internal_solver(ctx()), state(SolverState::neutral)
+      : vars(m.vars), internal_solver(ctx), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
 #warning  TODO sat.core.minimize
@@ -113,7 +113,7 @@ namespace pdr
       z3::expr boolean_value = m.get_const_interp(f);
       z3::expr literal       = f();
 
-      if (ctx.model().vars.atom_is_current(literal))
+      if (vars.lit_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);
@@ -124,7 +124,7 @@ namespace pdr
       }
     }
     std::sort(std_vec.begin(), std_vec.end(), z3ext::expr_less());
-    z3::expr_vector v(ctx());
+    z3::expr_vector v(vars.get_ctx());
     for (const z3::expr& e : std_vec)
       v.push_back(e);
     return v;

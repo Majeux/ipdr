@@ -24,7 +24,7 @@ namespace pdr
   using z3::expr_vector;
 
   Frames::Frames(Context& c, IModel& m, Logger& l)
-      : ctx(c), model(m), logger(l), frame_base(ctx()), init_solver(ctx())
+      : ctx(c), model(m), logger(l), frame_base(ctx), init_solver(ctx)
   {
     // the initial states always remain the same
     init_solver.reset();
@@ -42,7 +42,7 @@ namespace pdr
     {
       const expr_vector& T = m.get_transition();
       expr_vector constraint = m.get_constraint();
-      delta_solver = make_unique<Solver>(ctx, frame_base, T, constraint);
+      delta_solver = make_unique<Solver>(ctx, model, frame_base, T, constraint);
     }
 
     frames.resize(0);
@@ -118,7 +118,7 @@ namespace pdr
 
     // make F_0 = I transition solver
     {
-      auto frame_solver = make_unique<Solver>(ctx, I, T, constraint);
+      auto frame_solver = make_unique<Solver>(ctx, model, I, T, constraint);
       auto new_frame = make_unique<Frame>(0, std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
     }
@@ -156,7 +156,7 @@ namespace pdr
       const z3::expr_vector& t = model.get_transition();
       expr_vector constr       = model.get_constraint();
 
-      auto frame_solver = make_unique<Solver>(ctx, frame_base, t, constr);
+      auto frame_solver = make_unique<Solver>(ctx, model, frame_base, t, constr);
       auto new_frame =
           make_unique<Frame>(frames.size(), std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));

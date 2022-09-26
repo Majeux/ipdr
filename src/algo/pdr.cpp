@@ -168,7 +168,7 @@ namespace pdr
       frames.log_solvers(true);
 
       if (invariant_level)
-        return PdrResult::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(*invariant_level);
     }
   }
 
@@ -217,7 +217,7 @@ namespace pdr
         auto [m, core] = highest_inductive_frame(pred->cube, n - 1);
         // n-1 <= m <= level
         if (m < 0) // intersects with I
-          return PdrResult::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(pred);
 
         expr_vector smaller_pred = generalize(core, m);
         frames.remove_state(smaller_pred, m + 1);
@@ -240,7 +240,7 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return PdrResult::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
         expr_vector smaller_state = generalize(core, m);
@@ -279,14 +279,6 @@ namespace pdr
     return PdrResult::empty_true();
   }
 
-  string PDR::constraint_str() const
-  {
-    if (frames.max_pebbles)
-      return format("cardinality {}", *frames.max_pebbles);
-    else
-      return "no constraint";
-  }
-
   void PDR::store_frame_strings()
   {
     using std::endl;
@@ -308,7 +300,5 @@ namespace pdr
     for (const std::string& s : logger.stats.solver_dumps)
       out << s << std::endl << std::endl;
   }
-
-  int PDR::length_shortest_strategy() const { return shortest_strategy; }
 
 } // namespace pdr
