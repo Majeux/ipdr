@@ -93,7 +93,7 @@ namespace pdr
     rv.time = final_time;
 
     logger.stats.elapsed = final_time;
-    logger.stats.write(constraint_str());
+    logger.stats.write(model.constraint_str());
     logger.stats.write();
     logger.stats.clear();
     store_frame_strings();
@@ -285,7 +285,7 @@ namespace pdr
     std::stringstream ss;
 
     ss << SEP3 << endl
-       << "# " << constraint_str() << endl
+       << "# " << model.constraint_str() << endl
        << "Frames" << endl
        << frames.blocked_str() << endl
        << SEP2 << endl

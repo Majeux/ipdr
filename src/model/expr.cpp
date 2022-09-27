@@ -99,6 +99,7 @@ namespace mysat::primed
   VarVec::operator const expr_vector&() const { return current; }
   const expr_vector& VarVec::operator()() const { return current; }
   const expr_vector& VarVec::p() const { return next; }
+  vector<string> VarVec::names() const { return extract_names(current); }
 
   expr VarVec::operator()(size_t i) const
   {
@@ -134,20 +135,28 @@ namespace mysat::primed
 
   expr_vector VarVec::operator()(const expr_vector& ev) const
   {
-	  expr_vector rv(ctx);
-	  for(expr e : ev)
-	    rv.push_back(e.substitute(next, current));
-	  return rv;
+    expr_vector rv(ctx);
+    for (expr e : ev)
+      rv.push_back(e.substitute(next, current));
+    return rv;
   }
   expr_vector VarVec::p(const expr_vector& ev) const
   {
-	  expr_vector rv(ctx);
-	  for(expr e : ev)
-	    rv.push_back(e.substitute(current, next));
-	  return rv;
+    expr_vector rv(ctx);
+    for (expr e : ev)
+      rv.push_back(e.substitute(current, next));
+    return rv;
   }
 
-  vector<string> VarVec::names() const { return extract_names(current); }
+  bool VarVec::lit_is_current(const z3::expr& e) const
+  {
+    return to_next.find(e) != to_next.end();
+  }
+
+  bool VarVec::lit_is_p(const z3::expr& e) const
+  {
+    return to_current.find(e) != to_current.end();
+  }
 
   // ExpVec
   // public

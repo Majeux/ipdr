@@ -7,7 +7,7 @@ namespace pdr
   void PDR::log_start() const
   {
     logger.and_whisper("");
-    logger.and_whisper("PDR start ({}):", constraint_str());
+    logger.and_whisper("PDR start ({}):", model.constraint_str());
     logger("");
   }
 

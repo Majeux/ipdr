@@ -67,7 +67,6 @@ namespace pdr
     // stores final logs, stats and result and returns its argument
     PdrResult finish(PdrResult&& rv);
     void store_frame_strings();
-    std::string constraint_str() const;
 
     // logging shorthands
     void log_start() const;
