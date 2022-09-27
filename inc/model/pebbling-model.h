@@ -28,8 +28,7 @@ namespace pdr::pebbling
 
     // void show(std::ostream& out) const;
 
-    PebblingModel(z3::context& c, const my::cli::ArgumentList& model_name,
-        const dag::Graph& G);
+    PebblingModel(const my::cli::ArgumentList& model_name, const dag::Graph& G);
 
     // set a constraint on the transition relation to reduce the state-space
     void constrain(std::optional<unsigned> new_p);

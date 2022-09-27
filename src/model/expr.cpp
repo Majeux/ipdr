@@ -119,7 +119,7 @@ namespace mysat::primed
       assert(e.arg(0).is_const());
       return !to_current.at(e.arg(0));
     }
-    assert(e.arg(0).is_const());
+    assert(e.is_const());
     return to_current.at(e);
   }
   expr VarVec::p(const expr& e) const
@@ -129,7 +129,7 @@ namespace mysat::primed
       assert(e.arg(0).is_const());
       return !to_next.at(e.arg(0));
     }
-    assert(e.arg(0).is_const());
+    assert(e.is_const());
     return to_next.at(e);
   }
 

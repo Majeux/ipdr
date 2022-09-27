@@ -21,7 +21,7 @@ namespace peterson
 
     friend State;
 
-    PetersonModel(z3::context& c, numrep_t n_processes);
+    PetersonModel(numrep_t n_processes);
 
     const std::string constraint_str() const override;
 

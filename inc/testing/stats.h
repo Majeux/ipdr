@@ -41,6 +41,13 @@ namespace pdr
    private:
     std::ofstream file;
 
+    double compute_copied() const 
+    {
+      if (copied_cubes.total != 0)
+        return 0;
+      return ((double) copied_cubes.count / copied_cubes.total) * 100.0;
+    }
+
    public:
     Statistic solver_calls;
     Statistic propagation_it;
@@ -126,7 +133,7 @@ namespace pdr
           << s.subsumed_cubes << std::endl
           << "#" << std::endl
           << "# Copied cubes" << std::endl
-          << (s.copied_cubes.count / s.copied_cubes.total) * 100 << " %"
+          << s.compute_copied() << " %"
           << std::endl
           << "#" << std::endl;
 

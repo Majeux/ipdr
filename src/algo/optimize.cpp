@@ -165,8 +165,10 @@ namespace pdr::pebbling
   {
     assert(std::addressof(model) == std::addressof(alg.model));
 
+    std::optional<unsigned> current = model.get_max_pebbles();
+    std::string from = current ? std::to_string(*current) : "any";
     alg.logger.and_show("naive change from {} -> {} pebbles",
-        model.get_max_pebbles().value(), pebbles);
+        from, pebbles);
 
     model.constrain(pebbles);
     alg.ctx.type = Tactic::basic;

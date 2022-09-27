@@ -51,7 +51,6 @@ namespace pdr
   PdrResult PDR::run()
   {
     timer.reset();
-    // TODO run type preparation logic here
     log_start();
 
     if (frames.frontier() == 0)
@@ -98,6 +97,9 @@ namespace pdr
     logger.stats.clear();
     store_frame_strings();
     logger.indent = 0;
+
+    logger.and_show("final solver");
+    logger.and_show(frames.blocked_str());
 
     return rv;
   }

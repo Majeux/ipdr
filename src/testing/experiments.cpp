@@ -271,7 +271,7 @@ namespace pdr::pebbling::experiments
     auto run = [&, N](
                    vector<PebblingResult>& reps, Table& t, bool control) -> Run
     {
-      assert(repetitions.empty());
+      assert(reps.empty());
 
       cout << (control ? "control run" : "ipdr run") << endl;
 
@@ -279,7 +279,7 @@ namespace pdr::pebbling::experiments
       {
         std::optional<unsigned> optimum;
         // new context with new random seed
-        pdr::Context ctx(args.delta, seeds[i]);
+        pdr::Context ctx(model, args.delta, seeds[i]);
         cout << format("{}: {}", i, seeds[i]) << endl;
         pdr::pebbling::IPDR opt(ctx, model, args, log);
 

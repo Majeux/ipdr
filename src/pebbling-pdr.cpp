@@ -123,13 +123,11 @@ void experiment(ArgumentList& clargs)
   using std::ofstream;
   using std::string;
 
+  std::cerr << "experiment()" << std::endl;
+
   dag::Graph G = build_dag(clargs);
 
-  pdr::Context context =
-      clargs.seed ? pdr::Context(clargs.delta, *clargs.seed)
-                  : pdr::Context(clargs.delta, clargs.rand);
-
-  pdr::pebbling::PebblingModel model(context, clargs, G);
+  pdr::pebbling::PebblingModel model(clargs, G);
 
   const fs::path model_dir = setup_model_path(clargs);
   const string filename    = file_name(clargs);
@@ -176,18 +174,18 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  pdr::Context context =
-      clargs.seed ? pdr::Context(clargs.delta, *clargs.seed)
-                  : pdr::Context(clargs.delta, clargs.rand);
-
   if (clargs.peter)
   {
     std::cout << "peterson" << std::endl;
-    peterson::PetersonModel m(context, 3);
+    peterson::PetersonModel m(3);
     return 0;
   }
 
-  pdr::pebbling::PebblingModel model(context, clargs, G);
+  pdr::pebbling::PebblingModel model(clargs, G);
+  pdr::Context context = clargs.seed
+                           ? pdr::Context(model, clargs.delta, *clargs.seed)
+                           : pdr::Context(model, clargs.delta, clargs.rand);
+
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 
@@ -227,7 +225,8 @@ int main(int argc, char* argv[])
   else
   {
     pdr::pebbling::IPDR optimize(context, model, clargs, logger);
-    pdr::pebbling::PebblingResult result = optimize.run(pdr::Tactic::decrement, false);
+    pdr::pebbling::PebblingResult result =
+        optimize.run(pdr::Tactic::decrement, false);
 
     result.show(strategy);
     optimize.dump_solver(solver_dump);

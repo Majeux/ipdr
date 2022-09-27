@@ -15,9 +15,9 @@
 
 namespace peterson
 {
+  using std::set;
   using std::string;
   using std::vector;
-  using std::set;
   using z3::expr;
   using z3::expr_vector;
   using z3::implies;
@@ -192,7 +192,7 @@ namespace peterson
     }
     conj = z3ext::tseytin::to_cnf_vec(mk_and(conj)); // TODO add to all queries
     property.add(z3::atmost(critical, 1)).finish();
-    n_property.add(z3::atleast(critical, 2)).finish(); 
+    n_property.add(z3::atleast(critical, 2)).finish();
 
     set<string> rv;
     auto append_names = [&rv](const mysat::primed::INamed& v)
@@ -216,8 +216,8 @@ namespace peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(z3::context& c,  numrep_t n_processes)
-      : IModel(c, create_vars()), N(n_processes), pc(), level(), last()
+  PetersonModel::PetersonModel(numrep_t n_processes)
+      : IModel(create_vars()), N(n_processes), pc(), level(), last()
   {
     using fmt::format;
     using z3ext::tseytin::to_cnf_vec;
@@ -264,17 +264,19 @@ namespace peterson
     // bv_comp_test(10);
   }
 
-  const std::string PetersonModel::constraint_str() const 
+  const std::string PetersonModel::constraint_str() const
   {
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
-  void PetersonModel::constrain(std::optional<unsigned> processes) {
+  void PetersonModel::constrain(std::optional<unsigned> processes)
+  {
     expr_vector c(ctx);
     constraint = c;
   }
 
-  State PetersonModel::extract_state(const expr_vector& cube, mysat::primed::lit_type t)
+  State PetersonModel::extract_state(
+      const expr_vector& cube, mysat::primed::lit_type t)
   {
     State s(N);
 

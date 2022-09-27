@@ -15,8 +15,8 @@ namespace pdr::pebbling
   using z3::expr_vector;
 
   PebblingModel::PebblingModel(
-      z3::context& c, const my::cli::ArgumentList& args, const dag::Graph& G)
-      : IModel(c, G.nodes)
+      const my::cli::ArgumentList& args, const dag::Graph& G)
+      : IModel(G.nodes)
   {
     name = args.model_name;
 
@@ -58,7 +58,7 @@ namespace pdr::pebbling
       for (const string& child : G.get_children(name))
       {
         expr child_node   = ctx.bool_const(child.c_str());
-        expr child_node_p = vars.p(child_node_p);
+        expr child_node_p = vars.p(child_node);
         // clang-format off
         transition.push_back( vars(i) || !vars.p(i) || child_node);
         transition.push_back(!vars(i) ||  vars.p(i) || child_node);
@@ -210,11 +210,11 @@ namespace pdr::pebbling
   {
     if (max_pebbles)
     {
-      assert(constraint.empty());
+      assert(!constraint.empty());
       return fmt::format("cardinality {}", *max_pebbles);
     }
-    else
-      return "no constraint";
+    assert(constraint.empty());
+    return "no constraint";
   }
 
 } // namespace pdr::pebbling

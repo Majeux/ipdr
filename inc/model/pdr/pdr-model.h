@@ -10,14 +10,8 @@ namespace pdr
 {
   class IModel
   {
-   protected:
-    z3::context& ctx;
-
-    z3::expr_vector initial;
-    z3::expr_vector transition; // vector of clauses (cnf)
-    z3::expr_vector constraint; // vector of clauses (cnf)
-
    public:
+    z3::context ctx;
     std::string name;
 
     mysat::primed::VarVec vars;
@@ -32,11 +26,12 @@ namespace pdr
     };
     Diff_t diff{ Diff_t::none };
 
-
-    IModel(z3::context& c, const std::set<std::string>& varnames)
-        : ctx(c), initial(ctx), transition(ctx), constraint(ctx),
-          vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars)
+    IModel(const std::set<std::string>& varnames)
+        : vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars),
+          initial(ctx), transition(ctx), constraint(ctx)
     {
+      ctx.set("unsat_core", true);
+      ctx.set("model", true);
     }
 
     const z3::expr_vector& get_initial() const;
@@ -45,6 +40,11 @@ namespace pdr
     virtual const std::string constraint_str() const = 0;
     // return the number of pebbles in the final state
     void show(std::ostream& out) const;
+
+   protected:
+    z3::expr_vector initial;
+    z3::expr_vector transition; // vector of clauses (cnf)
+    z3::expr_vector constraint; // vector of clauses (cnf)
   };
 } // namespace pdr
 
