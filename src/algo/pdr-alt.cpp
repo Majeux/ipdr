@@ -54,6 +54,7 @@ namespace pdr
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
+      logger(frames.blocked_str());
 
       if (invariant_level)
         return PdrResult::found_invariant(*invariant_level);
