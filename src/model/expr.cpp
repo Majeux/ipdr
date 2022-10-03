@@ -80,6 +80,19 @@ namespace mysat::primed
 
   // VarVec
   // public
+
+  // get the variable of a literal
+  // throws if e is not a literal
+  expr strip_not(const expr& e)
+  {
+    expr rv = e;
+    if (e.is_not())
+     rv = e.arg(0);
+    
+    assert(rv.is_const());
+    return rv;
+  }
+
   VarVec::VarVec(z3::context& c, const std::set<string> names)
       : IPrimed<expr_vector>(c, "varvec")
   {
@@ -150,12 +163,14 @@ namespace mysat::primed
 
   bool VarVec::lit_is_current(const z3::expr& e) const
   {
-    return to_next.find(e) != to_next.end();
+    expr key = strip_not(e);
+    return to_next.find(key) != to_next.end();
   }
 
   bool VarVec::lit_is_p(const z3::expr& e) const
   {
-    return to_current.find(e) != to_current.end();
+    expr key = strip_not(e);
+    return to_current.find(key) != to_current.end();
   }
 
   // ExpVec

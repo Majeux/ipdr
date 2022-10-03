@@ -12,6 +12,18 @@ namespace pdr
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+
+  bool ev_str_eq(const z3::expr_vector& ev, const vector<std::string>& str)
+  {
+    if (ev.size() != str.size())
+      return false;
+
+    for (size_t i = 0; i < ev.size(); i++)
+      if (ev[i].to_string() != str[i])
+        return false;
+    return true;
+  }
+
   //! s is inductive up until min-1. !s is included up until min
   int PDR::hif_(const expr_vector& cube, int min)
   {
@@ -46,10 +58,8 @@ namespace pdr
     {
       // F_result & !cube & T & cube' = UNSAT
       // => F_result & !cube & T & core' = UNSAT
-      auto next_lits = [this](const expr& e)
-      { return model.vars.lit_is_p(e); };
-      auto to_current = [this](const expr& e)
-      { return model.vars(e); };
+      auto next_lits = [this](const expr& e) { return model.vars.lit_is_p(e); };
+      auto to_current = [this](const expr& e) { return model.vars(e); };
 
       core = frames.get_solver(result).unsat_core(next_lits, to_current);
 

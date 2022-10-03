@@ -210,14 +210,15 @@ int main(int argc, char* argv[])
 
   show_header(clargs);
 
-  pdr::IpdrResult rs(model);
   pdr::PDR algorithm(context, model, logger);
 
   if (clargs.tactic == pdr::Tactic::basic)
   {
+    pdr::IpdrResult rs(model);
     model.constrain(clargs.max_pebbles);
     pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strategy);
+    rs.show_traces(strategy);
     algorithm.show_solver(solver_dump);
 
     return 0;
@@ -229,6 +230,8 @@ int main(int argc, char* argv[])
         optimize.run(pdr::Tactic::decrement, false);
 
     result.show(strategy);
+    result.show_raw(strategy);
+    result.show_traces(strategy);
     optimize.dump_solver(solver_dump);
   }
 
