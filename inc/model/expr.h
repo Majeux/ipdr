@@ -98,8 +98,11 @@ namespace mysat::primed
     bool lit_is_p(const z3::expr& e) const;
 
    private:
-    std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_current;
-    std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_next;
+    // std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_current;
+    // std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_next;
+    // maps id() of a variable to its ndex in its current/next vector
+    std::unordered_map<unsigned, size_t> to_current;
+    std::unordered_map<unsigned, size_t> to_next;
 
   }; // class VarVec
 

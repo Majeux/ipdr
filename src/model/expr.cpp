@@ -87,8 +87,8 @@ namespace mysat::primed
   {
     expr rv = e;
     if (e.is_not())
-     rv = e.arg(0);
-    
+      rv = e.arg(0);
+
     assert(rv.is_const());
     return rv;
   }
@@ -104,8 +104,8 @@ namespace mysat::primed
       current.push_back(new_curr);
       next.push_back(new_next);
 
-      to_current.emplace(new_next, new_curr);
-      to_next.emplace(new_curr, new_next);
+      to_current.emplace(new_next.id(), current.size()-1);
+      to_next.emplace(new_curr.id(), next.size()-1);
     }
   }
 
@@ -130,47 +130,53 @@ namespace mysat::primed
     if (e.is_not())
     {
       assert(e.arg(0).is_const());
-      return !to_current.at(e.arg(0));
+      size_t i = to_current.at(e.arg(0).id());
+      return !current[i];
     }
     assert(e.is_const());
-    return to_current.at(e);
+    size_t i = to_current.at(e.id());
+    return current[i];
   }
+
   expr VarVec::p(const expr& e) const
   {
     if (e.is_not())
     {
       assert(e.arg(0).is_const());
-      return !to_next.at(e.arg(0));
+      size_t i = to_next.at(e.arg(0).id());
+      return !next[i];
     }
     assert(e.is_const());
-    return to_next.at(e);
+    size_t i = to_next.at(e.id());
+    return next[i];
   }
 
   expr_vector VarVec::operator()(const expr_vector& ev) const
   {
     expr_vector rv(ctx);
-    for (expr e : ev)
-      rv.push_back(e.substitute(next, current));
+    for (const expr& e : ev)
+      rv.push_back(operator()(e));
     return rv;
   }
+
   expr_vector VarVec::p(const expr_vector& ev) const
   {
     expr_vector rv(ctx);
-    for (expr e : ev)
-      rv.push_back(e.substitute(current, next));
+    for (const expr& e : ev)
+      rv.push_back(p(e));
     return rv;
   }
 
   bool VarVec::lit_is_current(const z3::expr& e) const
   {
     expr key = strip_not(e);
-    return to_next.find(key) != to_next.end();
+    return to_next.find(key.id()) != to_next.end();
   }
 
   bool VarVec::lit_is_p(const z3::expr& e) const
   {
     expr key = strip_not(e);
-    return to_current.find(key) != to_current.end();
+    return to_current.find(key.id()) != to_current.end();
   }
 
   // ExpVec
