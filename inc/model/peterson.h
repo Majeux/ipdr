@@ -9,8 +9,10 @@
 
 namespace peterson
 {
-  struct State;
+  struct PetersonState;
 
+  // encode the peterson algorithm for mutual exclusion as a cnf formula
+  // for p processes, to a maximum of N
   class PetersonModel : public pdr::IModel
   {
    public:
@@ -19,17 +21,21 @@ namespace peterson
     using BitVec   = mysat::primed::BitVec;
     using numrep_t = BitVec::numrep_t;
 
-    friend State;
+    friend PetersonState;
 
-    PetersonModel(numrep_t n_processes);
+    PetersonModel(numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
 
+    // Configure IModel
+    void constrain(numrep_t processes);
+
    private:
-    // no. processes
-    numrep_t p;
-    // max no. processes
+    // max no. processes. the size of the waiting queue
     numrep_t N;
+    // no. processes that can fire
+    numrep_t p;
+    BitVec nproc;
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
     const static numrep_t pc_num = 5;
@@ -44,18 +50,20 @@ namespace peterson
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
 
-    std::set<std::string> create_vars();
+    std::set<std::string> create_vars(numrep_t max_procs);
+    void populate_vars();
 
-    State extract_state(const z3::expr_vector& witness,
+    PetersonState extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);
-    State extract_state_p(const z3::expr_vector& witness);
+    PetersonState extract_state_p(const z3::expr_vector& witness);
 
-    std::set<State> successors(const z3::expr_vector& v);
-    std::set<State> successors(const State& s);
+    std::set<PetersonState> successors(const z3::expr_vector& v);
+    std::set<PetersonState> successors(const PetersonState& s);
 
     void test_room();
     void test_wait(numrep_t i);
 
+    void set_trans(numrep_t max_p);
     z3::expr T_start(numrep_t i);
     z3::expr T_boundcheck(numrep_t i);
     z3::expr T_setlast(numrep_t i);
@@ -64,12 +72,9 @@ namespace peterson
 
     void bv_comp_test(size_t max_value);
     void bv_val_test(size_t max_value);
-
-    // Configure IModel
-    void constrain(std::optional<unsigned> processes);
   }; // class Model
 
-  struct State
+  struct PetersonState
   {
     std::vector<PetersonModel::numrep_t> pc;
     std::vector<PetersonModel::numrep_t> level;
@@ -77,9 +82,12 @@ namespace peterson
     std::vector<PetersonModel::numrep_t> last;
 
     // TODO use model vector sizes
-    State() : pc(0), level(0), free(0), last(0) {}
-    State(PetersonModel::numrep_t N) : pc(N), level(N), free(N), last(N - 1) {}
-    State(std::vector<PetersonModel::numrep_t>&& p,
+    PetersonState() : pc(0), level(0), free(0), last(0) {}
+    PetersonState(PetersonModel::numrep_t N)
+        : pc(N), level(N), free(N), last(N - 1)
+    {
+    }
+    PetersonState(std::vector<PetersonModel::numrep_t>&& p,
         std::vector<PetersonModel::numrep_t>&& l, std::vector<bool>&& f,
         std::vector<PetersonModel::numrep_t>&& lst)
         : pc(p), level(l), free(f), last(lst)
@@ -90,9 +98,9 @@ namespace peterson
     std::string to_string(bool inl = false) const;
     std::string inline_string() const;
 
-    bool operator<(const State&) const;
-    bool operator==(const State&) const;
-    bool operator!=(const State&) const;
+    bool operator<(const PetersonState&) const;
+    bool operator==(const PetersonState&) const;
+    bool operator!=(const PetersonState&) const;
   };
 
 } // namespace peterson

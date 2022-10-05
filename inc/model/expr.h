@@ -79,7 +79,9 @@ namespace mysat::primed
   class VarVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    VarVec(z3::context& c, const std::set<std::string> names);
+    VarVec(z3::context& c, const std::set<std::string> varnames);
+
+    void add(const std::set<std::string> varnames);
 
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
@@ -112,7 +114,7 @@ namespace mysat::primed
   class ExpVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    ExpVec(z3::context& c, const VarVec& names);
+    ExpVec(z3::context& c, const VarVec& v);
 
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
@@ -159,6 +161,7 @@ namespace mysat::primed
     // uint to bitvector representation
     z3::expr_vector uint(numrep_t n) const;
     z3::expr_vector uint_p(numrep_t n) const;
+    z3::expr_vector uint_both(numrep_t n) const;
 
     // cube to uint conversion
     numrep_t extract_value(

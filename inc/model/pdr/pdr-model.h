@@ -26,13 +26,7 @@ namespace pdr
     };
     Diff_t diff{ Diff_t::none };
 
-    IModel(const std::set<std::string>& varnames)
-        : vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars),
-          initial(ctx), transition(ctx), constraint(ctx)
-    {
-      ctx.set("unsat_core", true);
-      ctx.set("model", true);
-    }
+    IModel(const std::set<std::string>& varnames);
 
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;

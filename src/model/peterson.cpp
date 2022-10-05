@@ -25,7 +25,7 @@ namespace peterson
 
   // STATE MEMBERS
   //
-  bool State::operator<(const State& s) const
+  bool PetersonState::operator<(const PetersonState& s) const
   {
     if (pc < s.pc)
       return true;
@@ -49,7 +49,7 @@ namespace peterson
     return false;
   }
 
-  bool State::operator==(const State& s) const
+  bool PetersonState::operator==(const PetersonState& s) const
   {
     if (pc != s.pc)
       return false;
@@ -63,20 +63,23 @@ namespace peterson
     return true;
   }
 
-  bool State::operator!=(const State& s) const { return not(*this == s); }
+  bool PetersonState::operator!=(const PetersonState& s) const
+  {
+    return not(*this == s);
+  }
 
-  expr_vector State::cube(PetersonModel& m) const
+  expr_vector PetersonState::cube(PetersonModel& m) const
   {
     using num_vec = std::vector<PetersonModel::numrep_t>;
     using bv_vec  = std::vector<PetersonModel::BitVec>;
 
     expr_vector conj(m.ctx);
 
-    auto bv_assign = [&conj](const num_vec& N, const bv_vec& B)
+    auto bv_assign = [&conj](const num_vec& nv, const bv_vec& bv)
     {
-      assert(N.size() == B.size());
-      for (size_t i = 0; i < N.size(); i++)
-        for (const expr& e : B[i].uint(N[i]))
+      assert(nv.size() == bv.size());
+      for (size_t i = 0; i < nv.size(); i++)
+        for (const expr& e : bv[i].uint(nv[i]))
           conj.push_back(e);
     };
 
@@ -91,13 +94,13 @@ namespace peterson
     return conj;
   }
 
-  std::ostream& operator<<(std::ostream& out, const State& s)
+  std::ostream& operator<<(std::ostream& out, const PetersonState& s)
   {
     out << s.to_string(false);
     return out;
   }
 
-  string State::to_string(bool inl) const
+  string PetersonState::to_string(bool inl) const
   {
     using fmt::format;
     using std::endl;
@@ -136,7 +139,7 @@ namespace peterson
     return ss.str();
   }
 
-  string State::inline_string() const { return to_string(true); }
+  string PetersonState::inline_string() const { return to_string(true); }
 
   // PETERSONMODEL MEMBERS
   //
@@ -147,19 +150,19 @@ namespace peterson
     return bits;
   }
 
-  set<string> PetersonModel::create_vars()
+  set<string> PetersonModel::create_vars(numrep_t max_procs)
   {
     using fmt::format;
 
     size_t pc_bits = bits_for(pc_num);
-    size_t N_bits  = bits_for(N);
+    size_t N_bits  = bits_for(max_procs);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release (l[i] = N-1)
 
-    for (numrep_t i = 0; i < N; i++)
+    for (numrep_t i = 0; i < max_procs; i++)
     {
       {
         string pc_i = format("pc_{}", i);
@@ -173,7 +176,7 @@ namespace peterson
         string free_i = format("free_{}", i);
         free.emplace_back(ctx, free_i);
       }
-      if (i < N - 1)
+      if (i < max_procs - 1)
       {
         string last_i = format("last_{}", i);
         last.emplace_back(ctx, last_i, N_bits);
@@ -182,12 +185,12 @@ namespace peterson
 
     expr_vector conj(ctx), critical(ctx);
     {
-      for (numrep_t i = 0; i < N; i++)
+      for (numrep_t i = 0; i < max_procs; i++)
       {
         expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
         critical.push_back(crit_i); // add to rv
 
-        conj.push_back(implies(level.at(i).equals(N - 1), crit_i));
+        conj.push_back(implies(level.at(i).equals(max_procs - 1), crit_i));
       }
     }
     conj = z3ext::tseytin::to_cnf_vec(mk_and(conj)); // TODO add to all queries
@@ -216,11 +219,12 @@ namespace peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(numrep_t n_processes)
-      : IModel(create_vars()), N(n_processes), pc(), level(), last()
+  PetersonModel::PetersonModel(numrep_t n_procs, numrep_t max_procs)
+      : IModel({}), N(max_procs), p(n_procs),
+        nproc(BitVec::holding(ctx, "nproc", N)), pc(), level(), last()
   {
     using fmt::format;
-    using z3ext::tseytin::to_cnf_vec;
+    vars.add(create_vars(max_procs));
 
     assert(N < INT_MAX);
 
@@ -240,24 +244,7 @@ namespace peterson
           initial.push_back(e);
     }
 
-    std::cout << "INITIAL" << std::endl;
-    {
-      expr_vector disj(ctx);
-      for (numrep_t i = 0; i < N; i++)
-      {
-        disj.push_back(T_start(i));
-        disj.push_back(T_boundcheck(i));
-        disj.push_back(T_setlast(i));
-        disj.push_back(T_await(i));
-        disj.push_back(T_release(i));
-      }
-      // transition = disj; // no
-      // std::cout << "RAW TRANSITION" << std::endl;
-      // std::cout << disj << std::endl;
-      transition = to_cnf_vec(mk_or(disj));
-      // std::cout << "CNF TRANSITION" << std::endl;
-      // std::cout << transition << std::endl;
-    }
+    constrain(n_procs);
 
     test_room();
     // bv_val_test(10);
@@ -269,120 +256,29 @@ namespace peterson
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
-  void PetersonModel::constrain(std::optional<unsigned> processes)
+  void PetersonModel::constrain(numrep_t processes)
   {
-    expr_vector c(ctx);
-    constraint = c;
-  }
+    using z3ext::tseytin::to_cnf_vec;
+    assert(processes <= N);
 
-  State PetersonModel::extract_state(
-      const expr_vector& cube, mysat::primed::lit_type t)
-  {
-    State s(N);
+    p = processes;
+    constraint.resize(0);
 
-    for (numrep_t i = 0; i < N; i++)
+    expr_vector disj(ctx);
+    for (numrep_t i = 0; i < p; i++)
     {
-      s.pc.at(i)    = pc.at(i).extract_value(cube, t);
-      s.level.at(i) = level.at(i).extract_value(cube, t);
-      s.free.at(i)  = free.at(i).extract_value(cube, t);
-      if (i < s.last.size())
-        s.last.at(i) = last.at(i).extract_value(cube, t);
+      disj.push_back(T_start(i));
+      disj.push_back(T_boundcheck(i));
+      disj.push_back(T_setlast(i));
+      disj.push_back(T_await(i));
+      disj.push_back(T_release(i));
     }
-
-    return s;
-  }
-
-  State PetersonModel::extract_state_p(const expr_vector& cube)
-  {
-    return extract_state(cube, mysat::primed::lit_type::primed);
-  }
-
-  set<State> PetersonModel::successors(const expr_vector& v)
-  {
-    return successors(extract_state(v));
-  }
-
-  set<State> PetersonModel::successors(const State& s)
-  {
-    using mysat::primed::lit_type;
-    using std::optional;
-    using z3ext::solver::check_witness;
-
-    set<State> S;
-
-    z3::solver solver(ctx);
-    solver.add(s.cube(*this));
-
-    while (optional<expr_vector> w = check_witness(solver, transition))
-    {
-      S.insert(extract_state(*w, lit_type::primed));
-      solver.add(!mk_and(*w)); // exclude from future search
-    }
-
-    return S;
-  }
-
-  void PetersonModel::test_room()
-  {
-    using mysat::primed::lit_type;
-    using std::cout;
-    using std::endl;
-    using std::map;
-    using std::queue;
-    using std::set;
-
-    std::ofstream out("peter-out.txt");
-    // std::ostream& out = cout;
-    cout << "N = " << N << std::endl;
-
-    queue<State> Q;
-    set<State> visited;
-    map<State, set<State>> edges;
-    // create a set if none exists, and insert destination
-    auto edges_insert = [&edges](const State& src, const State& dst)
-    {
-      set<State> s;
-      set<State>& dst_set = edges.emplace(src, s).first->second;
-      dst_set.insert(dst);
-    };
-
-    const State I = extract_state(initial);
-    Q.push(I);
-
-    while (not Q.empty())
-    {
-      const State& source = Q.front();
-      if (visited.insert(source).second) // if source was not done already
-      {
-        for (const State& dest : successors(source))
-        {
-          if (visited.find(dest) == visited.end())
-            Q.push(dest);
-          edges_insert(source, dest);
-        }
-      }
-      Q.pop();
-    }
-
-    unsigned size = std::accumulate(edges.begin(), edges.end(), 0,
-        [](unsigned a, const auto& s) { return a + s.second.size(); });
-
-    cout << fmt::format("No. edges = {}", size) << endl;
-
-    out << "digraph G {" << endl;
-    out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
-    for (const auto& map_pair : edges)
-    {
-      assert(map_pair.second.size() <= N);
-
-      string src_str = map_pair.first.inline_string();
-
-      for (const State& dst : map_pair.second)
-        out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
-            << endl
-            << endl;
-    }
-    out << "}" << endl;
+    // transition = disj; // no
+    // std::cout << "RAW TRANSITION" << std::endl;
+    // std::cout << disj << std::endl;
+    transition = to_cnf_vec(mk_or(disj));
+    // std::cout << "CNF TRANSITION" << std::endl;
+    // std::cout << transition << std::endl;
   }
 
   template <typename T,
@@ -421,7 +317,7 @@ namespace peterson
 
   expr PetersonModel::T_start(numrep_t i)
   {
-    assert(i < N);
+    assert(i < p);
     expr_vector conj(ctx);
 
     // pc[i] == 0
@@ -451,7 +347,7 @@ namespace peterson
 
   expr PetersonModel::T_boundcheck(numrep_t i)
   {
-    assert(i < N);
+    assert(i < p);
     expr_vector conj(ctx);
 
     // pc[i] == 1
@@ -474,7 +370,7 @@ namespace peterson
 
   expr PetersonModel::T_setlast(numrep_t i)
   {
-    assert(i < N);
+    assert(i < p);
     expr_vector conj(ctx);
 
     // pc[i] == 2
@@ -500,7 +396,7 @@ namespace peterson
 
   expr PetersonModel::T_await(numrep_t i)
   {
-    assert(i < N);
+    assert(i < p);
     expr_vector conj(ctx);
 
     // pc[i] == 3
@@ -561,7 +457,7 @@ namespace peterson
 
   expr PetersonModel::T_release(numrep_t i)
   {
-    assert(i < N);
+    assert(i < p);
     expr_vector conj(ctx);
 
     // pc[i] == 4
@@ -584,6 +480,8 @@ namespace peterson
     return mk_and(conj);
   }
 
+  // testing functions
+  //
   void PetersonModel::bv_comp_test(size_t max_value)
   {
     mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value + 1));
@@ -657,5 +555,118 @@ namespace peterson
     std::cout << fmt::format("{} wrong bv - uint comparisons", wrong)
               << std::endl;
     return;
+  }
+
+  void PetersonModel::test_room()
+  {
+    using mysat::primed::lit_type;
+    using std::cout;
+    using std::endl;
+    using std::map;
+    using std::queue;
+    using std::set;
+
+    std::ofstream out("peter-out.txt");
+    // std::ostream& out = cout;
+    cout << "n procs = " << p << std::endl;
+
+    queue<PetersonState> Q;
+    set<PetersonState> visited;
+    map<PetersonState, set<PetersonState>> edges;
+    // create a set if none exists, and insert destination
+    auto edges_insert = [&edges](
+                            const PetersonState& src, const PetersonState& dst)
+    {
+      set<PetersonState> s;
+      set<PetersonState>& dst_set = edges.emplace(src, s).first->second;
+      dst_set.insert(dst);
+    };
+
+    const PetersonState I = extract_state(initial);
+    Q.push(I);
+
+    while (not Q.empty())
+    {
+      const PetersonState& source = Q.front();
+      if (visited.insert(source).second) // if source was not done already
+      {
+        for (const PetersonState& dest : successors(source))
+        {
+          if (visited.find(dest) == visited.end())
+            Q.push(dest);
+          edges_insert(source, dest);
+        }
+      }
+      Q.pop();
+    }
+
+    unsigned size = std::accumulate(edges.begin(), edges.end(), 0,
+        [](unsigned a, const auto& s) { return a + s.second.size(); });
+
+    cout << fmt::format("No. edges = {}", size) << endl;
+
+    out << "digraph G {" << endl;
+    out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
+    for (const auto& map_pair : edges)
+    {
+      assert(map_pair.second.size() <= p);
+
+      string src_str = map_pair.first.inline_string();
+
+      for (const PetersonState& dst : map_pair.second)
+        out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
+            << endl
+            << endl;
+    }
+    out << "}" << endl;
+  }
+
+  // PetersonState members
+  //
+  PetersonState PetersonModel::extract_state(
+      const expr_vector& cube, mysat::primed::lit_type t)
+  {
+    PetersonState s(N);
+
+    for (numrep_t i = 0; i < N; i++)
+    {
+      s.pc.at(i)    = pc.at(i).extract_value(cube, t);
+      s.level.at(i) = level.at(i).extract_value(cube, t);
+      s.free.at(i)  = free.at(i).extract_value(cube, t);
+      if (i < s.last.size())
+        s.last.at(i) = last.at(i).extract_value(cube, t);
+    }
+
+    return s;
+  }
+
+  PetersonState PetersonModel::extract_state_p(const expr_vector& cube)
+  {
+    return extract_state(cube, mysat::primed::lit_type::primed);
+  }
+
+  set<PetersonState> PetersonModel::successors(const expr_vector& v)
+  {
+    return successors(extract_state(v));
+  }
+
+  set<PetersonState> PetersonModel::successors(const PetersonState& s)
+  {
+    using mysat::primed::lit_type;
+    using std::optional;
+    using z3ext::solver::check_witness;
+
+    set<PetersonState> S;
+
+    z3::solver solver(ctx);
+    solver.add(s.cube(*this));
+
+    while (optional<expr_vector> w = check_witness(solver, transition))
+    {
+      S.insert(extract_state(*w, lit_type::primed));
+      solver.add(!mk_and(*w)); // exclude from future search
+    }
+
+    return S;
   }
 } // namespace peterson

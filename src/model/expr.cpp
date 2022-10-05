@@ -80,21 +80,28 @@ namespace mysat::primed
 
   // VarVec
   // public
-
-  // get the variable of a literal
-  // throws if e is not a literal
-  expr strip_not(const expr& e)
+  namespace
   {
-    expr rv = e;
-    if (e.is_not())
-      rv = e.arg(0);
+    // get the variable of a literal
+    // throws if e is not a literal
+    expr strip_not(const expr& e)
+    {
+      expr rv = e;
+      if (e.is_not())
+        rv = e.arg(0);
 
-    assert(rv.is_const());
-    return rv;
-  }
+      assert(rv.is_const());
+      return rv;
+    }
+  } // namespace
 
   VarVec::VarVec(z3::context& c, const std::set<string> names)
       : IPrimed<expr_vector>(c, "varvec")
+  {
+    add(names);
+  }
+
+  void VarVec::add(const std::set<string> names)
   {
     for (const string& name : names)
     {
@@ -104,8 +111,8 @@ namespace mysat::primed
       current.push_back(new_curr);
       next.push_back(new_next);
 
-      to_current.emplace(new_next.id(), current.size()-1);
-      to_next.emplace(new_curr.id(), next.size()-1);
+      to_current.emplace(new_next.id(), current.size() - 1);
+      to_next.emplace(new_curr.id(), next.size() - 1);
     }
   }
 
@@ -241,6 +248,13 @@ namespace mysat::primed
   expr_vector BitVec::uint_p(numrep_t n) const
   {
     return unint_to_lits(n, true);
+  }
+  expr_vector BitVec::uint_both(numrep_t n) const
+  {
+    expr_vector rv = uint(n);
+    for (const expr& e : uint_p(n))
+      rv.push_back(e);
+    return rv;
   }
 
   BitVec::numrep_t BitVec::extract_value(
