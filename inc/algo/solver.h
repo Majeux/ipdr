@@ -35,11 +35,12 @@ namespace pdr
 
     void reset();
     void reset(const z3ext::CubeSet& cubes);
-    void reconstrain(z3::expr_vector constraint);
-    void reconstrain(z3::expr_vector constraint, const z3ext::CubeSet& cubes);
+    // sets a new ccnf constraint, removes all blocked cubes
+    void reconstrain_clear(z3::expr_vector constraint);
+    // adds a cube's clause to the solver
     void block(const z3::expr_vector& cube);
     void block(const z3::expr_vector& cube, const z3::expr& act);
-    void add(const z3::expr& e);
+    void block(const z3ext::CubeSet& cubes, const z3::expr& act);
 
     bool SAT(const z3::expr_vector& assumptions);
     z3::model get_model() const;

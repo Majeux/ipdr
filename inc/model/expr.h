@@ -121,7 +121,10 @@ namespace mysat::primed
     const z3::expr_vector& p() const override;
     std::vector<std::string> names() const override;
 
+    // add and automatically generate next state
     ExpVec& add(z3::expr e);
+    // add current and next state explicitly
+    ExpVec& add(const z3::expr& curr, const z3::expr& next);
     // ensure that no further expressions can be added
     void finish();
 
@@ -159,6 +162,7 @@ namespace mysat::primed
     z3::expr p(size_t i) const;
 
     // uint to bitvector representation
+    // * CNF
     z3::expr_vector uint(numrep_t n) const;
     z3::expr_vector uint_p(numrep_t n) const;
     z3::expr_vector uint_both(numrep_t n) const;
@@ -168,6 +172,7 @@ namespace mysat::primed
         const z3::expr_vector& cube, lit_type t = base) const;
 
     // equality operator to expression conversions
+    // * CNF
     z3::expr equals(numrep_t n) const;
     z3::expr p_equals(numrep_t n) const;
 
@@ -186,7 +191,6 @@ namespace mysat::primed
    private:
     size_t size;
 
-    std::string index_str(std::string_view n, size_t i) const;
     z3::expr_vector unint_to_lits(numrep_t n, bool primed) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"

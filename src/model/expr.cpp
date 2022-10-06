@@ -12,14 +12,17 @@ namespace mysat::primed
   using z3::expr_vector;
   using z3::mk_and;
 
-  vector<string> extract_names(const expr_vector& v)
+  namespace
   {
-    vector<string> rv;
-    rv.reserve(v.size());
-    std::transform(v.begin(), v.end(), std::back_inserter(rv),
-        [](expr l) { return l.to_string(); });
-    return rv;
-  }
+    vector<string> extract_names(const expr_vector& v)
+    {
+      vector<string> rv;
+      rv.reserve(v.size());
+      std::transform(v.begin(), v.end(), std::back_inserter(rv),
+          [](expr l) { return l.to_string(); });
+      return rv;
+    }
+  } // namespace
 
   // Lit
   //
@@ -211,10 +214,29 @@ namespace mysat::primed
     return *this;
   }
 
+  ExpVec& ExpVec::add(const z3::expr& e, const z3::expr& e_next)
+  {
+    assert(!finished);
+
+    current.push_back(e);
+    next.push_back(e_next);
+
+    return *this;
+  }
+
   void ExpVec::finish() { finished = true; }
 
   // BitVec
   // public
+  //
+  namespace
+  {
+    string index_str(std::string_view n, size_t i)
+    {
+      return fmt::format("{}[{}]", n, i);
+    }
+  } // namespace
+
   BitVec::BitVec(z3::context& c, const string& n, size_t Nbits)
       : IPrimed<expr_vector>(c, n), size(Nbits)
   {
@@ -228,11 +250,6 @@ namespace mysat::primed
   BitVec BitVec::holding(z3::context& c, const string& n, numrep_t max_val)
   {
     return BitVec(c, n, std::log2(max_val) + 1);
-  }
-
-  string BitVec::index_str(std::string_view n, size_t i) const
-  {
-    return fmt::format("{}[{}]", n, i);
   }
 
   BitVec::operator const expr_vector&() const { return current; }

@@ -36,11 +36,11 @@ namespace pdr
   void Frames::reset()
   {
     pdr::IModel& m = model;
-    frame_base = m.property; // all frames are initialized to P
+    frame_base     = m.property; // all frames are initialized to P
 
     if (ctx.delta)
     {
-      const expr_vector& T = m.get_transition();
+      const expr_vector& T   = m.get_transition();
       expr_vector constraint = m.get_constraint();
       delta_solver = make_unique<Solver>(ctx, model, frame_base, T, constraint);
     }
@@ -59,7 +59,11 @@ namespace pdr
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::constrained);
 
-    delta_solver->reconstrain(model.get_constraint());
+    delta_solver->reconstrain_clear(model.get_constraint());
+
+    // repopulate
+    for (size_t i{ 1 }; i < frames.size(); i++)
+      delta_solver->block(frames[i]->get_blocked(), act.at(i));
 
     // with fewer transitions, new cubes may be propagated
     logger.and_show("Redoing last propagation: {}", frontier() - 1);
@@ -75,7 +79,8 @@ namespace pdr
     assert(model.diff == IModel::Diff_t::relaxed);
     logger("Reset frames to F1");
 
-    delta_solver->reconstrain(model.get_constraint());
+    // reconstrain solver and reset it to "no blocked"
+    delta_solver->reconstrain_clear(model.get_constraint());
     z3ext::CubeSet old = get_blocked(1); // store all cubes in F_1
     clear_until(0);                      // reset sequence to { F_0 }
     extend();                            // reinstate level 1
@@ -156,7 +161,8 @@ namespace pdr
       const z3::expr_vector& t = model.get_transition();
       expr_vector constr       = model.get_constraint();
 
-      auto frame_solver = make_unique<Solver>(ctx, model, frame_base, t, constr);
+      auto frame_solver =
+          make_unique<Solver>(ctx, model, frame_base, t, constr);
       auto new_frame =
           make_unique<Frame>(frames.size(), std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
@@ -169,8 +175,7 @@ namespace pdr
     {
       delta_solver->reset();
       for (size_t i = 1; i < frames.size(); i++)
-        for (const z3::expr_vector& cube : frames[i]->get_blocked())
-          delta_solver->block(cube, act.at(i));
+        delta_solver->block(frames[i]->get_blocked(), act.at(i));
     }
     else
     {

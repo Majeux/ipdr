@@ -13,6 +13,8 @@ namespace peterson
 
   // encode the peterson algorithm for mutual exclusion as a cnf formula
   // for p processes, to a maximum of N
+  //
+  // I: 
   class PetersonModel : public pdr::IModel
   {
    public:
@@ -50,8 +52,8 @@ namespace peterson
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
 
-    std::set<std::string> create_vars(numrep_t max_procs);
-    void populate_vars();
+    // fill the pc, level, free and last variables
+    std::set<std::string> create_vars();
 
     PetersonState extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base);
@@ -62,6 +64,7 @@ namespace peterson
 
     void test_room();
     void test_wait(numrep_t i);
+    void test_property();
 
     void set_trans(numrep_t max_p);
     z3::expr T_start(numrep_t i);

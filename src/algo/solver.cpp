@@ -43,7 +43,7 @@ namespace pdr
       block(cube);
   }
 
-  void Solver::reconstrain(z3::expr_vector constraint)
+  void Solver::reconstrain_clear(z3::expr_vector constraint)
   {
     internal_solver.pop(2); // remove all blocked cubes and constraint
     internal_solver.push(); // remake constraintless backtracking point
@@ -52,27 +52,24 @@ namespace pdr
     clauses_start = internal_solver.assertions().size();
   }
 
-  void Solver::reconstrain(
-      z3::expr_vector constraint, const z3ext::CubeSet& cubes)
-  {
-    reconstrain(constraint);
-    for (const z3::expr_vector& cube : cubes)
-      block(cube);
-  }
-
   void Solver::block(const z3::expr_vector& cube)
   {
     z3::expr clause = z3::mk_or(z3ext::negate(cube));
-    this->add(clause);
+    internal_solver.add(clause);
   }
 
   void Solver::block(const z3::expr_vector& cube, const z3::expr& act)
   {
     z3::expr clause = z3::mk_or(z3ext::negate(cube));
-    this->add(clause | !act);
+    internal_solver.add(clause | !act);
   }
 
-  void Solver::add(const z3::expr& e) { internal_solver.add(e); }
+  void Solver::block(
+      const z3ext::CubeSet& cubes, const z3::expr& act)
+  {
+    for (const z3::expr_vector& cube : cubes)
+      block(cube, act);
+  }
 
   bool Solver::SAT(const z3::expr_vector& assumptions)
   {

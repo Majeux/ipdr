@@ -150,19 +150,22 @@ namespace peterson
     return bits;
   }
 
-  set<string> PetersonModel::create_vars(numrep_t max_procs)
+  set<string> PetersonModel::create_vars()
   {
     using fmt::format;
+    using z3::atleast;
+    using z3::atmost;
 
+    // create variables
     size_t pc_bits = bits_for(pc_num);
-    size_t N_bits  = bits_for(max_procs);
+    size_t N_bits  = bits_for(N);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
     // 3 = aquiring, take to await
     // 4 = in critical section, take to release (l[i] = N-1)
 
-    for (numrep_t i = 0; i < max_procs; i++)
+    for (numrep_t i = 0; i < N; i++)
     {
       {
         string pc_i = format("pc_{}", i);
@@ -176,27 +179,25 @@ namespace peterson
         string free_i = format("free_{}", i);
         free.emplace_back(ctx, free_i);
       }
-      if (i < max_procs - 1)
+      if (i < N - 1)
       {
         string last_i = format("last_{}", i);
         last.emplace_back(ctx, last_i, N_bits);
       }
     }
 
-    expr_vector conj(ctx), critical(ctx);
+    expr_vector conj(ctx), conj_p(ctx);
     {
-      for (numrep_t i = 0; i < max_procs; i++)
+      for (numrep_t i = 0; i < N; i++)
       {
-        expr crit_i = ctx.bool_const(format("crit_{}", i).c_str());
-        critical.push_back(crit_i); // add to rv
-
-        conj.push_back(implies(level.at(i).equals(max_procs - 1), crit_i));
+        conj.push_back(level.at(i).equals(N - 1));
+        conj_p.push_back(level.at(i).p_equals(N - 1));
       }
     }
-    conj = z3ext::tseytin::to_cnf_vec(mk_and(conj)); // TODO add to all queries
-    property.add(z3::atmost(critical, 1)).finish();
-    n_property.add(z3::atleast(critical, 2)).finish();
+    property.add(atmost(conj, 1), atmost(conj_p, 1)).finish();
+    n_property.add(atleast(conj, 2), atleast(conj_p, 2)).finish();
 
+    // collect symbol strings
     set<string> rv;
     auto append_names = [&rv](const mysat::primed::INamed& v)
     {
@@ -224,7 +225,7 @@ namespace peterson
         nproc(BitVec::holding(ctx, "nproc", N)), pc(), level(), last()
   {
     using fmt::format;
-    vars.add(create_vars(max_procs));
+    vars.add(create_vars());
 
     assert(N < INT_MAX);
 
@@ -246,7 +247,8 @@ namespace peterson
 
     constrain(n_procs);
 
-    test_room();
+    // test_property();
+    // test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
   }
@@ -264,6 +266,7 @@ namespace peterson
     p = processes;
     constraint.resize(0);
 
+    // can be easily constrained be removing transitions for i >= p
     expr_vector disj(ctx);
     for (numrep_t i = 0; i < p; i++)
     {
@@ -482,6 +485,114 @@ namespace peterson
 
   // testing functions
   //
+  void PetersonModel::test_property()
+  {
+    z3::solver solver(ctx);
+    solver.set("sat.cardinality.solver", true);
+    solver.set("cardinality.solver", true);
+    solver.add(property);
+    std::cout << "property" << std::endl;
+    // std::cout << property() << std::endl;
+    // std::cout << property.p() << std::endl;
+    std::cout << solver << std::endl;
+    std::cout << std::endl;
+
+    expr_vector no_crit(ctx), one_crit(ctx), two_crit(ctx), three_crit(ctx),
+        four_crit(ctx);
+    {
+      no_crit.push_back(level.at(0).equals(0));
+      no_crit.push_back(level.at(1).equals(0));
+      no_crit.push_back(level.at(2).equals(0));
+      no_crit.push_back(level.at(3).equals(0));
+    }
+    {
+      one_crit.push_back(level.at(0).equals(0));
+      one_crit.push_back(level.at(1).equals(N - 1));
+      one_crit.push_back(level.at(2).equals(0));
+      one_crit.push_back(level.at(3).equals(0));
+    }
+    {
+      two_crit.push_back(level.at(0).equals(0));
+      two_crit.push_back(level.at(1).equals(N - 1));
+      two_crit.push_back(level.at(2).equals(N - 1));
+      two_crit.push_back(level.at(3).equals(0));
+    }
+    {
+      three_crit.push_back(level.at(0).equals(N - 1));
+      three_crit.push_back(level.at(1).equals(0));
+      three_crit.push_back(level.at(2).equals(N - 1));
+      three_crit.push_back(level.at(3).equals(N - 1));
+    }
+    {
+      four_crit.push_back(level.at(0).equals(N - 1));
+      four_crit.push_back(level.at(1).equals(N - 1));
+      four_crit.push_back(level.at(2).equals(N - 1));
+      four_crit.push_back(level.at(3).equals(N - 1));
+    }
+
+    if (z3::check_result r = solver.check(no_crit))
+      std::cout << "property - no_crit: sat" << std::endl;
+    else
+      std::cout << "property - no_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(one_crit))
+      std::cout << "property - one_crit: sat" << std::endl;
+    else
+      std::cout << "property - one_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(two_crit))
+      std::cout << "property - two_crit: sat" << std::endl;
+    else
+      std::cout << "property - two_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(three_crit))
+      std::cout << "property - three_crit: sat" << std::endl;
+    else
+      std::cout << "property - three_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(four_crit))
+      std::cout << "property - four_crit: sat" << std::endl;
+    else
+      std::cout << "property - four_crit: unsat" << std::endl;
+
+    std::cout << std::endl;
+    std::cout << std::endl;
+
+    solver.reset();
+    solver.add(n_property);
+    std::cout << "n_property" << std::endl;
+    // std::cout << n_property() << std::endl;
+    // std::cout << n_property.p() << std::endl;
+    std::cout << solver << std::endl;
+    std::cout << std::endl;
+
+    if (z3::check_result r = solver.check(no_crit))
+      std::cout << "n_property - no_crit: sat" << std::endl;
+    else
+      std::cout << "n_property - no_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(one_crit))
+      std::cout << "n_property - one_crit: sat" << std::endl;
+    else
+      std::cout << "n_property - one_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(two_crit))
+      std::cout << "n_property - two_crit: sat" << std::endl;
+    else
+      std::cout << "n_property - two_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(three_crit))
+      std::cout << "n_property - three_crit: sat" << std::endl;
+    else
+      std::cout << "n_property - three_crit: unsat" << std::endl;
+
+    if (z3::check_result r = solver.check(four_crit))
+      std::cout << "n_property - four_crit: sat" << std::endl;
+    else
+      std::cout << "n_property - four_crit: unsat" << std::endl;
+
+  }
+
   void PetersonModel::bv_comp_test(size_t max_value)
   {
     mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value + 1));
