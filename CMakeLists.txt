@@ -20,6 +20,8 @@ find_package(Z3 CONFIG REQUIRED)
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
 file(GLOB PDR_MODEL_SOURCES "src/model/pdr/*.cpp")
+file(GLOB PEBBLING_MODEL_SOURCES "src/model/pebbling/*.cpp")
+file(GLOB PETERSON_MODEL_SOURCES "src/model/peterson/*.cpp")
 file(GLOB ALGO_SOURCES "src/algo/*.cpp")
 file(GLOB SOLVER_SOURCES "src/solver/*.cpp")
 file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
@@ -54,7 +56,10 @@ else ()
   message(STATUS "! logging turned off")
 endif (DO_LOG)
 
-target_include_directories(pebbling-pdr PRIVATE inc inc/auxiliary inc/model inc/model/pdr inc/algo inc/solver inc/testing)
+target_include_directories(pebbling-pdr PRIVATE 
+    inc inc/auxiliary inc/algo inc/solver inc/testing
+    inc/model inc/model/pdr inc/model/pebbling inc/model/peterson 
+)
 target_include_directories(pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include inc/ext/mockturtle/include)
 
 add_library(fmt INTERFACE) # override mockturtle's local version with current

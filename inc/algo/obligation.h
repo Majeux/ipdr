@@ -3,6 +3,7 @@
 
 #include "TextTable.h"
 #include "z3-ext.h"
+
 #include <fmt/format.h>
 #include <numeric>
 #include <string>
@@ -25,10 +26,15 @@ namespace pdr
 
     unsigned show(TextTable& table) const;
 
-    friend unsigned no_marked(const State& s);
+    unsigned no_marked() const;
   };
 
-  unsigned no_marked(const z3::expr_vector& s);
+  namespace state
+  {
+    unsigned no_marked(const z3::expr_vector& s);
+    std::vector<std::string> marking(
+        const State& s, std::vector<std::string> header, unsigned width);
+  } // namespace state
 
   struct Obligation
   {

@@ -59,15 +59,38 @@ namespace pdr
     return i_padding;
   }
 
+  unsigned State::no_marked() const { return ::pdr::state::no_marked(cube); }
+
   // MISC FUNCTIONS
   //
-  unsigned no_marked(const z3::expr_vector& ev)
+  namespace state
   {
-    return std::accumulate(ev.begin(), ev.end(), 0,
-        [](unsigned x, const z3::expr& e) { return x + (!e.is_not()); });
-  }
+    unsigned no_marked(const z3::expr_vector& ev)
+    {
+      return std::accumulate(ev.begin(), ev.end(), 0,
+          [](unsigned x, const z3::expr& e) { return x + (!e.is_not()); });
+    }
 
-  unsigned no_marked(const pdr::State& s) { return no_marked(s.cube); }
+    // return strings that mark whether every state in header a positive or
+    // negative literal
+    vector<string> marking(
+        const State& s, vector<string> header, unsigned width)
+    {
+      vector<string> rv(header.size(), "?");
+      for (const z3::expr& e : s.cube)
+      {
+        string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
+        auto it  = std::lower_bound(header.begin(), header.end(), s);
+        if (it != header.end() && *it == s) // it points to s
+        {
+          string fill_X           = fmt::format("{:X^{}}", "", width);
+          rv[it - header.begin()] = e.is_not() ? "" : fill_X;
+        }
+      }
+
+      return rv;
+    }
+  } // namespace state
 
   // OBLIGATION MEMBERS
   //

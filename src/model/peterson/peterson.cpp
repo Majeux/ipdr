@@ -13,7 +13,7 @@
 #include "expr.h"
 #include "peterson.h"
 
-namespace peterson
+namespace pdr::peterson
 {
   using std::set;
   using std::string;
@@ -264,9 +264,11 @@ namespace peterson
     assert(processes <= N);
 
     p = processes;
+    transition.resize(0);
     constraint.resize(0);
 
     // can be easily constrained be removing transitions for i >= p
+    // leave transition empty, put decreasing T-relation in constraint
     expr_vector disj(ctx);
     for (numrep_t i = 0; i < p; i++)
     {
@@ -279,7 +281,7 @@ namespace peterson
     // transition = disj; // no
     // std::cout << "RAW TRANSITION" << std::endl;
     // std::cout << disj << std::endl;
-    transition = to_cnf_vec(mk_or(disj));
+    constraint = to_cnf_vec(mk_or(disj));
     // std::cout << "CNF TRANSITION" << std::endl;
     // std::cout << transition << std::endl;
   }

@@ -5,7 +5,10 @@
 #include "frames.h"
 #include "pdr-context.h"
 #include "pdr-model.h"
+#include "pebbling-model.h"
+#include "peterson.h"
 #include "result.h"
+#include "pebbling-result.h"
 #include "stats.h"
 #include "z3-ext.h"
 
@@ -27,10 +30,15 @@ namespace pdr
   {
     class IPDR;
   }
+  namespace peterson
+  {
+    class IPDR;
+  }
 
   class PDR
   {
     friend class pebbling::IPDR;
+    friend class peterson::IPDR;
 
    private:
     Context& ctx;
@@ -112,6 +120,36 @@ namespace pdr
      public:
       IPDR(
           Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
+
+      // runs the optimizer as dictated by the argument
+      PebblingResult run(Tactic tactic, bool control = false);
+      // runs the optimizer as dictated by the argument but with forced
+      // experiment_control
+      PebblingResult control_run(Tactic tactic);
+      PebblingResult increment(bool control);
+      PebblingResult decrement(bool control);
+      PebblingResult inc_jump_test(unsigned start, int step);
+
+      void dump_solver(std::ofstream& out) const;
+    }; // class Optimizer
+  }    // namespace pebbling
+
+  namespace peterson
+  {
+    class IPDR
+    {
+     private:
+      PDR alg;
+      PetersonModel& model; // same instance as the IModel in alg
+      std::optional<unsigned> starting_value;
+
+      void basic_reset(unsigned pebbles);
+      void increment_reset(unsigned pebbles);
+      std::optional<size_t> decrement_reset(unsigned pebbles);
+
+     public:
+      IPDR(
+          Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
       PebblingResult run(Tactic tactic, bool control = false);

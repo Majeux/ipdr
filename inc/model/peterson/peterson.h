@@ -7,7 +7,7 @@
 #include "expr.h"
 #include "pdr-model.h"
 
-namespace peterson
+namespace pdr::peterson
 {
   struct PetersonState;
 
