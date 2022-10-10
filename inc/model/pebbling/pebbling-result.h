@@ -29,7 +29,7 @@ namespace pdr::pebbling
         std::optional<PebblingTrace> strategy;
       };
 
-      PebblingResult(const pebbling::PebblingModel& m, Tactic t);
+      PebblingResult(const PebblingModel& m, Tactic t);
       PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
 
       void add_to_table(tabulate::Table& t) const;

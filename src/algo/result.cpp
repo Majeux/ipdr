@@ -105,7 +105,7 @@ namespace pdr
   // Public members
   //
 
-  IpdrResult::IpdrResult(const pebbling::PebblingModel& m) : model(m) {}
+  IpdrResult::IpdrResult(const IModel& m) : model(m) {}
   IpdrResult::~IpdrResult() {}
 
   tabulate::Table IpdrResult::new_table() const

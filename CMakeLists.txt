@@ -27,7 +27,7 @@ file(GLOB SOLVER_SOURCES "src/solver/*.cpp")
 file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
 file(GLOB TEST_SOURCES "src/testing/*.cpp")
 
-add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${PDR_MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_SOURCES} ${TEST_SOURCES})
+add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${PDR_MODEL_SOURCES} ${PEBBLING_MODEL_SOURCES} ${PETERSON_MODEL_SOURCES} ${ALGO_SOURCES} ${AUX_SOURCES} ${TEST_SOURCES})
 
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

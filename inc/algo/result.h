@@ -84,7 +84,7 @@ namespace pdr
   class IpdrResult
   {
    public:
-     IpdrResult(const pebbling::PebblingModel& m);
+     IpdrResult(const IModel& m);
     virtual ~IpdrResult();
     tabulate::Table new_table() const;
     void reset();

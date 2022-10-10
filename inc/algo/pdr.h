@@ -9,6 +9,7 @@
 #include "peterson.h"
 #include "result.h"
 #include "pebbling-result.h"
+#include "peterson-result.h"
 #include "stats.h"
 #include "z3-ext.h"
 
@@ -17,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <parallel_hashmap/phmap_bits.h>
 #include <queue>
 #include <spdlog/stopwatch.h>
 #include <string>
@@ -152,13 +154,13 @@ namespace pdr
           Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
-      PebblingResult run(Tactic tactic, bool control = false);
+      PetersonResult run(Tactic tactic, bool control = false);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
-      PebblingResult control_run(Tactic tactic);
-      PebblingResult increment(bool control);
-      PebblingResult decrement(bool control);
-      PebblingResult inc_jump_test(unsigned start, int step);
+      PetersonResult control_run(Tactic tactic);
+      PetersonResult increment(bool control);
+      PetersonResult decrement(bool control);
+      PetersonResult inc_jump_test(unsigned start, int step);
 
       void dump_solver(std::ofstream& out) const;
     }; // class Optimizer
