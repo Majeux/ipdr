@@ -210,8 +210,8 @@ namespace pdr
       if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        std::shared_ptr<State> pred =
-            std::make_shared<State>(*pred_cube, state);
+        std::shared_ptr<PdrState> pred =
+            std::make_shared<PdrState>(*pred_cube, state);
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2

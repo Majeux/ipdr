@@ -1,80 +1,79 @@
 #ifndef STRING_EXT
 #define STRING_EXT
 
-#include <z3++.h>
-#include <iterator>
-#include <string>
-#include <vector>
-#include <sstream>
 #include <algorithm>
+#include <iterator>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <z3++.h>
 
-namespace str::extend  
+namespace str::ext
 {
-	using std::vector;
-	using std::string;
+  using std::string;
+  using std::string_view;
+  using std::vector;
 
-	// trim from start (in place)
-	inline void ltrim(string& s) 
-	{
-		s.erase(
-			s.begin(),
-			std::find_if(
-				s.begin(), s.end(),
-				[](unsigned char ch) {return !std::isspace(ch); }
-			)
-		);
-	}
+  inline bool size_lt(string_view a, string_view b)
+  {
+    return a.size() < b.size();
+  };
 
-	// trim from end (in place)
-	inline void rtrim(string& s) 
-	{
-		s.erase(
-			std::find_if(s
-				.rbegin(), s.rend(),
-				[](unsigned char ch) {return !std::isspace(ch); }
-			).base(),
-			s.end()
-		);
-	}
+  // trim from start (in place)
+  inline void ltrim(string& s)
+  {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                           [](unsigned char ch) { return !std::isspace(ch); }));
+  }
 
-	// trim from both ends (in place)
-	inline void trim(string& s) 
-	{
-		ltrim(s);
-		rtrim(s);
-	}
-	template < typename Container >
-	string join(const Container& c, const string delimiter = ", ")
-	{   
-		//only join containers that can stream into stringstream
-		if (c.size() == 0)
-			return "";
+  // trim from end (in place)
+  inline void rtrim(string& s)
+  {
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+                [](unsigned char ch) { return !std::isspace(ch); })
+                .base(),
+        s.end());
+  }
 
-		bool first = true;
-		std::stringstream ss; 
-		for(auto i : c)
-		{
-			if (!first)
-				ss << delimiter;
-			first = false;
-			ss << i;
-		}
-		return ss.str();
-	}
+  // trim from both ends (in place)
+  inline void trim(string& s)
+  {
+    ltrim(s);
+    rtrim(s);
+  }
+  template <typename Container>
+  string join(const Container& container, const string delimiter = ", ")
+  {
+    // only join containers that can stream into stringstream
+    if (container.size() == 0)
+      return "";
 
-	inline vector<string> split(const string s, const char delimiter)
-	{
-		std::vector<string> list;
-		std::stringstream stream(s);
-		std::string segment;
+    bool first = true;
+    std::stringstream ss;
+    for (auto i : container)
+    {
+      if (!first)
+        ss << delimiter;
+      first = false;
+      ss << i;
+    }
+    return ss.str();
+  }
 
-		while (std::getline(stream, segment, delimiter))
-		{
-			trim(segment);
-			list.push_back(segment);
-		}
+  inline vector<string> split(const string s, const char delimiter)
+  {
+    std::vector<string> list;
+    std::stringstream stream(s);
+    std::string segment;
 
-		return list;
-	}
-}
+    while (std::getline(stream, segment, delimiter))
+    {
+      trim(segment);
+      list.push_back(segment);
+    }
+
+    return list;
+  }
+} // namespace str::extend
 #endif // !STRING_EXT

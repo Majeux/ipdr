@@ -26,7 +26,7 @@ namespace pdr
     logger(SEP2);
     logger.stats.ctis.add(level);
     logger.tabbed("cti at frame {}", level);
-    logger.tabbed("[{}]", str::extend::join(cti));
+    logger.tabbed("[{}]", str::ext::join(cti));
   }
 
   void PDR::log_propagation(unsigned level, double time)
@@ -47,7 +47,7 @@ namespace pdr
     logger.tabbed("obligations pending: {}", queue_size);
     logger.tabbed("top obligation");
     logger.indent++;
-    logger.tabbed("{}, [{}]", top_level, str::extend::join(top));
+    logger.tabbed("{}, [{}]", top_level, str::ext::join(top));
     logger.indent--;
   }
 
@@ -56,7 +56,7 @@ namespace pdr
     (void)p; // ignore unused warning when logging is off
     logger.tabbed("predecessor:");
     logger.indent++;
-    logger.tabbed("[{}]", str::extend::join(p));
+    logger.tabbed("[{}]", str::ext::join(p));
     logger.indent--;
   }
 

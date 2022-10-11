@@ -95,7 +95,7 @@ namespace pdr
       if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        shared_ptr<State> pred = make_shared<State>(*pred_cube, state);
+        shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
         log_pred(pred->cube);
 
         if (n == 0) // intersects with I

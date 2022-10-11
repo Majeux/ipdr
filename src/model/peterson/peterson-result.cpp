@@ -1,8 +1,20 @@
 #include "peterson-result.h"
 #include "peterson.h"
 #include "result.h"
+#include "string-ext.h"
+#include "tabulate-ext.h"
+
+#include <algorithm>
+#include <cassert>
+#include <iterator>
+#include <string>
+#include <string_view>
+#include <tabulate/latex_exporter.hpp>
+#include <tabulate/markdown_exporter.hpp>
 #include <tabulate/row.hpp>
 #include <tabulate/table.hpp>
+#include <vector>
+#include <z3++.h>
 
 namespace pdr::peterson
 {
@@ -12,12 +24,137 @@ namespace pdr::peterson
     assert(tactic == Tactic::decrement || tactic == Tactic::increment);
   }
 
-  // PeterModel private members
+  // PetersonModel public members
+  //
+  double PetersonResult::get_total_time() const { return total_time; }
+
+  void PetersonResult::show(std::ostream& out) const
+  {
+    using fmt::format;
+    using std::to_string;
+
+    tabulate::Table table;
+    table.format().font_align(tabulate::FontAlign::right);
+
+    table.add_row({ "runtime", "proven for p=", "maximum p" });
+    add_to_table(table);
+
+    out << table << std::endl;
+    auto latex = tabulate::LatexExporter().dump(table);
+    out << latex << std::endl;
+  }
+
+  void PetersonResult::add_to_table(tabulate::Table& t) const
+  {
+    using fmt::format;
+    using std::string;
+    using std::to_string;
+    using tabulate::Table;
+    using tabulate::to_string;
+
+    string time_str = to_string(total_time);
+
+    std::vector<string_view> proc_values;
+    std::transform(rows.cbegin(), rows.cend(), std::back_inserter(proc_values),
+        [](const Table::Row_t& r) -> string { return to_string(r.front()); });
+    string proven_str = str::ext::join(proc_values);
+
+    auto limit_str = rows.front().at(1);
+    assert(std::all_of(rows.cbegin(), rows.cend(),
+        [&limit_str](const Table::Row_t& row) -> bool
+        { return to_string(row.at(1)) == to_string(limit_str); }));
+
+    t.add_row({ time_str, proven_str, limit_str });
+  }
+
+  // PetersonModel private members
   //
   // processes | max_processes | invariant | trace | time
   const tabulate::Table::Row_t PetersonResult::header() const
   {
-    return { "processes", "max_processes", "invariant index", "trace_length",
-      "time" };
+    return result::result_header;
+  }
+
+  const tabulate::Table::Row_t PetersonResult::table_row(const PdrResult& r)
+  {
+    total_time += r.time;
+
+    // row with { invariant level, trace length, time }
+    tabulate::Table::Row_t row = IpdrResult::table_row(r);
+    // expand to { processes, max_proc, invariant level, trace length, time }
+
+    row.insert(row.begin(), std::to_string(model.get_max_processes()));
+    row.insert(row.begin(), std::to_string(model.get_n_processes()));
+
+    return row;
+  }
+
+  std::string PetersonResult::process_trace(const PdrResult& res) const
+  {
+    using fmt::format;
+    using std::string;
+    using std::string_view;
+    using std::to_string;
+    using tabulate::Table;
+    using z3::expr;
+    using z3::expr_vector;
+
+    if (res.has_invariant())
+    {
+      return format("Peterson protocol correct for {} processes (out of {}).\n",
+          model.get_n_processes(), model.get_max_processes());
+    }
+
+    // process trace
+    std::stringstream ss;
+    std::vector<std::string> lits = model.vars.names();
+    std::sort(lits.begin(), lits.end());
+
+    size_t longest =
+        std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
+
+    Table t;
+    // Write top row
+    {
+      Table::Row_t trace_header = { "", "marked" };
+      trace_header.insert(trace_header.end(), lits.begin(), lits.end());
+      t.add_row(trace_header);
+    }
+
+    auto make_row = [&lits, longest](string a, const expr_vector& s)
+    {
+      std::vector<std::string> r = state::marking(s, lits, longest);
+      r.insert(r.begin(), a);
+      Table::Row_t rv;
+      rv.assign(r.begin(), r.end());
+      return rv;
+    };
+
+    // Write strategy states
+    {
+      for (size_t i = 0; i < res.trace().states.size(); i++)
+      {
+        const z3::expr_vector& s = res.trace().states[i];
+        assert(i > 0 || s == model.get_initial());
+
+        string index_str = (i == 0) ? "I" : to_string(i);
+
+        Table::Row_t row_marking = make_row(index_str, s);
+        t.add_row(row_marking);
+      }
+      ss << "Trace to two processes in level[p] = N-1" << std::endl
+         << std::endl;
+    }
+
+    // Write final state
+    {
+      Table::Row_t final_row = make_row("F", model.n_property);
+      t.add_row(final_row);
+    }
+
+    t.format().font_align(tabulate::FontAlign::right);
+
+    ss << tabulate::MarkdownExporter().dump(t);
+    return ss.str();
   }
 } // namespace pdr::peterson

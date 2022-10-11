@@ -77,10 +77,10 @@ namespace dag
   std::ostream& operator<<(std::ostream& stream, Graph const& g)
   {
     stream << "DAG \{" << std::endl
-           << "\tinput { " << str::extend::join(g.input) << " }" << std::endl
-           << "\toutput { " << str::extend::join(g.output) << " }" << std::endl
-           << "\tnodes { " << str::extend::join(g.nodes) << " }" << std::endl
-           << "\tedges { " << str::extend::join(g.edges) << " }" << std::endl
+           << "\tinput { " << str::ext::join(g.input) << " }" << std::endl
+           << "\toutput { " << str::ext::join(g.output) << " }" << std::endl
+           << "\tnodes { " << str::ext::join(g.nodes) << " }" << std::endl
+           << "\tedges { " << str::ext::join(g.edges) << " }" << std::endl
            << "}" << std::endl;
     return stream;
   }

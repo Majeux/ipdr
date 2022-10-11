@@ -3,7 +3,6 @@
 
 #include <z3++.h>
 
-#include "exp-cache.h"
 #include "expr.h"
 #include "pdr-model.h"
 
@@ -14,7 +13,7 @@ namespace pdr::peterson
   // encode the peterson algorithm for mutual exclusion as a cnf formula
   // for p processes, to a maximum of N
   //
-  // I: 
+  // I:
   class PetersonModel : public pdr::IModel
   {
    public:
@@ -28,6 +27,8 @@ namespace pdr::peterson
     PetersonModel(numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
+    unsigned get_n_processes() const;
+    unsigned get_max_processes() const;
 
     // Configure IModel
     void constrain(numrep_t processes);
@@ -106,6 +107,6 @@ namespace pdr::peterson
     bool operator!=(const PetersonState&) const;
   };
 
-} // namespace peterson
+} // namespace pdr::peterson
 
 #endif // PETERSON_H

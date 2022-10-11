@@ -5,14 +5,18 @@
 #include "logger.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "pebbling-result.h"
+#include "peterson-result.h"
 #include "result.h"
 #include "pebbling-model.h"
 #include "peterson.h"
-
 #include <variant>
 
-namespace pdr::pebbling::experiments
+namespace pdr::experiments
 {
+  using pebbling::PebblingResult;
+  using peterson::PetersonResult;
+
   enum output_format
   {
     string,
@@ -37,12 +41,14 @@ namespace pdr::pebbling::experiments
     std::string str_compared(const Run& other, output_format fmt) const;
 
    private:
-    // latex export
     Table_t listing() const;
     Table_t combined_listing(const Run& other) const;
   };
 
   void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
+      const my::cli::ArgumentList& args);
+
+  void peterson_run(PetersonModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 } // namespace pdr::pebbling::experiments
 

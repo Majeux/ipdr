@@ -211,7 +211,7 @@ namespace pdr
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
     logger.tabbed("removing cube from level [1..{}]: [{}]", level,
-        str::extend::join(cube));
+        str::ext::join(cube));
     logger.indent++;
 
     bool result;

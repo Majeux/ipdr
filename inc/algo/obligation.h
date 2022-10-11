@@ -12,17 +12,17 @@
 
 namespace pdr
 {
-  class State
+  class PdrState
   {
    public:
     z3::expr_vector cube;
-    std::shared_ptr<State> prev; // store predecessor for trace
+    std::shared_ptr<PdrState> prev; // store predecessor for trace
 
-    State(const z3::expr_vector& e);
-    State(const z3::expr_vector& e, std::shared_ptr<State> s);
+    PdrState(const z3::expr_vector& e);
+    PdrState(const z3::expr_vector& e, std::shared_ptr<PdrState> s);
     // move constructors
-    State(z3::expr_vector&& e);
-    State(z3::expr_vector&& e, std::shared_ptr<State> s);
+    PdrState(z3::expr_vector&& e);
+    PdrState(z3::expr_vector&& e, std::shared_ptr<PdrState> s);
 
     unsigned show(TextTable& table) const;
 
@@ -33,18 +33,18 @@ namespace pdr
   {
     unsigned no_marked(const z3::expr_vector& s);
     std::vector<std::string> marking(
-        const State& s, std::vector<std::string> header, unsigned width);
+        const PdrState& s, std::vector<std::string> header, unsigned width);
   } // namespace state
 
   struct Obligation
   {
     unsigned level;
-    std::shared_ptr<State> state;
+    std::shared_ptr<PdrState> state;
     unsigned depth;
 
     Obligation(unsigned k, z3::expr_vector&& cube, unsigned d);
 
-    Obligation(unsigned k, const std::shared_ptr<State>& s, unsigned d);
+    Obligation(unsigned k, const std::shared_ptr<PdrState>& s, unsigned d);
 
     // bool operator<(const Obligation& o) const { return this->level <
     // o.level; }

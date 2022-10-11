@@ -1,21 +1,16 @@
 #include "pebbling-result.h"
 #include "obligation.h"
+#include "string-ext.h"
 
+#include <cassert>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
+#include <z3++.h>
 
 namespace pdr::pebbling
 {
   using std::string;
   using std::vector;
-
-  namespace // helper
-  {
-    bool str_size_cmp(string_view a, string_view b)
-    {
-      return a.size() < b.size();
-    };
-  } // namespace
 
   // PebblingResult members
   //
@@ -90,8 +85,7 @@ namespace pdr::pebbling
     tabulate::Table table;
     table.format().font_align(tabulate::FontAlign::right);
 
-    table.add_row({ "runtime", "max constraint with invariant", "level",
-        "min constraint with strategy", "length" });
+    table.add_row(result::summary_header);
     add_to_table(table);
 
     out << table << std::endl;
@@ -99,7 +93,29 @@ namespace pdr::pebbling
     out << latex << std::endl;
   }
 
-  tabulate::Table::Row_t PebblingResult::table_row(const PdrResult& r)
+  const PebblingResult::Data_t& PebblingResult::get_total() const
+  {
+    return total;
+  }
+
+  // if decreasing: min strategy = the latest of the multiple strategies
+  // if increasing: min strategy = the only (first) strategy found
+  const std::optional<unsigned> PebblingResult::min_pebbles() const
+  {
+    if (total.strategy)
+      return total.strategy->pebbled;
+
+    return {};
+  }
+
+  // Private Members
+  //
+  const tabulate::Table::Row_t PebblingResult::header() const
+  {
+    return result::result_header;
+  }
+
+  const tabulate::Table::Row_t PebblingResult::table_row(const PdrResult& r)
   {
 #warning takes highest constrained invariant, and lowest number of pebbles used. Vs lowest level and minimal length?? Vs store latest
     total.time += r.time;
@@ -128,7 +144,6 @@ namespace pdr::pebbling
     }
     else // only happens multiple times in decreasing
     {
-
       // when done multiple time, we are decreasing the constraint,
       // decreasing the pebbles used
       unsigned pebbled = r.trace().total_pebbled();
@@ -148,36 +163,12 @@ namespace pdr::pebbling
     return row;
   }
 
-  const PebblingResult::Data_t& PebblingResult::get_total() const
-  {
-    return total;
-  }
-
-  // if decreasing: min strategy = the latest of the multiple strategies
-  // if increasing: min strategy = the only (first) strategy found
-  const std::optional<unsigned> PebblingResult::min_pebbles() const
-  {
-    if (total.strategy)
-      return total.strategy->pebbled;
-
-    return {};
-  }
-
-  // Private Members
-  //
-
-  const tabulate::Table::Row_t PebblingResult::header() const
-  {
-    return { "constraint", "pebbled", "invariant index", "trace length",
-      "time" };
-  }
-
   std::string PebblingResult::process_trace(const PdrResult& res) const
   {
-    std::cerr << "Pebbling processing" << std::endl;
-#warning double initial state in experiment results
     using fmt::format;
+    using std::string;
     using std::string_view;
+    using std::to_string;
     using tabulate::Table;
     using z3::expr;
     using z3::expr_vector;
@@ -196,7 +187,7 @@ namespace pdr::pebbling
     std::sort(lits.begin(), lits.end());
 
     size_t longest =
-        std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
+        std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
 
     Table t;
     // Write top row
@@ -206,7 +197,7 @@ namespace pdr::pebbling
       t.add_row(trace_header);
     }
 
-    auto make_row = [&lits, longest](string a, string b, const State& s)
+    auto make_row = [&lits, longest](string a, string b, const expr_vector& s)
     {
       std::vector<std::string> r = state::marking(s, lits, longest);
       r.insert(r.begin(), b);
@@ -216,13 +207,6 @@ namespace pdr::pebbling
       return rv;
     };
 
-    // Write initial state
-    {
-      expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row  = make_row("I", "0", State(initial_state));
-      t.add_row(initial_row);
-    }
-
     // Write strategy states
     {
       unsigned marked = model.get_f_pebbles();
@@ -231,8 +215,10 @@ namespace pdr::pebbling
         const z3::expr_vector& s = res.trace().states[i];
         unsigned pebbled         = state::no_marked(s);
         marked                   = std::max(marked, pebbled);
-        Table::Row_t row_marking =
-            make_row(std::to_string(i), std::to_string(pebbled), s);
+        string index_str         = (i == 0) ? "I" : to_string(i);
+        assert(i > 0 || s == model.get_initial());
+
+        Table::Row_t row_marking = make_row(index_str, to_string(pebbled), s);
         t.add_row(row_marking);
       }
       ss << format("Strategy for {} pebbles", marked) << std::endl << std::endl;
@@ -241,8 +227,8 @@ namespace pdr::pebbling
     // Write final state
     {
       expr_vector final_state = model.n_property;
-      Table::Row_t final_row  = make_row(
-           "F", format("{}", model.get_f_pebbles()), State(final_state));
+      Table::Row_t final_row =
+          make_row("F", format("{}", model.get_f_pebbles()), final_state);
       t.add_row(final_row);
     }
 

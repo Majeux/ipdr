@@ -8,11 +8,13 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <iterator>
 #include <memory>
 #include <numeric>
 #include <string>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
+#include <tabulate/table.hpp>
 
 namespace pdr
 {
@@ -37,7 +39,7 @@ namespace pdr
 
   Trace::Trace() : length(0) {}
   Trace::Trace(unsigned l) : length(l) {}
-  Trace::Trace(shared_ptr<const State> s) : length(0)
+  Trace::Trace(shared_ptr<const PdrState> s) : length(0)
   {
     while (s)
     {
@@ -58,18 +60,18 @@ namespace pdr
 
   // Result members
   //
-  PdrResult::PdrResult(std::shared_ptr<State> s) : output(Trace(s)) {}
+  PdrResult::PdrResult(std::shared_ptr<PdrState> s) : output(Trace(s)) {}
 
   PdrResult::PdrResult(int l) : output(Invariant(l)) {}
 
-  PdrResult PdrResult::found_trace(std::shared_ptr<State> s)
+  PdrResult PdrResult::found_trace(std::shared_ptr<PdrState> s)
   {
     return PdrResult(s);
   }
 
-  PdrResult PdrResult::found_trace(State&& s)
+  PdrResult PdrResult::found_trace(PdrState&& s)
   {
-    return PdrResult(std::make_shared<State>(s));
+    return PdrResult(std::make_shared<PdrState>(s));
   }
 
 #warning TODO int level to size_t
@@ -168,7 +170,7 @@ namespace pdr
     return *this;
   }
 
-  tabulate::Table::Row_t IpdrResult::table_row(const PdrResult& r)
+  const tabulate::Table::Row_t IpdrResult::table_row(const PdrResult& r)
   {
     tabulate::Table::Row_t row;
 
@@ -215,7 +217,7 @@ namespace pdr
       t.add_row(trace_header);
     }
 
-    auto make_row = [&lits, longest](string i, const State& s)
+    auto make_row = [&lits, longest](string i, const PdrState& s)
     {
       std::vector<std::string> r = state::marking(s, lits, longest);
       r.insert(r.begin(), string(i));
@@ -227,21 +229,21 @@ namespace pdr
     // Write initial state
     {
       expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row  = make_row("0", State(initial_state));
+      Table::Row_t initial_row  = make_row("0", PdrState(initial_state));
       t.add_row(initial_row);
     }
     // Write trace states
     {
       for (size_t i = 0; i < res.trace().states.size(); i++)
       {
-        const State& s           = res.trace().states[i];
+        const PdrState& s           = res.trace().states[i];
         Table::Row_t row_marking = make_row(to_string(i), s);
         t.add_row(row_marking);
       }
     }
     // Write final state
     {
-      Table::Row_t final_row = make_row("!P", State(model.n_property));
+      Table::Row_t final_row = make_row("!P", PdrState(model.n_property));
       t.add_row(final_row);
     }
 
@@ -254,5 +256,12 @@ namespace pdr
   const tabulate::Table::Row_t IpdrResult::header() const
   {
     return { "invariant index", "trace length", "time" };
+  }
+
+  const tabulate::Table::Row_t IpdrResult::summary_header() const
+  {
+    tabulate::Table::Row_t rv;
+    rv.assign(PdrResult::header.cbegin(), PdrResult::header.cend());
+    return rv;
   }
 } // namespace pdr

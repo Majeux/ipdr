@@ -1,17 +1,14 @@
-#ifndef EXPERIMENTS_H
-#define EXPERIMENTS_H
+#ifndef PETER_EXPERIMENTS_H
+#define PETER_EXPERIMENTS_H
 
 #include "cli-parse.h"
 #include "logger.h"
-#include "pdr-context.h"
-#include "pdr.h"
-#include "result.h"
-#include "pebbling-model.h"
+#include "peterson-result.h"
 #include "peterson.h"
 
-#include <variant>
+#include <tabulate/table.hpp>
 
-namespace pdr::pebbling::experiments
+namespace pdr::peterson::experiments
 {
   enum output_format
   {
@@ -28,22 +25,19 @@ namespace pdr::pebbling::experiments
 
     double avg_time;
     double std_dev_time;
-    std::optional<PebblingResult::PebblingInvariant> min_inv;
-    std::optional<PebblingResult::PebblingTrace> min_strat;
 
     Run(const my::cli::ArgumentList& args,
-        const std::vector<pebbling::PebblingResult>& r);
+        const std::vector<PetersonResult>& r);
     std::string str(output_format fmt) const;
     std::string str_compared(const Run& other, output_format fmt) const;
 
    private:
-    // latex export
     Table_t listing() const;
     Table_t combined_listing(const Run& other) const;
   };
 
-  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
+  void peterson_run(PetersonModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
-} // namespace pdr::pebbling::experiments
+} // namespace pdr::peterson::experiments
 
-#endif // EXPERIMENTS_H
+#endif

@@ -10,18 +10,18 @@ namespace pdr
 
   // STATE MEMBERS
   //
-  State::State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) {}
-  State::State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) {}
+  PdrState::PdrState(const expr_vector& e) : cube(e), prev(shared_ptr<PdrState>()) {}
+  PdrState::PdrState(const expr_vector& e, shared_ptr<PdrState> s) : cube(e), prev(s) {}
   // move constructors
-  State::State(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<State>())
+  PdrState::PdrState(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<PdrState>())
   {
   }
-  State::State(expr_vector&& e, shared_ptr<State> s)
+  PdrState::PdrState(expr_vector&& e, shared_ptr<PdrState> s)
       : cube(std::move(e)), prev(s)
   {
   }
 
-  unsigned State::show(TextTable& table) const
+  unsigned PdrState::show(TextTable& table) const
   {
     vector<std::tuple<unsigned, string, unsigned>> steps;
 
@@ -38,7 +38,7 @@ namespace pdr
     unsigned i = 1;
     steps.emplace_back(i, z3ext::join_expr_vec(cube), count_pebbled(cube));
 
-    shared_ptr<State> current = prev;
+    shared_ptr<PdrState> current = prev;
     while (current)
     {
       i++;
@@ -59,7 +59,7 @@ namespace pdr
     return i_padding;
   }
 
-  unsigned State::no_marked() const { return ::pdr::state::no_marked(cube); }
+  unsigned PdrState::no_marked() const { return ::pdr::state::no_marked(cube); }
 
   // MISC FUNCTIONS
   //
@@ -74,7 +74,7 @@ namespace pdr
     // return strings that mark whether every state in header a positive or
     // negative literal
     vector<string> marking(
-        const State& s, vector<string> header, unsigned width)
+        const PdrState& s, vector<string> header, unsigned width)
     {
       vector<string> rv(header.size(), "?");
       for (const z3::expr& e : s.cube)
@@ -95,11 +95,11 @@ namespace pdr
   // OBLIGATION MEMBERS
   //
   Obligation::Obligation(unsigned k, expr_vector&& cube, unsigned d)
-      : level(k), state(std::make_shared<State>(std::move(cube))), depth(d)
+      : level(k), state(std::make_shared<PdrState>(std::move(cube))), depth(d)
   {
   }
 
-  Obligation::Obligation(unsigned k, const shared_ptr<State>& s, unsigned d)
+  Obligation::Obligation(unsigned k, const shared_ptr<PdrState>& s, unsigned d)
       : level(k), state(s), depth(d)
   {
   }

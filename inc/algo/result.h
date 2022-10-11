@@ -1,7 +1,6 @@
 #ifndef PDR_RESULT_H
 #define PDR_RESULT_H
 
-#include "TextTable.h"
 #include "obligation.h"
 #include "output.h"
 #include "pdr-model.h"
@@ -44,7 +43,7 @@ namespace pdr
 
       Trace();
       Trace(unsigned l);
-      Trace(std::shared_ptr<const State> s);
+      Trace(std::shared_ptr<const PdrState> s);
 
       unsigned total_pebbled() const;
     };
@@ -53,8 +52,8 @@ namespace pdr
     std::variant<Invariant, Trace> output;
 
     // Result builders
-    static PdrResult found_trace(std::shared_ptr<State> s);
-    static PdrResult found_trace(State&& s);
+    static PdrResult found_trace(std::shared_ptr<PdrState> s);
+    static PdrResult found_trace(PdrState&& s);
     static PdrResult found_invariant(int level);
     static PdrResult empty_true();
     static PdrResult empty_false();
@@ -74,7 +73,7 @@ namespace pdr
     ResultRow listing() const;
 
    private:
-    PdrResult(std::shared_ptr<State> s);
+    PdrResult(std::shared_ptr<PdrState> s);
     PdrResult(int l);
   };
 
@@ -84,7 +83,7 @@ namespace pdr
   class IpdrResult
   {
    public:
-     IpdrResult(const IModel& m);
+    IpdrResult(const IModel& m);
     virtual ~IpdrResult();
     tabulate::Table new_table() const;
     void reset();
@@ -94,8 +93,6 @@ namespace pdr
 
     virtual void show(std::ostream& out) const;
     IpdrResult& add(const PdrResult& r);
-    // adds a pdr result to the IpdrResult::rows table
-    virtual tabulate::Table::Row_t table_row(const PdrResult& r);
 
     friend IpdrResult& operator<<(IpdrResult& rs, const PdrResult& r);
 
@@ -106,6 +103,11 @@ namespace pdr
     std::vector<tabulate::Table::Row_t> rows;
 
     virtual const tabulate::Table::Row_t header() const;
+    virtual const tabulate::Table::Row_t summary_header() const;
+    // adds a pdr result to the IpdrResult::rows table
+    // { processes, max_proc, invariant level, trace length, time }
+    virtual const tabulate::Table::Row_t table_row(const PdrResult& r);
+    // string representation of the trace or invariant
     virtual std::string process_trace(const PdrResult& res) const;
 
    private:

@@ -2,8 +2,10 @@
 #include "io.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "pebbling-result.h"
 #include "result.h"
 #include "tactic.h"
+
 #include <algorithm>
 #include <cassert>
 #include <fmt/core.h>
@@ -224,8 +226,8 @@ namespace pdr::pebbling::experiments
 
   // FUNCTIONS
   //
-  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args)
+  void pebbling_run(
+      PebblingModel& model, pdr::Logger& log, const my::cli::ArgumentList& args)
   {
     using pdr::pebbling::PebblingResult;
     using std::optional;
@@ -242,12 +244,9 @@ namespace pdr::pebbling::experiments
     vector<PebblingResult> repetitions;
     vector<PebblingResult> control_repetitions;
 
-    Table::Row_t header{ "runtime", "max constraint with invariant", "level",
-      "min constraint with strategy", "length" };
-
     Table sample_table;
     {
-      sample_table.add_row(header);
+      sample_table.add_row(pebbling::result::summary_header);
       sample_table.format()
           .font_align(tabulate::FontAlign::right)
           .hide_border_top()
@@ -255,7 +254,7 @@ namespace pdr::pebbling::experiments
     }
     Table control_table;
     {
-      control_table.add_row(header);
+      control_table.add_row(pebbling::result::summary_header);
       control_table.format() = sample_table.format();
     }
 

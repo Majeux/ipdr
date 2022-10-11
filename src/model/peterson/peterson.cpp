@@ -258,6 +258,9 @@ namespace pdr::peterson
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
+  unsigned PetersonModel::get_n_processes() const { return p; }
+  unsigned PetersonModel::get_max_processes() const { return N; }
+
   void PetersonModel::constrain(numrep_t processes)
   {
     using z3ext::tseytin::to_cnf_vec;
@@ -592,7 +595,6 @@ namespace pdr::peterson
       std::cout << "n_property - four_crit: sat" << std::endl;
     else
       std::cout << "n_property - four_crit: unsat" << std::endl;
-
   }
 
   void PetersonModel::bv_comp_test(size_t max_value)
@@ -782,4 +784,4 @@ namespace pdr::peterson
 
     return S;
   }
-} // namespace peterson
+} // namespace pdr::peterson
