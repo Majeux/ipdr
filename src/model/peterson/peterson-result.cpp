@@ -3,6 +3,7 @@
 #include "result.h"
 #include "string-ext.h"
 #include "tabulate-ext.h"
+#include "tactic.h"
 
 #include <algorithm>
 #include <cassert>
@@ -27,6 +28,7 @@ namespace pdr::peterson
   // PetersonModel public members
   //
   double PetersonResult::get_total_time() const { return total_time; }
+  bool PetersonResult::all_holds() const { return holds; }
 
   void PetersonResult::show(std::ostream& out) const
   {
@@ -37,14 +39,14 @@ namespace pdr::peterson
     table.format().font_align(tabulate::FontAlign::right);
 
     table.add_row({ "runtime", "proven for p=", "maximum p" });
-    add_to_table(table);
+    add_summary_to(table);
 
     out << table << std::endl;
     auto latex = tabulate::LatexExporter().dump(table);
     out << latex << std::endl;
   }
 
-  void PetersonResult::add_to_table(tabulate::Table& t) const
+  void PetersonResult::add_summary_to(tabulate::Table& t) const
   {
     using fmt::format;
     using std::string;
@@ -82,9 +84,11 @@ namespace pdr::peterson
     // row with { invariant level, trace length, time }
     tabulate::Table::Row_t row = IpdrResult::table_row(r);
     // expand to { processes, max_proc, invariant level, trace length, time }
+    if (r.has_trace())
+      holds = false;
 
-    row.insert(row.begin(), std::to_string(model.get_max_processes()));
-    row.insert(row.begin(), std::to_string(model.get_n_processes()));
+    row.insert(row.begin(), std::to_string(model.max_processes()));
+    row.insert(row.begin(), std::to_string(model.n_processes()));
 
     return row;
   }
@@ -102,7 +106,7 @@ namespace pdr::peterson
     if (res.has_invariant())
     {
       return format("Peterson protocol correct for {} processes (out of {}).\n",
-          model.get_n_processes(), model.get_max_processes());
+          model.n_processes(), model.max_processes());
     }
 
     // process trace

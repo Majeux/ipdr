@@ -102,11 +102,15 @@ namespace pdr
     // summary of the "original" vector
     std::vector<tabulate::Table::Row_t> rows;
 
+    // field names for internal and summary tables
     virtual const tabulate::Table::Row_t header() const;
     virtual const tabulate::Table::Row_t summary_header() const;
+
     // adds a pdr result to the IpdrResult::rows table
     // { processes, max_proc, invariant level, trace length, time }
+    // called by add(PdrResult)
     virtual const tabulate::Table::Row_t table_row(const PdrResult& r);
+
     // string representation of the trace or invariant
     virtual std::string process_trace(const PdrResult& res) const;
 

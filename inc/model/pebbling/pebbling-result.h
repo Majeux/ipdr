@@ -42,7 +42,7 @@ namespace pdr::pebbling
     PebblingResult(const PebblingModel& m, Tactic t);
     PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
 
-    void add_to_table(tabulate::Table& t) const;
+    void add_summary_to(tabulate::Table& t) const;
     void show_raw(std::ostream& out) const;
 
     void show(std::ostream& out) const override;

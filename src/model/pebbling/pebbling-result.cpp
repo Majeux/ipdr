@@ -33,7 +33,7 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingResult::add_to_table(tabulate::Table& t) const
+  void PebblingResult::add_summary_to(tabulate::Table& t) const
   {
     using fmt::format;
     using std::to_string;
@@ -86,7 +86,7 @@ namespace pdr::pebbling
     table.format().font_align(tabulate::FontAlign::right);
 
     table.add_row(result::summary_header);
-    add_to_table(table);
+    add_summary_to(table);
 
     out << table << std::endl;
     auto latex = tabulate::LatexExporter().dump(table);

@@ -12,7 +12,7 @@ namespace pdr::pebbling
 
   IPDR::IPDR(
       Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l)
-      : alg(c, m, l), model(m), starting_value(args.max_pebbles)
+      : alg(c, m, l), model(m), starting_value(args.starting_value)
   {
   }
 
@@ -20,13 +20,13 @@ namespace pdr::pebbling
   {
     switch (tactic)
     {
-      case Tactic::decrement: return decrement(true);
-      case Tactic::increment: return increment(true);
+      case Tactic::decrement: return constrain(true);
+      case Tactic::increment: return relax(true);
       case Tactic::inc_jump_test:
-        inc_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_value.value(), 10);
         break;
       case Tactic::inc_one_test:
-        inc_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_value.value(), 1);
         break;
       default: break;
     }
@@ -38,13 +38,13 @@ namespace pdr::pebbling
   {
     switch (tactic)
     {
-      case Tactic::decrement: return decrement(control);
-      case Tactic::increment: return increment(control);
+      case Tactic::decrement: return constrain(control);
+      case Tactic::increment: return relax(control);
       case Tactic::inc_jump_test:
-        inc_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_value.value(), 10);
         break;
       case Tactic::inc_one_test:
-        inc_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_value.value(), 1);
         break;
       default: break;
     }
@@ -52,7 +52,7 @@ namespace pdr::pebbling
         "No optimization pdr tactic has been selected.");
   }
 
-  PebblingResult IPDR::increment(bool control)
+  PebblingResult IPDR::relax(bool control)
   {
     alg.logger.and_whisper("! Optimization run: increment max pebbles.");
 
@@ -68,7 +68,7 @@ namespace pdr::pebbling
       if (control)
         basic_reset(N);
       else
-        increment_reset(N);
+        relax_reset(N);
 
       invariant = alg.run();
 
@@ -85,7 +85,7 @@ namespace pdr::pebbling
     return total;
   }
 
-  PebblingResult IPDR::decrement(bool control)
+  PebblingResult IPDR::constrain(bool control)
   {
     alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
 
@@ -109,7 +109,7 @@ namespace pdr::pebbling
       }
       else
       {
-        optional<size_t> inv_frame = decrement_reset(N);
+        optional<size_t> inv_frame = constrain_reset(N);
         if (inv_frame)
           invariant = PdrResult::found_invariant(*inv_frame);
         else
@@ -131,7 +131,7 @@ namespace pdr::pebbling
     return total;
   }
 
-  PebblingResult IPDR::inc_jump_test(unsigned start, int step)
+  PebblingResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
@@ -148,7 +148,7 @@ namespace pdr::pebbling
     assert(maxp < newp);
     if (newp <= model.n_nodes())
     {
-      increment_reset(newp);
+      relax_reset(newp);
       invariant = alg.run();
 
       total << invariant;
@@ -175,7 +175,7 @@ namespace pdr::pebbling
     alg.frames.reset();
   }
 
-  void IPDR::increment_reset(unsigned pebbles)
+  void IPDR::relax_reset(unsigned pebbles)
   {
     using fmt::format;
 
@@ -191,7 +191,7 @@ namespace pdr::pebbling
     alg.frames.reset_to_F1();
   }
 
-  std::optional<size_t> IPDR::decrement_reset(unsigned pebbles)
+  std::optional<size_t> IPDR::constrain_reset(unsigned pebbles)
   {
     using fmt::format;
 

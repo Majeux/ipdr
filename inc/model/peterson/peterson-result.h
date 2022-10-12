@@ -22,18 +22,18 @@ namespace pdr::peterson
     PetersonResult(const PetersonModel& m, Tactic t);
 
     double get_total_time() const;
+    bool all_holds() const;
 
     void show(std::ostream& out) const override;
-    void add_to_table(tabulate::Table& t) const;
+    void add_summary_to(tabulate::Table& t) const;
 
    private:
     const PetersonModel& model;
     const Tactic tactic;
     unsigned max_processes;
     unsigned processes;
-    unsigned invariants{ 0 };
-    unsigned traces{ 0 };
     double total_time{ 0.0 };
+    bool holds{ true };
 
     const tabulate::Table::Row_t header() const override;
     const tabulate::Table::Row_t table_row(const PdrResult& r) override;

@@ -6,10 +6,10 @@
 #include "pdr-context.h"
 #include "pdr-model.h"
 #include "pebbling-model.h"
-#include "peterson.h"
-#include "result.h"
 #include "pebbling-result.h"
 #include "peterson-result.h"
+#include "peterson.h"
+#include "result.h"
 #include "stats.h"
 #include "z3-ext.h"
 
@@ -116,21 +116,20 @@ namespace pdr
       std::optional<unsigned> starting_value;
 
       void basic_reset(unsigned pebbles);
-      void increment_reset(unsigned pebbles);
-      std::optional<size_t> decrement_reset(unsigned pebbles);
+      void relax_reset(unsigned pebbles);
+      std::optional<size_t> constrain_reset(unsigned pebbles);
 
      public:
-      IPDR(
-          Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
+      IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
       PebblingResult run(Tactic tactic, bool control = false);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
       PebblingResult control_run(Tactic tactic);
-      PebblingResult increment(bool control);
-      PebblingResult decrement(bool control);
-      PebblingResult inc_jump_test(unsigned start, int step);
+      PebblingResult relax(bool control);
+      PebblingResult constrain(bool control);
+      PebblingResult relax_jump_test(unsigned start, int step);
 
       void dump_solver(std::ofstream& out) const;
     }; // class Optimizer
@@ -140,30 +139,26 @@ namespace pdr
   {
     class IPDR
     {
+     public:
+      IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
+
+      // runs the optimizer as dictated by the argument
+      PetersonResult run(Tactic tactic, unsigned processes, bool control = false);
+      // runs the optimizer as dictated by the argument but with forced
+      // experiment_control
+      PetersonResult control_run(Tactic tactic, unsigned processes);
+      PetersonResult relax(unsigned processes, bool control);
+      PetersonResult relax_jump_test(unsigned start, int step);
+
+      void dump_solver(std::ofstream& out) const;
+
      private:
       PDR alg;
       PetersonModel& model; // same instance as the IModel in alg
-      std::optional<unsigned> starting_value;
 
-      void basic_reset(unsigned pebbles);
-      void increment_reset(unsigned pebbles);
-      std::optional<size_t> decrement_reset(unsigned pebbles);
-
-     public:
-      IPDR(
-          Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
-
-      // runs the optimizer as dictated by the argument
-      PetersonResult run(Tactic tactic, bool control = false);
-      // runs the optimizer as dictated by the argument but with forced
-      // experiment_control
-      PetersonResult control_run(Tactic tactic);
-      PetersonResult increment(bool control);
-      PetersonResult decrement(bool control);
-      PetersonResult inc_jump_test(unsigned start, int step);
-
-      void dump_solver(std::ofstream& out) const;
+      void basic_reset(unsigned processes);
+      void relax_reset(unsigned processes);
     }; // class Optimizer
-  }    // namespace pebbling
+  }    // namespace peterson
 } // namespace pdr
 #endif // PDR_ALG

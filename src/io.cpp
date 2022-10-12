@@ -25,7 +25,7 @@ namespace my::io
 
     if (!(args.tactic == pdr::Tactic::increment ||
             args.tactic == pdr::Tactic::decrement) && !args.bounded)
-      file_string += format("-{}", args.max_pebbles.value());
+      file_string += format("-{}", args.starting_value.value());
     if (args.delta)
       file_string += "-delta";
 
@@ -46,7 +46,7 @@ namespace my::io
 
     if (!(args.tactic == pdr::Tactic::increment ||
             args.tactic == pdr::Tactic::decrement) && !args.bounded)
-      folder_string += format("-{}", args.max_pebbles.value());
+      folder_string += format("-{}", args.starting_value.value());
     if (args.delta)
       folder_string += "-delta";
 

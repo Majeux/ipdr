@@ -19,7 +19,7 @@ namespace my::cli
     {
       case pdr::Tactic::basic:
         cout << format("Finding {}-pebble strategy for {}",
-            clargs.max_pebbles.value(), clargs.model_name);
+            clargs.starting_value.value(), clargs.model_name);
         break;
       case pdr::Tactic::decrement:
         cout << format("Finding minimal pebble strategy for {} by decrementing",
@@ -31,11 +31,11 @@ namespace my::cli
         break;
       case pdr::Tactic::inc_jump_test:
         cout << format("{} and +10 step jump test for {} by incrementing",
-            clargs.max_pebbles.value(), clargs.model_name);
+            clargs.starting_value.value(), clargs.model_name);
         break;
       case pdr::Tactic::inc_one_test:
         cout << format("{} and +1 step jump test for {} by incrementing",
-            clargs.max_pebbles.value(), clargs.model_name);
+            clargs.starting_value.value(), clargs.model_name);
         break;
       default: throw std::invalid_argument("pdr::Tactic is undefined");
     }
@@ -96,7 +96,7 @@ namespace my::cli
         value< vector<unsigned> >(), "(uint:BITS,uint:MOD)")
       ("p,pebbles", "The number of strategy's to find a strategy for."
        "Ignored during optimize runs.", 
-        value< optional<unsigned> >(clargs.max_pebbles), "(uint:N)")
+        value< optional<unsigned> >(clargs.starting_value), "(uint:N)")
 
       // context options
       ("r,rand", "Use a randomized seed for the SAT solver",
@@ -160,12 +160,12 @@ namespace my::cli
     else if (clresult.count(inc_jump_str))
     {
       clargs.tactic      = pdr::Tactic::inc_jump_test;
-      clargs.max_pebbles = clresult[inc_jump_str].as<unsigned>();
+      clargs.starting_value = clresult[inc_jump_str].as<unsigned>();
     }
     else if (clresult.count(inc_one_str))
     {
       clargs.tactic      = pdr::Tactic::inc_one_test;
-      clargs.max_pebbles = clresult[inc_one_str].as<unsigned>();
+      clargs.starting_value = clresult[inc_one_str].as<unsigned>();
     }
     else
     {

@@ -27,15 +27,15 @@ namespace pdr::peterson
     PetersonModel(numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
-    unsigned get_n_processes() const;
-    unsigned get_max_processes() const;
+    unsigned n_processes() const;
+    unsigned max_processes() const;
 
     // Configure IModel
     void constrain(numrep_t processes);
 
    private:
     // max no. processes. the size of the waiting queue
-    numrep_t N;
+    const numrep_t N;
     // no. processes that can fire
     numrep_t p;
     BitVec nproc;

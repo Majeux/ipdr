@@ -15,6 +15,7 @@
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
+#include <variant>
 
 namespace pdr
 {
@@ -55,7 +56,8 @@ namespace pdr
     unsigned pebbled = 0;
     for (const z3::expr_vector& s : states)
       pebbled = std::max(pebbled, state::no_marked(s));
-    return pebbled;;
+    return pebbled;
+    ;
   }
 
   // Result members
@@ -81,8 +83,14 @@ namespace pdr
   PdrResult PdrResult::empty_false() { return PdrResult(nullptr); }
 
   PdrResult::operator bool() const { return has_invariant(); }
-  bool PdrResult::has_invariant() const { return output.index() == 0; }
-  bool PdrResult::has_trace() const { return output.index() == 1; }
+  bool PdrResult::has_invariant() const
+  {
+    return std::holds_alternative<Invariant>(output);
+  }
+  bool PdrResult::has_trace() const
+  {
+    return std::holds_alternative<Trace>(output);
+  }
 
   const Invariant& PdrResult::invariant() const
   {
@@ -236,7 +244,7 @@ namespace pdr
     {
       for (size_t i = 0; i < res.trace().states.size(); i++)
       {
-        const PdrState& s           = res.trace().states[i];
+        const PdrState& s        = res.trace().states[i];
         Table::Row_t row_marking = make_row(to_string(i), s);
         t.add_row(row_marking);
       }
