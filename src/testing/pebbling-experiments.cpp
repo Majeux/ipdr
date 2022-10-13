@@ -154,14 +154,14 @@ namespace pdr::pebbling::experiments
 
       if (total.inv) // get the lowest invariant level we found
       {
-        if (!min_inv || min_inv->invariant.level < total.inv->invariant.level)
+        if (!min_inv || total.inv->invariant.level < min_inv->invariant.level)
           min_inv = total.inv;
       }
 
       if (total.strategy) // get the shortest trace we found
       {
         if (!min_strat ||
-            min_strat->trace.length < total.strategy->trace.length)
+            total.strategy->trace.length < min_strat->trace.length)
           min_strat = total.strategy;
       }
     }
@@ -182,7 +182,7 @@ namespace pdr::pebbling::experiments
     switch (fmt)
     {
       case output_format::string:
-        ss << fmt::format("Experiment: {}", model) << endl << table;
+        ss << format("Experiment: {}", model) << endl << table;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(table) << endl;
@@ -206,7 +206,7 @@ namespace pdr::pebbling::experiments
     switch (fmt)
     {
       case output_format::string:
-        ss << fmt::format("Experiment: {}", model) << endl << paired;
+        ss << format("Experiment: {}", model) << endl << paired;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(paired) << endl;
@@ -233,7 +233,7 @@ namespace pdr::pebbling::experiments
       {
         t.at(i++) = { "max inv constraint",
           to_string(min_inv->constraint.value()) };
-        t.at(i++) = { "max inv level", to_string(min_inv->invariant.level) };
+        t.at(i++) = { "min inv level", to_string(min_inv->invariant.level) };
       }
 
       if (min_strat)

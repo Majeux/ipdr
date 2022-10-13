@@ -1,7 +1,7 @@
 ﻿#include "bounded.h"
 #include "cli-parse.h"
 #include "dag.h"
-#include "experiments.h"
+#include "pebbling-experiments.h"
 #include "h-operator.h"
 #include "io.h"
 #include "logger.h"
@@ -119,7 +119,6 @@ dag::Graph setup_graph(const ArgumentList& clargs)
 
 void experiment(ArgumentList& clargs)
 {
-  using namespace pdr::pebbling::experiments;
   using std::ofstream;
   using std::string;
 
@@ -142,7 +141,7 @@ void experiment(ArgumentList& clargs)
   pdr::Logger logger =
       pdr::Logger(log_file.string(), G, clargs.verbosity, std::move(stats));
 
-  pebbling_run(model, logger, clargs);
+  pdr::pebbling::experiments::pebbling_run(model, logger, clargs);
   std::cout << "experiment done" << std::endl;
 }
 
@@ -215,7 +214,7 @@ int main(int argc, char* argv[])
   if (clargs.tactic == pdr::Tactic::basic)
   {
     pdr::IpdrResult rs(model);
-    model.constrain(clargs.max_pebbles);
+    model.constrain(clargs.starting_value);
     pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strategy);
     rs.show_traces(strategy);

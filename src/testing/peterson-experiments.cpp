@@ -147,7 +147,7 @@ namespace pdr::peterson::experiments
     }
 
     assert(times.size() == results.size());
-    avg_time = time_sum / times.size();
+    avg_time     = time_sum / times.size();
     std_dev_time = math::std_dev(times, avg_time);
   }
 
@@ -209,18 +209,8 @@ namespace pdr::peterson::experiments
       t.at(i++) = { "avg time", math::time_str(avg_time) };
       t.at(i++) = { "std dev time", math::time_str(std_dev_time) };
 
-      if (min_inv)
-      {
-        t.at(i++) = { "max inv constraint",
-          to_string(min_inv->constraint.value()) };
-        t.at(i++) = { "max inv level", to_string(min_inv->invariant.level) };
-      }
-
-      if (min_strat)
-      {
-        t.at(i++) = { "min strat marked", to_string(min_strat->pebbled) };
-        t.at(i++) = { "min strat length", to_string(min_strat->trace.length) };
-      }
+      t.at(i++) = { "all hold", correct ? "yes" : "no" };
+      assert(i == t.size());
     }
     return t;
   }
@@ -249,30 +239,7 @@ namespace pdr::peterson::experiments
       }
 
       rows.at(i++).push_back(math::time_str(other.std_dev_time));
-
-      if (other.min_inv)
-      {
-        rows.at(i++).push_back(to_string(other.min_inv->constraint.value()));
-        {
-          rows.at(i).push_back(to_string(other.min_inv->invariant.level));
-          double dec = percentage_dec(
-              other.min_inv->invariant.level, min_inv->invariant.level);
-          rows.at(i).push_back(perc_str(dec));
-          i++;
-        }
-      }
-
-      if (other.min_strat)
-      {
-        rows.at(i++).push_back(to_string(other.min_strat->pebbled));
-        {
-          rows.at(i).push_back(to_string(other.min_strat->trace.length));
-          double dec = percentage_dec(
-              other.min_strat->trace.length, min_strat->trace.length);
-          rows.at(i).push_back(perc_str(dec));
-          i++;
-        }
-      }
+      assert(i == rows.size());
     }
 
     return rows;

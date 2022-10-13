@@ -4,6 +4,10 @@
 #include "peterson.h"
 #include "result.h"
 
+#include <optional>
+#include <ostream>
+#include <tabulate/tabulate.hpp>
+
 namespace pdr::peterson
 {
   namespace result

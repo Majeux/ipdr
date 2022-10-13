@@ -1,6 +1,7 @@
 #include "pdr.h"
 #include "peterson-result.h"
 #include "peterson.h"
+#include <cassert>
 
 namespace pdr::peterson
 {
@@ -107,4 +108,30 @@ namespace pdr::peterson
     alg.ctx.type = Tactic::increment;
     alg.frames.reset_to_F1();
   }
+
+  PetersonResult IPDR::relax_jump_test(unsigned start, int step)
+  {
+    std::vector<pdr::Statistics> statistics;
+    alg.logger.and_show("NEW INC JUMP TEST RUN");
+    alg.logger.and_show("start {}. step {}", start, step);
+
+    PetersonResult total(model, Tactic::increment);
+    basic_reset(start);
+    pdr::PdrResult invariant = alg.run();
+    total << invariant;
+
+    unsigned oldp = model.n_processes();
+    unsigned newp = oldp + step;
+    assert(newp > 0);
+    assert(oldp < newp);
+    assert(newp <= model.max_processes());
+
+    relax_reset(newp);
+    invariant = alg.run();
+
+    total << invariant;
+
+    return total;
+  }
+
 } // namespace pdr::peterson

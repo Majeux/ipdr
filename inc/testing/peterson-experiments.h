@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "peterson-result.h"
 #include "peterson.h"
+#include "result.h"
 
 #include <tabulate/table.hpp>
 
@@ -22,7 +23,7 @@ namespace pdr::peterson::experiments
   struct Run
   {
     using Row_t   = tabulate::Table::Row_t;
-    using Table_t = std::array<Row_t, 7>;
+    using Table_t = std::array<Row_t, 4>;
     std::string_view model;
     Tactic tactic;
 
