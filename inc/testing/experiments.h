@@ -2,16 +2,11 @@
 #define EXPERIMENTS_H
 
 #include "cli-parse.h"
-#include "logger.h"
-#include "pdr-context.h"
-#include "pdr.h"
-#include "result.h"
-#include "pebbling-model.h"
-#include "peterson.h"
 
-#include <variant>
+#include <tabulate/table.hpp>
+#include <tabulate/format.hpp>
 
-namespace pdr::pebbling::experiments
+namespace pdr::experiments
 {
   enum output_format
   {
@@ -19,31 +14,37 @@ namespace pdr::pebbling::experiments
     latex,
     markdown
   };
-  struct Run
+
+  namespace math 
   {
-    using Row_t   = tabulate::Table::Row_t;
-    using Table_t = std::array<Row_t, 7>;
-    std::string_view model;
-    Tactic tactic;
+    std::string time_str(double x);
 
-    double avg_time;
-    double std_dev_time;
-    std::optional<PebblingResult::PebblingInvariant> min_inv;
-    std::optional<PebblingResult::PebblingTrace> min_strat;
+    template <typename T> double percentage_dec(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (double)(a - b) / a * 100;
+    }
 
-    Run(const my::cli::ArgumentList& args,
-        const std::vector<pebbling::PebblingResult>& r);
-    std::string str(output_format fmt) const;
-    std::string str_compared(const Run& other, output_format fmt) const;
+    template <typename T> double percentage_inc(T old_v, T new_v)
+    {
+      double a = old_v;
+      double b = new_v;
+      return (b - a) / a * 100;
+    }
 
-   private:
-    // latex export
-    Table_t listing() const;
-    Table_t combined_listing(const Run& other) const;
-  };
+    // compute standard deviation
+    double std_dev(const std::vector<double>& v);
+    // compute standard deviation when the mean average is known
+    double std_dev(const std::vector<double>& v, double mean);
+  } // namespace math
 
-  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args);
+  namespace tablef 
+  {
+    tabulate::Format& format_base(tabulate::Format& f);
+    tabulate::Format& format_base(tabulate::Table& t);
+    tabulate::Table init_table();
+  } // namespace tablef
 } // namespace pdr::pebbling::experiments
 
 #endif // EXPERIMENTS_H

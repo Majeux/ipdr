@@ -10,6 +10,9 @@
 
 namespace pdr::peterson::experiments
 {
+  void peterson_run(PetersonModel& model, pdr::Logger& log,
+      const my::cli::ArgumentList& args);
+
   enum output_format
   {
     string,
@@ -23,6 +26,7 @@ namespace pdr::peterson::experiments
     std::string_view model;
     Tactic tactic;
 
+    bool correct;
     double avg_time;
     double std_dev_time;
 
@@ -35,9 +39,6 @@ namespace pdr::peterson::experiments
     Table_t listing() const;
     Table_t combined_listing(const Run& other) const;
   };
-
-  void peterson_run(PetersonModel& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args);
 } // namespace pdr::peterson::experiments
 
 #endif

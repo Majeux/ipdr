@@ -1,9 +1,11 @@
-#include "peterson-experiments.h"
+#include "pebbling-experiments.h"
 #include "experiments.h"
 #include "io.h"
 #include "pdr-context.h"
 #include "pdr.h"
-#include "peterson-result.h"
+#include "pebbling-result.h"
+#include "result.h"
+#include "tactic.h"
 
 #include <cassert>
 #include <fmt/format.h>
@@ -16,18 +18,19 @@
 #include <tabulate/table.hpp>
 #include <vector>
 
-namespace pdr::peterson::experiments
+namespace pdr::pebbling::experiments
 {
   using fmt::format;
   using std::cout;
   using std::endl;
-  using std::vector;
 
   using namespace ::pdr::experiments;
 
-  void peterson_run(
-      PetersonModel& model, pdr::Logger& log, const my::cli::ArgumentList& args)
+  void pebbling_run(
+      PebblingModel& model, pdr::Logger& log, const my::cli::ArgumentList& args)
   {
+    using std::optional;
+    using std::vector;
     using tabulate::Table;
 
     using namespace my::io;
@@ -38,12 +41,12 @@ namespace pdr::peterson::experiments
     std::ofstream latex        = trunc_file(run_dir, filename, "tex");
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
 
-    vector<PetersonResult> repetitions;
-    vector<PetersonResult> control_repetitions;
+    vector<PebblingResult> repetitions;
+    vector<PebblingResult> control_repetitions;
 
     Table sample_table;
     {
-      sample_table.add_row(peterson::result::summary_header);
+      sample_table.add_row(pebbling::result::summary_header);
       sample_table.format()
           .font_align(tabulate::FontAlign::right)
           .hide_border_top()
@@ -51,13 +54,13 @@ namespace pdr::peterson::experiments
     }
     Table control_table;
     {
-      control_table.add_row(peterson::result::summary_header);
+      control_table.add_row(pebbling::result::summary_header);
       control_table.format() = sample_table.format();
     }
 
-    unsigned start = args.starting_value.value_or(0);
-    unsigned N     = args.exp_sample.value();
+    unsigned N = args.exp_sample.value();
     std::string tactic_str{ pdr::tactic::to_string(args.tactic) };
+
     vector<unsigned> seeds(N);
     {
       srand(time(0));
@@ -65,7 +68,7 @@ namespace pdr::peterson::experiments
     }
 
     auto run = [&, N](
-                   vector<PetersonResult>& reps, Table& t, bool control) -> Run
+                   vector<PebblingResult>& reps, Table& t, bool control) -> Run
     {
       assert(reps.empty());
 
@@ -73,16 +76,19 @@ namespace pdr::peterson::experiments
 
       for (unsigned i = 0; i < N; i++)
       {
+        std::optional<unsigned> optimum;
         // new context with new random seed
         pdr::Context ctx(model, args.delta, seeds[i]);
         cout << format("{}: {}", i, seeds[i]) << endl;
-        IPDR opt(ctx, model, args, log);
+        pdr::pebbling::IPDR opt(ctx, model, args, log);
 
-        PetersonResult result = control ? opt.control_run(args.tactic, start)
-                                        : opt.run(args.tactic, start);
+        PebblingResult result =
+            control ? opt.control_run(args.tactic) : opt.run(args.tactic);
 
-        if (!result.all_holds())
-          cout << "counter found !" << endl;
+        if (!optimum)
+          optimum = result.min_pebbles();
+
+        assert(optimum == result.min_pebbles()); // all results should be same
 
         reps.push_back(result);
         // cout << format("## Experiment sample {}", i) << endl;
@@ -104,7 +110,7 @@ namespace pdr::peterson::experiments
     // write raw run data as markdown
     {
       tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const PetersonResult& r, size_t i)
+      auto dump = [&exporter, &raw](const PebblingResult& r, size_t i)
       {
         raw << format("### Sample {}", i) << endl;
         tabulate::Table t{ r.raw_table() };
@@ -132,22 +138,36 @@ namespace pdr::peterson::experiments
   //
   // aggregate multiple experiments and format
   Run::Run(const my::cli::ArgumentList& args,
-      const std::vector<PetersonResult>& results)
-      : model(args.model_name), tactic(args.tactic), correct(true),
-        avg_time(0.0)
+      const std::vector<PebblingResult>& results)
+      : model(args.model_name), tactic(args.tactic), avg_time(0.0)
   {
+    using std::min;
+
     double time_sum{ 0.0 };
-    vector<double> times;
-    for (const PetersonResult& r : results)
+    std::vector<double> times;
+    for (const PebblingResult& r : results)
     {
-      time_sum += r.get_total_time();
-      times.push_back(r.get_total_time());
+      PebblingResult::Data_t total = r.get_total();
 
-      correct = correct && r.all_holds();
+      time_sum += total.time;
+      times.push_back(total.time);
+
+      if (total.inv) // get the lowest invariant level we found
+      {
+        if (!min_inv || min_inv->invariant.level < total.inv->invariant.level)
+          min_inv = total.inv;
+      }
+
+      if (total.strategy) // get the shortest trace we found
+      {
+        if (!min_strat ||
+            min_strat->trace.length < total.strategy->trace.length)
+          min_strat = total.strategy;
+      }
     }
-
     assert(times.size() == results.size());
     avg_time = time_sum / times.size();
+
     std_dev_time = math::std_dev(times, avg_time);
   }
 
@@ -162,7 +182,7 @@ namespace pdr::peterson::experiments
     switch (fmt)
     {
       case output_format::string:
-        ss << format("Experiment: {}", model) << endl << table;
+        ss << fmt::format("Experiment: {}", model) << endl << table;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(table) << endl;
@@ -186,7 +206,7 @@ namespace pdr::peterson::experiments
     switch (fmt)
     {
       case output_format::string:
-        ss << format("Experiment: {}", model) << endl << paired;
+        ss << fmt::format("Experiment: {}", model) << endl << paired;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(paired) << endl;
@@ -255,7 +275,7 @@ namespace pdr::peterson::experiments
         rows.at(i++).push_back(to_string(other.min_inv->constraint.value()));
         {
           rows.at(i).push_back(to_string(other.min_inv->invariant.level));
-          double dec = percentage_dec(
+          double dec = math::percentage_dec(
               other.min_inv->invariant.level, min_inv->invariant.level);
           rows.at(i).push_back(perc_str(dec));
           i++;
@@ -267,7 +287,7 @@ namespace pdr::peterson::experiments
         rows.at(i++).push_back(to_string(other.min_strat->pebbled));
         {
           rows.at(i).push_back(to_string(other.min_strat->trace.length));
-          double dec = percentage_dec(
+          double dec = math::percentage_dec(
               other.min_strat->trace.length, min_strat->trace.length);
           rows.at(i).push_back(perc_str(dec));
           i++;
@@ -277,4 +297,5 @@ namespace pdr::peterson::experiments
 
     return rows;
   }
-} // namespace pdr::peterson::experiments
+
+} // namespace pdr::pebbling::experiments
