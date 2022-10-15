@@ -59,11 +59,10 @@ namespace pdr
     OutLvl level;
     unsigned indent = 0;
 
-    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l,
-        std::ofstream&& stat_file);
+    Logger(const std::string& log_file, OutLvl l, Statistics&& s);
 
-    Logger(const std::string& log_file, const dag::Graph& G,
-        const std::string& pfilename, OutLvl l, std::ofstream&& stat_file);
+    Logger(const std::string& log_file, const std::string& pfilename, OutLvl l,
+        Statistics&& s);
 
     void init(const std::string& log_file);
 

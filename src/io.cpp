@@ -24,7 +24,8 @@ namespace my::io
         format("{}-{}", args.model_name, to_string(args.tactic));
 
     if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement) && !args.bounded)
+            args.tactic == pdr::Tactic::decrement) &&
+        !args.bounded)
       file_string += format("-{}", args.starting_value.value());
     if (args.delta)
       file_string += "-delta";
@@ -45,7 +46,8 @@ namespace my::io
     }
 
     if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement) && !args.bounded)
+            args.tactic == pdr::Tactic::decrement) &&
+        !args.bounded)
       folder_string += format("-{}", args.starting_value.value());
     if (args.delta)
       folder_string += "-delta";
@@ -56,12 +58,14 @@ namespace my::io
   fs::path setup_model_path(const ArgumentList& args)
   {
     fs::path results_folder = base_out();
+    if (args.exp_sample)
+      results_folder /= "experiments";
     if (args.bounded)
       results_folder /= "bounded";
-    else if (args.exp_sample)
-      results_folder /= "experiments";
+    else if (args.peter)
+      results_folder /= "peter";
     else
-      results_folder /= "results";
+      results_folder /= "pebbling";
 
     fs::create_directory(results_folder);
     fs::path model_dir = results_folder / args.model_name;
@@ -97,13 +101,16 @@ namespace my::io
     return run_dir;
   }
 
+  std::ofstream trunc_file(const fs::path& path)
+  {
+    std::ofstream stream(
+        path.string(), std::fstream::out | std::fstream::trunc);
+    assert(stream.is_open());
+    return stream;
+  }
   std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
       const std::string& ext)
   {
-    fs::path file = folder / fmt::format("{}.{}", filename, ext);
-    std::ofstream stream(
-        file.string(), std::fstream::out | std::fstream::trunc);
-    assert(stream.is_open());
-    return stream;
+    return trunc_file(folder / fmt::format("{}.{}", filename, ext));
   }
 } // namespace my::io

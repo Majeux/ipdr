@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -40,12 +41,16 @@ namespace pdr
   {
    private:
     std::ofstream file;
+    std::map<std::string, unsigned> model_info;
 
-    double compute_copied() const 
+    static inline const std::string PROC_STR = "processes";
+    static inline const std::string N_STR = "max_processes";
+
+    double compute_copied() const
     {
       if (copied_cubes.total != 0)
         return 0;
-      return ((double) copied_cubes.count / copied_cubes.total) * 100.0;
+      return ((double)copied_cubes.count / copied_cubes.total) * 100.0;
     }
 
    public:
@@ -63,82 +68,27 @@ namespace pdr
     } copied_cubes;
 
     double elapsed = -1.0;
-    std::map<std::string, unsigned> model;
     std::vector<std::string> solver_dumps;
 
-    Statistics(std::ofstream&& f, const dag::Graph& G)
-        : file(std::move(f)), solver_calls(true), propagation_it(true),
-          propagation_level(true), obligations_handled(true), ctis(true),
-          subsumed_cubes(false)
-    {
-      model.emplace("nodes", G.nodes.size());
-      model.emplace("edges", G.edges.size());
-      model.emplace("outputs", G.output.size());
-    }
+    // Statistics takes ownership of its file stream
+    Statistics(std::ofstream&& f);
 
-    void clear()
-    {
-      solver_calls.clear();
-      propagation_it.clear();
-      propagation_level.clear();
-      obligations_handled.clear();
-      ctis.clear();
-      subsumed_cubes.clear();
-      copied_cubes = { 0, 0 };
-    }
-
-    std::string str() const
-    {
-      std::stringstream ss;
-      ss << *this << std::endl;
-      return ss.str();
-    }
+    // set the statistics header to describe a DAG model for pebbling
+    static Statistics PebblingStatistics(std::ofstream&& f, const dag::Graph& G);
+    // set the statistics header to describe a DAG model for pebbling
+    static Statistics PeterStatistics(std::ofstream&& f, unsigned p, unsigned N);
+    // update the current and maximum processes in the peterson header
+    void update_peter(unsigned p, unsigned N);
+    void clear();
+    std::string str() const;
+    void write();
+    friend std::ostream& operator<<(std::ostream& out, const Statistics& s);
 
     template <typename... Args> void write(std::string_view s, Args&&... a)
     {
       file << fmt::format(s, std::forward<Args>(a)...) << std::endl;
     }
 
-    void write() { file << *this << std::endl; }
-
-    friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
-    {
-      assert(not s.model.empty());
-      out << "Model: " << std::endl << "--------" << std::endl;
-      for (auto name_value : s.model)
-        out << name_value.first << " = " << name_value.second << ", ";
-      out << std::endl;
-      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
-
-      out << std::endl;
-
-      std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
-      std::string frame_line_avg(
-          "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-      out << "######################" << std::endl
-          << "# Statistics" << std::endl
-          << "######################" << std::endl;
-
-      out << "# Solver" << std::endl
-          << s.solver_calls << std::endl
-          << "# CTIs" << std::endl
-          << s.ctis << std::endl
-          << "# Obligations" << std::endl
-          << s.obligations_handled << std::endl
-          << "# Propagation per iteration" << std::endl
-          << s.propagation_it << std::endl
-          << "# Propagation per level" << std::endl
-          << s.propagation_level << std::endl
-          << "# Subsumed cubes" << std::endl
-          << s.subsumed_cubes << std::endl
-          << "#" << std::endl
-          << "# Copied cubes" << std::endl
-          << s.compute_copied() << " %"
-          << std::endl
-          << "#" << std::endl;
-
-      return out << "######################" << std::endl;
-    }
   };
 } // namespace pdr
 #endif // STATS_H

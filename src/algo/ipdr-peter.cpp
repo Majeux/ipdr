@@ -100,7 +100,7 @@ namespace pdr::peterson
     unsigned old = model.n_processes();
     assert(processes > old);
 
-    alg.logger.and_show("increment from {} / {} -> {} / {} pebbles", old,
+    alg.logger.and_show("increment from {} / {} -> {} / {} processes", old,
         model.max_processes(), processes, model.max_processes());
 
     model.constrain(processes);

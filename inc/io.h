@@ -21,6 +21,9 @@ namespace my::io
   fs::path setup_model_path(const ArgumentList& args);
   fs::path setup_run_path(const ArgumentList& args);
   fs::path setup_exp_path(const ArgumentList& args);
+  // creates an overwriting file of the given name
+  std::ofstream trunc_file(const fs::path& path);
+  // creates it with the the given extension, in the given folder.
   std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
       const std::string& ext);
 } // namespace my::io

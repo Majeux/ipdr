@@ -142,10 +142,6 @@ namespace my::cli
 
   void parse_tactic(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
   {
-    if (clresult.count("bounded"))
-    {
-      clargs.tactic = pdr::Tactic::decrement;
-    }
     if (clresult.count("optimize"))
     {
       std::string tactic = clresult["optimize"].as<std::string>();
@@ -179,6 +175,12 @@ namespace my::cli
       //   throw std::invalid_argument("pebbles must be positive.");
     }
 
+    if (clresult.count("peter"))
+      clargs.tactic = pdr::Tactic::increment;
+    else if (clresult.count("bounded"))
+      clargs.tactic = pdr::Tactic::decrement;
+
+
     unsigned n_tests =
         clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_jump_test)) +
         clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_one_test));
@@ -189,9 +191,9 @@ namespace my::cli
   void parse_model(ArgumentList& clargs, const cxxopts::ParseResult& clresult)
   {
     unsigned n_models =
-        clresult.count("hop") + clresult.count("tfc") + clresult.count("bench");
+        clresult.count("hop") + clresult.count("tfc") + clresult.count("bench") + clresult.count("peter");
     if (n_models != 1)
-      throw std::invalid_argument("specify one of tfc, bench, or hop.");
+      throw std::invalid_argument("specify one of tfc, bench, or hop. or peter.");
 
     if (clresult.count("hop"))
     {
@@ -232,8 +234,6 @@ namespace my::cli
         exit(0);
       }
 
-      if (clresult.count("peter"))
-        return clargs;
 
       parse_verbosity(clargs, clresult);
       parse_model(clargs, clresult);

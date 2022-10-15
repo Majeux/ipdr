@@ -1,7 +1,6 @@
 ﻿#include "bounded.h"
 #include "cli-parse.h"
 #include "dag.h"
-#include "pebbling-experiments.h"
 #include "h-operator.h"
 #include "io.h"
 #include "logger.h"
@@ -10,7 +9,9 @@
 #include "parse_tfc.h"
 #include "pdr-context.h"
 #include "pdr.h"
+#include "pebbling-experiments.h"
 #include "pebbling-model.h"
+#include "peterson-experiments.h"
 #include "peterson.h"
 
 #include <algorithm>
@@ -134,14 +135,45 @@ void experiment(ArgumentList& clargs)
 
   string sub = "analysis";
   fs::create_directory(run_dir / sub);
-  ofstream stats    = trunc_file(run_dir / sub, filename, "stats");
-  ofstream strategy = trunc_file(run_dir / sub, filename, "strategy");
-  fs::path log_file = run_dir / sub / fmt::format("{}.log", filename);
+  ofstream stat_file = trunc_file(run_dir / sub, filename, "stats");
+  ofstream strategy  = trunc_file(run_dir / sub, filename, "strategy");
+  fs::path log_file  = run_dir / sub / fmt::format("{}.log", filename);
 
+  pdr::Statistics stats =
+      pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
   pdr::Logger logger =
-      pdr::Logger(log_file.string(), G, clargs.verbosity, std::move(stats));
+      pdr::Logger(log_file.string(), clargs.verbosity, std::move(stats));
 
   pdr::pebbling::experiments::pebbling_run(model, logger, clargs);
+  std::cout << "experiment done" << std::endl;
+}
+
+void peter_experiment(ArgumentList& clargs)
+{
+  using std::ofstream;
+  using std::string;
+
+  std::cerr << "peter_experiment()" << std::endl;
+
+  unsigned p = 3, N = 3;
+  pdr::peterson::PetersonModel model(p, N);
+
+  const fs::path model_dir = setup_model_path(clargs);
+  const string filename    = fmt::format("peter-p{}-N{}-relax", p, N);
+  const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
+
+  string sub = "analysis";
+  fs::create_directory(run_dir / sub);
+  ofstream stat_file  = trunc_file(run_dir / sub, filename, "stats");
+  ofstream trace_file = trunc_file(run_dir / sub, filename, "trace");
+  fs::path log_file   = run_dir / sub / fmt::format("{}.log", filename);
+
+  pdr::Statistics stats =
+      pdr::Statistics::PeterStatistics(std::move(stat_file), p, N);
+  pdr::Logger logger =
+      pdr::Logger(log_file.string(), clargs.verbosity, std::move(stats));
+
+  pdr::peterson::experiments::peterson_run(model, logger, clargs);
   std::cout << "experiment done" << std::endl;
 }
 
@@ -158,6 +190,12 @@ int main(int argc, char* argv[])
 
   ArgumentList clargs = parse_cl(argc, argv);
 
+  if (clargs.peter)
+  {
+    peter_experiment(clargs);
+    return 0;
+  }
+
   if (clargs.exp_sample)
   {
     experiment(clargs);
@@ -170,13 +208,6 @@ int main(int argc, char* argv[])
   if (clargs.bounded)
   {
     bounded_experiment(G, clargs);
-    return 0;
-  }
-
-  if (clargs.peter)
-  {
-    std::cout << "peterson" << std::endl;
-    pdr::peterson::PetersonModel m(2, 4);
     return 0;
   }
 
@@ -194,18 +225,20 @@ int main(int argc, char* argv[])
   const std::string filename = file_name(clargs);
   fs::path run_dir           = setup_path(model_dir / folder_name(clargs));
 
-  ofstream stats       = trunc_file(run_dir, filename, "stats");
-  ofstream strategy    = trunc_file(run_dir, filename, "strategy");
+  ofstream stat_file   = trunc_file(run_dir, filename, "stats");
+  ofstream strat_file  = trunc_file(run_dir, filename, "strategy");
   ofstream solver_dump = trunc_file(run_dir, "solver_dump", "solver");
 
   // initialize logger and other bookkeeping
   fs::path log_file = run_dir / fmt::format("{}.log", filename);
 
-  pdr::Logger logger = clargs.out
-                         ? pdr::Logger(log_file.string(), G, *clargs.out,
-                               clargs.verbosity, std::move(stats))
-                         : pdr::Logger(log_file.string(), G, clargs.verbosity,
-                               std::move(stats));
+  pdr::Statistics stats =
+      pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
+
+  pdr::Logger logger = clargs.out ? pdr::Logger(log_file.string(), *clargs.out,
+                                        clargs.verbosity, std::move(stats))
+                                  : pdr::Logger(log_file.string(),
+                                        clargs.verbosity, std::move(stats));
 
   show_header(clargs);
 
@@ -216,8 +249,8 @@ int main(int argc, char* argv[])
     pdr::IpdrResult rs(model);
     model.constrain(clargs.starting_value);
     pdr::PdrResult r = algorithm.run();
-    rs.add(r).show(strategy);
-    rs.show_traces(strategy);
+    rs.add(r).show(strat_file);
+    rs.show_traces(strat_file);
     algorithm.show_solver(solver_dump);
 
     return 0;
@@ -228,9 +261,9 @@ int main(int argc, char* argv[])
     pdr::pebbling::PebblingResult result =
         optimize.run(pdr::Tactic::decrement, false);
 
-    result.show(strategy);
-    result.show_raw(strategy);
-    result.show_traces(strategy);
+    result.show(strat_file);
+    result.show_raw(strat_file);
+    result.show_traces(strat_file);
     optimize.dump_solver(solver_dump);
   }
 

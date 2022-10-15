@@ -1,18 +1,21 @@
 #include "logger.h"
+#include "io.h"
+#include "stats.h"
 
 namespace pdr
 {
-  Logger::Logger(const std::string& log_file, const dag::Graph& G, OutLvl l,
-      std::ofstream&& stat_file)
-      : _out(std::cout), stats(std::move(stat_file), G), level(l)
+  using my::io::trunc_file;
+
+  Logger::Logger(const std::string& log_file, OutLvl l, Statistics&& s)
+      : _out(std::cout), stats(std::move(s)), level(l)
   {
     init(log_file);
   }
 
-  Logger::Logger(const std::string& log_file, const dag::Graph& G,
-      const std::string& pfilename, OutLvl l, std::ofstream&& stat_file)
-      : progress_file(pfilename, std::fstream::out | std::fstream::trunc),
-        _out(progress_file), stats(std::move(stat_file), G), level(l)
+  Logger::Logger(const std::string& log_file, const std::string& pfilename,
+      OutLvl l, Statistics&& s)
+      : progress_file(trunc_file(pfilename)), _out(progress_file),
+        stats(std::move(s)), level(l)
   {
     init(log_file);
     if (!progress_file.is_open())
@@ -21,7 +24,7 @@ namespace pdr
 
   void Logger::init(const std::string& log_file)
   {
-#warning log file truncates
+    // log file truncates
     spd_logger = spdlog::basic_logger_mt("pdr_logger", log_file, true);
     spd_logger->set_level(spdlog::level::trace);
     // spdlog::flush_every(std::chrono::seconds(20));
