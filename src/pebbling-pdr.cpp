@@ -105,7 +105,7 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 dag::Graph setup_graph(const ArgumentList& clargs)
 {
   // create folders and files for I/O
-  fs::path model_dir        = setup_model_path(clargs);
+  fs::path model_dir        = create_model_dir(clargs);
   std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
 
   dag::Graph G = build_dag(clargs);
@@ -129,9 +129,9 @@ void experiment(ArgumentList& clargs)
 
   pdr::pebbling::PebblingModel model(clargs, G);
 
-  const fs::path model_dir = setup_model_path(clargs);
+  const fs::path model_dir = create_model_dir(clargs);
   const string filename    = file_name(clargs);
-  const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
+  const fs::path run_dir   = setup(model_dir / run_folder_name(clargs));
 
   string sub = "analysis";
   fs::create_directory(run_dir / sub);
@@ -157,16 +157,15 @@ void peter_experiment(ArgumentList& clargs)
 
   unsigned p = 3, N = 3;
   pdr::peterson::PetersonModel model(p, N);
+  clargs.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
 
-  const fs::path model_dir = setup_model_path(clargs);
-  const string filename    = fmt::format("peter-p{}-N{}-relax", p, N);
-  const fs::path run_dir   = setup_path(model_dir / folder_name(clargs));
+  const FolderStructure folders = FolderStructure::make_from(clargs);
 
-  string sub = "analysis";
-  fs::create_directory(run_dir / sub);
-  ofstream stat_file  = trunc_file(run_dir / sub, filename, "stats");
-  ofstream trace_file = trunc_file(run_dir / sub, filename, "trace");
-  fs::path log_file   = run_dir / sub / fmt::format("{}.log", filename);
+  ofstream stat_file  = trunc_file(folders.analysis, folders.file_base, "stats");
+  ofstream trace_file = trunc_file(folders.analysis, folders.file_base, "trace");
+  fs::path log_file   = folders.analysis / folders.file("log");
+
+  folders.show(std::cerr);
 
   pdr::Statistics stats =
       pdr::Statistics::PeterStatistics(std::move(stat_file), p, N);
@@ -202,7 +201,7 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  const fs::path model_dir = setup_model_path(clargs);
+  const fs::path model_dir = create_model_dir(clargs);
   const dag::Graph G       = setup_graph(clargs);
 
   if (clargs.bounded)
@@ -223,7 +222,7 @@ int main(int argc, char* argv[])
     return 0;
 
   const std::string filename = file_name(clargs);
-  fs::path run_dir           = setup_path(model_dir / folder_name(clargs));
+  fs::path run_dir           = setup(model_dir / run_folder_name(clargs));
 
   ofstream stat_file   = trunc_file(run_dir, filename, "stats");
   ofstream strat_file  = trunc_file(run_dir, filename, "strategy");

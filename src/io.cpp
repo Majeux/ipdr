@@ -1,5 +1,8 @@
+#include <fmt/core.h>
 #include <ghc/filesystem.hpp>
 #include <string>
+#include <tabulate/table.hpp>
+#include <type_traits>
 
 #include "cli-parse.h"
 #include "io.h"
@@ -11,55 +14,91 @@ namespace my::io
   using fmt::format;
   using std::string;
 
-  fs::path base_out()
+  FolderStructure::FolderStructure(const cli::ArgumentList& args)
   {
-    fs::path rv = fs::current_path() / "output";
-    fs::create_directory(rv);
-    return rv;
+    run_type_dir = base_out() / (args.exp_sample ? "experiments" : "runs");
+
+    model_type_dir = run_type_dir;
+    {
+      if (args.bounded)
+        model_type_dir /= "bounded";
+      else if (args.peter)
+        model_type_dir /= "peter";
+      else
+        model_type_dir /= "pebbling";
+    }
+
+#warning todo: formal mechanism for peterston name
+    model_dir = model_type_dir / args.model_name;
+
+    run_dir = model_dir / run_folder_name(args);
+
+    analysis = run_dir / "analysis";
+
+    fs::create_directories(analysis);
+
+    file_base = file_name(args);
   }
+
+  const FolderStructure FolderStructure::make_from(
+      const cli::ArgumentList& args)
+  {
+    return FolderStructure(args);
+  }
+
+  void FolderStructure::show(std::ostream& out) const
+  {
+    tabulate::Table t;
+    t.add_row({ "output directory", run_dir.string() });
+    t.add_row({ "logs", analysis.string() });
+    out << t << std::endl;
+  }
+
+  fs::path FolderStructure::file(std::string_view extension) const
+  {
+    return fmt::format("{}.{}", file_base, extension);
+  }
+
+  // AUX
+  //
+
+  fs::path base_out() { return setup(fs::current_path() / "output"); }
 
   string file_name(const ArgumentList& args)
   {
     string file_string =
         format("{}-{}", args.model_name, to_string(args.tactic));
 
-    if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement) &&
-        !args.bounded)
+    if (!args.exp_sample && args.starting_value)
       file_string += format("-{}", args.starting_value.value());
+
     if (args.delta)
       file_string += "-delta";
 
     return file_string;
   }
 
-  string folder_name(const ArgumentList& args)
+  string run_folder_name(const ArgumentList& args)
   {
     string folder_string = to_string(args.tactic);
 
     if (args.exp_sample)
-    {
-      folder_string += "-";
-      if (args.exp_control)
-        folder_string += "C";
-      folder_string += format("exp{}", *args.exp_sample);
-    }
-
-    if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement) &&
-        !args.bounded)
+      folder_string += format("-exp{}", *args.exp_sample);
+    else if (args.starting_value)
       folder_string += format("-{}", args.starting_value.value());
+
     if (args.delta)
       folder_string += "-delta";
 
     return folder_string;
   }
 
-  fs::path setup_model_path(const ArgumentList& args)
+  fs::path create_model_dir(const ArgumentList& args)
   {
     fs::path results_folder = base_out();
     if (args.exp_sample)
       results_folder /= "experiments";
+
     if (args.bounded)
       results_folder /= "bounded";
     else if (args.peter)
@@ -67,38 +106,19 @@ namespace my::io
     else
       results_folder /= "pebbling";
 
-    fs::create_directory(results_folder);
-    fs::path model_dir = results_folder / args.model_name;
-    fs::create_directory(model_dir);
-
-    return model_dir;
+    return setup(results_folder / args.model_name);
   }
 
-  fs::path setup_path(fs::path p)
+  fs::path setup(fs::path p)
   {
-    fs::create_directory(p);
+    fs::create_directories(p);
     return p;
   }
 
   fs::path setup_run_path(const ArgumentList& args)
   {
-    fs::path results_folder = base_out() / "results";
-    fs::create_directory(results_folder);
-    fs::path run_dir = results_folder / args.model_name / folder_name(args);
-    fs::create_directory(run_dir);
-
-    return run_dir;
-  }
-
-  fs::path setup_exp_path(const ArgumentList& args)
-  {
-    assert(args.exp_sample);
-    fs::path exp_folder = base_out() / "experiments";
-    fs::create_directory(exp_folder);
-    fs::path run_dir = exp_folder / args.model_name / folder_name(args);
-    fs::create_directory(run_dir);
-
-    return run_dir;
+    return setup(
+        base_out() / "results" / args.model_name / run_folder_name(args));
   }
 
   std::ofstream trunc_file(const fs::path& path)

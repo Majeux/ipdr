@@ -139,6 +139,7 @@ namespace pdr::peterson
       for (size_t i = 0; i < res.trace().states.size(); i++)
       {
         const z3::expr_vector& s = res.trace().states[i];
+        std::cerr << s << std::endl;
         assert(i > 0 || s == model.get_initial());
 
         string index_str = (i == 0) ? "I" : to_string(i);

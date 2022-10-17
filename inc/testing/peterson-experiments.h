@@ -38,7 +38,7 @@ namespace pdr::peterson::experiments
 
    private:
     Table_t listing() const;
-    Table_t combined_listing(const Run& other) const;
+    Table_t combined_listing(const Run& control) const;
   };
 } // namespace pdr::peterson::experiments
 

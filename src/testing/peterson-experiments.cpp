@@ -32,8 +32,8 @@ namespace pdr::peterson::experiments
 
     using namespace my::io;
 
-    const fs::path model_dir   = setup_model_path(args);
-    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
+    const fs::path model_dir   = create_model_dir(args);
+    const fs::path run_dir     = setup(model_dir / run_folder_name(args));
     const std::string filename = file_name(args);
     std::ofstream latex        = trunc_file(run_dir, filename, "tex");
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
@@ -215,7 +215,7 @@ namespace pdr::peterson::experiments
     return t;
   }
 
-  Run::Table_t Run::combined_listing(const Run& other) const
+  Run::Table_t Run::combined_listing(const Run& control) const
   {
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
@@ -224,6 +224,7 @@ namespace pdr::peterson::experiments
     {
       using fmt::to_string;
       size_t i = 0;
+      // append control column
       {
         rows.at(i).push_back("control");
         rows.at(i).push_back("improvement");
@@ -231,14 +232,15 @@ namespace pdr::peterson::experiments
       }
 
       {
-        rows.at(i).push_back(math::time_str(other.avg_time));
+        rows.at(i).push_back(math::time_str(control.avg_time));
         // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
-        double speedup = math::percentage_dec(other.avg_time, avg_time);
+        double speedup = math::percentage_dec(control.avg_time, avg_time);
         rows.at(i).push_back(perc_str(speedup));
         i++;
       }
 
-      rows.at(i++).push_back(math::time_str(other.std_dev_time));
+      rows.at(i++).push_back(math::time_str(control.std_dev_time));
+      rows.at(i++).push_back(control.correct ? "yes" : "no");
       assert(i == rows.size());
     }
 

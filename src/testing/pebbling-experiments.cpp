@@ -35,8 +35,8 @@ namespace pdr::pebbling::experiments
 
     using namespace my::io;
 
-    const fs::path model_dir   = setup_model_path(args);
-    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
+    const fs::path model_dir   = create_model_dir(args);
+    const fs::path run_dir     = setup(model_dir / run_folder_name(args));
     const std::string filename = file_name(args);
     std::ofstream latex        = trunc_file(run_dir, filename, "tex");
     std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");

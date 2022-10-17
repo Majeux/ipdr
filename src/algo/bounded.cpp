@@ -30,9 +30,9 @@ namespace bounded
       lit_names.emplace_back(s);
     std::sort(lit_names.begin(), lit_names.end());
 
-    const fs::path model_dir = setup_model_path(args);
+    const fs::path model_dir = create_model_dir(args);
     const string filename    = file_name(args);
-    const fs::path run_dir   = setup_path(model_dir / folder_name(args));
+    const fs::path run_dir   = setup(model_dir / run_folder_name(args));
     result_out               = trunc_file(run_dir, filename, "strategy");
   }
 
