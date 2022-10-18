@@ -69,7 +69,7 @@ namespace pdr::peterson
 
     if (p > N) // last run did not find a trace
     {
-      alg.logger.and_whisper("! No optimum exists.");
+      alg.logger.and_whisper("! No trace exists.");
       return total;
     }
     // N is minimal

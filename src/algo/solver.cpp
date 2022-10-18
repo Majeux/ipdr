@@ -1,5 +1,6 @@
 #include "solver.h"
 #include "frame.h"
+#include "z3-ext.h"
 #include <z3++.h>
 
 namespace pdr
@@ -94,6 +95,7 @@ namespace pdr
   {
     assert(core_available);
     z3::expr_vector core = internal_solver.unsat_core();
+    z3ext::sort_lits(core);
     core_available       = false;
     return core;
   }
@@ -120,11 +122,9 @@ namespace pdr
           throw std::runtime_error("model contains non-constant");
       }
     }
-    std::sort(std_vec.begin(), std_vec.end(), z3ext::expr_less());
-    z3::expr_vector v(vars.get_ctx());
-    for (const z3::expr& e : std_vec)
-      v.push_back(e);
-    return v;
+    z3ext::sort_lits(std_vec);
+
+    return z3ext::convert(std_vec);
   }
 
   std::string Solver::as_str(const std::string& header, bool clauses_only) const

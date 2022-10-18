@@ -12,6 +12,7 @@
 
 #include "expr.h"
 #include "peterson.h"
+#include "z3-ext.h"
 
 namespace pdr::peterson
 {
@@ -168,20 +169,20 @@ namespace pdr::peterson
     for (numrep_t i = 0; i < N; i++)
     {
       {
-        string pc_i = format("pc_{}", i);
+        string pc_i = format("pc{}", i);
         pc.emplace_back(ctx, pc_i, pc_bits);
       }
       {
-        string l_i = format("l_{}", i);
+        string l_i = format("l{}", i);
         level.emplace_back(ctx, l_i, N_bits);
       }
       {
-        string free_i = format("free_{}", i);
+        string free_i = format("free{}", i);
         free.emplace_back(ctx, free_i);
       }
       if (i < N - 1)
       {
-        string last_i = format("last_{}", i);
+        string last_i = format("last{}", i);
         last.emplace_back(ctx, last_i, N_bits);
       }
     }
@@ -247,6 +248,7 @@ namespace pdr::peterson
 
     constrain(n_procs);
 
+    // test_p_pred();
     // test_property();
     // test_room();
     // bv_val_test(10);
@@ -490,6 +492,22 @@ namespace pdr::peterson
 
   // testing functions
   //
+  void PetersonModel::test_p_pred()
+  {
+    z3::solver solver(ctx);
+    solver.set("sat.cardinality.solver", true);
+    solver.set("cardinality.solver", true);
+    solver.add(property);
+    solver.add(constraint);
+    
+    z3::check_result result = solver.check(n_property.p());
+
+    if (result == z3::check_result::sat)
+      std::cout << solver.get_model() << std::endl;
+    else
+     std::cout << "unsat" << std::endl;
+  }
+
   void PetersonModel::test_property()
   {
     z3::solver solver(ctx);

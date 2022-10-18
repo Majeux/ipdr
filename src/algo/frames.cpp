@@ -127,7 +127,7 @@ namespace pdr
       auto new_frame = make_unique<Frame>(0, std::move(frame_solver), logger);
       frames.push_back(std::move(new_frame));
     }
-    logger("solver after init {}", delta_solver->as_str("", false));
+    logger("solver after init {}", delta_solver->as_str("", true));
   }
 
   // frame interface
@@ -440,7 +440,7 @@ namespace pdr
   }
 
   // the expr_vector assumptions are modified by acts,
-  // and should be considered usable afterwards
+  // and should be considered unusable afterwards
   bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions) const
   {
     using std::chrono::steady_clock;

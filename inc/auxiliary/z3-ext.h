@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <fmt/core.h>
 #include <optional>
+#include <random>
 #include <set>
 #include <sstream>
 #include <vector>
@@ -36,11 +37,13 @@ namespace z3ext
   z3::expr_vector args(const z3::expr& e);
 
   // sort based on literals
-  void sort(z3::expr_vector& v);
+  // @ cube is a vector of literals
+  void sort_lits(std::vector<z3::expr>& cube);
+  void sort_lits(z3::expr_vector& cube);
 
-  // sort based on symbols
-  // @ v is a cube of literals
-  void sort_cube(z3::expr_vector& v);
+  // sort based on full expressions
+  void sort_exprs(std::vector<z3::expr>& v);
+  void sort_exprs(z3::expr_vector& v);
 
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
@@ -48,6 +51,8 @@ namespace z3ext
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
+
+  bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
 
   // COMPARATOR FUNCTORS
   //
@@ -155,7 +160,7 @@ namespace z3ext
             throw std::runtime_error("model contains non-constant");
         }
       }
-      std::sort(v.begin(), v.end(), z3ext::expr_less());
+      sort_lits(v);
       return v;
     }
 

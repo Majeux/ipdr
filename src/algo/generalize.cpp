@@ -94,7 +94,7 @@ namespace pdr
     // used for sorting
     vector<expr> cube = z3ext::convert(state);
 
-    assert(std::is_sorted(cube.begin(), cube.end(), z3ext::expr_less()));
+    assert(std::is_sorted(cube.begin(), cube.end(), z3ext::lit_less()));
     unsigned attempts = 0;
     for (unsigned i = 0; i < cube.size();)
     {
@@ -130,7 +130,7 @@ namespace pdr
   // state is sorted
   bool PDR::down(vector<expr>& state, int level)
   {
-    assert(std::is_sorted(state.begin(), state.end(), z3ext::expr_less()));
+    assert(std::is_sorted(state.begin(), state.end(), z3ext::lit_less()));
     auto is_current_in_state = [this, &state](const expr& e)
     {
       return model.vars.lit_is_current(e) &&

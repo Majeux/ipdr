@@ -13,7 +13,7 @@ namespace my::io
   using cli::ArgumentList;
 
   // run_type_dir / model_type_dir / model_dir / run_dir / run_files
-  struct FolderStructure 
+  struct FolderStructure
   {
     fs::path run_type_dir;
     fs::path model_type_dir;
@@ -25,10 +25,14 @@ namespace my::io
     static const FolderStructure make_from(const ArgumentList& args);
 
     void show(std::ostream& out) const;
+    fs::path file(std::string_view name, std::string_view extension) const;
     fs::path file(std::string_view extension) const;
+    fs::path file_in_model(
+        std::string_view name, std::string_view extension) const;
+    fs::path file_in_model(std::string_view extension) const;
 
-    private:
-      FolderStructure(const ArgumentList& args);
+   private:
+    FolderStructure(const ArgumentList& args);
   };
 
   // const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" /

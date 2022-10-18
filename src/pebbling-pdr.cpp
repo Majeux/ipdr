@@ -28,6 +28,7 @@
 #include <lorina/bench.hpp>
 #include <memory>
 #include <ostream>
+#include <spdlog/sinks/basic_file_sink.h>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -160,10 +161,27 @@ void peter_experiment(ArgumentList& clargs)
   clargs.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
 
   const FolderStructure folders = FolderStructure::make_from(clargs);
+  {
+    auto model_logger = spdlog::basic_logger_st(
+        "model_dump", folders.file_in_model(clargs.model_name, "model"), true);
+    model_logger->set_level(spdlog::level::trace);
+    spdlog::set_pattern("");
 
-  ofstream stat_file  = trunc_file(folders.analysis, folders.file_base, "stats");
-  ofstream trace_file = trunc_file(folders.analysis, folders.file_base, "trace");
-  fs::path log_file   = folders.analysis / folders.file("log");
+    tabulate::Table t;
+    t.add_row({ "I", model.get_initial().to_string() });
+    t.add_row(
+        { "P", model.property().to_string(), model.property.p().to_string() });
+    t.add_row({ "!P", model.n_property().to_string(),
+        model.n_property.p().to_string() });
+    // t.add_row({ "T", model.get_constraint().to_string() });
+    SPDLOG_LOGGER_TRACE(model_logger, t.str());
+    model_logger->flush();
+  }
+
+  ofstream stat_file = trunc_file(folders.analysis, folders.file_base, "stats");
+  ofstream trace_file =
+      trunc_file(folders.analysis, folders.file_base, "trace");
+  fs::path log_file = folders.analysis / folders.file("log");
 
   folders.show(std::cerr);
 

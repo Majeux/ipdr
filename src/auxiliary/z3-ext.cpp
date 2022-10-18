@@ -79,17 +79,26 @@ namespace z3ext
     return vec;
   }
 
-  void sort(expr_vector& v)
+  void sort_lits(vector<expr>& cube)
   {
-    vector<expr> std_vec = convert(v);
-    std::sort(std_vec.begin(), std_vec.end(), expr_less());
-    v = convert(std::move(std_vec));
+    std::sort(cube.begin(), cube.end(), lit_less());
   }
 
-  void sort_cube(expr_vector& v)
+  void sort_lits(expr_vector& cube)
+  {
+    vector<expr> std_vec = convert(cube);
+    sort_lits(std_vec);
+    cube = convert(std::move(std_vec));
+  }
+
+  void sort_exprs(std::vector<z3::expr>& v)
+  {
+    std::sort(v.begin(), v.end(), expr_less());
+  }
+  void sort_exprs(expr_vector& v)
   {
     vector<expr> std_vec = convert(v);
-    std::sort(std_vec.begin(), std_vec.end(), lit_less());
+    sort_exprs(std_vec);
     v = convert(std::move(std_vec));
   }
 
@@ -109,9 +118,25 @@ namespace z3ext
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
   }
 
+  bool eq(const expr_vector& l, const expr_vector& r)
+  {
+    if (l.size() != r.size())
+      return false;
+
+    expr_vector::iterator l_it = l.begin(), r_it = r.begin();
+
+    for (; l_it != l.end() && r_it != r.end(); l_it++, r_it++)
+    {
+      if ((*l_it).id() != (*r_it).id())
+        return false;
+    }
+
+    return true;
+  }
+
   // COMPARATOR FUNCTORS
   //
-  bool lit_less::operator()(const z3::expr& l, const z3::expr& r) const
+  bool lit_less::operator()(const expr& l, const expr& r) const
   {
     unsigned a = l.is_not() ? l.arg(0).id() : l.id();
     unsigned b = r.is_not() ? r.arg(0).id() : r.id();
@@ -119,16 +144,12 @@ namespace z3ext
     return a < b;
   };
 
-  bool expr_less::operator()(const z3::expr& l, const z3::expr& r) const
+  bool expr_less::operator()(const expr& l, const expr& r) const
   {
     return l.id() < r.id();
   };
 
-  size_t expr_hash::operator()(const z3::expr& l) const
-  {
-    return l.id();
-  };
-
+  size_t expr_hash::operator()(const expr& l) const { return l.id(); };
 
   bool expr_vector_less::operator()(
       const expr_vector& l, const expr_vector& r) const
@@ -158,7 +179,7 @@ namespace z3ext
 
     std::vector<expr> get_std_witness(const z3::solver& s)
     {
-      z3::model m      = s.get_model();
+      z3::model m = s.get_model();
 
       std::vector<z3::expr> std_vec;
       std_vec.reserve(m.num_consts());

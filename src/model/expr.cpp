@@ -233,7 +233,7 @@ namespace mysat::primed
   {
     string index_str(std::string_view n, size_t i)
     {
-      return fmt::format("{}[{}]", n, i);
+      return fmt::format("{}__{}", n, i);
     }
   } // namespace
 

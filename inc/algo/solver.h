@@ -101,7 +101,7 @@ namespace pdr
           throw std::runtime_error("model contains non-constant");
       }
     }
-    std::sort(v.begin(), v.end(), z3ext::expr_less());
+    z3ext::sort_lits(v);
     return v;
   }
 
@@ -116,9 +116,12 @@ namespace pdr
     std::vector<z3::expr> core;
     core.reserve(full_core.size());
     for (const z3::expr& e : full_core)
+    {
       if (p(e))
         core.push_back(t(e));
-    std::sort(core.begin(), core.end(), z3ext::expr_less());
+    }
+
+    z3ext::sort_lits(core);
     return z3ext::convert(core);
   }
 } // namespace pdr

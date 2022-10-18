@@ -1,6 +1,7 @@
 #include <fmt/core.h>
 #include <ghc/filesystem.hpp>
 #include <string>
+#include <string_view>
 #include <tabulate/table.hpp>
 #include <type_traits>
 
@@ -54,11 +55,27 @@ namespace my::io
     out << t << std::endl;
   }
 
+  fs::path FolderStructure::file(
+      std::string_view name, std::string_view extension) const
+  {
+    return fmt::format("{}.{}", name, extension);
+  }
+
   fs::path FolderStructure::file(std::string_view extension) const
   {
     return fmt::format("{}.{}", file_base, extension);
   }
 
+  fs::path FolderStructure::file_in_model(
+      std::string_view name, std::string_view extension) const
+  {
+    return model_dir / fmt::format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_model(std::string_view extension) const
+  {
+    return model_dir / fmt::format("{}.{}", file_base, extension);
+  }
   // AUX
   //
 

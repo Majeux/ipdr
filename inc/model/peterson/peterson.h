@@ -66,6 +66,7 @@ namespace pdr::peterson
     void test_room();
     void test_wait(numrep_t i);
     void test_property();
+    void test_p_pred();
 
     void set_trans(numrep_t max_p);
     z3::expr T_start(numrep_t i);
