@@ -26,6 +26,55 @@ namespace pdr::peterson
 
   // STATE MEMBERS
   //
+  PetersonState PetersonState::from_cube(
+      const expr_vector& ev, const PetersonModel::numrep_t N)
+  {
+    using fmt::format;
+    // ^ matches beginning of string, $ matches the end
+    // (?:  ) non-capturing group
+    std::regex is_leveli_lit("^level{}__(?:[[:digit:]]+)$");
+    //
+    // last: < N-1
+
+    auto is_var = [](const expr& e, std::string_view varname) -> bool
+    {
+      string e_string = e.to_string();
+      std::smatch match;
+      std::regex is_lit(format(
+          "^(?:{}__(?:[[:digit:]]+))|(?:\\(not {}__(?:[[:digit:]]+)\\))$",
+          varname));
+
+      return std::regex_match(e_string, match, is_lit);
+    };
+    return PetersonState();
+  }
+
+  expr_vector PetersonState::cube(PetersonModel& m) const
+  {
+    using num_vec = std::vector<PetersonModel::numrep_t>;
+    using bv_vec  = std::vector<PetersonModel::BitVec>;
+
+    expr_vector conj(m.ctx);
+
+    auto bv_assign = [&conj](const num_vec& nv, const bv_vec& bv)
+    {
+      assert(nv.size() == bv.size());
+      for (size_t i = 0; i < nv.size(); i++)
+        for (const expr& e : bv[i].uint(nv[i]))
+          conj.push_back(e);
+    };
+
+    bv_assign(pc, m.pc);
+    bv_assign(level, m.level);
+    bv_assign(last, m.last);
+
+    assert(free.size() == m.free.size());
+    for (size_t i = 0; i < free.size(); i++)
+      conj.push_back(free[i] ? m.free[i] : !m.free[i]());
+
+    return conj;
+  }
+
   bool PetersonState::operator<(const PetersonState& s) const
   {
     if (pc < s.pc)
@@ -67,32 +116,6 @@ namespace pdr::peterson
   bool PetersonState::operator!=(const PetersonState& s) const
   {
     return not(*this == s);
-  }
-
-  expr_vector PetersonState::cube(PetersonModel& m) const
-  {
-    using num_vec = std::vector<PetersonModel::numrep_t>;
-    using bv_vec  = std::vector<PetersonModel::BitVec>;
-
-    expr_vector conj(m.ctx);
-
-    auto bv_assign = [&conj](const num_vec& nv, const bv_vec& bv)
-    {
-      assert(nv.size() == bv.size());
-      for (size_t i = 0; i < nv.size(); i++)
-        for (const expr& e : bv[i].uint(nv[i]))
-          conj.push_back(e);
-    };
-
-    bv_assign(pc, m.pc);
-    bv_assign(level, m.level);
-    bv_assign(last, m.last);
-
-    assert(free.size() == m.free.size());
-    for (size_t i = 0; i < free.size(); i++)
-      conj.push_back(free[i] ? m.free[i] : !m.free[i]());
-
-    return conj;
   }
 
   std::ostream& operator<<(std::ostream& out, const PetersonState& s)
@@ -157,6 +180,9 @@ namespace pdr::peterson
     using z3::atleast;
     using z3::atmost;
 
+    std::cout << "test regex" << std::endl;
+    expr_vector ev(ctx);
+    PetersonState::from_cube(ev);
     // create variables
     size_t pc_bits = bits_for(pc_num);
     size_t N_bits  = bits_for(N);
@@ -173,7 +199,7 @@ namespace pdr::peterson
         pc.emplace_back(ctx, pc_i, pc_bits);
       }
       {
-        string l_i = format("l{}", i);
+        string l_i = format("level{}", i);
         level.emplace_back(ctx, l_i, N_bits);
       }
       {
@@ -499,13 +525,13 @@ namespace pdr::peterson
     solver.set("cardinality.solver", true);
     solver.add(property);
     solver.add(constraint);
-    
+
     z3::check_result result = solver.check(n_property.p());
 
     if (result == z3::check_result::sat)
       std::cout << solver.get_model() << std::endl;
     else
-     std::cout << "unsat" << std::endl;
+      std::cout << "unsat" << std::endl;
   }
 
   void PetersonModel::test_property()

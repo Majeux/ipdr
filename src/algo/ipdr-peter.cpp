@@ -67,13 +67,14 @@ namespace pdr::peterson
       total << invariant;
     }
 
-    if (p > N) // last run did not find a trace
+    if (invariant && p > N) // last run did not find a trace
     {
       alg.logger.and_whisper("! No trace exists.");
       return total;
     }
     // N is minimal
-    alg.logger.and_whisper("! Found optimum: {}.", p);
+    alg.logger.and_whisper(
+        "! Counter for p={}", p-1);
     return total;
   }
 

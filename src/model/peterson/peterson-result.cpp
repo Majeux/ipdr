@@ -86,7 +86,10 @@ namespace pdr::peterson
     tabulate::Table::Row_t row = IpdrResult::table_row(r);
     // expand to { processes, max_proc, invariant level, trace length, time }
     if (r.has_trace())
+    {
       holds = false;
+      std::cout << process_trace(r) << std::endl;
+    }
 
     row.insert(row.begin(), std::to_string(model.max_processes()));
     row.insert(row.begin(), std::to_string(model.n_processes()));
@@ -121,7 +124,7 @@ namespace pdr::peterson
     Table t;
     // Write top row
     {
-      Table::Row_t trace_header = { "", "marked" };
+      Table::Row_t trace_header = { "" };
       trace_header.insert(trace_header.end(), lits.begin(), lits.end());
       t.add_row(trace_header);
     }
@@ -146,14 +149,10 @@ namespace pdr::peterson
         Table::Row_t row_marking = make_row(index_str, s);
         t.add_row(row_marking);
       }
-      ss << "Trace to two processes in level[p] = N-1" << std::endl
+      ss << format("Trace to two processes with level[p] = N-1 = {}",
+                model.max_processes() - 1)
+         << std::endl
          << std::endl;
-    }
-
-    // Write final state
-    {
-      Table::Row_t final_row = make_row("F", model.n_property);
-      t.add_row(final_row);
     }
 
     t.format().font_align(tabulate::FontAlign::right);

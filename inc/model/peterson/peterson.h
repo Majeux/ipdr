@@ -99,6 +99,9 @@ namespace pdr::peterson
     {
     }
 
+    static PetersonState from_cube(
+        const z3::expr_vector& ev, const PetersonModel::numrep_t N);
+
     z3::expr_vector cube(PetersonModel& m) const;
     std::string to_string(bool inl = false) const;
     std::string inline_string() const;

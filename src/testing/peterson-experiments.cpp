@@ -82,7 +82,7 @@ namespace pdr::peterson::experiments
                                         : opt.run(args.tactic, start);
 
         if (!result.all_holds())
-          cout << "counter found !" << endl;
+          cout << "! counter found" << endl;
 
         reps.push_back(result);
         // cout << format("## Experiment sample {}", i) << endl;
