@@ -121,12 +121,13 @@ namespace pdr::peterson
     size_t longest =
         std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
 
-    Table t;
+    Table t, state_t;
     // Write top row
     {
       Table::Row_t trace_header = { "" };
       trace_header.insert(trace_header.end(), lits.begin(), lits.end());
       t.add_row(trace_header);
+      state_t.add_row({ "", "" });
     }
 
     auto make_row = [&lits, longest](string a, const expr_vector& s)
@@ -148,6 +149,13 @@ namespace pdr::peterson
 
         Table::Row_t row_marking = make_row(index_str, s);
         t.add_row(row_marking);
+        {
+          const PetersonModel& m = dynamic_cast<const PetersonModel&>(model);
+          string state_str       = i < res.trace().states.size()-1
+                                     ? m.extract_state(s).to_string(true)
+                                     : m.extract_state_p(s).to_string(true);
+          state_t.add_row({ index_str, state_str });
+        }
       }
       ss << format("Trace to two processes with level[p] = N-1 = {}",
                 model.max_processes() - 1)
@@ -155,9 +163,16 @@ namespace pdr::peterson
          << std::endl;
     }
 
-    t.format().font_align(tabulate::FontAlign::right);
+    {
+      tabulate::MarkdownExporter exp;
+      t.format().font_align(tabulate::FontAlign::right);
+      state_t.format().font_align(tabulate::FontAlign::right);
 
-    ss << tabulate::MarkdownExporter().dump(t);
+      ss << exp.dump(t) << std::endl
+         << string(15, '=') << std::endl
+         << exp.dump(state_t);
+    }
+
     return ss.str();
   }
 } // namespace pdr::peterson

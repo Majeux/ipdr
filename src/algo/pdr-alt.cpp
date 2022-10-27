@@ -28,6 +28,8 @@ namespace pdr
 
   PdrResult PDR::iterate_short()
   {
+    using z3ext::solver::Witness;
+
     // I => P and I & T ⇒ P' (from init)
     if (ctx.type != Tactic::decrement) // decr continues from last level
       assert(frames.frontier() == 1);
@@ -36,14 +38,18 @@ namespace pdr
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);
-      while (optional<expr_vector> cti =
+      while (optional<Witness> witness =
                  frames.get_trans_source(k, model.n_property.p(), true))
       {
-        log_cti(*cti, k); // cti is an F_i state that leads to a violation
+        log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 
-        PdrResult res = block_short(std::move(*cti), k - 1); // is cti reachable from F_k-1 ?
+        PdrResult res = block_short(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
+        {
+          std::cout << "final: " << witness->next << std::endl;
+          res.append_final(witness->next);
           return res;
+        }
 
         logger.show("");
       }

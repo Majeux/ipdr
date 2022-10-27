@@ -172,6 +172,11 @@ namespace z3ext
   //
   namespace solver
   {
+    Witness::Witness(const z3::expr_vector& c, const z3::expr_vector& n)
+        : curr(c), next(n)
+    {
+    }
+
     expr_vector get_witness(const z3::solver& s)
     {
       return convert(get_std_witness(s));

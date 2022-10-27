@@ -26,29 +26,6 @@ namespace pdr::peterson
 
   // STATE MEMBERS
   //
-  PetersonState PetersonState::from_cube(
-      const expr_vector& ev, const PetersonModel::numrep_t N)
-  {
-    using fmt::format;
-    // ^ matches beginning of string, $ matches the end
-    // (?:  ) non-capturing group
-    std::regex is_leveli_lit("^level{}__(?:[[:digit:]]+)$");
-    //
-    // last: < N-1
-
-    auto is_var = [](const expr& e, std::string_view varname) -> bool
-    {
-      string e_string = e.to_string();
-      std::smatch match;
-      std::regex is_lit(format(
-          "^(?:{}__(?:[[:digit:]]+))|(?:\\(not {}__(?:[[:digit:]]+)\\))$",
-          varname));
-
-      return std::regex_match(e_string, match, is_lit);
-    };
-    return PetersonState();
-  }
-
   expr_vector PetersonState::cube(PetersonModel& m) const
   {
     using num_vec = std::vector<PetersonModel::numrep_t>;
@@ -149,14 +126,14 @@ namespace pdr::peterson
     {
       ss << tab(1) << "free [" << end();
       for (PetersonModel::numrep_t i = 0; i < free.size(); i++)
-        ss << tab(2) << format("{},", free.at(i) ? "true" : "false") << end();
+        ss << tab(2) << format("{},", free.at(i) ? "t" : "f") << end();
       ss << tab(1) << "]" << end() << end();
     }
     {
       ss << tab(1) << "last [" << end();
       for (PetersonModel::numrep_t i = 0; i < last.size(); i++)
         ss << tab(2) << format("{},", last.at(i)) << end();
-      ss << tab(1) << "]" << end();
+      ss << tab(1) << "] " << end();
     }
     ss << "}";
 
@@ -180,9 +157,6 @@ namespace pdr::peterson
     using z3::atleast;
     using z3::atmost;
 
-    std::cout << "test regex" << std::endl;
-    expr_vector ev(ctx);
-    PetersonState::from_cube(ev);
     // create variables
     size_t pc_bits = bits_for(pc_num);
     size_t N_bits  = bits_for(N);
@@ -783,7 +757,7 @@ namespace pdr::peterson
   // PetersonState members
   //
   PetersonState PetersonModel::extract_state(
-      const expr_vector& cube, mysat::primed::lit_type t)
+      const expr_vector& cube, mysat::primed::lit_type t) const
   {
     PetersonState s(N);
 
@@ -799,7 +773,7 @@ namespace pdr::peterson
     return s;
   }
 
-  PetersonState PetersonModel::extract_state_p(const expr_vector& cube)
+  PetersonState PetersonModel::extract_state_p(const expr_vector& cube) const
   {
     return extract_state(cube, mysat::primed::lit_type::primed);
   }

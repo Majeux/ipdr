@@ -88,7 +88,7 @@ namespace pdr
     // allows collection of witness from solver(frame) if true.
     bool trans_source(size_t frame, const z3::expr_vector& dest_cube,
         bool primed = false) const;
-    std::optional<z3::expr_vector> get_trans_source(size_t frame,
+    std::optional<z3ext::solver::Witness> get_trans_source(size_t frame,
         const z3::expr_vector& dest_cube, bool primed = false) const;
 
     // Solver calls (non-modifying)

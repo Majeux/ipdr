@@ -22,6 +22,7 @@ namespace pdr
   using std::optional;
   using z3::expr;
   using z3::expr_vector;
+  using z3ext::solver::Witness;
 
   Frames::Frames(Context& c, IModel& m, Logger& l)
       : ctx(c), model(m), logger(l), frame_base(ctx), init_solver(ctx)
@@ -210,8 +211,8 @@ namespace pdr
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
-    logger.tabbed("removing cube from level [1..{}]: [{}]", level,
-        str::ext::join(cube));
+    logger.tabbed(
+        "removing cube from level [1..{}]: [{}]", level, str::ext::join(cube));
     logger.indent++;
 
     bool result;
@@ -413,7 +414,7 @@ namespace pdr
     return SAT(frame, dest_cube); // there is a transition from Fi to s'
   }
 
-  std::optional<z3::expr_vector> Frames::get_trans_source(
+  std::optional<Witness> Frames::get_trans_source(
       size_t frame, const z3::expr_vector& dest_cube, bool primed) const
   {
     if (LOG_SAT_CALLS)
@@ -426,7 +427,11 @@ namespace pdr
     if (!SAT(frame, dest_cube))
       return {};
     // else there exists a source -T-> dest'
-    return get_solver(frame).witness_current();
+    expr_vector curr = get_solver(frame).witness_current();
+    expr_vector next =
+        get_solver(frame).filter_witness(get_solver(frame).get_model(),
+            [this](const expr l) { return model.vars.lit_is_p(l); });
+    return Witness(curr, next);
   }
 
   //

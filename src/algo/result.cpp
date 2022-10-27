@@ -82,6 +82,12 @@ namespace pdr
   PdrResult PdrResult::empty_true() { return PdrResult(-1); }
   PdrResult PdrResult::empty_false() { return PdrResult(nullptr); }
 
+  void PdrResult::append_final(const z3::expr_vector& f)
+  {
+    assert(has_trace());
+    trace().states.push_back(f);
+  }
+
   PdrResult::operator bool() const { return has_invariant(); }
   bool PdrResult::has_invariant() const
   {

@@ -139,19 +139,19 @@ namespace pdr
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);
-      while (optional<expr_vector> cti =
+      while (optional<z3ext::solver::Witness> cti =
                  frames.get_trans_source(k, model.n_property.p(), true))
       {
-        log_cti(*cti, k); // cti is an F_i state that leads to a violation
+        log_cti(cti->curr, k); // cti is an F_i state that leads to a violation
 
-        auto [n, core] = highest_inductive_frame(*cti, k - 1);
+        auto [n, core] = highest_inductive_frame(cti->curr, k - 1);
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
         expr_vector sub_cube = generalize(core, n);
         frames.remove_state(sub_cube, n + 1);
 
-        PdrResult res = block(*cti, n);
+        PdrResult res = block(cti->curr, n);
         if (not res)
         {
           logger.and_show("Terminated with trace");

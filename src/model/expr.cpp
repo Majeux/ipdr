@@ -44,17 +44,14 @@ namespace mysat::primed
   {
     // matches name[i], extracts name and i
     std::regex is_value;
-    std::smatch match;
     string match_name;
     if (t == primed)
     {
-      // is_value = (R"(([[:alnum:]_]+).p)"); // primed variable
       is_value   = next_name;
       match_name = next_name;
     }
     else
     {
-      // is_value = (R"(([[:alnum:]_]+))");
       is_value   = fmt::format("{}(?!.p)", name); // name not followed by .p
       match_name = name;
     }
@@ -64,13 +61,11 @@ namespace mysat::primed
     for (const expr& l : cube)
     {
       assert(z3ext::is_lit(l));
+      std::smatch match;
       string l_str = l.to_string();
-      // if (l_str.find(match_name) != string::npos)
       if (std::regex_search(l_str, match, is_value))
       {
         assert(match.size() == 1);
-        // if (match[1] == match_name)
-        // {
         // no contradicting literals
         assert(not v.has_value() || (v == not l.is_not()));
         v = not l.is_not();
@@ -78,7 +73,7 @@ namespace mysat::primed
       }
     }
 
-    return v.value();
+    return v.value(); // no value if no literal was found
   }
 
   // VarVec
@@ -275,38 +270,22 @@ namespace mysat::primed
   }
 
   BitVec::numrep_t BitVec::extract_value(
-      const expr_vector& cube, lit_type t) const
+      const expr_vector& cube, const lit_type t) const
   {
     std::bitset<MAX_BITS> n;
-    // matches name[i], extracts name and i
-    std::regex is_value;
-    std::smatch match;
-    string match_name;
-    if (t == primed)
-    {
-      // is_value = R"(([[:alnum:]_]+).p\[([[:digit:]]+)\])"; // primed variable
-      is_value   = fmt::format("{}\\[([[:digit:]]+)\\]", next_name);
-      match_name = next_name;
-    }
-    else
-    {
-      // is_value = R"(([[:alnum:]_]+)\[([[:digit:]]+)\])";
-      is_value   = fmt::format("{}\\[([[:digit:]]+)\\]", name);
-      match_name = name;
-    }
+    const string match_name{ t == primed ? next_name : name };
+    // matches name__i, extracts i
+    const std::regex is_value{ fmt::format("{}__([[:digit:]]+)", match_name) };
 
     for (const expr& l : cube)
     {
-      assert(z3ext::is_lit(l));
-      string l_str = l.to_string();
+      assert(z3ext::is_lit(l)); // vector represents a cube
+      std::smatch match;
+      const string l_str = l.to_string();
       if (std::regex_search(l_str, match, is_value))
       {
         assert(match.size() == 2);
-        // if (match[1] != match_name)
-        //   continue;
-
-        numrep_t i = std::stoul(match[1]);
-
+        const numrep_t i = std::stoul(match[1]);
         n.set(i, !l.is_not());
       }
     }

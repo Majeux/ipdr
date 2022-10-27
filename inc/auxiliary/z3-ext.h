@@ -129,6 +129,13 @@ namespace z3ext
 
   namespace solver
   {
+    struct Witness
+    {
+      z3::expr_vector curr;
+      z3::expr_vector next;
+
+      Witness(const z3::expr_vector& c, const z3::expr_vector& n);
+    };
     // retrieve the current model in the solver as a cube
     // the resulting cube is sorted by id()
     // @ s has just completed a satisfiable check()

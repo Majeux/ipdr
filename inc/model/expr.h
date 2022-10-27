@@ -167,9 +167,9 @@ namespace mysat::primed
     z3::expr_vector uint_p(numrep_t n) const;
     z3::expr_vector uint_both(numrep_t n) const;
 
-    // cube to uint conversion
+    // extract uint representation from relevant literals in a cube
     numrep_t extract_value(
-        const z3::expr_vector& cube, lit_type t = base) const;
+        const z3::expr_vector& cube, const lit_type t = base) const;
 
     // equality operator to expression conversions
     // * CNF

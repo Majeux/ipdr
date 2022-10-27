@@ -58,6 +58,9 @@ namespace pdr
     static PdrResult empty_true();
     static PdrResult empty_false();
 
+    // for testing
+    void append_final(const z3::expr_vector& f);
+
     operator bool() const;
     bool has_invariant() const;
     bool has_trace() const;

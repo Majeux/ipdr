@@ -33,6 +33,12 @@ namespace pdr::peterson
     // Configure IModel
     void constrain(numrep_t processes);
 
+    // Convert a cube (typically a witness from a SAT call) to a state
+    PetersonState extract_state(const z3::expr_vector& witness,
+        mysat::primed::lit_type t = mysat::primed::lit_type::base) const;
+    PetersonState extract_state_p(const z3::expr_vector& witness) const;
+
+
    private:
     // max no. processes. the size of the waiting queue
     const numrep_t N;
@@ -55,10 +61,6 @@ namespace pdr::peterson
 
     // fill the pc, level, free and last variables
     std::set<std::string> create_vars();
-
-    PetersonState extract_state(const z3::expr_vector& witness,
-        mysat::primed::lit_type t = mysat::primed::lit_type::base);
-    PetersonState extract_state_p(const z3::expr_vector& witness);
 
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
@@ -98,9 +100,6 @@ namespace pdr::peterson
         : pc(p), level(l), free(f), last(lst)
     {
     }
-
-    static PetersonState from_cube(
-        const z3::expr_vector& ev, const PetersonModel::numrep_t N);
 
     z3::expr_vector cube(PetersonModel& m) const;
     std::string to_string(bool inl = false) const;
