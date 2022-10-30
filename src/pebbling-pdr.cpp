@@ -3,6 +3,7 @@
 #include "dag.h"
 #include "h-operator.h"
 #include "io.h"
+#include "_logging.h"
 #include "logger.h"
 #include "mockturtle/networks/klut.hpp"
 #include "parse_bench.h"
@@ -190,6 +191,7 @@ void peter_experiment(ArgumentList& clargs)
   pdr::Logger logger =
       pdr::Logger(log_file.string(), clargs.verbosity, std::move(stats));
 
+  // return;
   pdr::peterson::experiments::peterson_run(model, logger, clargs);
   std::cout << "experiment done" << std::endl;
 }

@@ -426,6 +426,7 @@ namespace pdr
 
     if (!SAT(frame, dest_cube))
       return {};
+    std::cout << "witness: " <<  z3ext::solver::get_witness(delta_solver->internal_solver) << std::endl;
     // else there exists a source -T-> dest'
     expr_vector curr = get_solver(frame).witness_current();
     expr_vector next =

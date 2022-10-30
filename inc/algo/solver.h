@@ -23,13 +23,13 @@ namespace pdr
   {
    private:
     const mysat::primed::VarVec& vars;
-    z3::solver internal_solver;
     SolverState state;
     bool core_available = false;
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
 
    public:
+    z3::solver internal_solver;
     Solver(Context& ctx, const IModel& m, z3::expr_vector base,
         z3::expr_vector t, z3::expr_vector con);
 
@@ -62,10 +62,11 @@ namespace pdr
     // function extract the unsat_core from the solver, a subset of the
     // assumptions the resulting vector or expr_vector is in sorted order
     // assumes a core is only extracted once
+    // ! result is sorted
+    z3::expr_vector unsat_core();
     // template UnaryPredicate: function expr->bool to filter literals from
     // the core template Transform: function expr->expr. each literal is
     // replaced by result before pushing
-    z3::expr_vector unsat_core();
     template <typename UnaryPredicate, typename Transform>
     z3::expr_vector unsat_core(UnaryPredicate p, Transform t);
   };
@@ -121,7 +122,6 @@ namespace pdr
         core.push_back(t(e));
     }
 
-    z3ext::sort_lits(core);
     return z3ext::convert(core);
   }
 } // namespace pdr

@@ -56,6 +56,8 @@ namespace pdr::peterson
     // int array. last process to enter level j
     std::vector<BitVec> last;
 
+    size_t n_lits() const;
+
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
 
@@ -67,6 +69,7 @@ namespace pdr::peterson
 
     void test_room();
     void test_wait(numrep_t i);
+    void test_bug();
     void test_property();
     void test_p_pred();
 

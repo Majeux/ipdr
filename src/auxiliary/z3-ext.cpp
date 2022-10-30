@@ -202,8 +202,22 @@ namespace z3ext
         else
           throw std::runtime_error("model contains non-constant");
       }
-      std::sort(std_vec.begin(), std_vec.end(), z3ext::expr_less());
+
+      sort_lits(std_vec);
+
       return std_vec;
+    }
+
+    expr_vector get_core(const z3::solver& s)
+    {
+      return convert(get_std_core(s));
+    }
+
+    vector<expr> get_std_core(const z3::solver& s)
+    {
+      vector<expr> core = convert(s.unsat_core());
+      z3ext::sort_lits(core);
+      return core;
     }
 
     std::optional<z3::expr_vector> check_witness(z3::solver& s)

@@ -11,7 +11,7 @@ namespace pdr
       : vars(m.vars), internal_solver(ctx), state(SolverState::neutral)
   {
     internal_solver.set("sat.cardinality.solver", true);
-#warning  TODO sat.core.minimize
+#warning TODO sat.core.minimize
     internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
@@ -65,8 +65,7 @@ namespace pdr
     internal_solver.add(clause | !act);
   }
 
-  void Solver::block(
-      const z3ext::CubeSet& cubes, const z3::expr& act)
+  void Solver::block(const z3ext::CubeSet& cubes, const z3::expr& act)
   {
     for (const z3::expr_vector& cube : cubes)
       block(cube, act);
@@ -96,7 +95,7 @@ namespace pdr
     assert(core_available);
     z3::expr_vector core = internal_solver.unsat_core();
     z3ext::sort_lits(core);
-    core_available       = false;
+    core_available = false;
     return core;
   }
 

@@ -151,6 +151,20 @@ namespace pdr::peterson
     return bits;
   }
 
+  size_t PetersonModel::n_lits() const
+  {
+    size_t total{ 0 };
+    auto add_size = [](size_t acc, const BitVec& bv) -> size_t
+    { return acc + bv.size; };
+
+    total = std::accumulate(pc.begin(), pc.end(), total, add_size);
+    total = std::accumulate(level.begin(), level.end(), total, add_size);
+    total = std::accumulate(last.begin(), last.end(), total, add_size);
+    total += free.size();
+
+    return total;
+  }
+
   set<string> PetersonModel::create_vars()
   {
     using fmt::format;
@@ -191,19 +205,29 @@ namespace pdr::peterson
     {
       for (numrep_t i = 0; i < N; i++)
       {
-        conj.push_back(level.at(i).equals(N - 1));
-        conj_p.push_back(level.at(i).p_equals(N - 1));
+#warning PETERSON PROPERTY: some redundant literals (pc and level). include or not??
+        conj.push_back(
+            pc.at(i).equals(4) && !free.at(i)() && level.at(i).equals(N - 1));
+
+        conj_p.push_back(pc.at(i).p_equals(4) && !free.at(i).p() &&
+                         level.at(i).p_equals(N - 1));
       }
     }
     property.add(atmost(conj, 1), atmost(conj_p, 1)).finish();
     n_property.add(atleast(conj, 2), atleast(conj_p, 2)).finish();
+    // n_property.add(!atmost(conj, 1), !atmost(conj_p, 1)).finish();
 
     // collect symbol strings
     set<string> rv;
     auto append_names = [&rv](const mysat::primed::INamed& v)
     {
       for (std::string_view n : v.names())
+      {
+        // std::cout << n << std::endl;
         rv.emplace(n);
+      }
+      // for (std::string_view n : v.names_p())
+      //   std::cout << n << std::endl;
     };
 
     for (const BitVec& var : pc)
@@ -228,6 +252,9 @@ namespace pdr::peterson
     using fmt::format;
     vars.add(create_vars());
 
+    for(auto n : vars.p())
+      std::cout << n.to_string() << std::endl;
+
     assert(N < INT_MAX);
 
     // initialize vars at 0
@@ -248,6 +275,7 @@ namespace pdr::peterson
 
     constrain(n_procs);
 
+    // test_bug();
     // test_p_pred();
     // test_property();
     // test_room();
@@ -287,6 +315,7 @@ namespace pdr::peterson
     // std::cout << "RAW TRANSITION" << std::endl;
     // std::cout << disj << std::endl;
     constraint = to_cnf_vec(mk_or(disj));
+    // constraint.push_back(mk_or(disj);
     // std::cout << "CNF TRANSITION" << std::endl;
     // std::cout << transition << std::endl;
   }
@@ -506,6 +535,49 @@ namespace pdr::peterson
       std::cout << solver.get_model() << std::endl;
     else
       std::cout << "unsat" << std::endl;
+  }
+
+  void PetersonModel::test_bug()
+  {
+    z3::solver solver(ctx);
+    solver.set("sat.cardinality.solver", true);
+    solver.set("cardinality.solver", true);
+
+    // solver.add(property);
+    // std::cout << "property";
+
+    solver.add(n_property);
+    std::cout << "n_property";
+
+    std::cout << solver << std::endl;
+    std::cout << std::endl;
+
+    expr_vector final(ctx), cti(ctx);
+    {
+      final.push_back(!free.at(0)());
+      final.push_back(!free.at(1)());
+      final.push_back(!free.at(2)());
+    }
+
+    size_t Nlits = n_lits();
+
+    if (z3::check_result r = solver.check(final))
+    {
+      auto witness = z3ext::solver::get_witness(solver);
+      std::cout << " - final: sat" << std::endl
+                << fmt::format("witness ({}/{}): {}", witness.size(), Nlits,
+                       witness.to_string())
+                << std::endl
+                << extract_state(witness).to_string(true) << std::endl;
+    }
+    else
+    {
+      auto core = z3ext::solver::get_core(solver);
+      std::cout << " - final: unsat" << std::endl
+                << fmt::format(
+                       "core ({}/{}): {}", core.size(), Nlits, core.to_string())
+                << extract_state(core).to_string(true) << std::endl;
+    }
   }
 
   void PetersonModel::test_property()

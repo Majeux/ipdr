@@ -103,6 +103,7 @@ namespace pdr::peterson
     using std::string;
     using std::string_view;
     using std::to_string;
+    using std::vector;
     using tabulate::Table;
     using z3::expr;
     using z3::expr_vector;
@@ -115,7 +116,8 @@ namespace pdr::peterson
 
     // process trace
     std::stringstream ss;
-    std::vector<std::string> lits = model.vars.names();
+    vector<string> lits  = model.vars.names();
+    vector<string> litsp = model.vars.names_p();
     std::sort(lits.begin(), lits.end());
 
     size_t longest =
@@ -130,9 +132,10 @@ namespace pdr::peterson
       state_t.add_row({ "", "" });
     }
 
-    auto make_row = [&lits, longest](string a, const expr_vector& s)
+    auto make_row =
+        [&longest](string a, const expr_vector& s, const vector<string>& names)
     {
-      std::vector<std::string> r = state::marking(s, lits, longest);
+      std::vector<std::string> r = state::marking(s, names, longest);
       r.insert(r.begin(), a);
       Table::Row_t rv;
       rv.assign(r.begin(), r.end());
@@ -141,19 +144,20 @@ namespace pdr::peterson
 
     // Write strategy states
     {
-      for (size_t i = 0; i < res.trace().states.size(); i++)
+      size_t N = res.trace().states.size();
+      for (size_t i = 0; i < N; i++)
       {
         const z3::expr_vector& s = res.trace().states[i];
 
         string index_str = (i == 0) ? "I" : to_string(i);
 
-        Table::Row_t row_marking = make_row(index_str, s);
+        Table::Row_t row_marking =
+            make_row(index_str, s, (i < N - 1 ? lits : litsp));
         t.add_row(row_marking);
         {
           const PetersonModel& m = dynamic_cast<const PetersonModel&>(model);
-          string state_str       = i < res.trace().states.size()-1
-                                     ? m.extract_state(s).to_string(true)
-                                     : m.extract_state_p(s).to_string(true);
+          string state_str = i < N - 1 ? m.extract_state(s).to_string(true)
+                                       : m.extract_state_p(s).to_string(true);
           state_t.add_row({ index_str, state_str });
         }
       }

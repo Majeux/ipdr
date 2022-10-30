@@ -39,6 +39,7 @@ namespace mysat::primed
   expr Lit::unchanged() const { return current == next; }
 
   vector<string> Lit::names() const { return { current.to_string() }; }
+  vector<string> Lit::names_p() const { return { next.to_string() }; }
 
   bool Lit::extract_value(const z3::expr_vector& cube, lit_type t) const
   {
@@ -118,6 +119,7 @@ namespace mysat::primed
   const expr_vector& VarVec::operator()() const { return current; }
   const expr_vector& VarVec::p() const { return next; }
   vector<string> VarVec::names() const { return extract_names(current); }
+  vector<string> VarVec::names_p() const { return extract_names(next); }
 
   expr VarVec::operator()(size_t i) const
   {
@@ -197,6 +199,7 @@ namespace mysat::primed
   const expr_vector& ExpVec::p() const { return next; }
 
   vector<string> ExpVec::names() const { return extract_names(current); }
+  vector<string> ExpVec::names_p() const { return extract_names(next); }
 
   ExpVec& ExpVec::add(z3::expr e)
   {
@@ -255,6 +258,7 @@ namespace mysat::primed
   expr BitVec::p(size_t i) const { return next[i]; }
 
   vector<string> BitVec::names() const { return extract_names(current); }
+  vector<string> BitVec::names_p() const { return extract_names(next); }
 
   expr_vector BitVec::uint(numrep_t n) const { return unint_to_lits(n, false); }
   expr_vector BitVec::uint_p(numrep_t n) const

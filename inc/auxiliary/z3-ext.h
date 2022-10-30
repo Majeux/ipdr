@@ -137,10 +137,16 @@ namespace z3ext
       Witness(const z3::expr_vector& c, const z3::expr_vector& n);
     };
     // retrieve the current model in the solver as a cube
-    // the resulting cube is sorted by id()
+    // the resulting cube is sorted by lit_less
     // @ s has just completed a satisfiable check()
     z3::expr_vector get_witness(const z3::solver& s);
     std::vector<z3::expr> get_std_witness(const z3::solver& s);
+
+    // retrieve the current unsat core in the solver as a cube
+    // the resulting cube is sorted by lit_less
+    // @ s has just completed an unsatisfiable check()
+    z3::expr_vector get_core(const z3::solver& s);
+    std::vector<z3::expr> get_std_core(const z3::solver& s);
 
     // perform a solver.check() and return the resulting witness
     std::optional<z3::expr_vector> check_witness(z3::solver& s);

@@ -28,6 +28,7 @@ namespace mysat::primed
   {
    public:
     virtual std::vector<std::string> names() const = 0;
+    virtual std::vector<std::string> names_p() const = 0;
   };
 
   template <typename Tcontainer> class IPrimed : public INamed
@@ -70,6 +71,7 @@ namespace mysat::primed
     const z3::expr& p() const override;
     z3::expr unchanged() const override;
     std::vector<std::string> names() const override;
+    std::vector<std::string> names_p() const override;
 
     bool extract_value(const z3::expr_vector& cube, lit_type t = base) const;
 
@@ -87,6 +89,7 @@ namespace mysat::primed
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
     std::vector<std::string> names() const override;
+    std::vector<std::string> names_p() const override;
 
     z3::expr operator()(size_t i) const;
     z3::expr p(size_t i) const;
@@ -120,6 +123,7 @@ namespace mysat::primed
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
     std::vector<std::string> names() const override;
+    std::vector<std::string> names_p() const override;
 
     // add and automatically generate next state
     ExpVec& add(z3::expr e);
@@ -140,6 +144,9 @@ namespace mysat::primed
     using numrep_t                   = unsigned;
     static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
 
+    const size_t size;
+
+
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
     BitVec(z3::context& c, const std::string& n, size_t Nbits);
@@ -153,6 +160,7 @@ namespace mysat::primed
     const z3::expr_vector& operator()() const override;
     const z3::expr_vector& p() const override;
     std::vector<std::string> names() const override;
+    std::vector<std::string> names_p() const override;
 
     // all bits equal in current and next
     z3::expr unchanged() const override;
@@ -189,8 +197,6 @@ namespace mysat::primed
     }
 
    private:
-    size_t size;
-
     z3::expr_vector unint_to_lits(numrep_t n, bool primed) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"

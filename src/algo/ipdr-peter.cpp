@@ -86,7 +86,7 @@ namespace pdr::peterson
 
     unsigned old = model.n_processes();
 
-    alg.logger.and_show("naive change from {} / {}) -> {} / {}", old,
+    alg.logger.and_show("naive change from {} / {} -> {} / {}", old,
         model.max_processes(), processes, model.max_processes());
 
     model.constrain(processes);
