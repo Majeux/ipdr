@@ -184,6 +184,7 @@ namespace pdr::pebbling
     // process trace
     std::stringstream ss;
     std::vector<std::string> lits = model.vars.names();
+    std::vector<std::string> litsp = model.vars.names_p();
     std::sort(lits.begin(), lits.end());
 
     size_t longest =
@@ -197,9 +198,10 @@ namespace pdr::pebbling
       t.add_row(trace_header);
     }
 
-    auto make_row = [&lits, longest](string a, string b, const expr_vector& s)
+    auto make_row = [&longest](string a, string b, const expr_vector& s,
+                        const vector<string>& names)
     {
-      std::vector<std::string> r = state::marking(s, lits, longest);
+      std::vector<std::string> r = state::marking(s, names, longest);
       r.insert(r.begin(), b);
       r.insert(r.begin(), a);
       Table::Row_t rv;
@@ -210,26 +212,20 @@ namespace pdr::pebbling
     // Write strategy states
     {
       unsigned marked = model.get_f_pebbles();
-      for (size_t i = 0; i < res.trace().states.size(); i++)
+      size_t N = res.trace().states.size();
+      for (size_t i = 0; i < N; i++)
       {
         const z3::expr_vector& s = res.trace().states[i];
         unsigned pebbled         = state::no_marked(s);
         marked                   = std::max(marked, pebbled);
         string index_str         = (i == 0) ? "I" : to_string(i);
-        assert(i > 0 || s == model.get_initial());
+        assert(i > 0 || z3ext::eq(s, model.get_initial()));
 
-        Table::Row_t row_marking = make_row(index_str, to_string(pebbled), s);
+        Table::Row_t row_marking = make_row(
+            index_str, to_string(pebbled), s, (i < N - 1 ? lits : litsp));
         t.add_row(row_marking);
       }
       ss << format("Strategy for {} pebbles", marked) << std::endl << std::endl;
-    }
-
-    // Write final state
-    {
-      expr_vector final_state = model.n_property;
-      Table::Row_t final_row =
-          make_row("F", format("{}", model.get_f_pebbles()), final_state);
-      t.add_row(final_row);
     }
 
     t.format().font_align(tabulate::FontAlign::right);

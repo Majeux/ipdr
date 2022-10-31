@@ -46,7 +46,6 @@ namespace pdr
         PdrResult res = block_short(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
         {
-          std::cout << "final: " << witness->next << std::endl;
           res.append_final(witness->next);
           return res;
         }

@@ -111,7 +111,7 @@ namespace pdr
   {
     z3::expr_vector full_core = unsat_core();
 
-    std::cout << "raw_core:  " << full_core << std::endl << std::endl;
+    // std::cout << "raw_core:  " << full_core << std::endl << std::endl;
     if (full_core.size() == 0)
       return full_core;
 
