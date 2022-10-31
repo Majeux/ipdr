@@ -2,6 +2,8 @@
 #define PDR_MODEL
 
 #include <optional>
+#include <string>
+#include <vector>
 #include <z3++.h>
 
 #include "expr.h"
@@ -26,7 +28,7 @@ namespace pdr
     };
     Diff_t diff{ Diff_t::none };
 
-    IModel(const std::set<std::string>& varnames);
+    IModel(const std::vector<std::string>& varnames);
 
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;

@@ -8,7 +8,7 @@
 
 namespace pdr
 {
-  IModel::IModel(const std::set<std::string>& varnames)
+  IModel::IModel(const std::vector<std::string>& varnames)
       : ctx(), vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars),
         initial(ctx), transition(ctx), constraint(ctx)
   {

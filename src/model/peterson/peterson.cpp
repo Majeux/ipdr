@@ -165,7 +165,7 @@ namespace pdr::peterson
     return total;
   }
 
-  set<string> PetersonModel::create_vars()
+  Vars PetersonModel::create_vars()
   {
     using fmt::format;
     using z3::atleast;
@@ -218,16 +218,16 @@ namespace pdr::peterson
     // n_property.add(!atmost(conj, 1), !atmost(conj_p, 1)).finish();
 
     // collect symbol strings
-    set<string> rv;
+    Vars rv;
     auto append_names = [&rv](const mysat::primed::INamed& v)
     {
       for (std::string_view n : v.names())
       {
         // std::cout << n << std::endl;
-        rv.emplace(n);
+        rv.curr.emplace_back(n);
       }
-      // for (std::string_view n : v.names_p())
-      //   std::cout << n << std::endl;
+      for (std::string_view n : v.names_p())
+        rv.next.emplace_back(n);
     };
 
     for (const BitVec& var : pc)
@@ -250,7 +250,8 @@ namespace pdr::peterson
         nproc(BitVec::holding(ctx, "nproc", N)), pc(), level(), last()
   {
     using fmt::format;
-    vars.add(create_vars());
+    Vars allvars = create_vars();
+    vars.add(allvars.curr, allvars.next);
 
     for(auto n : vars.p())
       std::cout << n.to_string() << std::endl;

@@ -1,8 +1,10 @@
 #include "expr.h"
 #include "z3-ext.h"
+#include <cassert>
 #include <cstdlib>
 #include <optional>
 #include <regex>
+#include <stdexcept>
 
 namespace mysat::primed
 {
@@ -89,23 +91,51 @@ namespace mysat::primed
       if (e.is_not())
         rv = e.arg(0);
 
+      if (!rv.is_const())
+      {
+        const std::string msg =
+            fmt::format("`e` IS NOT A LITERAL:\n {}", e.to_string());
+        throw std::invalid_argument(msg);
+      }
+
       assert(rv.is_const());
       return rv;
     }
   } // namespace
 
-  VarVec::VarVec(z3::context& c, const std::set<string> names)
+  VarVec::VarVec(z3::context& c, const vector<string>& names)
       : IPrimed<expr_vector>(c, "varvec")
   {
     add(names);
   }
 
-  void VarVec::add(const std::set<string> names)
+  void VarVec::add(const vector<string>& names)
   {
-    for (const string& name : names)
+    for (const string& n : names)
     {
-      const expr new_curr = ctx.bool_const(name.c_str());
-      const expr new_next = ctx.bool_const(prime(name).c_str());
+      const expr new_curr = ctx.bool_const(n.c_str());
+      const expr new_next = ctx.bool_const(prime(n).c_str());
+
+      current.push_back(new_curr);
+      next.push_back(new_next);
+
+      to_current.emplace(new_next.id(), current.size() - 1);
+      to_next.emplace(new_curr.id(), next.size() - 1);
+    }
+  }
+
+  void VarVec::add(
+      const vector<string>& currnames, const vector<string>& nextnames)
+  {
+    assert(currnames.size() == nextnames.size());
+
+    for (size_t i{ 0 }; i < currnames.size(); i++)
+    {
+      const string& n_curr = currnames[i];
+      const string& n_next = nextnames[i];
+
+      const expr new_curr = ctx.bool_const(n_curr.c_str());
+      const expr new_next = ctx.bool_const(n_next.c_str());
 
       current.push_back(new_curr);
       next.push_back(new_next);
@@ -182,8 +212,17 @@ namespace mysat::primed
 
   bool VarVec::lit_is_p(const z3::expr& e) const
   {
-    expr key = strip_not(e);
-    return to_current.find(key.id()) != to_current.end();
+    bool rv{ false };
+    try
+    {
+      expr key = strip_not(e);
+      rv       = to_current.find(key.id()) != to_current.end();
+    }
+    catch (const std::invalid_argument& e)
+    {
+      return false;
+    }
+    return rv;
   }
 
   // ExpVec

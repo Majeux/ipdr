@@ -16,7 +16,7 @@ namespace pdr::pebbling
 
   PebblingModel::PebblingModel(
       const my::cli::ArgumentList& args, const dag::Graph& G)
-      : IModel(G.nodes)
+      : IModel(std::vector<string>(G.nodes.begin(), G.nodes.end()))
   {
     name = args.model_name;
 

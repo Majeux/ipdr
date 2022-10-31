@@ -23,13 +23,13 @@ namespace pdr
   {
    private:
     const mysat::primed::VarVec& vars;
+    z3::solver internal_solver;
     SolverState state;
     bool core_available = false;
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
 
    public:
-    z3::solver internal_solver;
     Solver(Context& ctx, const IModel& m, z3::expr_vector base,
         z3::expr_vector t, z3::expr_vector con);
 
@@ -111,6 +111,7 @@ namespace pdr
   {
     z3::expr_vector full_core = unsat_core();
 
+    std::cout << "raw_core:  " << full_core << std::endl << std::endl;
     if (full_core.size() == 0)
       return full_core;
 
@@ -121,6 +122,8 @@ namespace pdr
       if (p(e))
         core.push_back(t(e));
     }
+
+    z3ext::sort_lits(core);
 
     return z3ext::convert(core);
   }

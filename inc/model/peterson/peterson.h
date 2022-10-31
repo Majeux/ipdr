@@ -9,6 +9,7 @@
 namespace pdr::peterson
 {
   struct PetersonState;
+  struct Vars;
 
   // encode the peterson algorithm for mutual exclusion as a cnf formula
   // for p processes, to a maximum of N
@@ -62,7 +63,7 @@ namespace pdr::peterson
     // z3::expr_vector transition; // converted into cnf via tseytin
 
     // fill the pc, level, free and last variables
-    std::set<std::string> create_vars();
+    Vars create_vars();
 
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
@@ -111,6 +112,12 @@ namespace pdr::peterson
     bool operator<(const PetersonState&) const;
     bool operator==(const PetersonState&) const;
     bool operator!=(const PetersonState&) const;
+  };
+
+  struct Vars
+  {
+    std::vector<std::string> curr;
+    std::vector<std::string> next;
   };
 
 } // namespace pdr::peterson

@@ -81,11 +81,15 @@ namespace z3ext
 
   void sort_lits(vector<expr>& cube)
   {
+    if (cube.size() == 0)
+      return;
     std::sort(cube.begin(), cube.end(), lit_less());
   }
 
   void sort_lits(expr_vector& cube)
   {
+    if (cube.size() == 0)
+      return;
     vector<expr> std_vec = convert(cube);
     sort_lits(std_vec);
     cube = convert(std::move(std_vec));

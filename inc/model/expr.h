@@ -27,7 +27,7 @@ namespace mysat::primed
   class INamed
   {
    public:
-    virtual std::vector<std::string> names() const = 0;
+    virtual std::vector<std::string> names() const   = 0;
     virtual std::vector<std::string> names_p() const = 0;
   };
 
@@ -81,9 +81,13 @@ namespace mysat::primed
   class VarVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    VarVec(z3::context& c, const std::set<std::string> varnames);
+    VarVec(z3::context& c, const std::vector<std::string>& varnames);
 
-    void add(const std::set<std::string> varnames);
+    // add literals with given names and automatically generate next-state vars
+    void add(const std::vector<std::string>& varnames);
+    // add literals with given names and automatically generate next-state vars
+    void add(const std::vector<std::string>& currnames,
+        const std::vector<std::string>& nextnames);
 
     operator const z3::expr_vector&() const override;
     const z3::expr_vector& operator()() const override;
@@ -145,7 +149,6 @@ namespace mysat::primed
     static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
 
     const size_t size;
-
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
