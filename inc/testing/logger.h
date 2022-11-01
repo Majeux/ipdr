@@ -1,7 +1,6 @@
 #ifndef PDR_LOGGER_H
 #define PDR_LOGGER_H
 
-#include "dag.h"
 #include "stats.h"
 
 #include "_logging.h"

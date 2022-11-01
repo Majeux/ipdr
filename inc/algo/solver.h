@@ -2,6 +2,7 @@
 #define SOLVER_H
 #include "pdr-context.h"
 #include "z3-ext.h"
+#include "_logging.h"
 
 #include <fmt/core.h>
 #include <memory>

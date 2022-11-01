@@ -1,6 +1,7 @@
 #include "solver.h"
 #include "frame.h"
 #include "z3-ext.h"
+#include <spdlog/spdlog.h>
 #include <z3++.h>
 
 namespace pdr
@@ -77,11 +78,7 @@ namespace pdr
     if (result == z3::sat)
       return true;
 
-    // if (result == z3::check_result::unknown)
-    // {
-    // std::cout << as_str("", true);
     assert(result != z3::check_result::unknown);
-    // }
 
     core_available = true;
     return false;
@@ -95,6 +92,9 @@ namespace pdr
     assert(core_available);
     z3::expr_vector core = internal_solver.unsat_core();
     z3ext::sort_lits(core);
+
+    spdlog::trace("full core: {}\n---", core.to_string());
+    
     core_available = false;
     return core;
   }

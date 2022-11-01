@@ -45,7 +45,7 @@ namespace pdr
       }
     }
 
-    logger.tabbed("highest inductive frame is {}", highest);
+    logger.tabbed("highest inductive frame is {} / {}", highest, frames.frontier());
     return highest;
   }
 
@@ -63,6 +63,10 @@ namespace pdr
 
       core = frames.get_solver(result).unsat_core(next_lits, to_current);
 
+      if (core.size() == 0){
+        std::cerr << "0 core" << std::endl;
+        frames.log_blocked();
+      }
       // if I => !core, the subclause survives initiation and is inductive
       if (frames.init_solver.check(core) == z3::sat)
         core = cube; /// I /=> !core, use original

@@ -1,6 +1,7 @@
 #include "logger.h"
 #include "io.h"
 #include "stats.h"
+#include <spdlog/spdlog.h>
 
 namespace pdr
 {
@@ -26,6 +27,7 @@ namespace pdr
   {
     // log file truncates
     spd_logger = spdlog::basic_logger_mt("pdr_logger", log_file, true);
+    spdlog::set_default_logger(spd_logger);
     spd_logger->set_level(spdlog::level::trace);
     // spdlog::flush_every(std::chrono::seconds(20));
     spdlog::flush_on(spdlog::level::trace);

@@ -61,6 +61,7 @@ namespace pdr
     //
     // pops frames until the given index is the frontier
     void clear_until(size_t until_index);
+    // initialize a new frame to the base
     void extend();
 
     // reset solvers and repopulate with current blocked cubes
@@ -109,6 +110,7 @@ namespace pdr
     // returns all cubes blocked in Frame 1. adjusted for delta encoding.
     z3ext::CubeSet get_blocked(size_t i) const;
 
+    void log_blocked() const;
     void log_solvers(bool clauses_only) const;
     std::string blocked_str() const;
     std::string solvers_str(bool clauses_only) const;

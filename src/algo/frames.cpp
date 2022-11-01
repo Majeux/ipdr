@@ -525,6 +525,13 @@ namespace pdr
   //
   // end getters
 
+  void Frames::log_blocked() const
+  {
+    logger(SEP3);
+    logger(blocked_str());
+    logger(SEP3);
+  }
+
   void Frames::log_solvers(bool only_clauses) const
   {
     logger(SEP3);
