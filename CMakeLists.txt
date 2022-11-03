@@ -1,5 +1,5 @@
 ﻿OPTION(DO_LOG "Produce logs in logs/ folder" OFF)
-OPTION(PERFORMANCE "compile optimized for performance with O3" OFF)
+OPTION(DEBUG "turn off O3 and turn on assertions" OFF)
 # option(SPDLOG_FMT_EXTERNAL "Use external fmt library instead of bundled" ON)
 # option(FMT_HEADER_ONLY "Use external fmt library instead of bundled" ON)
 
@@ -32,16 +32,16 @@ add_executable (pebbling-pdr ${SOURCES} ${MODEL_SOURCES} ${PDR_MODEL_SOURCES} ${
 # Set default compile flags for GCC
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(STATUS "GCC detected, adding compile flags")
-    if (PERFORMANCE)
+    if (DEBUG)
+        message(STATUS "! compiling without -O3")
+        set(OPT "")
+    else ()
         target_compile_definitions(pebbling-pdr PRIVATE )
         message(STATUS "! compiling with -O3")
         target_compile_definitions(pebbling-pdr PRIVATE NDEBUG)
         message(STATUS "! compiling with NDEBUG")
         set(OPT "-O3")
-    else ()
-        message(STATUS "! compiling without -O3")
-        set(OPT "")
-    endif (PERFORMANCE)
+    endif (DEBUG)
 
     # set(SANITIZE "-fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -fsanitize-address-track-origins")
     # set(SANITIZE "-fsanitize=memory -fno-omit-frame-pointer -fsanitize-memory-track-origins")

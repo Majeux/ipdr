@@ -1,22 +1,35 @@
 #include "solver.h"
 #include "frame.h"
 #include "z3-ext.h"
-#include <spdlog/spdlog.h>
+#include <algorithm>
 #include <z3++.h>
+
+#include <spdlog/spdlog.h>
+#include <vector>
 
 namespace pdr
 {
+  using std::vector;
+  using z3::expr;
+  using z3::expr_vector;
+
 #warning still duplicates in solver in dump
-  Solver::Solver(Context& ctx, const IModel& m, z3::expr_vector base,
-      z3::expr_vector transition, z3::expr_vector constraint)
-      : vars(m.vars), internal_solver(ctx), state(SolverState::neutral)
+  Solver::Solver(Context& ctx, const IModel& m, expr_vector base,
+      expr_vector transition, expr_vector constraint)
+      : vars(m.vars), internal_solver(ctx)
   {
     internal_solver.set("sat.cardinality.solver", true);
 #warning TODO sat.core.minimize
     internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
     // consecution_solver.set("lookahead_simplify", true);
+    remake(base, transition, constraint);
+  }
 
+  void Solver::remake(
+      expr_vector base, expr_vector transition, expr_vector constraint)
+  {
+    internal_solver.reset();
     // backtracking point to solver without constraints or blocked states
     internal_solver.add(base);
     internal_solver.add(transition);
@@ -41,11 +54,11 @@ namespace pdr
   void Solver::reset(const z3ext::CubeSet& cubes)
   {
     reset();
-    for (const z3::expr_vector& cube : cubes)
+    for (const expr_vector& cube : cubes)
       block(cube);
   }
 
-  void Solver::reconstrain_clear(z3::expr_vector constraint)
+  void Solver::reconstrain_clear(expr_vector constraint)
   {
     internal_solver.pop(2); // remove all blocked cubes and constraint
     internal_solver.push(); // remake constraintless backtracking point
@@ -54,62 +67,68 @@ namespace pdr
     clauses_start = internal_solver.assertions().size();
   }
 
-  void Solver::block(const z3::expr_vector& cube)
+  void Solver::block(const expr_vector& cube)
   {
-    z3::expr clause = z3::mk_or(z3ext::negate(cube));
+    expr clause = z3::mk_or(z3ext::negate(cube));
     internal_solver.add(clause);
   }
 
-  void Solver::block(const z3::expr_vector& cube, const z3::expr& act)
+  void Solver::block(const expr_vector& cube, const expr& act)
   {
-    z3::expr clause = z3::mk_or(z3ext::negate(cube));
+    expr clause = z3::mk_or(z3ext::negate(cube));
     internal_solver.add(clause | !act);
   }
 
-  void Solver::block(const z3ext::CubeSet& cubes, const z3::expr& act)
+  void Solver::block(const z3ext::CubeSet& cubes, const expr& act)
   {
-    for (const z3::expr_vector& cube : cubes)
+    for (const expr_vector& cube : cubes)
       block(cube, act);
   }
 
-  bool Solver::SAT(const z3::expr_vector& assumptions)
+  bool Solver::SAT(const expr_vector& assumptions)
   {
+    state                   = SolverState::fresh;
     z3::check_result result = internal_solver.check(assumptions);
     if (result == z3::sat)
+    {
+      state = SolverState::witness_avaible;
       return true;
+    }
 
     assert(result != z3::check_result::unknown);
 
-    core_available = true;
+    state = SolverState::core_available;
     return false;
   }
 
   z3::model Solver::get_model() const { return internal_solver.get_model(); }
 
   // TODO optional return
-  z3::expr_vector Solver::unsat_core()
+  expr_vector Solver::unsat_core() const
   {
-    assert(core_available);
-    z3::expr_vector core = internal_solver.unsat_core();
+    assert(state == SolverState::core_available);
+
+    expr_vector core = internal_solver.unsat_core();
     z3ext::sort_lits(core);
 
     spdlog::trace("full core: {}\n---", core.to_string());
-    
-    core_available = false;
+
     return core;
   }
 
-  z3::expr_vector Solver::witness_current() const
+  vector<expr> Solver::std_witness_current() const
   {
+    assert(state == SolverState::witness_avaible);
+
     z3::model m = internal_solver.get_model();
-    std::vector<z3::expr> std_vec;
+    vector<expr> std_vec;
     std_vec.reserve(m.num_consts());
 
     for (unsigned i = 0; i < m.size(); i++)
     {
-      z3::func_decl f        = m[i];
-      z3::expr boolean_value = m.get_const_interp(f);
-      z3::expr literal       = f();
+      z3::func_decl f    = m[i];
+      expr boolean_value = m.get_const_interp(f);
+      expr literal       = f();
 
       if (vars.lit_is_current(literal))
       {
@@ -121,9 +140,44 @@ namespace pdr
           throw std::runtime_error("model contains non-constant");
       }
     }
-    z3ext::sort_lits(std_vec);
 
-    return z3ext::convert(std_vec);
+    z3ext::sort_lits(std_vec);
+    return std_vec;
+  }
+
+  expr_vector Solver::witness_current() const
+  {
+    return z3ext::convert(std_witness_current());
+  }
+
+  vector<expr> Solver::witness_current_intersect(const vector<expr>& ev) const
+  {
+    assert(state == SolverState::witness_avaible);
+
+    z3::model m = internal_solver.get_model();
+    vector<expr> std_vec;
+    std_vec.reserve(m.num_consts());
+
+    for (unsigned i = 0; i < m.size(); i++)
+    {
+      z3::func_decl f    = m[i];
+      expr boolean_value = m.get_const_interp(f);
+      expr literal       = f();
+
+      if (vars.lit_is_current(literal) &&
+          std::binary_search(ev.begin(), ev.end(), literal, z3ext::lit_less()))
+      {
+        if (boolean_value.is_true())
+          std_vec.push_back(literal);
+        else if (boolean_value.is_false())
+          std_vec.push_back(!literal);
+        else
+          throw std::runtime_error("model contains non-constant");
+      }
+    }
+
+    z3ext::sort_lits(std_vec);
+    return std_vec;
   }
 
   std::string Solver::as_str(const std::string& header, bool clauses_only) const
@@ -133,8 +187,8 @@ namespace pdr
     ss << "z3::statistics" << std::endl;
     ss << internal_solver.statistics() << std::endl;
 
-    const z3::expr_vector asserts = internal_solver.assertions();
-    auto it                       = asserts.begin();
+    const expr_vector asserts = internal_solver.assertions();
+    auto it                   = asserts.begin();
     if (clauses_only) // skip base, transition and constraint
     {
       for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)

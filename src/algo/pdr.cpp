@@ -148,7 +148,7 @@ namespace pdr
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
-        expr_vector sub_cube = generalize(core, n);
+        expr_vector sub_cube = generalize(core.value(), n);
         frames.remove_state(sub_cube, n + 1);
 
         PdrResult res = block(cti->curr, n);
@@ -167,7 +167,7 @@ namespace pdr
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
-      frames.log_solvers(true);
+      frames.log_solver(true);
 
       if (invariant_level)
         return PdrResult::found_invariant(*invariant_level);
@@ -221,7 +221,7 @@ namespace pdr
         if (m < 0) // intersects with I
           return PdrResult::found_trace(pred);
 
-        expr_vector smaller_pred = generalize(core, m);
+        expr_vector smaller_pred = generalize(core.value(), m);
         frames.remove_state(smaller_pred, m + 1);
 
         if (static_cast<unsigned>(m + 1) <= k)
@@ -245,7 +245,7 @@ namespace pdr
           return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core, m);
+        expr_vector smaller_state = generalize(core.value(), m);
         // expr_vector smaller_state = generalize(state->cube, m);
         frames.remove_state(smaller_state, m + 1);
         obligations.erase(obligations.begin());
@@ -292,7 +292,7 @@ namespace pdr
        << frames.blocked_str() << endl
        << SEP2 << endl
        << "Solvers" << endl
-       << frames.solvers_str(true) << endl;
+       << frames.solver_str(true) << endl;
 
     logger.stats.solver_dumps.push_back(ss.str());
   }

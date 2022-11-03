@@ -25,23 +25,16 @@ namespace pdr
         z3ext::CubeSet blocked_cubes;
         unsigned level;
         Logger& logger;
-        std::unique_ptr<Solver> solver;
         // the arguments of the clause are sorted by mic, use id to search
 
         void init_solver();
 
       public:
-        // Delta frame, without solver
         Frame(unsigned i, Logger& l);
-        // Fat frame, with its own solver
-        Frame(unsigned i, std::unique_ptr<Solver>&& s, Logger& l);
-
-        void clean_solver();
 
         unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
         bool blocked(const z3::expr_vector& cube);
         bool block(const z3::expr_vector& cube);
-        void block_in_solver(const z3::expr_vector& cube);
 
         // Frame comparisons
         bool equals(const Frame& f) const;
@@ -50,8 +43,6 @@ namespace pdr
         // getters
         const z3ext::CubeSet& get_blocked() const;
         bool empty() const;
-        Solver& get_solver() const;
-        const Solver& get_const_solver() const;
 
         // string representations
         std::string blocked_str() const;

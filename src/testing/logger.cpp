@@ -33,6 +33,6 @@ namespace pdr
     spdlog::flush_on(spdlog::level::trace);
     // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%# %!()]");
     // spdlog::set_pattern("[%C-%m-%d %T:%e] %v \n  @[%s:%#]");
-    spdlog::set_pattern("[%C-%m-%d %T:%e] %v");
+    spdlog::set_pattern("%T [%=8l] %v");
   }
 } // namespace pdr

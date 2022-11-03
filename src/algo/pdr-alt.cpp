@@ -59,7 +59,7 @@ namespace pdr
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
-      logger(frames.blocked_str());
+      frames.log_solver(true);
 
       if (invariant_level)
         return PdrResult::found_invariant(*invariant_level);
@@ -72,6 +72,7 @@ namespace pdr
     logger.tabbed("block");
     logger.indent++;
 
+#warning is dit nog enigzins ok?
     if (ctx.type != Tactic::increment)
     {
       logger.tabbed_and_whisper("Cleared obligations.");
@@ -124,7 +125,7 @@ namespace pdr
           return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core, m);
+        expr_vector smaller_state = generalize(core.value(), m);
         frames.remove_state(smaller_state, m + 1);
         obligations.erase(obligations.begin());
 

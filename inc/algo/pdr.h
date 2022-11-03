@@ -18,7 +18,6 @@
 #include <memory>
 #include <optional>
 #include <ostream>
-#include <parallel_hashmap/phmap_bits.h>
 #include <queue>
 #include <spdlog/stopwatch.h>
 #include <string>
@@ -56,6 +55,12 @@ namespace pdr
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = UINT_MAX;
 
+    struct HIFresult
+    {
+      int level;
+      std::optional<z3::expr_vector> core;
+    };
+
     void print_model(const z3::model& m);
     // main algorithm
     PdrResult init();
@@ -65,9 +70,8 @@ namespace pdr
     PdrResult block_short(z3::expr_vector&& counter, unsigned n);
     // generalization
     // todo return [n, cti ptr]
-    int hif_(const z3::expr_vector& cube, int min);
-    std::tuple<int, z3::expr_vector> highest_inductive_frame(
-        const z3::expr_vector& cube, int min);
+    HIFresult hif_(const z3::expr_vector& cube, int min);
+    HIFresult highest_inductive_frame(const z3::expr_vector& cube, int min);
     z3::expr_vector generalize(const z3::expr_vector& cube, int level);
     z3::expr_vector MIC(const z3::expr_vector& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
@@ -143,7 +147,8 @@ namespace pdr
       IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
 
       // runs the optimizer as dictated by the argument
-      PetersonResult run(Tactic tactic, unsigned processes, bool control = false);
+      PetersonResult run(
+          Tactic tactic, unsigned processes, bool control = false);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
       PetersonResult control_run(Tactic tactic, unsigned processes);

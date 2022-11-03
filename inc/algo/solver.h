@@ -1,8 +1,8 @@
 #ifndef SOLVER_H
 #define SOLVER_H
+#include "_logging.h"
 #include "pdr-context.h"
 #include "z3-ext.h"
-#include "_logging.h"
 
 #include <fmt/core.h>
 #include <memory>
@@ -15,7 +15,7 @@ namespace pdr
 {
   enum class SolverState
   {
-    neutral,
+    fresh,
     witness_avaible,
     core_available,
   };
@@ -25,15 +25,18 @@ namespace pdr
    private:
     const mysat::primed::VarVec& vars;
     z3::solver internal_solver;
-    SolverState state;
-    bool core_available = false;
+    SolverState state{ SolverState::fresh };
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
+
+    std::vector<z3::expr> std_witness_current() const;
 
    public:
     Solver(Context& ctx, const IModel& m, z3::expr_vector base,
         z3::expr_vector t, z3::expr_vector con);
 
+    void remake(z3::expr_vector base, z3::expr_vector transition,
+        z3::expr_vector constraint);
     void reset();
     void reset(const z3ext::CubeSet& cubes);
     // sets a new ccnf constraint, removes all blocked cubes
@@ -45,8 +48,10 @@ namespace pdr
 
     bool SAT(const z3::expr_vector& assumptions);
     z3::model get_model() const;
+    z3::model witness_raw() const;
     z3::expr_vector witness_current() const;
-    z3::expr_vector witness_current_intersect(const z3::expr_vector vec) const;
+    std::vector<z3::expr> witness_current_intersect(
+        const std::vector<z3::expr>& vec) const;
 
     std::string as_str(const std::string& header, bool clauses_only) const;
 
@@ -64,7 +69,7 @@ namespace pdr
     // assumptions the resulting vector or expr_vector is in sorted order
     // assumes a core is only extracted once
     // ! result is sorted
-    z3::expr_vector unsat_core();
+    z3::expr_vector unsat_core() const;
     // template UnaryPredicate: function expr->bool to filter literals from
     // the core template Transform: function expr->expr. each literal is
     // replaced by result before pushing
