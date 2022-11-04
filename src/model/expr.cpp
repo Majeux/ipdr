@@ -13,6 +13,7 @@ namespace mysat::primed
   using z3::expr;
   using z3::expr_vector;
   using z3::mk_and;
+  using z3ext::strip_not;
 
   namespace
   {
@@ -81,28 +82,6 @@ namespace mysat::primed
 
   // VarVec
   // public
-  namespace
-  {
-    // get the variable of a literal
-    // throws if e is not a literal
-    expr strip_not(const expr& e)
-    {
-      expr rv = e;
-      if (e.is_not())
-        rv = e.arg(0);
-
-      if (!rv.is_const())
-      {
-        const std::string msg =
-            fmt::format("`e` IS NOT A LITERAL:\n {}", e.to_string());
-        throw std::invalid_argument(msg);
-      }
-
-      assert(rv.is_const());
-      return rv;
-    }
-  } // namespace
-
   VarVec::VarVec(z3::context& c, const vector<string>& names)
       : IPrimed<expr_vector>(c, "varvec")
   {

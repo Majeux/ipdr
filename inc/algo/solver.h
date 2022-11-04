@@ -4,6 +4,7 @@
 #include "pdr-context.h"
 #include "z3-ext.h"
 
+#include <exception>
 #include <fmt/core.h>
 #include <memory>
 #include <numeric>
@@ -15,14 +16,51 @@ namespace pdr
 {
   enum class SolverState
   {
-    fresh,
-    witness_avaible,
-    core_available,
+    fresh,             // neither is available
+    witness_available, // only witness, not core
+    core_available,    // only core, not witness
   };
 
   class Solver
   {
    private:
+    class InvalidExtraction : public std::exception
+    {
+     private:
+      std::string message{ "Solver::InvalidExtraction" };
+
+      void explain(std::string_view msg)
+      {
+        message += fmt::format(": {}", msg);
+      }
+
+     public:
+      InvalidExtraction(std::string_view msg) : message() { explain(msg); }
+      InvalidExtraction(SolverState s)
+      {
+        switch (s)
+        {
+          case SolverState::fresh:
+            explain("witness and core unavailable");
+            break;
+          case SolverState::witness_available:
+            explain("core unavailable");
+            break;
+          case SolverState::core_available:
+            explain("witness unavailable");
+            break;
+        }
+      }
+
+      static InvalidExtraction NonConstant(const z3::expr& e)
+      {
+        return InvalidExtraction(
+            fmt::format("witness contains non-constant: {}", e.to_string()));
+      }
+
+      const char* what() const noexcept override { return message.c_str(); }
+    };
+
     const mysat::primed::VarVec& vars;
     z3::solver internal_solver;
     SolverState state{ SolverState::fresh };
@@ -105,10 +143,11 @@ namespace pdr
         else if (b_value.is_false())
           v.push_back(!literal);
         else
-          throw std::runtime_error("model contains non-constant");
+          throw InvalidExtraction::NonConstant(b_value);
       }
     }
-    z3ext::sort_lits(v);
+    z3ext::order_lits(v);
+
     return v;
   }
 
@@ -129,7 +168,7 @@ namespace pdr
         core.push_back(t(e));
     }
 
-    z3ext::sort_lits(core);
+    z3ext::order_lits(core);
 
     return z3ext::convert(core);
   }

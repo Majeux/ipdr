@@ -1,9 +1,10 @@
 #ifndef PDR_LOGGER_H
 #define PDR_LOGGER_H
 
+#include "_logging.h"
 #include "stats.h"
 
-#include "_logging.h"
+#include <dbg.h>
 #include <fmt/core.h>
 #include <fstream>
 #include <memory>
@@ -90,18 +91,27 @@ namespace pdr
     {
       (void)message_fmt;
       sink{ std::forward<Args>(a)... };
-      SPDLOG_LOGGER_DEBUG(
-          spd_logger, std::string{tabsep}.append(message_fmt), tab(), std::forward<Args>(a)...);
+      SPDLOG_LOGGER_DEBUG(spd_logger, std::string{ tabsep }.append(message_fmt),
+          tab(), std::forward<Args>(a)...);
     }
 
-    // log a message with indent
+    void tabbed_trace(std::string_view message_fmt)
+    {
+      std::cout << "test" << std::endl;
+      (void)message_fmt;
+      // SPDLOG_LOGGER_TRACE(spd_logger,
+      //     (std::string{ tabsep }.append(message_fmt)), tab(), "");
+      SPDLOG_LOGGER_TRACE(spd_logger, dbg("{}| test --> {}"), tab(), " t");
+    }
+
     template <typename... Args>
     void tabbed_trace(std::string_view message_fmt, Args&&... a)
     {
       (void)message_fmt;
       sink{ std::forward<Args>(a)... };
-      SPDLOG_LOGGER_TRACE(
-          spd_logger, std::string{tabsep}.append(message_fmt), tab(), std::forward<Args>(a)...);
+      SPDLOG_LOGGER_TRACE(spd_logger,
+          (std::string{ tabsep }.append(message_fmt)), tab(),
+          std::forward<Args>(a)...);
     }
 
     // NON-LOGGING OUTPUT
@@ -132,8 +142,7 @@ namespace pdr
       SPDLOG_LOGGER_DEBUG(spd_logger, message, std::forward<Args>(a)...);
     }
 
-    template <typename... Args>
-    void warn(std::string_view message, Args&&... a)
+    template <typename... Args> void warn(std::string_view message, Args&&... a)
     {
       show(message, std::forward<Args>(a)...);
       SPDLOG_LOGGER_WARN(spd_logger, message, std::forward<Args>(a)...);

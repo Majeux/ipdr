@@ -19,6 +19,23 @@ namespace z3ext
     return e.is_bool() && (e.is_not() || e.is_const());
   }
 
+  expr strip_not(const expr& e)
+  {
+    expr rv = e;
+    if (e.is_not())
+      rv = e.arg(0);
+
+    if (!rv.is_const())
+    {
+      const std::string msg =
+          fmt::format("`e` is not a literal:\n {}", e.to_string());
+      throw std::invalid_argument(msg);
+    }
+
+    assert(rv.is_const());
+    return rv;
+  }
+
   expr_vector copy(const expr_vector& v)
   {
     z3::expr_vector new_v(v.ctx());
@@ -99,11 +116,31 @@ namespace z3ext
   {
     std::sort(v.begin(), v.end(), expr_less());
   }
+
   void sort_exprs(expr_vector& v)
   {
     vector<expr> std_vec = convert(v);
     sort_exprs(std_vec);
     v = convert(std::move(std_vec));
+  }
+
+  void order_lits(std::vector<z3::expr>& cube)
+  {
+    std::sort(cube.begin(), cube.end(), cube_orderer);
+  }
+
+  void order_lits(z3::expr_vector& cube)
+  {
+    if (cube.size() == 0)
+      return;
+    vector<expr> std_vec = convert(cube);
+    order_lits(std_vec);
+    cube = convert(std::move(std_vec));
+  }
+
+  bool lits_ordered(const vector<expr>& cube)
+  {
+    return std::is_sorted(cube.cbegin(), cube.cend(), cube_orderer);
   }
 
   bool subsumes_l(const expr_vector& l, const expr_vector& r)
@@ -140,20 +177,32 @@ namespace z3ext
 
   // COMPARATOR FUNCTORS
   //
-  bool lit_less::operator()(const expr& l, const expr& r) const
+
+  // LESS THAN
+  bool strip_not_less(const expr& l, const expr& r)
   {
     unsigned a = l.is_not() ? l.arg(0).id() : l.id();
     unsigned b = r.is_not() ? r.arg(0).id() : r.id();
 
     return a < b;
+  }
+
+  bool id_less(const expr& a, const expr& b) { return a.id() < b.id(); }
+
+  bool lit_less::operator()(const expr& l, const expr& r) const
+  {
+    return strip_not_less(l, r);
   };
 
   bool expr_less::operator()(const expr& l, const expr& r) const
   {
-    return l.id() < r.id();
+    return id_less(l, r);
   };
 
-  size_t expr_hash::operator()(const expr& l) const { return l.id(); };
+  // bool cube_order_less::operator()(const expr& l, const expr& r) const
+  // {
+  //   return id_less(l, r);
+  // };
 
   bool expr_vector_less::operator()(
       const expr_vector& l, const expr_vector& r) const
@@ -171,6 +220,10 @@ namespace z3ext
     // all elements equal to a point
     return l.size() < r.size();
   }
+
+  // END LESS THAN
+
+  size_t expr_hash::operator()(const expr& l) const { return l.id(); };
 
   // SOLVER AIDS
   //
@@ -207,7 +260,7 @@ namespace z3ext
           throw std::runtime_error("model contains non-constant");
       }
 
-      sort_lits(std_vec);
+      order_lits(std_vec);
 
       return std_vec;
     }
@@ -220,7 +273,7 @@ namespace z3ext
     vector<expr> get_std_core(const z3::solver& s)
     {
       vector<expr> core = convert(s.unsat_core());
-      z3ext::sort_lits(core);
+      order_lits(core);
       return core;
     }
 

@@ -91,7 +91,7 @@ namespace pdr
     z3::check_result result = internal_solver.check(assumptions);
     if (result == z3::sat)
     {
-      state = SolverState::witness_avaible;
+      state = SolverState::witness_available;
       return true;
     }
 
@@ -106,10 +106,11 @@ namespace pdr
   // TODO optional return
   expr_vector Solver::unsat_core() const
   {
-    assert(state == SolverState::core_available);
+    if(state != SolverState::core_available)
+      throw InvalidExtraction(state);
 
     expr_vector core = internal_solver.unsat_core();
-    z3ext::sort_lits(core);
+    z3ext::order_lits(core);
 
     spdlog::trace("full core: {}\n---", core.to_string());
 
@@ -118,7 +119,8 @@ namespace pdr
 
   vector<expr> Solver::std_witness_current() const
   {
-    assert(state == SolverState::witness_avaible);
+    if(state != SolverState::witness_available)
+      throw InvalidExtraction(state);
 
     z3::model m = internal_solver.get_model();
     vector<expr> std_vec;
@@ -137,11 +139,11 @@ namespace pdr
         else if (boolean_value.is_false())
           std_vec.push_back(!literal);
         else
-          throw std::runtime_error("model contains non-constant");
+          throw InvalidExtraction::NonConstant(boolean_value);
       }
     }
 
-    z3ext::sort_lits(std_vec);
+    z3ext::order_lits(std_vec);
     return std_vec;
   }
 
@@ -152,31 +154,45 @@ namespace pdr
 
   vector<expr> Solver::witness_current_intersect(const vector<expr>& ev) const
   {
-    assert(state == SolverState::witness_avaible);
+    using z3ext::join_expr_vec;
+    using z3ext::lit_less;
+
+    if(state != SolverState::witness_available)
+      throw InvalidExtraction(state);
+
+    assert(z3ext::lits_ordered(ev));
 
     z3::model m = internal_solver.get_model();
+
     vector<expr> std_vec;
     std_vec.reserve(m.num_consts());
 
     for (unsigned i = 0; i < m.size(); i++)
     {
+      if (std_vec.size() >= ev.size()) // intersection cannot be larger than ev
+        break;
+
       z3::func_decl f    = m[i];
       expr boolean_value = m.get_const_interp(f);
-      expr literal       = f();
+      expr var           = f();
 
-      if (vars.lit_is_current(literal) &&
-          std::binary_search(ev.begin(), ev.end(), literal, z3ext::lit_less()))
+      if (vars.lit_is_current(var))
       {
+        expr literal(var.ctx());
         if (boolean_value.is_true())
-          std_vec.push_back(literal);
+          literal = var;
         else if (boolean_value.is_false())
-          std_vec.push_back(!literal);
+          literal = !var;
         else
-          throw std::runtime_error("model contains non-constant");
+          throw InvalidExtraction::NonConstant(boolean_value);
+      
+        // search for 
+        if (std::binary_search(ev.begin(), ev.end(), literal, z3ext::cube_orderer))
+          std_vec.push_back(literal);
       }
     }
 
-    z3ext::sort_lits(std_vec);
+    z3ext::order_lits(std_vec);
     return std_vec;
   }
 

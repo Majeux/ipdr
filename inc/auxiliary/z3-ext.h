@@ -14,6 +14,9 @@ namespace z3ext
 {
   z3::expr minus(const z3::expr& e);
   bool is_lit(const z3::expr& e);
+  // get the variable of a literal
+  // throws if e is not a literal
+  z3::expr strip_not(const z3::expr& e);
 
   // allocates new vector
   // by default, assignment and copy constructors copy a reference to an
@@ -32,11 +35,11 @@ namespace z3ext
   z3::expr_vector convert(std::vector<z3::expr>&& vec);
   std::vector<z3::expr> convert(const z3::expr_vector& vec);
 
-  // allocates new vector
+  // ! allocates new vector
   // list all arguments of an expression
   z3::expr_vector args(const z3::expr& e);
 
-  // sort based on literals
+  // sort based on var of a literal
   // @ cube is a vector of literals
   void sort_lits(std::vector<z3::expr>& cube);
   void sort_lits(z3::expr_vector& cube);
@@ -79,6 +82,13 @@ namespace z3ext
   {
     bool operator()(const z3::expr_vector& l, const z3::expr_vector& r) const;
   };
+
+  // internal cube order by pdr
+  //
+  inline expr_less cube_orderer;
+  void order_lits(std::vector<z3::expr>& cube);
+  void order_lits(z3::expr_vector& cube);
+  bool lits_ordered(const std::vector<z3::expr>& cube);
 
   // TEMPLATE FUNCTIONS
   //
@@ -173,7 +183,7 @@ namespace z3ext
             throw std::runtime_error("model contains non-constant");
         }
       }
-      sort_lits(v);
+      order_lits(v);
       return v;
     }
 

@@ -58,7 +58,6 @@ namespace pdr
       core = frames.get_solver(i).unsat_core(next_lits, to_current);
     }
 
-
     logger.tabbed(
         "highest inductive frame is {} / {}", highest, frames.frontier());
     return { highest, core };
@@ -68,7 +67,8 @@ namespace pdr
   {
     expr_vector rv_core(ctx());
     const HIFresult result = hif_(cube, min);
-    if (result.level >= 0 && result.level >= min && result.core) // if unsat result occurs
+    if (result.level >= 0 && result.level >= min &&
+        result.core) // if unsat result occurs
     {
       if (result.core->size() == 0)
       {
@@ -110,32 +110,35 @@ namespace pdr
     // used for sorting
     vector<expr> cube = z3ext::convert(state);
 
-    assert(std::is_sorted(cube.begin(), cube.end(), z3ext::lit_less()));
     unsigned attempts = 0;
     for (unsigned i = 0; i < cube.size();)
     {
+      assert(z3ext::lits_ordered(cube));
       if (attempts > mic_retries)
       {
-        logger("MIC exceeded {} attempts", mic_retries);
+        logger.warn("MIC exceeded {} attempts", mic_retries);
         break;
       }
       vector<expr> new_cube(cube.begin(), cube.begin() + i);
       new_cube.reserve(cube.size() - 1);
       new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
 
-      logger("verifying subcube [{}]", z3ext::join_expr_vec(new_cube, false));
+      logger.tabbed_trace("verifying subcube [{}]", z3ext::join_expr_vec(new_cube, false));
 
       logger.indent++;
       if (down(new_cube, level))
       {
         // current literal was dropped, i now points to the next
         cube     = std::move(new_cube);
+        logger.tabbed_trace("sub-cube survived");
+        logger.tabbed_trace("reduced cube by down = [{}]", z3ext::join_expr_vec(cube));
         attempts = 0;
         // SPDLOG_LOGGER_TRACE(log, "{}| reduced cube: [{}]", TAB,
         // join(cube));
       }
       else
       {
+        logger.tabbed_trace("sub-cube failed");
         i++;
         attempts++;
       }
@@ -148,16 +151,26 @@ namespace pdr
   // state is sorted
   bool PDR::down(vector<expr>& state, int level)
   {
-    assert(std::is_sorted(state.begin(), state.end(), z3ext::lit_less()));
 
     while (true)
     {
+      assert(z3ext::lits_ordered(state));
       expr* const raw_state = state.data();
       if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
+      {
+        logger.tabbed_trace("state includes I");
         return false;
+      }
 
       if (!frames.inductive(state, level))
+      {
+        logger.tabbed_trace("state is not inductive {}", 0);
+        logger.tabbed_trace("intersect with witness {}", 0);
+        logger.indent++;
         state = frames.get_solver(level).witness_current_intersect(state);
+        logger.indent--;
+        logger.tabbed_trace("new intersected state -> [{}]", join_expr_vec(state));
+      }
       else
         return true;
     }

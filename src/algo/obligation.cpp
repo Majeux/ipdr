@@ -1,4 +1,6 @@
 #include "obligation.h"
+#include "z3-ext.h"
+#include <algorithm>
 
 namespace pdr
 {
@@ -76,10 +78,12 @@ namespace pdr
     vector<string> marking(
         const PdrState& s, vector<string> header, unsigned width)
     {
+      std::is_sorted(header.begin(), header.end());
+
       vector<string> rv(header.size(), "?");
       for (const z3::expr& e : s.cube)
       {
-        string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
+        string s = z3ext::strip_not(e).to_string();
         auto it  = std::lower_bound(header.begin(), header.end(), s);
         if (it != header.end() && *it == s) // it points to s
         {
