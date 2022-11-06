@@ -2,7 +2,6 @@
 #define PDR_RESULT_H
 
 #include "obligation.h"
-#include "output.h"
 #include "pdr-model.h"
 #include "pebbling-model.h"
 #include "tactic.h"

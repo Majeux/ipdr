@@ -1,6 +1,6 @@
 #include "pdr.h"
 #include "TextTable.h"
-#include "output.h"
+#include "logger.h"
 #include "result.h"
 #include "solver.h"
 #include "stats.h"
@@ -31,7 +31,7 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(Context& c, IModel& m, Logger& l)
-      : ctx(c), model(m), logger(l), frames(ctx, model, logger)
+      : ctx(c), model(m), log(l), frames(ctx, model, log)
   {
   }
 
@@ -42,10 +42,10 @@ namespace pdr
 
   void PDR::print_model(const z3::model& m)
   {
-    logger.show("model consts \{");
+    log.show("model consts \{");
     for (unsigned i = 0; i < m.num_consts(); i++)
-      logger.show("\t{}", m.get_const_interp(m.get_const_decl(i)).to_string());
-    logger.show("}");
+      log.show("\t{}", m.get_const_interp(m.get_const_decl(i)).to_string());
+    log.show("}");
   }
 
   PdrResult PDR::run()
@@ -55,27 +55,27 @@ namespace pdr
 
     if (frames.frontier() == 0)
     {
-      logger.indent++;
+      log.indent++;
       PdrResult init_res = init();
-      logger.indent--;
+      log.indent--;
       if (!init_res)
       {
-        logger.and_whisper("Failed initiation");
+        MYLOG_INFO(log, "Failed initiation");
         return finish(std::move(init_res));
       }
     }
 
-    logger.and_show("\nStart iteration");
-    logger.indent++;
+    MYLOG_INFO(log, "\nStart iteration");
+    log.indent++;
     if (PdrResult it_res = iterate_short())
     {
-      logger.and_whisper("Property verified");
-      logger.indent--;
+      MYLOG_INFO(log, "Property verified");
+      log.indent--;
       return finish(std::move(it_res));
     }
     else
     {
-      logger.and_whisper("Failed iteration");
+      MYLOG_INFO(log, "Failed iteration");
       return finish(std::move(it_res));
     }
   }
@@ -83,23 +83,27 @@ namespace pdr
   PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
-    logger.and_show(format("Total elapsed time {}", final_time));
+    MYLOG_INFO(log, format("Total elapsed time {}", final_time));
     if (rv)
-      logger.and_show("Invariant found");
+    {
+      MYLOG_INFO(log, "Invariant found");
+    }
     else
-      logger.and_show("Terminated with trace");
+    {
+      MYLOG_INFO(log, "Terminated with trace");
+    }
 
     rv.time = final_time;
 
-    logger.stats.elapsed = final_time;
-    logger.stats.write(model.constraint_str());
-    logger.stats.write();
-    logger.stats.clear();
+    log.stats.elapsed = final_time;
+    log.stats.write(model.constraint_str());
+    log.stats.write();
+    log.stats.clear();
     store_frame_strings();
-    logger.indent = 0;
+    log.indent = 0;
 
-    logger.and_show("final solver");
-    logger.and_show(frames.blocked_str());
+    MYLOG_DEBUG(log, "final solver");
+    MYLOG_DEBUG(log, frames.blocked_str());
 
     return rv;
   }
@@ -107,25 +111,25 @@ namespace pdr
   // returns true if the model survives initiation
   PdrResult PDR::init()
   {
-    logger.and_whisper("Start initiation");
+    MYLOG_INFO(log, "Start initiation");
     assert(frames.frontier() == 0);
 
     if (frames.init_solver.check(model.n_property))
     {
-      logger.whisper("I =/> P");
+      MYLOG_INFO(log, "I =/> P");
       return PdrResult::found_trace(model.get_initial());
     }
 
     if (frames.SAT(0, model.n_property.p()))
     { // there is a transitions from I to !P
-      logger.show("I & T =/> P'");
+      MYLOG_INFO(log, "I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
       return PdrResult::found_trace(bad_cube);
     }
 
     frames.extend();
 
-    logger.and_whisper("Survived Initiation");
+    MYLOG_INFO(log, "Survived Initiation");
     return PdrResult::empty_true();
   }
 
@@ -138,7 +142,7 @@ namespace pdr
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
-      logger.whisper("Iteration k={}", k);
+      log.whisper("Iteration k={}", k);
       while (optional<z3ext::solver::Witness> cti =
                  frames.get_trans_source(k, model.n_property.p(), true))
       {
@@ -154,13 +158,13 @@ namespace pdr
         PdrResult res = block(cti->curr, n);
         if (not res)
         {
-          logger.and_show("Terminated with trace");
+          log.and_show("Terminated with trace");
           return res;
         }
 
-        logger.show("");
+        log.show("");
       }
-      logger.tabbed("no more counters at F_{}", k);
+      log.indented("no more counters at F_{}", k);
 
       sub_timer.reset();
 
@@ -177,16 +181,16 @@ namespace pdr
   PdrResult PDR::block(expr_vector cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    logger.tabbed("block");
-    logger.indent++;
+    log.indented("block");
+    log.indent++;
 
     if (ctx.type != Tactic::increment)
     {
-      logger.tabbed_and_whisper("Cleared obligations.");
+      log.tabbed_and_whisper("Cleared obligations.");
       obligations.clear();
     }
     else
-      logger.tabbed_and_whisper("Reused obligations.");
+      log.tabbed_and_whisper("Reused obligations.");
 
     unsigned period = 0;
     if ((n + 1) <= k)
@@ -277,7 +281,7 @@ namespace pdr
       */
     }
 
-    logger.indent--;
+    log.indent--;
     return PdrResult::empty_true();
   }
 
@@ -294,12 +298,12 @@ namespace pdr
        << "Solvers" << endl
        << frames.solver_str(true) << endl;
 
-    logger.stats.solver_dumps.push_back(ss.str());
+    log.stats.solver_dumps.push_back(ss.str());
   }
 
   void PDR::show_solver(std::ostream& out) const // TODO
   {
-    for (const std::string& s : logger.stats.solver_dumps)
+    for (const std::string& s : log.stats.solver_dumps)
       out << s << std::endl << std::endl;
   }
 

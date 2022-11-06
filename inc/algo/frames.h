@@ -25,7 +25,7 @@ namespace pdr
    private:
     Context& ctx;
     IModel& model;
-    Logger& logger;
+    Logger& log;
     const bool LOG_SAT_CALLS = false;
 
     std::vector<std::unique_ptr<Frame>> frames;

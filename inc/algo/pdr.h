@@ -46,7 +46,7 @@ namespace pdr
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
-    Logger& logger;
+    Logger& log;
 
     Frames frames; // sequence of candidates
     std::set<Obligation, std::less<Obligation>> obligations;

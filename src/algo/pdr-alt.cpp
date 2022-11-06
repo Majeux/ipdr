@@ -37,7 +37,6 @@ namespace pdr
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
-      logger.whisper("Iteration k={}", k);
       while (optional<Witness> witness =
                  frames.get_trans_source(k, model.n_property.p(), true))
       {
@@ -50,9 +49,9 @@ namespace pdr
           return res;
         }
 
-        logger.show("");
+        MYLOG_DEBUG(log, "");
       }
-      logger.tabbed("no more counters at F_{}", k);
+      MYLOG_INFO(log, "no more counters at F_{}", k);
 
       sub_timer.reset();
 
@@ -69,17 +68,19 @@ namespace pdr
   PdrResult PDR::block_short(expr_vector&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    logger.tabbed("block");
-    logger.indent++;
+    log.indented("eliminate predecessors");
+    log.indent++;
 
 #warning is dit nog enigzins ok?
     if (ctx.type != Tactic::increment)
     {
-      logger.tabbed_and_whisper("Cleared obligations.");
+      MYLOG_DEBUG_SHOW(log, "Cleared obligations.");
       obligations.clear();
     }
     else
-      logger.tabbed_and_whisper("Reused obligations.");
+    {
+      MYLOG_DEBUG_SHOW(log, "Reused obligations.");
+    }
 
     unsigned period = 0;
     if (n <= k)
@@ -143,7 +144,7 @@ namespace pdr
       elapsed = -1.0;
     }
 
-    logger.indent--;
+    log.indent--;
     return PdrResult::empty_true();
   }
 } // namespace pdr

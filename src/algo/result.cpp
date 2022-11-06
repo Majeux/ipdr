@@ -1,6 +1,5 @@
 #include "result.h"
 #include "obligation.h"
-#include "output.h"
 #include "pebbling-model.h"
 
 #include <TextTable.h>

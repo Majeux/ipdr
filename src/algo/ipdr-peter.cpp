@@ -46,7 +46,7 @@ namespace pdr::peterson
   PetersonResult IPDR::relax(unsigned processes, bool control)
   {
     unsigned p = processes, N = model.max_processes();
-    alg.logger.and_whisper(
+    alg.log.and_whisper(
         "! Proving peterson for {}..{} processes.", processes, N);
 
     PetersonResult total(model, Tactic::increment);
@@ -69,11 +69,11 @@ namespace pdr::peterson
 
     if (invariant && p > N) // last run did not find a trace
     {
-      alg.logger.and_whisper("! No trace exists.");
+      alg.log.and_whisper("! No trace exists.");
       return total;
     }
     // N is minimal
-    alg.logger.and_whisper(
+    alg.log.and_whisper(
         "! Counter for p={}", p-1);
     return total;
   }
@@ -86,7 +86,7 @@ namespace pdr::peterson
 
     unsigned old = model.n_processes();
 
-    alg.logger.and_show("naive change from {} / {} -> {} / {}", old,
+    alg.log.and_show("naive change from {} / {} -> {} / {}", old,
         model.max_processes(), processes, model.max_processes());
 
     model.constrain(processes);
@@ -101,7 +101,7 @@ namespace pdr::peterson
     unsigned old = model.n_processes();
     assert(processes > old);
 
-    alg.logger.and_show("increment from {} / {} -> {} / {} processes", old,
+    alg.log.and_show("increment from {} / {} -> {} / {} processes", old,
         model.max_processes(), processes, model.max_processes());
 
     model.constrain(processes);
@@ -113,8 +113,8 @@ namespace pdr::peterson
   PetersonResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
-    alg.logger.and_show("NEW INC JUMP TEST RUN");
-    alg.logger.and_show("start {}. step {}", start, step);
+    alg.log.and_show("NEW INC JUMP TEST RUN");
+    alg.log.and_show("start {}. step {}", start, step);
 
     PetersonResult total(model, Tactic::increment);
     basic_reset(start);

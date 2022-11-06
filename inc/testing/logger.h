@@ -14,9 +14,9 @@
 
 enum OutLvl
 {
-  silent,
-  whisper,
-  verbose
+  silent,  // no output
+  whisper, // output some
+  verbose, // output all
 };
 
 class nullbuffer : public std::streambuf
@@ -60,6 +60,11 @@ namespace pdr
     OutLvl level;
     unsigned indent = 0;
 
+    std::string tabbed(std::string_view msg) const
+    {
+      return (std::string(2 * indent, ' ') + "| ").append(msg);
+    }
+
     Logger(const std::string& log_file, OutLvl l, Statistics&& s);
 
     Logger(const std::string& log_file, const std::string& pfilename, OutLvl l,
@@ -73,7 +78,7 @@ namespace pdr
     template <typename... Args>
     void operator()(std::string_view message_fmt, Args&&... a)
     {
-      tabbed(message_fmt, std::forward<Args>(a)...);
+      indented(message_fmt, std::forward<Args>(a)...);
     }
 
     template <typename... Args>
@@ -86,7 +91,7 @@ namespace pdr
 
     // log a message with indent
     template <typename... Args>
-    void tabbed(std::string_view message_fmt, Args&&... a)
+    void indented(std::string_view message_fmt, Args&&... a)
     {
       (void)message_fmt;
       sink{ std::forward<Args>(a)... };
@@ -152,7 +157,7 @@ namespace pdr
         Args&&... a) // TODO rename to operator
     {
       show(message, std::forward<Args>(a)...);
-      tabbed(message, std::forward<Args>(a)...);
+      indented(message, std::forward<Args>(a)...);
     }
 
     // output a whisper message and log it
@@ -161,9 +166,34 @@ namespace pdr
         Args&&... a) // TODO rename to operator
     {
       whisper(message, std::forward<Args>(a)...);
-      tabbed(message, std::forward<Args>(a)...);
+      indented(message, std::forward<Args>(a)...);
     }
   };
 } // namespace pdr
+
+#define SEPWITH 15
+#define SEP1 std::string(SEPWITH, '-')
+#define SEP2 std::string(SEPWITH, '=')
+#define SEP3 std::string(SEPWITH, '#')
+
+#warning todo: make show and whisper macros to avoid computation of arguments
+
+#define MYLOG_WARN(logger, format, ...)  \
+  logger.whisper(format, ##__VA_ARGS__); \
+  SPDLOG_LOGGER_WARN(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_INFO(logger, format, ...)  \
+  logger.whisper(format, ##__VA_ARGS__); \
+  SPDLOG_LOGGER_INFO(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_DEBUG(logger, format, ...) \
+  SPDLOG_LOGGER_DEBUG(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_DEBUG_SHOW(logger, format, ...) \
+  logger.show(format, ##__VA_ARGS__);         \
+  MYLOG_DEBUG(logger, format, ##__VA_ARGS__)
+
+#define MYLOG_TRACE(logger, format, ...) \
+  SPDLOG_LOGGER_TRACE(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
 
 #endif // LOGGER_H

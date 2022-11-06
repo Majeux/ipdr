@@ -156,7 +156,7 @@ void peter_experiment(ArgumentList& clargs)
 
   std::cerr << "peter_experiment()" << std::endl;
 
-  unsigned p = 3, N = 4;
+  unsigned p = 3, N = 3;
   pdr::peterson::PetersonModel model(p, N);
   clargs.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
 

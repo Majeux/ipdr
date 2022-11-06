@@ -1,6 +1,6 @@
 #include "frames.h"
 #include "frame.h"
-#include "output.h"
+#include "logger.h"
 #include "solver.h"
 #include "stats.h"
 #include "z3-ext.h"
@@ -24,9 +24,8 @@ namespace pdr
   using z3ext::solver::Witness;
 
   Frames::Frames(Context& c, IModel& m, Logger& l)
-      : ctx(c), model(m), logger(l),
-        FI_solver(ctx, model, m.get_initial(), m.get_transition(),
-            m.get_constraint()),
+      : ctx(c), model(m), log(l), FI_solver(ctx, model, m.get_initial(),
+                                      m.get_transition(), m.get_constraint()),
         delta_solver(
             ctx, model, m.property, m.get_transition(), m.get_constraint()),
         init_solver(ctx)
@@ -35,14 +34,14 @@ namespace pdr
     init_solver.reset();
     init_solver.add(model.get_initial());
 
-    frames.push_back(make_unique<Frame>(0, logger));
+    frames.push_back(make_unique<Frame>(0, log));
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
     assert(frontier() == 0);
 
-    logger("FI_solver after init {}", FI_solver.as_str("", true));
-    logger("solver after init {}", delta_solver.as_str("", true));
+    MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", true));
+    MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", true));
   }
 
   void Frames::reset()
@@ -50,10 +49,10 @@ namespace pdr
     assert(frames.size() == act.size());
 
     frames.resize(0);
-    while(act.size() > 0)
+    while (act.size() > 0)
       act.pop_back();
 
-    frames.push_back(make_unique<Frame>(0, logger));
+    frames.push_back(make_unique<Frame>(0, log));
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
@@ -77,7 +76,7 @@ namespace pdr
       delta_solver.block(frames[i]->get_blocked(), act.at(i));
 
     // with fewer transitions, new cubes may be propagated
-    logger.and_show("Redoing last propagation: {}", frontier() - 1);
+    MYLOG_INFO(log, "Redoing last propagation: {}", frontier() - 1);
 
     model.diff = IModel::Diff_t::none;
     return propagate(frontier() - 1);
@@ -87,7 +86,7 @@ namespace pdr
   {
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
-    logger("Reset frames to F1");
+    MYLOG_INFO(log, "Reset frames to F1");
 
     // reconstrain solver and reset it to "no blocked"
     delta_solver.reconstrain_clear(model.get_constraint());
@@ -110,11 +109,11 @@ namespace pdr
         remove_state(cube, 1);
       }
     }
-    logger.stats.copied_cubes.count += count;
-    logger.stats.copied_cubes.total += old.size();
-    logger.and_show(
-        "pre-INC: {} cubes carried over, out of {}", count, old.size());
-    logger("Repopulated delta solver: \n{}", delta_solver.as_str("", false));
+    log.stats.copied_cubes.count += count;
+    log.stats.copied_cubes.total += old.size();
+    MYLOG_DEBUG(log, "{} cubes carried over, out of {}", count, old.size());
+    MYLOG_DEBUG(
+        log, "Repopulated solver: \n{}", delta_solver.as_str("", false));
 
     model.diff = IModel::Diff_t::none;
   }
@@ -141,7 +140,7 @@ namespace pdr
     assert(frames.size() > 0);
     std::string acti = fmt::format("__act{}__", frames.size());
     act.push_back(ctx().bool_const(acti.c_str()));
-    frames.push_back(make_unique<Frame>(frames.size(), logger));
+    frames.push_back(make_unique<Frame>(frames.size(), log));
   }
 
   void Frames::repopulate_solvers()
@@ -171,12 +170,12 @@ namespace pdr
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
-    logger.tabbed(
+    MYLOG_DEBUG(log, 
         "removing cube from level [1..{}]: [{}]", level, str::ext::join(cube));
 
-    logger.indent++;
+    log.indent++;
     bool result = delta_remove_state(cube, level);
-    logger.indent--;
+    log.indent--;
     return result;
   }
 
@@ -186,7 +185,7 @@ namespace pdr
     {
       // remove all blocked cubes that are equal or weaker than cube
       unsigned n_removed = frames.at(i)->remove_subsumed(cube, i < level);
-      logger.stats.subsumed_cubes.add(level, n_removed);
+      log.stats.subsumed_cubes.add(level, n_removed);
     }
 
     assert(level > 0 && level < frames.size());
@@ -194,11 +193,11 @@ namespace pdr
     if (frames[level]->block(cube))
     {
       delta_solver.block(cube, act.at(level));
-      logger.tabbed("blocked in {}", level);
+      MYLOG_DEBUG(log, "blocked in {}", level);
       return true;
     }
     else
-      logger.tabbed("was already blocked in {}", level);
+      MYLOG_DEBUG(log, "was already blocked in {}", level);
 
     return false;
   }
@@ -207,8 +206,8 @@ namespace pdr
   std::optional<size_t> Frames::propagate(size_t k)
   {
     assert(k <= frontier());
-    logger.tabbed_and_whisper("propagate levels {} - {}", 1, k);
-    logger.indent++;
+    MYLOG_INFO(log, "propagate levels {} - {}", 1, k);
+    log.indent++;
     bool repeat = (k < frontier());
 
     for (size_t i = 1; i <= k; i++)
@@ -217,12 +216,12 @@ namespace pdr
     for (size_t i = 1; i <= k; i++)
       if (frames.at(i)->empty())
       {
-        logger.and_whisper("F[{}] \\ F[{}] == 0", i, i + 1);
+        MYLOG_INFO(log, "F[{}] \\ F[{}] == 0", i, i + 1);
         return i;
       }
 
     repopulate_solvers();
-    logger.indent--;
+    log.indent--;
 
     return {};
   }
@@ -244,10 +243,10 @@ namespace pdr
       }
     }
     if (repeat)
-      logger.and_show("{} blocked in repeat", count);
+      MYLOG_TRACE(log, "{} blocked in repeat", count);
 
     std::chrono::duration<double> dt(steady_clock::now() - start);
-    logger.stats.propagation_level.add_timed(level, dt.count());
+    log.stats.propagation_level.add_timed(level, dt.count());
   }
 
   //
@@ -264,7 +263,7 @@ namespace pdr
   // query: Fi & !s & T /=> !s'
   bool Frames::inductive(const z3::expr_vector& cube, size_t frame)
   {
-    logger.tabbed_trace("check relative inductiveness, frame{}", frame);
+    MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
 
     z3::expr clause =
         z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
@@ -282,7 +281,7 @@ namespace pdr
   std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
       const std::vector<z3::expr>& cube, size_t frame)
   {
-    logger.tabbed_trace("get counter relative inductiveness, frame{}", frame);
+    MYLOG_TRACE(log, "get counter relative inductiveness, frame{}", frame);
 
     if (!inductive(cube, frame))
       return get_solver(frame).witness_current();
@@ -303,7 +302,7 @@ namespace pdr
   bool Frames::trans_source(
       size_t frame, const z3::expr_vector& dest_cube, bool primed)
   {
-    logger.tabbed_trace("check transition source, frame{}", frame);
+    MYLOG_TRACE(log, "check transition source, frame{}", frame);
     if (!primed) // cube is in current, bring to next
       return SAT(frame, model.vars.p(dest_cube));
 
@@ -313,7 +312,7 @@ namespace pdr
   std::optional<Witness> Frames::get_trans_source(
       size_t frame, const z3::expr_vector& dest_cube, bool primed)
   {
-    logger.tabbed_trace("get transition source, frame{}", frame);
+    MYLOG_TRACE(log, "get transition source, frame{}", frame);
 
     if (!primed) // cube is in current, bring to next
       if (!SAT(frame, model.vars.p(dest_cube)))
@@ -347,7 +346,7 @@ namespace pdr
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 
-    logger.tabbed_trace("SAT-query: F_0..F_{} & T", frame);
+    MYLOG_TRACE(log, "SAT-query: F_0..F_{} & T", frame);
 
     Solver& solver = get_solver(frame);
     if (ctx.delta && frame > 0)
@@ -357,16 +356,16 @@ namespace pdr
         assumptions.push_back(act[i]);
     }
 
-    logger.indent++;
-    logger.tabbed_trace(
+    log.indent++;
+    MYLOG_TRACE(log, 
         "assumptions: [ {} ]", z3ext::join_expr_vec(assumptions, false));
 
     bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
-    logger.stats.solver_calls.add_timed(frontier(), diff.count());
+    log.stats.solver_calls.add_timed(frontier(), diff.count());
 
-    logger.indent--;
-    logger.tabbed_trace("result = {}", result == z3::sat ? "sat" : "unsat");
+    log.indent--;
+    MYLOG_TRACE(log, "result = {}", result == z3::sat ? "sat" : "unsat");
 
     return result;
   }
@@ -423,18 +422,18 @@ namespace pdr
 
   void Frames::log_blocked() const
   {
-    logger(SEP3);
-    logger(blocked_str());
-    logger(SEP3);
+    MYLOG_DEBUG(log, SEP3);
+    MYLOG_DEBUG(log, blocked_str());
+    MYLOG_DEBUG(log, SEP3);
   }
 
   void Frames::log_solver(bool only_clauses) const
   {
-    logger(SEP3);
+    MYLOG_DEBUG(log, SEP3);
     log_blocked();
-    logger(FI_solver.as_str("", only_clauses));
-    logger(delta_solver.as_str("", only_clauses));
-    logger(SEP3);
+    MYLOG_DEBUG(log, FI_solver.as_str("", only_clauses));
+    MYLOG_DEBUG(log, delta_solver.as_str("", only_clauses));
+    MYLOG_DEBUG(log, SEP3);
   }
 
   std::string Frames::blocked_str() const

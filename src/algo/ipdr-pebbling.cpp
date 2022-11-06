@@ -54,7 +54,7 @@ namespace pdr::pebbling
 
   PebblingResult IPDR::relax(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: increment max pebbles.");
+    alg.log.and_whisper("! Optimization run: increment max pebbles.");
 
     PebblingResult total(model, Tactic::increment);
     unsigned N = model.get_f_pebbles(); // need at least this many pebbles
@@ -77,17 +77,17 @@ namespace pdr::pebbling
 
     if (N > model.n_nodes()) // last run did not find a trace
     {
-      alg.logger.and_whisper("! No optimum exists.");
+      alg.log.and_whisper("! No optimum exists.");
       return total;
     }
     // N is minimal
-    alg.logger.and_whisper("! Found optimum: {}.", N);
+    alg.log.and_whisper("! Found optimum: {}.", N);
     return total;
   }
 
   PebblingResult IPDR::constrain(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
+    alg.log.and_whisper("! Optimization run: decrement max pebbles.");
 
     PebblingResult total(model, Tactic::decrement);
     unsigned N = model.n_nodes(); // need at least this many pebbles
@@ -123,19 +123,19 @@ namespace pdr::pebbling
 
     if (invariant) // last run did not find a trace
     {
-      alg.logger.and_whisper("! No optimum exists.");
+      alg.log.and_whisper("! No optimum exists.");
       return total;
     }
     // the previous N was optimal
-    alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+    alg.log.and_whisper("! Found optimum: {}.", N + 1);
     return total;
   }
 
   PebblingResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
-    alg.logger.and_show("NEW INC JUMP TEST RUN");
-    alg.logger.and_show("start {}. step {}", start, step);
+    alg.log.and_show("NEW INC JUMP TEST RUN");
+    alg.log.and_show("start {}. step {}", start, step);
 
     PebblingResult total(model, Tactic::increment);
     basic_reset(start);
@@ -167,7 +167,7 @@ namespace pdr::pebbling
 
     std::optional<unsigned> current = model.get_max_pebbles();
     std::string from = current ? std::to_string(*current) : "any";
-    alg.logger.and_show("naive change from {} -> {} pebbles",
+    alg.log.and_show("naive change from {} -> {} pebbles",
         from, pebbles);
 
     model.constrain(pebbles);
@@ -182,7 +182,7 @@ namespace pdr::pebbling
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles > old.value());
     assert(std::addressof(model) == std::addressof(alg.model));
-    alg.logger.and_show(
+    alg.log.and_show(
         "increment from {} -> {} pebbles", old.value(), pebbles);
 
     model.constrain(pebbles);
@@ -198,7 +198,7 @@ namespace pdr::pebbling
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles < old.value());
     assert(std::addressof(model) == std::addressof(alg.model));
-    alg.logger.and_show(
+    alg.log.and_show(
         "decrement from {} -> {} pebbles", old.value(), pebbles);
 
     model.constrain(pebbles);
