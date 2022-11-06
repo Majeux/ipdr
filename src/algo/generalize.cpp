@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <fmt/core.h>
-#include <spdlog/spdlog.h>
 #include <vector>
 #include <z3++.h>
 
+#include "logger.h"
 #include "pdr.h"
 #include "string-ext.h"
 #include "z3-ext.h"
@@ -123,15 +123,17 @@ namespace pdr
       new_cube.reserve(cube.size() - 1);
       new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
 
-      logger.tabbed_trace("verifying subcube [{}]", z3ext::join_expr_vec(new_cube, false));
+      logger.tabbed_trace(
+          "verifying subcube [{}]", z3ext::join_expr_vec(new_cube, false));
 
       logger.indent++;
       if (down(new_cube, level))
       {
         // current literal was dropped, i now points to the next
-        cube     = std::move(new_cube);
+        cube = std::move(new_cube);
         logger.tabbed_trace("sub-cube survived");
-        logger.tabbed_trace("reduced cube by down = [{}]", z3ext::join_expr_vec(cube));
+        logger.tabbed_trace(
+            "reduced cube by down = [{}]", z3ext::join_expr_vec(cube));
         attempts = 0;
         // SPDLOG_LOGGER_TRACE(log, "{}| reduced cube: [{}]", TAB,
         // join(cube));
@@ -164,12 +166,13 @@ namespace pdr
 
       if (!frames.inductive(state, level))
       {
-        logger.tabbed_trace("state is not inductive {}", 0);
-        logger.tabbed_trace("intersect with witness {}", 0);
+        logger.tabbed_trace("state is not inductive");
+        logger.tabbed_trace("intersect with witness");
         logger.indent++;
         state = frames.get_solver(level).witness_current_intersect(state);
         logger.indent--;
-        logger.tabbed_trace("new intersected state -> [{}]", join_expr_vec(state));
+        logger.tabbed_trace(
+            "new intersected state -> [{}]", join_expr_vec(state));
       }
       else
         return true;

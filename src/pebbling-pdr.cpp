@@ -3,7 +3,6 @@
 #include "dag.h"
 #include "h-operator.h"
 #include "io.h"
-#include "_logging.h"
 #include "logger.h"
 #include "mockturtle/networks/klut.hpp"
 #include "parse_bench.h"

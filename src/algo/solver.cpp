@@ -112,8 +112,6 @@ namespace pdr
     expr_vector core = internal_solver.unsat_core();
     z3ext::order_lits(core);
 
-    spdlog::trace("full core: {}\n---", core.to_string());
-
     return core;
   }
 

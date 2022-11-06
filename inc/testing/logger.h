@@ -10,7 +10,6 @@
 #include <memory>
 #include <ostream>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/spdlog.h>
 #include <string>
 
 enum OutLvl
@@ -95,15 +94,6 @@ namespace pdr
           tab(), std::forward<Args>(a)...);
     }
 
-    void tabbed_trace(std::string_view message_fmt)
-    {
-      std::cout << "test" << std::endl;
-      (void)message_fmt;
-      // SPDLOG_LOGGER_TRACE(spd_logger,
-      //     (std::string{ tabsep }.append(message_fmt)), tab(), "");
-      SPDLOG_LOGGER_TRACE(spd_logger, dbg("{}| test --> {}"), tab(), " t");
-    }
-
     template <typename... Args>
     void tabbed_trace(std::string_view message_fmt, Args&&... a)
     {
@@ -175,4 +165,5 @@ namespace pdr
     }
   };
 } // namespace pdr
+
 #endif // LOGGER_H

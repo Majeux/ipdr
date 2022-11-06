@@ -1,7 +1,6 @@
 #ifndef FRAMES
 #define FRAMES
 
-#include "_logging.h"
 #include "frame.h"
 #include "logger.h"
 #include "pdr-context.h"

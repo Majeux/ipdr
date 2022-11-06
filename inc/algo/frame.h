@@ -1,7 +1,6 @@
 #ifndef FRAME
 #define FRAME
 
-#include "_logging.h"
 #include "logger.h"
 #include "solver.h"
 #include "stats.h"

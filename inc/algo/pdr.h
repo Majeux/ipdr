@@ -1,7 +1,6 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
-#include "_logging.h"
 #include "frames.h"
 #include "pdr-context.h"
 #include "pdr-model.h"

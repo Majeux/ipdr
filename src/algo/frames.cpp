@@ -1,5 +1,4 @@
 #include "frames.h"
-#include "_logging.h"
 #include "frame.h"
 #include "output.h"
 #include "solver.h"
