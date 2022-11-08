@@ -8,6 +8,7 @@
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
+#include <variant>
 
 #warning display settings for: delta, seed, mic_retries
 namespace my::cli
@@ -19,48 +20,118 @@ namespace my::cli
 
   // STRUCTS
   //
+  namespace graph_src
+  {
+    struct src_name_visitor
+    {
+      std::string operator()(const benchFile& a) const
+      {
+        (void)a;
+        return "bench";
+      }
+
+      std::string operator()(const Hop& a) const
+      {
+        return format("Hop{}_{}", a.bits, a.mod);
+      }
+
+      std::string operator()(const tfcFile& a) const
+      {
+        (void)a;
+        return "tfc";
+      }
+    };
+
+    std::string name(const Graph_var& g)
+    {
+      return std::visit(src_name_visitor{}, g);
+    }
+  } // namespace graph_src
+
   namespace model_type
   {
-    std::string model_t_string_visitor::operator()(const Pebbling& m) const
+    struct model_t_string_visitor
     {
-      if (m.max_pebbles)
-        return format("Pebbling algorithm. {} pebbles.", *m.max_pebbles);
-      else
-        return "Pebbling algorithm.";
-    }
+      std::string operator()(const Pebbling& m) const
+      {
+        if (m.max_pebbles)
+          return format("Pebbling algorithm. {} pebbles.", *m.max_pebbles);
+        else
+          return "Pebbling algorithm.";
+      }
 
-    std::string model_t_string_visitor::operator()(const Peterson& m) const
+      std::string operator()(const Peterson& m) const
+      {
+        return format(
+            "Peterson algorithm. {} processes out of {} max.", m.start, m.max);
+      }
+    };
+
+    struct model_t_tag_visitor
     {
-      return format(
-          "Peterson algorithm. {} processes out of {} max.", m.start, m.max);
-    }
+      std::string operator()(const Pebbling& m) const
+      {
+        if (m.max_pebbles)
+          return format("-pebbling_{}", *m.max_pebbles);
+        else
+          return "-pebbling";
+      }
 
-    std::string to_string(const std::variant<Pebbling, Peterson>& m)
+      std::string operator()(const Peterson& m) const
+      {
+        return format("-peter_{}_{}", m.start, m.max);
+      }
+    };
+
+    std::string to_string(const Model_var& m)
     {
       return std::visit(model_t_string_visitor{}, m);
+    }
+
+    std::string filetag(const Model_var& m)
+    {
+      return std::visit(model_t_tag_visitor{}, m);
     }
   } // namespace model_type
 
   namespace algo
   {
-    std::string algo_string_visitor::operator()(const PDR& a) const
+    // TOSTRING
+    struct algo_string_visitor
     {
-      return format("Running PDR algorithm.\n For {}.", to_string(a.model));
-    }
+      std::string operator()(const PDR& a) const
+      {
+        return format("Running PDR algorithm.\n For {}.", to_string(a.model));
+      }
 
-    std::string algo_string_visitor::operator()(const IPDR& a) const
-    {
-      return format("Running IPDR algorithm.\n For {}.", to_string(a.model));
-    }
+      std::string operator()(const IPDR& a) const
+      {
+        return format("Running IPDR algorithm.\n For {}.", to_string(a.model));
+      }
 
-    std::string algo_string_visitor::operator()(const Bounded& a) const
-    {
-      return format("Running Bounded algorithm.\n For {}.", to_string(a.model));
-    }
+      std::string operator()(const Bounded& a) const
+      {
+        return format(
+            "Running Bounded algorithm.\n For {}.", to_string(a.model));
+      }
+    };
 
-    std::string to_string(const std::variant<PDR, IPDR, Bounded>& a)
+    std::string to_string(const Algo_var& a)
     {
       return std::visit(algo_string_visitor{}, a);
+    }
+
+    // GETMODEL
+    struct algo_model_visitor
+    {
+      Model_var operator()(const PDR& a) const { return a.model; }
+      Model_var operator()(const IPDR& a) const { return a.model; }
+      Model_var operator()(const Bounded& a) const { return a.model; }
+    };
+
+    Model_var model(const Algo_var& a)
+    {
+      return std::visit(algo_model_visitor{}, a);
     }
   } // namespace algo
 
@@ -81,10 +152,12 @@ namespace my::cli
       }
 
       parse_verbosity(clresult);
-      parse_model(clresult);
+      parse_alg(clresult);
+
       if (onlyshow)
         return;
-      parse_tactic(clresult);
+
+      parse_run(clresult);
     }
     catch (const std::exception& e)
     {
@@ -98,39 +171,17 @@ namespace my::cli
   void ArgumentList::show_header(std::ostream& out) const
   {
     using std::endl;
-    switch (tactic)
+    out << algo::to_string(algorithm) << endl;
+
+    if (experiment)
     {
-      case pdr::Tactic::basic:
-        out << format("Finding {}-pebble strategy for {}",
-            starting_value.value(), model_name);
-        break;
-      case pdr::Tactic::decrement:
-        out << format("Finding minimal pebble strategy for {} by decrementing",
-            model_name);
-        break;
-      case pdr::Tactic::increment:
-        out << format("Finding minimal pebble strategy for {} by incrementing",
-            model_name);
-        break;
-      case pdr::Tactic::inc_jump_test:
-        out << format("{} and +10 step jump test for {} by incrementing",
-            starting_value.value(), model_name);
-        break;
-      case pdr::Tactic::inc_one_test:
-        out << format("{} and +1 step jump test for {} by incrementing",
-            starting_value.value(), model_name);
-        break;
-      default: throw std::invalid_argument("pdr::Tactic is undefined");
+      out << format(
+          "Running an experiment with {} samples. ", experiment->repetitions);
+      if (exp_control)
+        out << "(a control run)";
     }
     out << endl;
-    if (exp_sample)
-      out << format("Running an experiment with {} samples. ", *exp_sample);
-    if (exp_control)
-      out << "(a control run)";
-    out << endl;
 
-    if (delta)
-      out << "Using delta-encoded frames." << endl;
     if (rand)
       out << "Using randomized seed." << endl;
     if (seed)
@@ -143,7 +194,7 @@ namespace my::cli
   const FolderStructure ArgumentList::make_folders() const
   {
     FolderStructure F;
-    F.run_type_dir = base_out() / (exp_sample ? "experiments" : "runs");
+    F.run_type_dir = base_out() / (experiment ? "experiments" : "runs");
 
     F.model_type_dir = F.run_type_dir;
     {
@@ -170,11 +221,7 @@ namespace my::cli
   {
     string file_string = format("{}-{}", model_name, to_string(tactic));
 
-    if (!exp_sample && starting_value)
-      file_string += format("-{}", starting_value.value());
-
-    if (delta)
-      file_string += "-delta";
+    file_string += model_type::to_string(algo::model(algorithm));
 
     return file_string;
   }
@@ -183,13 +230,10 @@ namespace my::cli
   {
     string folder_string = to_string(tactic);
 
-    if (exp_sample)
-      folder_string += format("-exp{}", *exp_sample);
-    else if (starting_value)
-      folder_string += format("-{}", starting_value.value());
-
-    if (delta)
-      folder_string += "-delta";
+    if (experiment)
+      folder_string += format("-exp{}", experiment->repetitions);
+    else
+      folder_string += model_type::to_string(algo::model(algorithm));
 
     return folder_string;
   }
@@ -197,7 +241,7 @@ namespace my::cli
   fs::path ArgumentList::create_model_dir() const
   {
     fs::path results_folder = base_out();
-    if (exp_sample)
+    if (experiment)
       results_folder /= "experiments";
 
     if (bounded)
@@ -221,7 +265,10 @@ namespace my::cli
   namespace
   {
     // cxx string for option with shorthand
-    string sh(char abb, string name) { return fmt::format("{},{}", abb, name); }
+    string sh(char shorthand, string name)
+    {
+      return format("{},{}", shorthand, name);
+    }
   } // namespace
 
   cxxopts::Options ArgumentList::make_options(std::string name)
@@ -242,28 +289,30 @@ namespace my::cli
       ("out-file", "Write to an output file instead of standard output", 
         value< optional<string> >(out), "(string:FILE.out)")
 
-      (s_pdr, "Run a single iteration of pdr for the given model.")
-      (s_ipdr, "Run an iteration ipdr, consisting of multiple pdr iterations.")
-      (s_bounded, "Run the bounded model checking approach for pebbling.")
+      (sh('a', o_alg), 
+       format("Run the \"{}\", \"{}\", or \"{}\" model checking algorithm.", s_pdr, s_ipdr, s_bounded),
+       value<string>()->default_value(s_pdr))
 
-      (s_pebbling, "Use the reversible pebble game and find a minimal strategy.")
-      (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes",
-       value< optional<unsigned> >(), "(uint: N)")
+      (s_pebbling, "Use the reversible pebble game as a transition system and find a minimal strategy.")
+      (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes as a transition system.",
+       value< unsigned >(), "(uint: N)")
 
       // tactic option
       (sh('e', s_exp), "run an experiment with I iterations.",
-        value< optional<unsigned> >(exp_sample), "(uint: I)")
-      (s_control, "Run only a control experiment (no ipdr).",
+        value< unsigned >(), "(uint: I)")
+      (sh('c', s_control), "Run only a control experiment (no ipdr).",
         value<bool>(exp_control))
+      (sh('i', o_inc), format("Specify the constraining ({}) or relaxing ({}) version of ipdr."
+          "Automatically selected for a transition system if empty.", s_constrain, s_relax))
 
       (s_pebbles, "Number of pebbles for a single pebbling pdr run.",
-       value< optional<unsigned> >(starting_value), "(uint)")
+       value< optional<unsigned> >(), "(uint)")
       (s_procs, "Number of processes for a single peterson pdr run, or the starting value for ipdr.",
-       value< optional<unsigned> >(starting_value), "(uint)")
+       value< optional<unsigned> >(), "(uint)")
 
       // model options
       (s_dir,"Directory (relative to ./) than contains runable benchmarks.",
-        value<fs::path>()->default_value(my::io::BENCH_FOLDER), "(string:F)")
+        value<fs::path>(bench_folder)->default_value(my::io::BENCH_FOLDER), "(string:F)")
       (s_bench, "File in in .bench format.",
         value<string>(), "(string:FILE)")
       (s_tfc, "File in in .tfc format.",
@@ -281,7 +330,7 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(onlyshow))
 
-      (s_mic, "The number of times N that pdr retries dropping a literal.")
+      // (s_mic, "The number of times N that pdr retries dropping a literal.")
 
       ("h,help", "Show usage");
     // clang-format on
@@ -291,14 +340,12 @@ namespace my::cli
 
   void ArgumentList::parse_verbosity(const cxxopts::ParseResult& clresult)
   {
-    if (clresult.count("verbose"))
+    if (clresult.count(s_verbose))
       verbosity = OutLvl::verbose;
-    else if (clresult.count("whisper"))
+    else if (clresult.count(s_whisper))
       verbosity = OutLvl::whisper;
-    else if (clresult.count("silent"))
+    else if (clresult.count(s_silent))
       verbosity = OutLvl::silent;
-    else
-      verbosity = OutLvl::whisper;
   }
 
   namespace
@@ -313,101 +360,134 @@ namespace my::cli
     }
   } // namespace
 
-  void ArgumentList::parse_tactic(const cxxopts::ParseResult& clresult)
+  void ArgumentList::parse_alg(const cxxopts::ParseResult& clresult)
   {
-    assert(one_of({ "pdr", "ipdr", "bounded" }, clresult));
-    assert(one_of({ "pebbling", "peter" }, clresult));
+    assert(one_of({ s_pdr, s_ipdr, s_bounded }, clresult));
+    assert(one_of({ s_pebbling, s_peter }, clresult));
 
-    if (clresult.count("peter"))
+    model_type::Model_var m;
+
+    if (clresult.count(s_peter))
     {
       model_type::Peterson peter;
-      if (clresult.count("procs"))
-        peter.start = clresult["procs"].as<unsigned>();
+
+      if (clresult.count(s_procs))
+        peter.start = clresult[s_procs].as<unsigned>();
       else
         throw std::invalid_argument(
             "peterson requires a number of (starting) processes");
 
-      if (clresult.count("max_procs"))
+      peter.max = clresult[s_peter].as<unsigned>();
+      m         = peter;
     }
-    if (clresult.count("pdr")) {}
-
-    if (clresult.count("optimize"))
+    else if (clresult.count(s_pebbling))
     {
-      std::string tactic_str = clresult["optimize"].as<std::string>();
-      if (tactic_str == "inc")
-        tactic = pdr::Tactic::increment;
-      else if (tactic_str == "dec")
-        tactic = pdr::Tactic::decrement;
+      model_type::Pebbling pebbling;
+      pebbling.model = parse_graph_src(clresult);
+      if (clresult.count(s_pebbles))
+        pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
+
+      m = pebbling;
+    }
+
+    if (clresult.count(s_pdr))
+    {
+      algorithm = algo::PDR(m);
+    }
+    else if (clresult.count(s_ipdr))
+    {
+      algorithm = algo::IPDR(m);
+    }
+    else if (clresult.count(s_bounded))
+    {
+      algorithm = algo::Bounded(m);
+    }
+  }
+
+  void ArgumentList::parse_run(const cxxopts::ParseResult& clresult)
+  {
+    if (clresult.count(o_inc))
+    {
+      if (clresult.count(s_pdr))
+        std::cerr << format("WARNING: {} is unused in {}", o_inc, s_pdr)
+                  << std::endl;
+
+      std::string tactic_str = clresult[o_inc].as<std::string>();
+
+      if (tactic_str == s_relax)
+        tactic = pdr::Tactic::relax;
+      else if (tactic_str == s_constrain)
+        tactic = pdr::Tactic::constrain;
       else
         throw std::invalid_argument(format(
-            "optimize must be either {} or {}.", increment_str, decrement_str));
+            "--increment must be either {} or {}.", s_constrain, s_relax));
     }
-    else if (clresult.count(inc_jump_str))
+    else if (clresult.count(s_ipdr))
     {
-      tactic         = pdr::Tactic::inc_jump_test;
-      starting_value = clresult[inc_jump_str].as<unsigned>();
+      if (clresult.count(s_pebbling))
+        tactic = pdr::Tactic::constrain;
+      else if (clresult.count(s_peter))
+        tactic = pdr::Tactic::relax;
+      else
+        assert(false);
     }
-    else if (clresult.count(inc_one_str))
+    else if (clresult.count(s_bounded))
     {
-      tactic         = pdr::Tactic::inc_one_test;
-      starting_value = clresult[inc_one_str].as<unsigned>();
+      tactic = pdr::Tactic::constrain;
+
+      if (!clresult.count(s_pebbling))
+        throw std::invalid_argument(
+            "Bounded model checking is supported for Pebbling only.");
+    }
+
+    if (clresult.count(s_exp))
+    {
+      experiment = { clresult[s_exp].as<unsigned>() };
+      if (clresult.count(s_pdr))
+        throw std::invalid_argument("Experiments verify incremental runs only");
+    }
+  }
+
+  graph_src::Graph_var ArgumentList::parse_graph_src(
+      const cxxopts::ParseResult& clresult)
+  {
+    if (!one_of({ s_bench, s_tfc, s_hop }, clresult))
+      throw std::invalid_argument("Pebbling requires (only) one of a .bench or "
+                                  ".tfc inputfile, or a Hop specification.");
+
+    graph_src::Graph_var rv;
+
+    if (clresult.count(s_hop))
+    {
+      const std::vector<unsigned> hop_list =
+          clresult["hop"].as<std::vector<unsigned>>();
+
+      if (hop_list.size() != 2)
+        throw std::invalid_argument(format(
+            "{} requires two positive integers: bitwidth,modulus", s_hop));
+
+      rv         = graph_src::Hop{ hop_list[0], hop_list[1] };
+      model_name = graph_src::name(rv);
+    }
+    else if (clresult.count(s_tfc))
+    {
+#warning todo: set paths here
+      rv         = graph_src::tfcFile{};
+      model_name = clresult[s_tfc].as<std::string>();
+    }
+    else if (clresult.count(s_bench))
+    {
+      rv         = graph_src::benchFile{};
+      model_name = clresult[s_bench].as<std::string>();
     }
     else
     {
-      tactic = pdr::Tactic::basic;
-      if (!clresult.count("bounded"))
-        if (!clresult.count("pebbles"))
-          throw std::invalid_argument(
-              "Basic run requires a \"pebbles\" value.");
-
-      // max_pebbles = clresult["pebbles"].as<unsigned>();
-      // if (max_pebbles < 0)
-      //   throw std::invalid_argument("pebbles must be positive.");
+      assert(false);
     }
 
-    if (clresult.count("peter"))
-      tactic = pdr::Tactic::increment;
-    else if (clresult.count("bounded"))
-      tactic = pdr::Tactic::decrement;
+    // bench_folder = my::io::BENCH_FOLDER / clresult[s_dir].as<fs::path>();
 
-    unsigned n_tests =
-        clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_jump_test)) +
-        clresult.count(pdr::tactic::to_string(pdr::Tactic::inc_one_test));
-    if (n_tests > 1)
-      throw std::invalid_argument("specify at most one test");
-  }
-
-  void ArgumentList::parse_model(const cxxopts::ParseResult& clresult)
-  {
-    unsigned n_models = clresult.count("hop") + clresult.count("tfc") +
-                        clresult.count("bench") + clresult.count("peter");
-    if (n_models != 1)
-      throw std::invalid_argument(
-          "specify one of tfc, bench, or hop. or peter.");
-
-    if (clresult.count("hop"))
-    {
-      model = ModelType::hoperator;
-
-      const auto hop_list = clresult["hop"].as<std::vector<unsigned>>();
-      if (hop_list.size() != 2)
-        throw std::invalid_argument(
-            "hop requires two positive integers: bitwidth,modulus");
-      hop        = { hop_list[0], hop_list[1] };
-      model_name = format("hop{}_{}", hop_list[0], hop_list[1]);
-    }
-    if (clresult.count("tfc"))
-    {
-      model      = ModelType::tfc;
-      model_name = clresult["tfc"].as<std::string>();
-    }
-    if (clresult.count("bench"))
-    {
-      model      = ModelType::bench;
-      model_name = clresult["bench"].as<std::string>();
-    }
-
-    bench_folder = my::io::BENCH_FOLDER / clresult["dir"].as<fs::path>();
+    return rv;
   }
 
 } // namespace my::cli

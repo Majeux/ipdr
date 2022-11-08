@@ -20,8 +20,8 @@ namespace pdr::pebbling
   {
     switch (tactic)
     {
-      case Tactic::decrement: return constrain(true);
-      case Tactic::increment: return relax(true);
+      case Tactic::constrain: return constrain(true);
+      case Tactic::relax: return relax(true);
       case Tactic::inc_jump_test:
         relax_jump_test(starting_value.value(), 10);
         break;
@@ -38,8 +38,8 @@ namespace pdr::pebbling
   {
     switch (tactic)
     {
-      case Tactic::decrement: return constrain(control);
-      case Tactic::increment: return relax(control);
+      case Tactic::constrain: return constrain(control);
+      case Tactic::relax: return relax(control);
       case Tactic::inc_jump_test:
         relax_jump_test(starting_value.value(), 10);
         break;
@@ -56,7 +56,7 @@ namespace pdr::pebbling
   {
     alg.log.and_whisper("! Optimization run: increment max pebbles.");
 
-    PebblingResult total(model, Tactic::increment);
+    PebblingResult total(model, Tactic::relax);
     unsigned N = model.get_f_pebbles(); // need at least this many pebbles
 
     basic_reset(N);
@@ -89,7 +89,7 @@ namespace pdr::pebbling
   {
     alg.log.and_whisper("! Optimization run: decrement max pebbles.");
 
-    PebblingResult total(model, Tactic::decrement);
+    PebblingResult total(model, Tactic::constrain);
     unsigned N = model.n_nodes(); // need at least this many pebbles
 
     basic_reset(N);
@@ -137,7 +137,7 @@ namespace pdr::pebbling
     alg.log.and_show("NEW INC JUMP TEST RUN");
     alg.log.and_show("start {}. step {}", start, step);
 
-    PebblingResult total(model, Tactic::increment);
+    PebblingResult total(model, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
     total << invariant;
@@ -187,7 +187,7 @@ namespace pdr::pebbling
 
     model.constrain(pebbles);
 
-    alg.ctx.type = Tactic::increment;
+    alg.ctx.type = Tactic::relax;
     alg.frames.reset_to_F1();
   }
 
@@ -203,7 +203,7 @@ namespace pdr::pebbling
 
     model.constrain(pebbles);
 
-    alg.ctx.type = Tactic::decrement;
+    alg.ctx.type = Tactic::constrain;
     return alg.frames.reuse();
   }
 } // namespace pdr::pebbling

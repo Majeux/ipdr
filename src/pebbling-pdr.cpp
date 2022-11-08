@@ -57,7 +57,7 @@ dag::Graph build_dag(const ArgumentList& args)
 {
   dag::Graph G;
   // read input model
-  switch (args.model)
+  switch (args.graph)
   {
     case ModelType::hoperator:
       G = dag::hoperator(args.hop.bits, args.hop.mod);
@@ -206,42 +206,42 @@ int main(int argc, char* argv[])
 {
   using std::ofstream;
 
-  ArgumentList clargs = parse_cl(argc, argv);
+  ArgumentList args(argc, argv);
 
-  if (clargs.peter)
+  if (args.peter)
   {
-    peter_experiment(clargs);
+    peter_experiment(args);
     return 0;
   }
 
-  if (clargs.exp_sample)
+  if (args.experiment)
   {
-    experiment(clargs);
+    experiment(args);
     return 0;
   }
 
-  const fs::path model_dir = create_model_dir(clargs);
-  const dag::Graph G       = setup_graph(clargs);
+  const fs::path model_dir = args.create_model_dir();
+  const dag::Graph G       = setup_graph(args);
 
-  if (clargs.bounded)
+  if (args.bounded)
   {
-    bounded_experiment(G, clargs);
+    bounded_experiment(G, args);
     return 0;
   }
 
-  pdr::pebbling::PebblingModel model(clargs, G);
-  pdr::Context context = clargs.seed
-                           ? pdr::Context(model, clargs.delta, *clargs.seed)
-                           : pdr::Context(model, clargs.delta, clargs.rand);
+  pdr::pebbling::PebblingModel model(args, G);
+  pdr::Context context = args.seed
+                           ? pdr::Context(model, *args.seed)
+                           : pdr::Context(model, args.rand);
 
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
 
-  if (clargs.onlyshow)
+  if (args.onlyshow)
     return 0;
 
-  const std::string filename = file_name(clargs);
-  fs::path run_dir           = setup(model_dir / run_folder_name(clargs));
+  const std::string filename = args.file_name();
+  fs::path run_dir           = setup(model_dir / args.run_folder_name());
 
   ofstream stat_file   = trunc_file(run_dir, filename, "stats");
   ofstream strat_file  = trunc_file(run_dir, filename, "strategy");
@@ -253,19 +253,19 @@ int main(int argc, char* argv[])
   pdr::Statistics stats =
       pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
 
-  pdr::Logger logger = clargs.out ? pdr::Logger(log_file.string(), *clargs.out,
-                                        clargs.verbosity, std::move(stats))
+  pdr::Logger logger = args.out ? pdr::Logger(log_file.string(), *args.out,
+                                        args.verbosity, std::move(stats))
                                   : pdr::Logger(log_file.string(),
-                                        clargs.verbosity, std::move(stats));
+                                        args.verbosity, std::move(stats));
 
-  show_header(clargs);
+  args.show_header();
 
   pdr::PDR algorithm(context, model, logger);
 
-  if (clargs.tactic == pdr::Tactic::basic)
+  if (args.tactic == pdr::Tactic::basic)
   {
     pdr::IpdrResult rs(model);
-    model.constrain(clargs.starting_value);
+    model.constrain(args.starting_value);
     pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strat_file);
     rs.show_traces(strat_file);
@@ -275,9 +275,9 @@ int main(int argc, char* argv[])
   }
   else
   {
-    pdr::pebbling::IPDR optimize(context, model, clargs, logger);
+    pdr::pebbling::IPDR optimize(context, model, args, logger);
     pdr::pebbling::PebblingResult result =
-        optimize.run(pdr::Tactic::decrement, false);
+        optimize.run(pdr::Tactic::constrain, false);
 
     result.show(strat_file);
     result.show_raw(strat_file);

@@ -9,7 +9,7 @@ namespace pdr
   enum class Tactic
   {
     undef, 
-    basic, increment, decrement, 
+    basic, relax, constrain, 
     inc_jump_test, inc_one_test,
   };
   // clang-format on

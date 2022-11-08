@@ -23,7 +23,7 @@ namespace pdr::peterson
   PetersonResult::PetersonResult(const PetersonModel& m, Tactic t)
       : IpdrResult(m), model(m), tactic(t)
   {
-    assert(tactic == Tactic::decrement || tactic == Tactic::increment);
+    assert(tactic == Tactic::constrain || tactic == Tactic::relax);
   }
 
   // PetersonModel public members

@@ -15,10 +15,10 @@ namespace pdr::peterson
   {
     switch (tactic)
     {
-      case Tactic::decrement:
+      case Tactic::constrain:
         throw std::invalid_argument("Decrement not implemented.");
         break;
-      case Tactic::increment: return relax(processes, true);
+      case Tactic::relax: return relax(processes, true);
       case Tactic::inc_jump_test: relax_jump_test(processes, 10); break;
       case Tactic::inc_one_test: relax_jump_test(processes, 1); break;
       default: break;
@@ -31,10 +31,10 @@ namespace pdr::peterson
   {
     switch (tactic)
     {
-      case Tactic::decrement:
+      case Tactic::constrain:
         throw std::invalid_argument("Decrement not implemented.");
         break;
-      case Tactic::increment: return relax(processes, control);
+      case Tactic::relax: return relax(processes, control);
       case Tactic::inc_jump_test: relax_jump_test(processes, 10); break;
       case Tactic::inc_one_test: relax_jump_test(processes, 1); break;
       default: break;
@@ -49,7 +49,7 @@ namespace pdr::peterson
     alg.log.and_whisper(
         "! Proving peterson for {}..{} processes.", processes, N);
 
-    PetersonResult total(model, Tactic::increment);
+    PetersonResult total(model, Tactic::relax);
 
     basic_reset(p);
     pdr::PdrResult invariant = alg.run();
@@ -106,7 +106,7 @@ namespace pdr::peterson
 
     model.constrain(processes);
 
-    alg.ctx.type = Tactic::increment;
+    alg.ctx.type = Tactic::relax;
     alg.frames.reset_to_F1();
   }
 
@@ -116,7 +116,7 @@ namespace pdr::peterson
     alg.log.and_show("NEW INC JUMP TEST RUN");
     alg.log.and_show("start {}. step {}", start, step);
 
-    PetersonResult total(model, Tactic::increment);
+    PetersonResult total(model, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
     total << invariant;

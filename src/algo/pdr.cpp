@@ -136,7 +136,7 @@ namespace pdr
   PdrResult PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
-    if (ctx.type != Tactic::decrement)
+    if (ctx.type != Tactic::constrain)
       assert(frames.frontier() == 1);
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
@@ -184,7 +184,7 @@ namespace pdr
     log.indented("block");
     log.indent++;
 
-    if (ctx.type != Tactic::increment)
+    if (ctx.type != Tactic::relax)
     {
       log.tabbed_and_whisper("Cleared obligations.");
       obligations.clear();

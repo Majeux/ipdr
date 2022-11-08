@@ -17,7 +17,7 @@ namespace pdr::pebbling
   PebblingResult::PebblingResult(const PebblingModel& m, Tactic t)
       : IpdrResult(m), model(m), tactic(t)
   {
-    assert(t == Tactic::decrement || t == Tactic::increment);
+    assert(t == Tactic::constrain || t == Tactic::increment);
   }
 
   PebblingResult::PebblingResult(
@@ -48,7 +48,7 @@ namespace pdr::pebbling
     }
     else
     {
-      assert(tactic == Tactic::decrement &&
+      assert(tactic == Tactic::constrain &&
              total.strategy->pebbled == model.get_f_pebbles());
       // the maximal invariant did not need to be considered and added
       inv_constr = "strategy uses minimal";
@@ -137,7 +137,7 @@ namespace pdr::pebbling
       std::string inv_str = constraint ? std::to_string(*constraint) : "none";
       row.insert(row.begin(), inv_str);
 
-      if (tactic == Tactic::decrement)
+      if (tactic == Tactic::constrain)
       {
         assert(++invariants <= 1);
       }
@@ -154,7 +154,7 @@ namespace pdr::pebbling
       row.insert(row.begin(), std::to_string(pebbled));
       row.insert(row.begin(), "-");
 
-      if (tactic == Tactic::increment)
+      if (tactic == Tactic::relax)
       {
         assert(++traces <= 1);
       }

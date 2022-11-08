@@ -31,7 +31,7 @@ namespace pdr
     using z3ext::solver::Witness;
 
     // I => P and I & T ⇒ P' (from init)
-    if (ctx.type != Tactic::decrement) // decr continues from last level
+    if (ctx.type != Tactic::constrain) // decr continues from last level
       assert(frames.frontier() == 1);
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
@@ -72,7 +72,7 @@ namespace pdr
     log.indent++;
 
 #warning is dit nog enigzins ok?
-    if (ctx.type != Tactic::increment)
+    if (ctx.type != Tactic::relax)
     {
       MYLOG_DEBUG_SHOW(log, "Cleared obligations.");
       obligations.clear();
