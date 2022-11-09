@@ -53,44 +53,6 @@ void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 //
 // end OUTPUT
 
-dag::Graph build_dag(const ArgumentList& args)
-{
-  dag::Graph G;
-  // read input model
-  switch (args.graph)
-  {
-    case ModelType::hoperator:
-      G = dag::hoperator(args.hop.bits, args.hop.mod);
-      break;
-
-    case ModelType::tfc:
-    {
-      parse::TFCParser parser;
-      fs::path model_file = args.bench_folder / (args.model_name + ".tfc");
-      G = parser.parse_file(model_file.string(), args.model_name);
-    }
-    break;
-
-    case ModelType::bench:
-    {
-      fs::path model_file = args.bench_folder / (args.model_name + ".bench");
-      mockturtle::klut_network klut;
-      auto const result = lorina::read_bench(
-          model_file.string(), mockturtle::bench_reader(klut));
-      if (result != lorina::return_code::success)
-        throw std::invalid_argument(
-            model_file.string() + " is not a valid .bench file");
-
-      G = dag::from_dot(klut, args.model_name); // TODO continue
-    }
-    break;
-
-    default: break;
-  }
-
-  return G;
-}
-
 std::ostream& operator<<(std::ostream& o, std::exception const& e)
 {
   o << fmt::format(
@@ -106,8 +68,9 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 dag::Graph setup_graph(const ArgumentList& args)
 {
   // create folders and files for I/O
-  fs::path model_dir        = create_model_dir(args);
-  std::ofstream graph_descr = trunc_file(args.folders.model_dir, "graph", "txt");
+  fs::path model_dir = create_model_dir(args);
+  std::ofstream graph_descr =
+      trunc_file(args.folders.model_dir, "graph", "txt");
 
   dag::Graph G = build_dag(args);
   {
@@ -161,8 +124,8 @@ void peter_experiment(ArgumentList& args)
   args.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
 
   {
-    auto model_logger = spdlog::basic_logger_st(
-        "model_dump", args.folders.file_in_model(args.model_name, "model"), true);
+    auto model_logger = spdlog::basic_logger_st("model_dump",
+        args.folders.file_in_model(args.model_name, "model"), true);
     model_logger->set_level(spdlog::level::trace);
     spdlog::set_pattern("");
 
@@ -177,7 +140,8 @@ void peter_experiment(ArgumentList& args)
     model_logger->flush();
   }
 
-  ofstream stat_file = trunc_file(args.folders.analysis, args.folders.file_base, "stats");
+  ofstream stat_file =
+      trunc_file(args.folders.analysis, args.folders.file_base, "stats");
   ofstream trace_file =
       trunc_file(args.folders.analysis, args.folders.file_base, "trace");
   fs::path log_file = args.folders.analysis / args.folders.file("log");
@@ -192,12 +156,6 @@ void peter_experiment(ArgumentList& args)
   // return;
   pdr::peterson::experiments::peterson_run(model, logger, args);
   std::cout << "experiment done" << std::endl;
-}
-
-void bounded_experiment(const dag::Graph& G, ArgumentList& clargs)
-{
-  bounded::BoundedPebbling obj(G, clargs);
-  obj.find_for(G.nodes.size());
 }
 
 #warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
@@ -229,9 +187,8 @@ int main(int argc, char* argv[])
   }
 
   pdr::pebbling::PebblingModel model(args, G);
-  pdr::Context context = args.seed
-                           ? pdr::Context(model, *args.seed)
-                           : pdr::Context(model, args.rand);
+  pdr::Context context = args.seed ? pdr::Context(model, *args.seed)
+                                   : pdr::Context(model, args.rand);
 
   ofstream model_descr = trunc_file(model_dir, "model", "txt");
   model.show(model_descr);
@@ -253,18 +210,16 @@ int main(int argc, char* argv[])
       pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
 
   pdr::Logger logger = args.out ? pdr::Logger(log_file.string(), *args.out,
-                                        args.verbosity, std::move(stats))
-                                  : pdr::Logger(log_file.string(),
-                                        args.verbosity, std::move(stats));
+                                      args.verbosity, std::move(stats))
+                                : pdr::Logger(log_file.string(), args.verbosity,
+                                      std::move(stats));
 
   args.show_header();
 
-  pdr::PDR algorithm(context, model, logger);
-
-  if (algo::is_PDR(args.algorithm))
+  if (std::holds_alternative<algo::PDR>(args.algorithm))
   {
     pdr::IpdrResult rs(model);
-    model.constrain(args.starting_value);
+    model.constrain(args.algorithm);
     pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strat_file);
     rs.show_traces(strat_file);
@@ -272,18 +227,41 @@ int main(int argc, char* argv[])
 
     return 0;
   }
-  else
+  else if (std::holds_alternative<algo::IPDR>(args.algorithm))
   {
-    pdr::pebbling::IPDR optimize(context, model, args, logger);
-    pdr::pebbling::PebblingResult result =
-        optimize.run(pdr::Tactic::constrain, false);
+    using namespace model_type;
 
-    result.show(strat_file);
-    result.show_raw(strat_file);
-    result.show_traces(strat_file);
-    optimize.dump_solver(solver_dump);
+    if (args.experiment)
+      experiment(args);
+
+    const Model_var& m_variant = algo::get_model(args.algorithm);
+    if (std::holds_alternative<Pebbling>(m_variant))
+    {
+      const Pebbling& model = std::get<Pebbling>(m_variant);
+      pdr::pebbling::PebblingModel model(args, get_graph(model.model));
+      pdr::Context context = args.seed ? pdr::Context(model, *args.seed)
+                                   : pdr::Context(model, args.rand);
+
+      pdr::pebbling::IPDR optimize(context, model, args, logger);
+      pdr::pebbling::PebblingResult result = optimize.run(args.tactic, false);
+      result.show(strat_file);
+      result.show_raw(strat_file);
+      result.show_traces(strat_file);
+      optimize.dump_solver(solver_dump);
+    }
+    else // Peterson
+    {
+      const Peterson& model = std::get<Pebbling>(m_variant);
+      pdr::peterson::PetersonModel model(model.start, model.max);
+    }
+  }
+  else if (std::holds_alternative<Bounded>(args.algorithm))
+  {
+    dag::Graph G = get_graph(model.model);
+    bounded::BoundedPebbling obj(G, args);
+    obj.find_for(G.nodes.size());
   }
 
-  std::cout << "run done" << std::endl;
+  std::cout << "goodbye :)" << std::endl;
   return 0;
 }

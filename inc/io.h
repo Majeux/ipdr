@@ -20,7 +20,6 @@ namespace my::io
     fs::path analysis;
     std::string file_base;
 
-
     void show(std::ostream& out) const;
     fs::path file(std::string_view name, std::string_view extension) const;
     fs::path file(std::string_view extension) const;
@@ -35,6 +34,8 @@ namespace my::io
 
   fs::path base_out();
   fs::path setup(fs::path p);
+  const fs::path file_in(const fs::path& folder, std::string_view name,
+      std::string_view extension);
   // creates an overwriting file of the given name
   std::ofstream trunc_file(const fs::path& path);
   // creates it with the the given extension, in the given folder.

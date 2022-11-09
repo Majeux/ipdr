@@ -1,10 +1,15 @@
 #include "cli-parse.h"
+#include "h-operator.h"
 #include "io.h"
 #include "logger.h"
+#include "parse_tfc.h"
 #include "tactic.h"
 #include <cxxopts.hpp>
 #include <fmt/core.h>
 #include <initializer_list>
+#include <lorina/bench.hpp>
+#include <mockturtle/io/bench_reader.hpp>
+#include <mockturtle/networks/klut.hpp>
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
@@ -22,6 +27,7 @@ namespace my::cli
   //
   namespace graph_src
   {
+    // NAME
     struct src_name_visitor
     {
       std::string operator()(const benchFile& a) const
@@ -30,15 +36,15 @@ namespace my::cli
         return "bench";
       }
 
-      std::string operator()(const Hop& a) const
-      {
-        return format("Hop{}_{}", a.bits, a.mod);
-      }
-
       std::string operator()(const tfcFile& a) const
       {
         (void)a;
         return "tfc";
+      }
+
+      std::string operator()(const Hop& a) const
+      {
+        return format("Hop{}_{}", a.bits, a.mod);
       }
     };
 
@@ -46,10 +52,44 @@ namespace my::cli
     {
       return std::visit(src_name_visitor{}, g);
     }
+
+    // GRAPH
+    struct src_graph_visitor
+    {
+      dag::Graph operator()(const benchFile& a) const
+      {
+
+        mockturtle::klut_network klut;
+        auto const result =
+            lorina::read_bench(a.file.string(), mockturtle::bench_reader(klut));
+        if (result != lorina::return_code::success)
+          throw std::invalid_argument(
+              a.file.string() + " is not a valid .bench file");
+
+        return dag::from_dot(klut, a.name);
+      }
+
+      dag::Graph operator()(const tfcFile& a) const
+      {
+        parse::TFCParser parser;
+        return parser.parse_file(a.file.string(), a.name);
+      }
+
+      dag::Graph operator()(const Hop& a) const
+      {
+        return dag::hoperator(a.bits, a.mod);
+      }
+    };
+
+    dag::Graph get_graph(const Graph_var& g)
+    {
+      return std::visit(src_graph_visitor{}, g);
+    }
   } // namespace graph_src
 
   namespace model_type
   {
+    // STRING
     struct model_t_string_visitor
     {
       std::string operator()(const Pebbling& m) const
@@ -67,6 +107,12 @@ namespace my::cli
       }
     };
 
+    std::string to_string(const Model_var& m)
+    {
+      return std::visit(model_t_string_visitor{}, m);
+    }
+
+    // TAG
     struct model_t_tag_visitor
     {
       std::string operator()(const Pebbling& m) const
@@ -83,11 +129,6 @@ namespace my::cli
       }
     };
 
-    std::string to_string(const Model_var& m)
-    {
-      return std::visit(model_t_string_visitor{}, m);
-    }
-
     std::string filetag(const Model_var& m)
     {
       return std::visit(model_t_tag_visitor{}, m);
@@ -96,12 +137,27 @@ namespace my::cli
 
   namespace algo
   {
-    bool is_PDR(const Algo_var& a) { return std::holds_alternative<PDR>(a); }
-    bool is_IPDR(const Algo_var& a) { return std::holds_alternative<IPDR>(a); }
-    bool is_Bounded(const Algo_var& a)
+    const std::optional<PDR> get_PDR(const Algo_var& a)
     {
-      return std::holds_alternative<Bounded>(a);
+      if (std::holds_alternative<PDR>(a))
+        return std::get<PDR>(a);
+      return {};
     }
+    
+    std::optional<const IPDR&> get_IPDR(const Algo_var& a);
+    {
+      if (std::holds_alternative<IPDR>(a))
+        return std::get<IPDR>(a);
+      return {};
+    }
+
+    std::optional<const Bounded&> get_Bounded(const Algo_var& a);
+    {
+      if (std::holds_alternative<Bounded>(a))
+        return std::get<Bounded>(a);
+      return {};
+    }
+
     // TOSTRING
     struct algo_string_visitor
     {
@@ -135,7 +191,7 @@ namespace my::cli
       Model_var operator()(const Bounded& a) const { return a.model; }
     };
 
-    Model_var model(const Algo_var& a)
+    const Model_var& get_model(const Algo_var& a);
     {
       return std::visit(algo_model_visitor{}, a);
     }
@@ -365,8 +421,6 @@ namespace my::cli
     assert(one_of({ s_pdr, s_ipdr, s_bounded }, clresult));
     assert(one_of({ s_pebbling, s_peter }, clresult));
 
-    model_type::Model_var m;
-
     if (clresult.count(s_peter))
     {
       model_type::Peterson peter;
@@ -378,7 +432,7 @@ namespace my::cli
             "peterson requires a number of (starting) processes");
 
       peter.max = clresult[s_peter].as<unsigned>();
-      m         = peter;
+      model     = peter;
     }
     else if (clresult.count(s_pebbling))
     {
@@ -387,16 +441,37 @@ namespace my::cli
       if (clresult.count(s_pebbles))
         pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
 
-      m = pebbling;
+      model = pebbling;
     }
 
     if (clresult.count(s_pdr))
     {
-      algorithm = algo::PDR(m);
+      algorithm = algo::PDR();
     }
     else if (clresult.count(s_ipdr))
     {
-      algorithm = algo::IPDR(m);
+      pdr::Tactic t;
+      if (clresult.count(o_inc))
+      {
+        std::string tactic_str = clresult[o_inc].as<std::string>();
+
+        if (tactic_str == s_relax)
+          t = pdr::Tactic::relax;
+        else if (tactic_str == s_constrain)
+          t = pdr::Tactic::constrain;
+        else
+          throw std::invalid_argument(format(
+              "--{} must be either {} or {}.", o_inc, s_constrain, s_relax));
+      }
+
+      if (clresult.count(s_pebbling))
+        t = pdr::Tactic::constrain;
+      else if (clresult.count(s_peter))
+        t = pdr::Tactic::relax;
+      else
+        assert(false);
+
+      algorithm = alg::IPDR(t);
     }
     else if (clresult.count(s_bounded))
     {
@@ -408,33 +483,13 @@ namespace my::cli
   {
     if (clresult.count(o_inc))
     {
-      if (clresult.count(s_pdr))
-        std::cerr << format("WARNING: {} is unused in {}", o_inc, s_pdr)
+      if (clresult.count(s_pdr) || clresult.count(s_bounded))
+        std::cerr << format("WARNING: {} is unused in {} and {}", o_inc, s_pdr,
+                         s_bounded)
                   << std::endl;
-
-      std::string tactic_str = clresult[o_inc].as<std::string>();
-
-      if (tactic_str == s_relax)
-        tactic = pdr::Tactic::relax;
-      else if (tactic_str == s_constrain)
-        tactic = pdr::Tactic::constrain;
-      else
-        throw std::invalid_argument(format(
-            "--increment must be either {} or {}.", s_constrain, s_relax));
-    }
-    else if (clresult.count(s_ipdr))
-    {
-      if (clresult.count(s_pebbling))
-        tactic = pdr::Tactic::constrain;
-      else if (clresult.count(s_peter))
-        tactic = pdr::Tactic::relax;
-      else
-        assert(false);
     }
     else if (clresult.count(s_bounded))
     {
-      tactic = pdr::Tactic::constrain;
-
       if (!clresult.count(s_pebbling))
         throw std::invalid_argument(
             "Bounded model checking is supported for Pebbling only.");
@@ -474,14 +529,15 @@ namespace my::cli
     }
     else if (clresult.count(s_tfc))
     {
-#warning todo: set paths here
-      rv         = graph_src::tfcFile{};
       model_name = clresult[s_tfc].as<std::string>();
+      rv         = graph_src::tfcFile{ model_name,
+        io::file_in(folders.bench_src, model_name, ".tfc") };
     }
     else if (clresult.count(s_bench))
     {
-      rv         = graph_src::benchFile{};
       model_name = clresult[s_bench].as<std::string>();
+      rv         = graph_src::benchFile{ model_name,
+        io::file_in(folders.bench_src, model_name, ".bench") };
     }
     else
     {

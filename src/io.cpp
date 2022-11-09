@@ -15,7 +15,6 @@ namespace my::io
   using fmt::format;
   using std::string;
 
-
   void FolderStructure::show(std::ostream& out) const
   {
     tabulate::Table t;
@@ -45,6 +44,7 @@ namespace my::io
   {
     return model_dir / format("{}.{}", file_base, extension);
   }
+
   // AUX
   //
 
@@ -54,6 +54,12 @@ namespace my::io
   {
     fs::create_directories(p);
     return p;
+  }
+
+  const fs::path file_in(
+      const fs::path& folder, std::string_view name, std::string_view extension)
+  {
+    return base_out() / folder / format("{}.{}", name, extension);
   }
 
   std::ofstream trunc_file(const fs::path& path)
