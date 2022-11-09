@@ -45,6 +45,17 @@ namespace my::io
     return model_dir / format("{}.{}", file_base, extension);
   }
 
+  fs::path FolderStructure::file_in_run(
+      std::string_view name, std::string_view extension) const
+  {
+    return model_dir / format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_run(std::string_view extension) const
+  {
+    return model_dir / format("{}.{}", file_base, extension);
+  }
+
   // AUX
   //
 

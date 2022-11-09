@@ -7,20 +7,18 @@ namespace pdr
 {
   using my::io::trunc_file;
 
-  Logger::Logger(const std::string& log_file, OutLvl l, Statistics&& s)
-      : _out(std::cout), stats(std::move(s)), level(l)
+  Logger::Logger(const std::string& log_file,
+      std::optional<std::string_view> pfilename, OutLvl l, Statistics&& s)
+      : _out(progress_file), stats(std::move(s)), level(l)
   {
-    init(log_file);
-  }
+    if (pfilename)
+    {
+      progress_file = trunc_file(*pfilename);
+      if (!progress_file.is_open())
+        throw std::runtime_error("Failed to open " + std::string{ *pfilename });
+    }
 
-  Logger::Logger(const std::string& log_file, const std::string& pfilename,
-      OutLvl l, Statistics&& s)
-      : progress_file(trunc_file(pfilename)), _out(progress_file),
-        stats(std::move(s)), level(l)
-  {
     init(log_file);
-    if (!progress_file.is_open())
-      throw std::runtime_error("Failed to open " + std::string(pfilename));
   }
 
   void Logger::init(const std::string& log_file)

@@ -65,10 +65,8 @@ namespace pdr
       return (std::string(2 * indent, ' ') + "| ").append(msg);
     }
 
-    Logger(const std::string& log_file, OutLvl l, Statistics&& s);
-
-    Logger(const std::string& log_file, const std::string& pfilename, OutLvl l,
-        Statistics&& s);
+    Logger(const std::string& log_file,
+        std::optional<std::string_view> pfilename, OutLvl l, Statistics&& s);
 
     void init(const std::string& log_file);
 

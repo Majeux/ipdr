@@ -30,17 +30,9 @@ namespace my::cli
     // NAME
     struct src_name_visitor
     {
-      std::string operator()(const benchFile& a) const
-      {
-        (void)a;
-        return "bench";
-      }
+      std::string operator()(const benchFile& a) const { return a.name; }
 
-      std::string operator()(const tfcFile& a) const
-      {
-        (void)a;
-        return "tfc";
-      }
+      std::string operator()(const tfcFile& a) const { return a.name; }
 
       std::string operator()(const Hop& a) const
       {
@@ -48,7 +40,7 @@ namespace my::cli
       }
     };
 
-    std::string name(const Graph_var& g)
+    std::string get_name(const Graph_var& g)
     {
       return std::visit(src_name_visitor{}, g);
     }
@@ -92,7 +84,7 @@ namespace my::cli
     // STRING
     struct model_t_string_visitor
     {
-      std::string operator()(const Pebbling& m) const
+      std::string operator()(const t_Pebbling& m) const
       {
         if (m.max_pebbles)
           return format("Pebbling algorithm. {} pebbles.", *m.max_pebbles);
@@ -100,7 +92,7 @@ namespace my::cli
           return "Pebbling algorithm.";
       }
 
-      std::string operator()(const Peterson& m) const
+      std::string operator()(const t_Peterson& m) const
       {
         return format(
             "Peterson algorithm. {} processes out of {} max.", m.start, m.max);
@@ -115,7 +107,7 @@ namespace my::cli
     // TAG
     struct model_t_tag_visitor
     {
-      std::string operator()(const Pebbling& m) const
+      std::string operator()(const t_Pebbling& m) const
       {
         if (m.max_pebbles)
           return format("-pebbling_{}", *m.max_pebbles);
@@ -123,7 +115,7 @@ namespace my::cli
           return "-pebbling";
       }
 
-      std::string operator()(const Peterson& m) const
+      std::string operator()(const t_Peterson& m) const
       {
         return format("-peter_{}_{}", m.start, m.max);
       }
@@ -137,27 +129,6 @@ namespace my::cli
 
   namespace algo
   {
-    const std::optional<PDR> get_PDR(const Algo_var& a)
-    {
-      if (std::holds_alternative<PDR>(a))
-        return std::get<PDR>(a);
-      return {};
-    }
-    
-    std::optional<const IPDR&> get_IPDR(const Algo_var& a);
-    {
-      if (std::holds_alternative<IPDR>(a))
-        return std::get<IPDR>(a);
-      return {};
-    }
-
-    std::optional<const Bounded&> get_Bounded(const Algo_var& a);
-    {
-      if (std::holds_alternative<Bounded>(a))
-        return std::get<Bounded>(a);
-      return {};
-    }
-
     // TOSTRING
     struct algo_string_visitor
     {
@@ -181,19 +152,6 @@ namespace my::cli
     std::string to_string(const Algo_var& a)
     {
       return std::visit(algo_string_visitor{}, a);
-    }
-
-    // GETMODEL
-    struct algo_model_visitor
-    {
-      Model_var operator()(const PDR& a) const { return a.model; }
-      Model_var operator()(const IPDR& a) const { return a.model; }
-      Model_var operator()(const Bounded& a) const { return a.model; }
-    };
-
-    const Model_var& get_model(const Algo_var& a);
-    {
-      return std::visit(algo_model_visitor{}, a);
     }
   } // namespace algo
 
@@ -423,7 +381,7 @@ namespace my::cli
 
     if (clresult.count(s_peter))
     {
-      model_type::Peterson peter;
+      model_type::t_Peterson peter;
 
       if (clresult.count(s_procs))
         peter.start = clresult[s_procs].as<unsigned>();
@@ -436,7 +394,7 @@ namespace my::cli
     }
     else if (clresult.count(s_pebbling))
     {
-      model_type::Pebbling pebbling;
+      model_type::t_Pebbling pebbling;
       pebbling.model = parse_graph_src(clresult);
       if (clresult.count(s_pebbles))
         pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();

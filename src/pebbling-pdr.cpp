@@ -12,6 +12,7 @@
 #include "pebbling-experiments.h"
 #include "pebbling-model.h"
 #include "peterson-experiments.h"
+#include "peterson-result.h"
 #include "peterson.h"
 
 #include <algorithm>
@@ -32,11 +33,14 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <variant>
 #include <vector>
 #include <z3++.h>
 
 using namespace my::cli;
 using namespace my::io;
+
+template <typename T> using cc_ptr = const T* const;
 
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
@@ -161,65 +165,59 @@ void peter_experiment(ArgumentList& args)
 #warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
+  using model_type::t_Pebbling;
+  using model_type::t_Peterson;
   using std::ofstream;
 
   ArgumentList args(argc, argv);
 
-  if (args.peter)
+  ofstream model_descr = trunc_file(args.folders.model_dir, "model", "txt");
+
+  if (cc_ptr<t_Pebbling> peb_descr = std::get_if<t_Pebbling>(&args.model))
   {
-    peter_experiment(args);
-    return 0;
-  }
+    using namespace pdr::pebbling;
 
-  if (args.experiment)
+    dag::Graph G = model_type::make_graph(peb_descr->model);
+    {
+      G.show_image(args.folders.model_dir / "dag");
+      std::ofstream graph_descr =
+          trunc_file(args.folders.model_dir, "graph", "txt");
+      std::cout << G.summary() << std::endl;
+      graph_descr << G.summary() << std::endl << G;
+    }
+
+    PebblingModel pebbling(args, G);
+    pebbling.show(model_descr);
+  }
+  else if (cc_ptr<t_Peterson> peter_descr =
+               std::get_if<t_Peterson>(&args.model))
   {
-    experiment(args);
-    return 0;
+    using namespace pdr::peterson;
+
+    PetersonModel peter(peter_descr->start, peter_descr->max);
+    peter.show(model_descr);
   }
-
-  const fs::path model_dir = args.create_model_dir();
-  const dag::Graph G       = setup_graph(args);
-
-  if (args.bounded)
-  {
-    bounded_experiment(G, args);
-    return 0;
-  }
-
-  pdr::pebbling::PebblingModel model(args, G);
-  pdr::Context context = args.seed ? pdr::Context(model, *args.seed)
-                                   : pdr::Context(model, args.rand);
-
-  ofstream model_descr = trunc_file(model_dir, "model", "txt");
-  model.show(model_descr);
 
   if (args.onlyshow)
     return 0;
 
-  const std::string filename = args.file_name();
-  fs::path run_dir           = setup(model_dir / args.run_folder_name());
-
-  ofstream stat_file   = trunc_file(run_dir, filename, "stats");
-  ofstream strat_file  = trunc_file(run_dir, filename, "strategy");
-  ofstream solver_dump = trunc_file(run_dir, "solver_dump", "solver");
-
-  // initialize logger and other bookkeeping
-  fs::path log_file = run_dir / fmt::format("{}.log", filename);
+  ofstream stat_file   = args.folders.file_in_run("stats");
+  ofstream strat_file  = args.folders.file_in_run("trace");
+  ofstream solver_dump = args.folders.file_in_run("solver_dump", "solver");
+  fs::path log_file    = args.folders.file_in_run("log");
 
   pdr::Statistics stats =
       pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
 
-  pdr::Logger logger = args.out ? pdr::Logger(log_file.string(), *args.out,
-                                      args.verbosity, std::move(stats))
-                                : pdr::Logger(log_file.string(), args.verbosity,
-                                      std::move(stats));
+  pdr::Logger logger = pdr::Logger(
+      log_file.string(), *args.out, args.verbosity, std::move(stats));
 
   args.show_header();
 
   if (std::holds_alternative<algo::PDR>(args.algorithm))
   {
     pdr::IpdrResult rs(model);
-    model.constrain(args.algorithm);
+    model.constrain(args.);
     pdr::PdrResult r = algorithm.run();
     rs.add(r).show(strat_file);
     rs.show_traces(strat_file);
@@ -227,23 +225,23 @@ int main(int argc, char* argv[])
 
     return 0;
   }
-  else if (std::holds_alternative<algo::IPDR>(args.algorithm))
+  else if (cc_ptr<algo::IPDR> algo = std::get_if<algo::IPDR>(&args.algorithm))
   {
     using namespace model_type;
 
     if (args.experiment)
       experiment(args);
 
-    const Model_var& m_variant = algo::get_model(args.algorithm);
-    if (std::holds_alternative<Pebbling>(m_variant))
+    if (cc_ptr<model_type::Pebbling> m = std::get_if<Pebbling>(&args.model))
     {
-      const Pebbling& model = std::get<Pebbling>(m_variant);
-      pdr::pebbling::PebblingModel model(args, get_graph(model.model));
-      pdr::Context context = args.seed ? pdr::Context(model, *args.seed)
-                                   : pdr::Context(model, args.rand);
+      pdr::pebbling::PebblingModel pebbling(args, make_graph(m->model));
+      pdr::Context context =
+          std::holds_alternative<bool>(args.r_seed)
+              ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
+              : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
 
-      pdr::pebbling::IPDR optimize(context, model, args, logger);
-      pdr::pebbling::PebblingResult result = optimize.run(args.tactic, false);
+      pdr::pebbling::IPDR optimize(context, pebbling, args, logger);
+      pdr::pebbling::PebblingResult result = optimize.run(algo->type, false);
       result.show(strat_file);
       result.show_raw(strat_file);
       result.show_traces(strat_file);
@@ -251,8 +249,16 @@ int main(int argc, char* argv[])
     }
     else // Peterson
     {
-      const Peterson& model = std::get<Pebbling>(m_variant);
-      pdr::peterson::PetersonModel model(model.start, model.max);
+      using namespace pdr::peterson;
+
+      const Peterson& m = std::get<Pebbling>(args.model);
+      PetersonModel peter(m.start, m.max);
+      IPDR incremental_prove(context, peter, args, logger);
+      PetersonResult result = incremental_prove.run(pdr::Tactic::relax, false);
+      result.show(strat_file);
+      result.show_raw(strat_file);
+      result.show_traces(strat_file);
+      optimize.dump_solver(solver_dump);
     }
   }
   else if (std::holds_alternative<Bounded>(args.algorithm))

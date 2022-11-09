@@ -26,6 +26,9 @@ namespace my::io
     fs::path file_in_model(
         std::string_view name, std::string_view extension) const;
     fs::path file_in_model(std::string_view extension) const;
+    fs::path file_in_run(
+        std::string_view name, std::string_view extension) const;
+    fs::path file_in_run(std::string_view extension) const;
   };
 
   // const fs::path BENCH_FOLDER = fs::current_path() / "benchmark" / "rls" /

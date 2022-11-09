@@ -8,6 +8,7 @@
 
 #include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <memory>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -47,28 +48,27 @@ namespace my::cli
 
     using Graph_var = std::variant<benchFile, tfcFile, Hop>;
 
-    std::string to_string(const Graph_var& m);
-    dag::Graph get_graph(const Graph_var& g);
+    std::string get_name(const Graph_var& m);
+    dag::Graph make_graph(const Graph_var& g);
   } // namespace graph_src
 
   namespace model_type
   {
     using namespace graph_src;
 
-    struct Pebbling
+    struct t_Pebbling
     {
       std::optional<unsigned> max_pebbles; // starting value for constraint
-      dag::Graph G;
       Graph_var model;
     };
 
-    struct Peterson
+    struct t_Peterson
     {
       unsigned start;
       unsigned max;
     };
 
-    using Model_var = std::variant<Pebbling, Peterson>;
+    using Model_var = std::variant<t_Pebbling, t_Peterson>;
 
     std::string to_string(const Model_var& m);
     std::string filetag(const Model_var& m);
@@ -94,9 +94,6 @@ namespace my::cli
 
     using Algo_var = std::variant<PDR, IPDR, Bounded>;
 
-    const std::optional<PDR> get_PDR(const Algo_var& a);
-    std::optional<const PDR&> get_IPDR(const Algo_var& a);
-    std::optional<const PDR&> get_Bounded(const Algo_var& a);
     std::string to_string(const Algo_var& a);
     const Model_var& get_model(const Algo_var& a);
   } // namespace algo
