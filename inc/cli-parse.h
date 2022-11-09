@@ -1,6 +1,7 @@
 #ifndef CLI_H
 #define CLI_H
 
+#include "dag.h"
 #include "io.h"
 #include "logger.h"
 #include "tactic.h"
@@ -50,6 +51,7 @@ namespace my::cli
     struct Pebbling
     {
       std::optional<unsigned> max_pebbles; // starting value for constraint
+      dag::Graph G;
       Graph_var model;
     };
 
@@ -97,6 +99,9 @@ namespace my::cli
 
     using Algo_var = std::variant<PDR, IPDR, Bounded>;
 
+    bool is_PDR(const Algo_var& a);
+    bool is_IPDR(const Algo_var& a);
+    bool is_Bounded(const Algo_var& a);
     std::string to_string(const Algo_var& a);
     Model_var model(const Algo_var& a);
   } // namespace algo
@@ -104,6 +109,7 @@ namespace my::cli
   struct Experiment
   {
     unsigned repetitions;
+    bool control;
   };
 
   enum class ModelType
@@ -117,17 +123,12 @@ namespace my::cli
   class ArgumentList
   {
    public:
+    FolderStructure folders;
     OutLvl verbosity{ OutLvl::whisper };
     // the way pdr is run
     pdr::Tactic tactic{ pdr::Tactic::undef };
-    // comparison run for optimizer experiments
-    bool exp_control;
-    // folder that contains the model_name file
-    fs::path bench_folder;
     // file_name (without extension) for the model
     std::string model_name;
-    // H-operator model, instead of reading a graph
-    // Hop hop;
     std::optional<std::string> out; // filename to redirect logging out messages
 
     // run options

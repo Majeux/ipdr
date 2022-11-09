@@ -12,6 +12,7 @@ namespace my::io
   // run_type_dir / model_type_dir / model_dir / run_dir / run_files
   struct FolderStructure
   {
+    fs::path bench_src;
     fs::path run_type_dir;
     fs::path model_type_dir;
     fs::path model_dir;

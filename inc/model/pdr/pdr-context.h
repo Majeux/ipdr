@@ -14,11 +14,10 @@ namespace pdr
      IModel& model;
 
    public:
-    const bool delta;
     uint32_t seed;
     Tactic type;
-    Context(IModel& c, bool d, bool random_seed);
-    Context(IModel& c, bool d, unsigned seed);
+    Context(IModel& c, bool random_seed);
+    Context(IModel& c, unsigned seed);
 
     operator z3::context&();
     operator const z3::context&() const;

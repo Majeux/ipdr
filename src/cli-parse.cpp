@@ -96,6 +96,12 @@ namespace my::cli
 
   namespace algo
   {
+    bool is_PDR(const Algo_var& a) { return std::holds_alternative<PDR>(a); }
+    bool is_IPDR(const Algo_var& a) { return std::holds_alternative<IPDR>(a); }
+    bool is_Bounded(const Algo_var& a)
+    {
+      return std::holds_alternative<Bounded>(a);
+    }
     // TOSTRING
     struct algo_string_visitor
     {
@@ -166,6 +172,26 @@ namespace my::cli
       std::cerr << clopt.help() << std::endl;
       throw;
     }
+
+    folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs");
+
+    folders.model_type_dir = folders.run_type_dir;
+    {
+      if (bounded)
+        folders.model_type_dir /= "bounded";
+      else if (peter)
+        folders.model_type_dir /= "peter";
+      else
+        folders.model_type_dir /= "pebbling";
+    }
+
+#warning todo: formal mechanism for peterston name
+    folders.model_dir = folders.model_type_dir / model_name;
+    folders.run_dir   = folders.model_dir / run_folder_name();
+    folders.analysis  = folders.run_dir / "analysis";
+    folders.file_base = file_name();
+
+    fs::create_directories(folders.analysis);
   }
 
   void ArgumentList::show_header(std::ostream& out) const
@@ -177,7 +203,7 @@ namespace my::cli
     {
       out << format(
           "Running an experiment with {} samples. ", experiment->repetitions);
-      if (exp_control)
+      if (experiment->control)
         out << "(a control run)";
     }
     out << endl;
@@ -189,32 +215,6 @@ namespace my::cli
     if (tseytin)
       out << "Using tseytin encoded transition." << endl;
     out << endl;
-  }
-
-  const FolderStructure ArgumentList::make_folders() const
-  {
-    FolderStructure F;
-    F.run_type_dir = base_out() / (experiment ? "experiments" : "runs");
-
-    F.model_type_dir = F.run_type_dir;
-    {
-      if (bounded)
-        F.model_type_dir /= "bounded";
-      else if (peter)
-        F.model_type_dir /= "peter";
-      else
-        F.model_type_dir /= "pebbling";
-    }
-
-#warning todo: formal mechanism for peterston name
-    F.model_dir = F.model_type_dir / model_name;
-    F.run_dir   = F.model_dir / run_folder_name();
-    F.analysis  = F.run_dir / "analysis";
-    F.file_base = file_name();
-
-    fs::create_directories(F.analysis);
-
-    return F;
   }
 
   string ArgumentList::file_name() const
@@ -301,7 +301,7 @@ namespace my::cli
       (sh('e', s_exp), "run an experiment with I iterations.",
         value< unsigned >(), "(uint: I)")
       (sh('c', s_control), "Run only a control experiment (no ipdr).",
-        value<bool>(exp_control))
+        value<bool>())
       (sh('i', o_inc), format("Specify the constraining ({}) or relaxing ({}) version of ipdr."
           "Automatically selected for a transition system if empty.", s_constrain, s_relax))
 
@@ -312,7 +312,7 @@ namespace my::cli
 
       // model options
       (s_dir,"Directory (relative to ./) than contains runable benchmarks.",
-        value<fs::path>(bench_folder)->default_value(my::io::BENCH_FOLDER), "(string:F)")
+        value<fs::path>(folders.bench_src)->default_value(my::io::BENCH_FOLDER), "(string:F)")
       (s_bench, "File in in .bench format.",
         value<string>(), "(string:FILE)")
       (s_tfc, "File in in .tfc format.",
@@ -442,9 +442,12 @@ namespace my::cli
 
     if (clresult.count(s_exp))
     {
-      experiment = { clresult[s_exp].as<unsigned>() };
+      unsigned reps{ clresult[s_exp].as<unsigned>() };
       if (clresult.count(s_pdr))
         throw std::invalid_argument("Experiments verify incremental runs only");
+
+      bool control = (clresult.count(s_control) == 1);
+      experiment   = { reps, control };
     }
   }
 

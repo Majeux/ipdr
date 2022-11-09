@@ -103,13 +103,13 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-dag::Graph setup_graph(const ArgumentList& clargs)
+dag::Graph setup_graph(const ArgumentList& args)
 {
   // create folders and files for I/O
-  fs::path model_dir        = create_model_dir(clargs);
-  std::ofstream graph_descr = trunc_file(model_dir, "graph", "txt");
+  fs::path model_dir        = create_model_dir(args);
+  std::ofstream graph_descr = trunc_file(args.folders.model_dir, "graph", "txt");
 
-  dag::Graph G = build_dag(clargs);
+  dag::Graph G = build_dag(args);
   {
     G.show_image(model_dir / "dag");
     std::cout << G.summary() << std::endl;
@@ -149,7 +149,7 @@ void experiment(ArgumentList& clargs)
   std::cout << "experiment done" << std::endl;
 }
 
-void peter_experiment(ArgumentList& clargs)
+void peter_experiment(ArgumentList& args)
 {
   using std::ofstream;
   using std::string;
@@ -158,12 +158,11 @@ void peter_experiment(ArgumentList& clargs)
 
   unsigned p = 3, N = 3;
   pdr::peterson::PetersonModel model(p, N);
-  clargs.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
+  args.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
 
-  const FolderStructure folders = FolderStructure::make_from(clargs);
   {
     auto model_logger = spdlog::basic_logger_st(
-        "model_dump", folders.file_in_model(clargs.model_name, "model"), true);
+        "model_dump", args.folders.file_in_model(args.model_name, "model"), true);
     model_logger->set_level(spdlog::level::trace);
     spdlog::set_pattern("");
 
@@ -178,20 +177,20 @@ void peter_experiment(ArgumentList& clargs)
     model_logger->flush();
   }
 
-  ofstream stat_file = trunc_file(folders.analysis, folders.file_base, "stats");
+  ofstream stat_file = trunc_file(args.folders.analysis, args.folders.file_base, "stats");
   ofstream trace_file =
-      trunc_file(folders.analysis, folders.file_base, "trace");
-  fs::path log_file = folders.analysis / folders.file("log");
+      trunc_file(args.folders.analysis, args.folders.file_base, "trace");
+  fs::path log_file = args.folders.analysis / args.folders.file("log");
 
-  folders.show(std::cerr);
+  args.folders.show(std::cerr);
 
   pdr::Statistics stats =
       pdr::Statistics::PeterStatistics(std::move(stat_file), p, N);
   pdr::Logger logger =
-      pdr::Logger(log_file.string(), clargs.verbosity, std::move(stats));
+      pdr::Logger(log_file.string(), args.verbosity, std::move(stats));
 
   // return;
-  pdr::peterson::experiments::peterson_run(model, logger, clargs);
+  pdr::peterson::experiments::peterson_run(model, logger, args);
   std::cout << "experiment done" << std::endl;
 }
 
@@ -262,7 +261,7 @@ int main(int argc, char* argv[])
 
   pdr::PDR algorithm(context, model, logger);
 
-  if (args.tactic == pdr::Tactic::basic)
+  if (algo::is_PDR(args.algorithm))
   {
     pdr::IpdrResult rs(model);
     model.constrain(args.starting_value);
