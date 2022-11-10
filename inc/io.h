@@ -37,12 +37,12 @@ namespace my::io
 
   fs::path base_out();
   fs::path setup(fs::path p);
-  const fs::path file_in(const fs::path& folder, std::string_view name,
+  const fs::path file_in(fs::path const& folder, std::string_view name,
       std::string_view extension);
   // creates an overwriting file of the given name
-  std::ofstream trunc_file(const fs::path& path);
+  std::ofstream trunc_file(fs::path const& path);
   // creates it with the the given extension, in the given folder.
-  std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
-      const std::string& ext);
+  std::ofstream trunc_file(fs::path const& folder, std::string const& filename,
+      std::string const& ext);
 } // namespace my::io
 #endif // IO_H

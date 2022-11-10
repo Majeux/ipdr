@@ -15,12 +15,12 @@ namespace pdr::pebbling
   using z3::expr_vector;
 
   PebblingModel::PebblingModel(
-      const my::cli::ArgumentList& args, const dag::Graph& G)
+      my::cli::ArgumentList const& args, dag::Graph const& G)
       : IModel(std::vector<string>(G.nodes.begin(), G.nodes.end()))
   {
-    name = args.model_name;
+    name = my::cli::graph_src::get_name(args.src.value());
 
-    for (const expr& e : vars())
+    for (expr const& e : vars())
       initial.push_back(!e);
 
     // load_pebble_transition_raw2(G);
@@ -48,14 +48,14 @@ namespace pdr::pebbling
 
   size_t PebblingModel::n_nodes() const { return initial.size(); }
 
-  void PebblingModel::load_pebble_transition(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition(dag::Graph const& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
       string name = vars(i).to_string();
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
-      for (const string& child : G.get_children(name))
+      for (string const& child : G.get_children(name))
       {
         expr child_node   = ctx.bool_const(child.c_str());
         expr child_node_p = vars.p(child_node);
@@ -69,13 +69,13 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingModel::load_pebble_transition_tseytin(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_tseytin(dag::Graph const& G)
   {
     using namespace z3ext::tseytin;
     transition.resize(0);
     // ((pv,i ^ pv,i+1 ) => (pw,i & pw,i+1 ))
     std::map<string, expr> stay_expr;
-    for (const string& n : G.nodes)
+    for (string const& n : G.nodes)
     {
       string stay_name = fmt::format("_stay[{}]_", n);
       expr curr        = ctx.bool_const(n.c_str());
@@ -93,7 +93,7 @@ namespace pdr::pebbling
       expr flip        = add_xor(transition, flip_name, vars(i), vars.p(i));
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
-      for (const string& child : G.get_children(name))
+      for (string const& child : G.get_children(name))
       {
         expr child_stay = stay_expr.at(child);
         string move_str = fmt::format("_flip[{}] => stay[{}]_", name, child);
@@ -101,11 +101,11 @@ namespace pdr::pebbling
         moves.push_back(move);
       }
     }
-    for (const expr& e : moves)
+    for (expr const& e : moves)
       transition.push_back(e);
   }
 
-  void PebblingModel::load_pebble_transition_raw1(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_raw1(dag::Graph const& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -113,7 +113,7 @@ namespace pdr::pebbling
       expr parent_flip = vars(i) ^ vars.p(i);
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
-      for (const string& child : G.get_children(name))
+      for (string const& child : G.get_children(name))
       {
         expr child_node    = ctx.bool_const(child.c_str());
         expr child_node_p  = vars.p(child_node);
@@ -124,7 +124,7 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingModel::load_pebble_transition_raw2(const dag::Graph& G)
+  void PebblingModel::load_pebble_transition_raw2(dag::Graph const& G)
   {
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -133,7 +133,7 @@ namespace pdr::pebbling
       // pebble if all children are pebbled now and next
       // or unpebble if all children are pebbled now and next
       expr_vector children_pebbled(ctx);
-      for (const string& child : G.get_children(name))
+      for (string const& child : G.get_children(name))
       {
         expr child_node   = ctx.bool_const(child.c_str());
         expr child_node_p = vars.p(child_node);
@@ -145,10 +145,10 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingModel::load_property(const dag::Graph& G)
+  void PebblingModel::load_property(dag::Graph const& G)
   {
     // final nodes are pebbled and others are not
-    for (const expr& e : vars())
+    for (expr const& e : vars())
     {
       if (G.is_output(e.to_string()))
         n_property.add(e);
@@ -159,7 +159,7 @@ namespace pdr::pebbling
 
     // final nodes are unpebbled and others are
     expr_vector disjunction(ctx);
-    for (const expr& e : vars())
+    for (expr const& e : vars())
     {
       if (G.is_output(e.to_string()))
         disjunction.push_back(!e);

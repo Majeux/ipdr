@@ -40,6 +40,21 @@ namespace pdr
     friend class pebbling::IPDR;
     friend class peterson::IPDR;
 
+   public:
+    PDR(Context& c, IModel& m, Logger& l);
+
+    // prepare PDR for new run. discards old trace
+    void reset();
+    PdrResult run();
+
+    Context const& get_ctx() const;
+    Context& get_ctx();
+
+    Statistics& stats();
+    void show_solver(std::ostream& out) const;
+    std::vector<std::string> trace_row(z3::expr_vector const& v);
+    int length_shortest_strategy() const;
+
    private:
     Context& ctx;
     IModel& model;
@@ -60,7 +75,7 @@ namespace pdr
       std::optional<z3::expr_vector> core;
     };
 
-    void print_model(const z3::model& m);
+    void print_model(z3::model const& m);
     // main algorithm
     PdrResult init();
     PdrResult iterate();
@@ -69,10 +84,10 @@ namespace pdr
     PdrResult block_short(z3::expr_vector&& counter, unsigned n);
     // generalization
     // todo return [n, cti ptr]
-    HIFresult hif_(const z3::expr_vector& cube, int min);
-    HIFresult highest_inductive_frame(const z3::expr_vector& cube, int min);
-    z3::expr_vector generalize(const z3::expr_vector& cube, int level);
-    z3::expr_vector MIC(const z3::expr_vector& cube, int level);
+    HIFresult hif_(z3::expr_vector const& cube, int min);
+    HIFresult highest_inductive_frame(z3::expr_vector const& cube, int min);
+    z3::expr_vector generalize(z3::expr_vector const& cube, int level);
+    z3::expr_vector MIC(z3::expr_vector const& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
     // results
     void make_result(PdrResult& result);
@@ -84,29 +99,14 @@ namespace pdr
     // logging shorthands
     void log_start() const;
     void log_iteration();
-    void log_cti(const z3::expr_vector& cti, unsigned level);
+    void log_cti(z3::expr_vector const& cti, unsigned level);
     void log_propagation(unsigned level, double time);
     void log_top_obligation(
-        size_t queue_size, unsigned top_level, const z3::expr_vector& top);
-    void log_pred(const z3::expr_vector& p);
+        size_t queue_size, unsigned top_level, z3::expr_vector const& top);
+    void log_pred(z3::expr_vector const& p);
     void log_state_push(unsigned frame);
-    void log_finish(const z3::expr_vector& s);
+    void log_finish(z3::expr_vector const& s);
     void log_obligation_done(std::string_view type, unsigned l, double time);
-
-   public:
-    PDR(Context& c, IModel& m, Logger& l);
-
-    // prepare PDR for new run. discards old trace
-    void reset();
-    PdrResult run();
-
-    const Context& get_ctx() const;
-    Context& get_ctx();
-
-    Statistics& stats();
-    void show_solver(std::ostream& out) const;
-    std::vector<std::string> trace_row(const z3::expr_vector& v);
-    int length_shortest_strategy() const;
   };
 
   namespace pebbling

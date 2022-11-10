@@ -40,7 +40,7 @@
 using namespace my::cli;
 using namespace my::io;
 
-template <typename T> using cc_ptr = const T* const;
+template <typename T> using cc_ptr = T const* const;
 
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
@@ -172,22 +172,35 @@ int main(int argc, char* argv[])
   ArgumentList args(argc, argv);
 
   ofstream model_descr = trunc_file(args.folders.model_dir, "model", "txt");
+  ofstream strat_file  = args.folders.file_in_run("trace");
+  ofstream solver_dump = args.folders.file_in_run("solver_dump", "solver");
+
+  pdr::Statistics stats(args.folders.file_in_run("stats"));
+  pdr::Logger logger = pdr::Logger(args.folders.file_in_run("log"), *args.out,
+      args.verbosity, std::move(stats));
 
   if (cc_ptr<t_Pebbling> peb_descr = std::get_if<t_Pebbling>(&args.model))
   {
     using namespace pdr::pebbling;
 
-    dag::Graph G = model_type::make_graph(peb_descr->model);
-    {
-      G.show_image(args.folders.model_dir / "dag");
-      std::ofstream graph_descr =
-          trunc_file(args.folders.model_dir, "graph", "txt");
-      std::cout << G.summary() << std::endl;
-      graph_descr << G.summary() << std::endl << G;
-    }
+    dag::Graph G = model_type::make_graph(peb_descr->src);
+    G.show(args.folders.model_dir / "dag", true);
+    stats.is_pebbling(G);
 
     PebblingModel pebbling(args, G);
     pebbling.show(model_descr);
+      pdr::Context context =
+          std::holds_alternative<bool>(args.r_seed)
+              ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
+              : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
+
+    pdr::PDR pdr_algo(context, pebbling, logger);
+    pebbling.constrain(peb_descr->max_pebbles.value());
+    pdr::IpdrResult rs(pebbling);
+    pdr::PdrResult r = pdr_algo.run();
+    rs.add(r).show(strat_file);
+    rs.show_traces(strat_file);
+    pdr_algo.show_solver(solver_dump);
   }
   else if (cc_ptr<t_Peterson> peter_descr =
                std::get_if<t_Peterson>(&args.model))
@@ -195,78 +208,71 @@ int main(int argc, char* argv[])
     using namespace pdr::peterson;
 
     PetersonModel peter(peter_descr->start, peter_descr->max);
+    stats.is_peter(peter_descr->start, peter_descr->max);
     peter.show(model_descr);
+
+    assert(false && "TODO: peterson control flow");
   }
 
   if (args.onlyshow)
     return 0;
 
-  ofstream stat_file   = args.folders.file_in_run("stats");
-  ofstream strat_file  = args.folders.file_in_run("trace");
-  ofstream solver_dump = args.folders.file_in_run("solver_dump", "solver");
-  fs::path log_file    = args.folders.file_in_run("log");
+  args.show_header(std::cerr);
 
-  pdr::Statistics stats =
-      pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
+  // if (std::holds_alternative<algo::PDR>(args.algorithm))
+  // {
+  //   pdr::PDR pdr_algo(context, pebbling, logger);
+  //   pdr::IpdrResult rs(pebbling);
+  //   model.constrain(args.);
+  //   pdr::PdrResult r = algorithm.run();
+  //   rs.add(r).show(strat_file);
+  //   rs.show_traces(strat_file);
+  //   algorithm.show_solver(solver_dump);
 
-  pdr::Logger logger = pdr::Logger(
-      log_file.string(), *args.out, args.verbosity, std::move(stats));
+  //   return 0;
+  // }
+  // else if (cc_ptr<algo::IPDR> algo = std::get_if<algo::IPDR>(&args.algorithm))
+  // {
+  //   using namespace model_type;
 
-  args.show_header();
+  //   if (args.experiment)
+  //     experiment(args);
 
-  if (std::holds_alternative<algo::PDR>(args.algorithm))
-  {
-    pdr::IpdrResult rs(model);
-    model.constrain(args.);
-    pdr::PdrResult r = algorithm.run();
-    rs.add(r).show(strat_file);
-    rs.show_traces(strat_file);
-    algorithm.show_solver(solver_dump);
+  //   if (cc_ptr<model_type::Pebbling> m = std::get_if<Pebbling>(&args.model))
+  //   {
+  //     pdr::pebbling::PebblingModel pebbling(args, make_graph(m->model));
+  //     pdr::Context context =
+  //         std::holds_alternative<bool>(args.r_seed)
+  //             ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
+  //             : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
 
-    return 0;
-  }
-  else if (cc_ptr<algo::IPDR> algo = std::get_if<algo::IPDR>(&args.algorithm))
-  {
-    using namespace model_type;
+  //     pdr::pebbling::IPDR optimize(context, pebbling, args, logger);
+  //     pdr::pebbling::PebblingResult result = optimize.run(algo->type, false);
+  //     result.show(strat_file);
+  //     result.show_raw(strat_file);
+  //     result.show_traces(strat_file);
+  //     optimize.dump_solver(solver_dump);
+  //   }
+  //   else // Peterson
+  //   {
+  //     using namespace pdr::peterson;
 
-    if (args.experiment)
-      experiment(args);
-
-    if (cc_ptr<model_type::Pebbling> m = std::get_if<Pebbling>(&args.model))
-    {
-      pdr::pebbling::PebblingModel pebbling(args, make_graph(m->model));
-      pdr::Context context =
-          std::holds_alternative<bool>(args.r_seed)
-              ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
-              : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
-
-      pdr::pebbling::IPDR optimize(context, pebbling, args, logger);
-      pdr::pebbling::PebblingResult result = optimize.run(algo->type, false);
-      result.show(strat_file);
-      result.show_raw(strat_file);
-      result.show_traces(strat_file);
-      optimize.dump_solver(solver_dump);
-    }
-    else // Peterson
-    {
-      using namespace pdr::peterson;
-
-      const Peterson& m = std::get<Pebbling>(args.model);
-      PetersonModel peter(m.start, m.max);
-      IPDR incremental_prove(context, peter, args, logger);
-      PetersonResult result = incremental_prove.run(pdr::Tactic::relax, false);
-      result.show(strat_file);
-      result.show_raw(strat_file);
-      result.show_traces(strat_file);
-      optimize.dump_solver(solver_dump);
-    }
-  }
-  else if (std::holds_alternative<Bounded>(args.algorithm))
-  {
-    dag::Graph G = get_graph(model.model);
-    bounded::BoundedPebbling obj(G, args);
-    obj.find_for(G.nodes.size());
-  }
+  //     const Peterson& m = std::get<Pebbling>(args.model);
+  //     PetersonModel peter(m.start, m.max);
+  //     IPDR incremental_prove(context, peter, args, logger);
+  //     PetersonResult result = incremental_prove.run(pdr::Tactic::relax, false);
+  //     result.show(strat_file);
+  //     result.show_raw(strat_file);
+  //     result.show_traces(strat_file);
+  //     optimize.dump_solver(solver_dump);
+  //   }
+  // }
+  // else if (std::holds_alternative<Bounded>(args.algorithm))
+  // {
+  //   dag::Graph G = get_graph(model.model);
+  //   bounded::BoundedPebbling obj(G, args);
+  //   obj.find_for(G.nodes.size());
+  // }
 
   std::cout << "goodbye :)" << std::endl;
   return 0;

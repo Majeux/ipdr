@@ -55,7 +55,7 @@ namespace pdr
     return time[i] / count[i];
   }
 
-  std::ostream& operator<<(std::ostream& out, const Statistic& stat)
+  std::ostream& operator<<(std::ostream& out, Statistic const& stat)
   {
     using fmt::arg;
     using fmt::format;
@@ -99,92 +99,91 @@ namespace pdr
   //
 
   Statistics::Statistics(std::ofstream&& outfile)
-        : file(std::move(outfile)), solver_calls(true), propagation_it(true),
-          propagation_level(true), obligations_handled(true), ctis(true),
-          subsumed_cubes(false)
-    {
-    }
+      : solver_calls(true), propagation_it(true), propagation_level(true),
+        obligations_handled(true), ctis(true), subsumed_cubes(false),
+        file(std::move(outfile))
+  {
+  }
 
-    // set the statistics header to describe a DAG model for pebbling
-     Statistics Statistics::PebblingStatistics(std::ofstream&& outfile, const dag::Graph& G)
-    {
-      Statistics s = Statistics(std::move(outfile));
-      s.model_info.emplace("nodes", G.nodes.size());
-      s.model_info.emplace("edges", G.edges.size());
-      s.model_info.emplace("outputs", G.output.size());
-      return s;
-    }
+  void Statistics::is_pebbling(dag::Graph const& G)
+  {
+    assert(!finished);
+    model_info.emplace("nodes", G.nodes.size());
+    model_info.emplace("edges", G.edges.size());
+    model_info.emplace("outputs", G.output.size());
+    finished = true;
+  }
 
-    // set the statistics header to describe a DAG model for pebbling
-     Statistics Statistics::PeterStatistics(std::ofstream&& outfile, unsigned p, unsigned N)
-    {
-      Statistics s = Statistics(std::move(outfile));
-      s.model_info.emplace(PROC_STR, p);
-      s.model_info.emplace(N_STR, N);
-      return s;
-    }
-    
-    void Statistics::update_peter(unsigned p, unsigned N)
-    {
-     model_info[PROC_STR] = p; 
-     model_info[N_STR] = N; 
-    }
+  // set the statistics header to describe a DAG model for pebbling
+  void Statistics::is_peter(unsigned p, unsigned N)
+  {
+    assert(!finished);
+    model_info.emplace(PROC_STR, p);
+    model_info.emplace(N_STR, N);
+    finished = true;
+  }
 
-    void Statistics::clear()
-    {
-      solver_calls.clear();
-      propagation_it.clear();
-      propagation_level.clear();
-      obligations_handled.clear();
-      ctis.clear();
-      subsumed_cubes.clear();
-      copied_cubes = { 0, 0 };
-    }
+  void Statistics::update_peter(unsigned p, unsigned N)
+  {
+    model_info[PROC_STR] = p;
+    model_info[N_STR]    = N;
+  }
 
-    std::string Statistics::str() const
-    {
-      std::stringstream ss;
-      ss << *this << std::endl;
-      return ss.str();
-    }
+  void Statistics::clear()
+  {
+    solver_calls.clear();
+    propagation_it.clear();
+    propagation_level.clear();
+    obligations_handled.clear();
+    ctis.clear();
+    subsumed_cubes.clear();
+    copied_cubes = { 0, 0 };
+  }
 
-    void Statistics::write() { file << *this << std::endl; }
+  std::string Statistics::str() const
+  {
+    std::stringstream ss;
+    ss << *this << std::endl;
+    return ss.str();
+  }
 
-    std::ostream& operator<<(std::ostream& out, const Statistics& s)
-    {
-      assert(not s.model_info.empty());
-      out << "Model: " << std::endl << "--------" << std::endl;
-      for (auto name_value : s.model_info)
-        out << name_value.first << " = " << name_value.second << ", ";
-      out << std::endl;
-      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
+  void Statistics::write() { file << *this << std::endl; }
 
-      out << std::endl;
+  std::ostream& operator<<(std::ostream& out, Statistics const& s)
+  {
+    assert(not s.model_info.empty());
+    out << "Model: " << std::endl << "--------" << std::endl;
+    for (auto name_value : s.model_info)
+      out << name_value.first << " = " << name_value.second << ", ";
+    out << std::endl;
+    out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
 
-      std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
-      std::string frame_line_avg(
-          "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-      out << "######################" << std::endl
-          << "# Statistics" << std::endl
-          << "######################" << std::endl;
+    out << std::endl;
 
-      out << "# Solver" << std::endl
-          << s.solver_calls << std::endl
-          << "# CTIs" << std::endl
-          << s.ctis << std::endl
-          << "# Obligations" << std::endl
-          << s.obligations_handled << std::endl
-          << "# Propagation per iteration" << std::endl
-          << s.propagation_it << std::endl
-          << "# Propagation per level" << std::endl
-          << s.propagation_level << std::endl
-          << "# Subsumed cubes" << std::endl
-          << s.subsumed_cubes << std::endl
-          << "#" << std::endl
-          << "# Copied cubes" << std::endl
-          << s.compute_copied() << " %" << std::endl
-          << "#" << std::endl;
+    std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
+    std::string frame_line_avg(
+        "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
+    out << "######################" << std::endl
+        << "# Statistics" << std::endl
+        << "######################" << std::endl;
 
-      return out << "######################" << std::endl;
-    }
+    out << "# Solver" << std::endl
+        << s.solver_calls << std::endl
+        << "# CTIs" << std::endl
+        << s.ctis << std::endl
+        << "# Obligations" << std::endl
+        << s.obligations_handled << std::endl
+        << "# Propagation per iteration" << std::endl
+        << s.propagation_it << std::endl
+        << "# Propagation per level" << std::endl
+        << s.propagation_level << std::endl
+        << "# Subsumed cubes" << std::endl
+        << s.subsumed_cubes << std::endl
+        << "#" << std::endl
+        << "# Copied cubes" << std::endl
+        << s.compute_copied() << " %" << std::endl
+        << "#" << std::endl;
+
+    return out << "######################" << std::endl;
+  }
 } // namespace pdr

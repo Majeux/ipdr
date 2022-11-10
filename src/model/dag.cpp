@@ -1,11 +1,22 @@
 #include "dag.h"
+#include "io.h"
+
+#include <map>
+#include <memory>
+#include <ostream>
+#include <string>
+#include <vector>
 
 namespace dag
 {
+  using std::endl;
+  using std::string;
+  using std::vector;
+
   Graph::Graph() {}
-  Graph::Graph(const std::string& s) : name(s) {}
-  Graph::Graph(const std::string& name, const std::string& dotstring)
-      : image(std::make_unique<graphviz::Graph>(dotstring)), name(name)
+  Graph::Graph(string const& s) : name(s) {}
+  Graph::Graph(string const& name, string const& dotstring)
+      : name(name), image(std::make_unique<graphviz::Graph>(dotstring))
   {
     image->foreach_node(
         [this](Agnode_t* node)
@@ -18,7 +29,7 @@ namespace dag
             case graphviz::XMGnode::node: add_node(name);
           }
 
-          std::vector<std::string> c = image->children_of(node);
+          vector<string> c = image->children_of(node);
 
           if (type == graphviz::XMGnode::po)
           {
@@ -30,17 +41,17 @@ namespace dag
         });
   }
 
-  void Graph::add_input(std::string iname) { input.insert(node(iname)); }
+  void Graph::add_input(string iname) { input.insert(node(iname)); }
 
-  void Graph::add_node(std::string nname) { nodes.insert(node(nname)); }
+  void Graph::add_node(string nname) { nodes.insert(node(nname)); }
 
-  void Graph::add_output(std::string oname)
+  void Graph::add_output(string oname)
   {
     nodes.insert(node(oname));
     output.insert(node(oname));
   }
 
-  void Graph::add_edges_to(std::vector<std::string> from, std::string to)
+  void Graph::add_edges_to(vector<string> from, string to)
   {
     if (from.empty())
       return;
@@ -48,12 +59,12 @@ namespace dag
     to = node(to);
     assert(nodes.find(to) != nodes.end());
 
-    std::vector<std::string> to_children;
+    vector<string> to_children;
     to_children.reserve(from.size());
 
-    for (std::string i : from)
+    for (string i : from)
     {
-      std::string n = node(i);
+      string n = node(i);
       if (input.find(n) != input.end())
       {
         input_edges.emplace(n, to);
@@ -68,7 +79,7 @@ namespace dag
     children.emplace(to, std::move(to_children));
   }
 
-  std::string Graph::summary() const
+  string Graph::summary() const
   {
     return fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}", input.size(),
         output.size(), nodes.size());
@@ -76,38 +87,47 @@ namespace dag
 
   std::ostream& operator<<(std::ostream& stream, Graph const& g)
   {
-    stream << "DAG \{" << std::endl
-           << "\tinput { " << str::ext::join(g.input) << " }" << std::endl
-           << "\toutput { " << str::ext::join(g.output) << " }" << std::endl
-           << "\tnodes { " << str::ext::join(g.nodes) << " }" << std::endl
-           << "\tedges { " << str::ext::join(g.edges) << " }" << std::endl
-           << "}" << std::endl;
+    stream << "DAG \{" << endl
+           << "\tinput { " << str::ext::join(g.input) << " }" << endl
+           << "\toutput { " << str::ext::join(g.output) << " }" << endl
+           << "\tnodes { " << str::ext::join(g.nodes) << " }" << endl
+           << "\tedges { " << str::ext::join(g.edges) << " }" << endl
+           << "}" << endl;
     return stream;
   }
 
-  void Graph::show_image(const std::string& destination)
+  void Graph::show_image(string const& destination)
   {
     if (!image)
       image = std::make_unique<graphviz::Graph>(dot());
     image->render(destination);
   }
 
-  std::string Graph::dot()
+  void Graph::show(string const& destination, bool to_cout)
+  {
+    show_image(destination);
+    std::ofstream out = my::io::trunc_file(destination + "txt");
+    if (to_cout)
+      std::cout << summary() << endl;
+    out << summary() << endl;
+  }
+
+  string Graph::dot()
   {
     std::stringstream ss;
-    ss << "digraph G {" << std::endl;
+    ss << "digraph G {" << endl;
 
-    for (const Edge& e : input_edges)
-      ss << fmt::format("{} -> {};", e.from, e.to) << std::endl;
-    for (const Edge& e : edges)
-      ss << fmt::format("{} -> {};", e.from, e.to) << std::endl;
+    for (Edge const& e : input_edges)
+      ss << fmt::format("{} -> {};", e.from, e.to) << endl;
+    for (Edge const& e : edges)
+      ss << fmt::format("{} -> {};", e.from, e.to) << endl;
 
-    for (const std::string& o : input)
-      ss << fmt::format("{} [shape=plain];", o) << std::endl;
-    for (const std::string& o : output)
-      ss << fmt::format("{} [shape=doublecircle];", o) << std::endl;
+    for (string const& o : input)
+      ss << fmt::format("{} [shape=plain];", o) << endl;
+    for (string const& o : output)
+      ss << fmt::format("{} [shape=doublecircle];", o) << endl;
 
-    ss << "}" << std::endl;
+    ss << "}" << endl;
     return ss.str();
   }
 
@@ -116,8 +136,7 @@ namespace dag
     return output.find(name) != output.end();
   }
 
-  const std::vector<std::string>& Graph::get_children(
-      std::string_view key) const
+  vector<string> const& Graph::get_children(std::string_view key) const
   {
     auto result = children.find(key);
 

@@ -123,15 +123,13 @@ namespace pdr
   // removes frames until the frontier is the given argument
   void Frames::clear_until(size_t frontier_index)
   {
-    if (ctx.delta)
-      assert(frames.size() == act.size());
+    assert(frames.size() == act.size());
 
     // pop until given index is the highest
     while (frontier() > frontier_index)
     {
       frames.pop_back();
-      if (ctx.delta)
-        act.pop_back();
+      act.pop_back();
     }
   }
 
@@ -170,8 +168,8 @@ namespace pdr
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
-    MYLOG_DEBUG(log, 
-        "removing cube from level [1..{}]: [{}]", level, str::ext::join(cube));
+    MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
+        str::ext::join(cube));
 
     log.indent++;
     bool result = delta_remove_state(cube, level);
@@ -349,7 +347,7 @@ namespace pdr
     MYLOG_TRACE(log, "SAT-query: F_0..F_{} & T", frame);
 
     Solver& solver = get_solver(frame);
-    if (ctx.delta && frame > 0)
+    if (frame > 0)
     {
       assert(frames.size() == act.size());
       for (unsigned i = frame; i < act.size(); i++)
@@ -357,8 +355,8 @@ namespace pdr
     }
 
     log.indent++;
-    MYLOG_TRACE(log, 
-        "assumptions: [ {} ]", z3ext::join_expr_vec(assumptions, false));
+    MYLOG_TRACE(
+        log, "assumptions: [ {} ]", z3ext::join_expr_vec(assumptions, false));
 
     bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
