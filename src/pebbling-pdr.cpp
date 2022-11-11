@@ -14,6 +14,7 @@
 #include "peterson-experiments.h"
 #include "peterson-result.h"
 #include "peterson.h"
+#include "types-ext.h"
 
 #include <algorithm>
 #include <array>
@@ -69,23 +70,6 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-dag::Graph setup_graph(const ArgumentList& args)
-{
-  // create folders and files for I/O
-  fs::path model_dir = create_model_dir(args);
-  std::ofstream graph_descr =
-      trunc_file(args.folders.model_dir, "graph", "txt");
-
-  dag::Graph G = build_dag(args);
-  {
-    G.show_image(model_dir / "dag");
-    std::cout << G.summary() << std::endl;
-    graph_descr << G.summary() << std::endl << G;
-  }
-
-  return G;
-}
-
 void experiment(ArgumentList& clargs)
 {
   using std::ofstream;
@@ -116,6 +100,24 @@ void experiment(ArgumentList& clargs)
   std::cout << "experiment done" << std::endl;
 }
 
+void show_peter_model(
+    fs::path const& out, pdr::peterson::PetersonModel const& model)
+{
+  auto model_logger = spdlog::basic_logger_st("model_dump", out, true);
+  model_logger->set_level(spdlog::level::trace);
+  spdlog::set_pattern("%v");
+
+  tabulate::Table t;
+  t.add_row({ "I", model.get_initial().to_string() });
+  t.add_row(
+      { "P", model.property().to_string(), model.property.p().to_string() });
+  t.add_row({ "!P", model.n_property().to_string(),
+      model.n_property.p().to_string() });
+  // t.add_row({ "T", model.get_constraint().to_string() });
+  SPDLOG_LOGGER_TRACE(model_logger, t.str());
+  model_logger->flush();
+}
+
 void peter_experiment(ArgumentList& args)
 {
   using std::ofstream;
@@ -125,24 +127,9 @@ void peter_experiment(ArgumentList& args)
 
   unsigned p = 3, N = 3;
   pdr::peterson::PetersonModel model(p, N);
-  args.model_name = fmt::format("peter-p{}-N{}-relax", p, N);
-
-  {
-    auto model_logger = spdlog::basic_logger_st("model_dump",
-        args.folders.file_in_model(args.model_name, "model"), true);
-    model_logger->set_level(spdlog::level::trace);
-    spdlog::set_pattern("");
-
-    tabulate::Table t;
-    t.add_row({ "I", model.get_initial().to_string() });
-    t.add_row(
-        { "P", model.property().to_string(), model.property.p().to_string() });
-    t.add_row({ "!P", model.n_property().to_string(),
-        model.n_property.p().to_string() });
-    // t.add_row({ "T", model.get_constraint().to_string() });
-    SPDLOG_LOGGER_TRACE(model_logger, t.str());
-    model_logger->flush();
-  }
+  show_peter_model(
+      args.folders.file_in_model(model_t::get_name(args.model), "model"),
+      model);
 
   ofstream stat_file =
       trunc_file(args.folders.analysis, args.folders.file_base, "stats");
@@ -165,8 +152,7 @@ void peter_experiment(ArgumentList& args)
 #warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
-  using model_type::t_Pebbling;
-  using model_type::t_Peterson;
+  using my::variant::get_cref;
   using std::ofstream;
 
   ArgumentList args(argc, argv);
@@ -179,36 +165,39 @@ int main(int argc, char* argv[])
   pdr::Logger logger = pdr::Logger(args.folders.file_in_run("log"), *args.out,
       args.verbosity, std::move(stats));
 
-  if (cc_ptr<t_Pebbling> peb_descr = std::get_if<t_Pebbling>(&args.model))
+  if (auto peb_descr = get_cref<model_t::Pebbling>(args.model))
   {
     using namespace pdr::pebbling;
 
-    dag::Graph G = model_type::make_graph(peb_descr->src);
+    dag::Graph G = model_t::make_graph(peb_descr->get().src);
     G.show(args.folders.model_dir / "dag", true);
     stats.is_pebbling(G);
 
     PebblingModel pebbling(args, G);
     pebbling.show(model_descr);
-      pdr::Context context =
-          std::holds_alternative<bool>(args.r_seed)
-              ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
-              : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
+    pdr::Context context =
+        std::holds_alternative<bool>(args.r_seed)
+            ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
+            : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
 
     pdr::PDR pdr_algo(context, pebbling, logger);
-    pebbling.constrain(peb_descr->max_pebbles.value());
-    pdr::IpdrResult rs(pebbling);
+    pebbling.constrain(peb_descr->get().max_pebbles.value());
+
     pdr::PdrResult r = pdr_algo.run();
-    rs.add(r).show(strat_file);
-    rs.show_traces(strat_file);
-    pdr_algo.show_solver(solver_dump);
+    {
+      pdr::IpdrResult rs(pebbling);
+      rs.add(r).show(strat_file);
+      rs.show_traces(strat_file);
+      pdr_algo.show_solver(solver_dump);
+    }
   }
-  else if (cc_ptr<t_Peterson> peter_descr =
-               std::get_if<t_Peterson>(&args.model))
+  else
   {
     using namespace pdr::peterson;
+    auto const& peter_descr = std::get<model_t::Peterson>(args.model);
 
-    PetersonModel peter(peter_descr->start, peter_descr->max);
-    stats.is_peter(peter_descr->start, peter_descr->max);
+    PetersonModel peter(peter_descr.start, peter_descr.max);
+    stats.is_peter(peter_descr.start, peter_descr.max);
     peter.show(model_descr);
 
     assert(false && "TODO: peterson control flow");
@@ -231,7 +220,8 @@ int main(int argc, char* argv[])
 
   //   return 0;
   // }
-  // else if (cc_ptr<algo::IPDR> algo = std::get_if<algo::IPDR>(&args.algorithm))
+  // else if (cc_ptr<algo::IPDR> algo =
+  // std::get_if<algo::IPDR>(&args.algorithm))
   // {
   //   using namespace model_type;
 
@@ -260,9 +250,8 @@ int main(int argc, char* argv[])
   //     const Peterson& m = std::get<Pebbling>(args.model);
   //     PetersonModel peter(m.start, m.max);
   //     IPDR incremental_prove(context, peter, args, logger);
-  //     PetersonResult result = incremental_prove.run(pdr::Tactic::relax, false);
-  //     result.show(strat_file);
-  //     result.show_raw(strat_file);
+  //     PetersonResult result = incremental_prove.run(pdr::Tactic::relax,
+  //     false); result.show(strat_file); result.show_raw(strat_file);
   //     result.show_traces(strat_file);
   //     optimize.dump_solver(solver_dump);
   //   }

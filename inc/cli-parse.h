@@ -30,8 +30,6 @@ namespace my::cli
     {
       std::string name;
       fs::path file;
-
-      benchFile() {}
     };
 
     struct tfcFile
@@ -71,7 +69,7 @@ namespace my::cli
 
     using Model_var = std::variant<Pebbling, Peterson>;
 
-    std::string str_descr(Model_var const& m);
+    std::string describe(Model_var const& m);
     std::string get_name(Model_var const& m);
     std::string filetag(Model_var const& m);
   } // namespace model_t
@@ -130,9 +128,6 @@ namespace my::cli
     void show_header(std::ostream& out) const;
     const FolderStructure make_folders() const;
     std::string file_name() const;
-    std::string run_folder_name() const;
-    fs::path create_model_dir() const;
-    fs::path setup_run_path() const;
 
    private:
     // constructor helpers

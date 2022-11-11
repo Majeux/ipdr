@@ -83,6 +83,7 @@ namespace my::cli
     }
   } // namespace graph_src
 
+  //////////////
   namespace model_t
   {
     // STRING
@@ -91,24 +92,25 @@ namespace my::cli
       string operator()(Pebbling const& m) const
       {
         if (m.max_pebbles)
-          return format("Pebbling algorithm. {} pebbles.", *m.max_pebbles);
+          return format(
+              "pebbling algorithm (set/start {} pebbles)", *m.max_pebbles);
         else
-          return "Pebbling algorithm.";
+          return "pebbling algorithm.";
       }
 
       string operator()(Peterson const& m) const
       {
         return format(
-            "Peterson algorithm. {} processes out of {} max.", m.start, m.max);
+            "peterson algorithm. {} processes out of {} max.", m.start, m.max);
       }
     };
 
-    string str_descr(Model_var const& m)
+    string describe(Model_var const& m)
     {
       return std::visit(model_t_string_visitor{}, m);
     }
     // FOLDER
-    struct model_foldername_visitor
+    struct model_name_visitor
     {
       string operator()(Pebbling const& m) const
       {
@@ -124,7 +126,7 @@ namespace my::cli
     };
     string get_name(Model_var const& m)
     {
-      return std::visit(model_foldername_visitor{}, m);
+      return std::visit(model_name_visitor{}, m);
     }
 
     // TAG
@@ -133,14 +135,14 @@ namespace my::cli
       string operator()(Pebbling const& m) const
       {
         if (m.max_pebbles)
-          return format("-pebbling_{}", *m.max_pebbles);
+          return format("pebbling_{}", *m.max_pebbles);
         else
-          return "-pebbling";
+          return "pebbling";
       }
 
       string operator()(Peterson const& m) const
       {
-        return format("-peter_{}_{}", m.start, m.max);
+        return format("peter_{}_{}", m.start, m.max);
       }
     };
 
@@ -150,6 +152,7 @@ namespace my::cli
     }
   } // namespace model_t
 
+  //////////////
   namespace algo
   {
     // NAME
@@ -178,7 +181,7 @@ namespace my::cli
       return std::visit(algo_name_visitor{}, m);
     }
 
-    // TAG FOR FILENAMES
+    // TAG FOR FILE/FOLDER NAMES
     struct algo_tag_visitor
     {
       string operator()(t_PDR const& a) const
@@ -191,7 +194,7 @@ namespace my::cli
       {
         assert(
             a.type == pdr::Tactic::constrain || a.type == pdr::Tactic::relax);
-        return format("ipdr-{}", pdr::tactic::to_string(a.type));
+        return format("ipdr_{}", pdr::tactic::to_string(a.type));
       }
 
       string operator()(t_Bounded const& a) const
@@ -239,27 +242,31 @@ namespace my::cli
       throw;
     }
 
-    folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs");
-
-    folders.model_type_dir = folders.run_type_dir;
+    folders.file_base = model_t::filetag(model);
     {
-      folders.model_type_dir /= model_t::get_name(model);
-      folders.model_type_dir /= algo::get_name(algorithm);
+      folders.file_base += '-' + algo::filetag(algorithm);
+      if (experiment)
+        folders.file_base += format("-exp{}", experiment->repetitions);
     }
+
+    folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
+                           algo::get_name(algorithm);
+
+    folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
     folders.model_dir = folders.model_type_dir;
     {
-      if (auto peb = my::get_cref<model_t::Pebbling>(model))
+      if (auto peb = variant::get_cref<model_t::Pebbling>(model))
         folders.model_dir /= graph_src::get_name(peb->get().src);
       else
       {
-        auto peter = my::get_cref<model_t::Peterson>(model);
+        auto peter = variant::get_cref<model_t::Peterson>(model);
         folders.model_dir /=
             format("peter_{}_{}", peter->get().start, peter->get().start);
       }
     }
 
-    folders.run_dir   = folders.model_dir / run_folder_name();
+    folders.run_dir   = folders.model_dir / file_name();
     folders.analysis  = folders.run_dir / "analysis";
     folders.file_base = file_name();
 
@@ -269,7 +276,9 @@ namespace my::cli
   void ArgumentList::show_header(std::ostream& out) const
   {
     using std::endl;
-    out << algo::str_descr(algorithm) << endl;
+    out << format("running {} for {}.", algo::get_name(algorithm),
+               model_t::describe(model))
+        << std::endl;
 
     if (experiment)
     {
@@ -277,13 +286,14 @@ namespace my::cli
           "Running an experiment with {} samples. ", experiment->repetitions);
       if (experiment->control)
         out << "(a control run)";
+      out << endl;
     }
-    out << endl;
 
-    if (rand)
+    if (std::holds_alternative<bool>(r_seed))
       out << "Using randomized seed." << endl;
-    if (seed)
-      out << "Using seed: " << *seed << endl;
+    else
+      out << format("Using seed: {}.", std::get<unsigned>(r_seed));
+
     if (tseytin)
       out << "Using tseytin encoded transition." << endl;
     out << endl;
@@ -291,42 +301,9 @@ namespace my::cli
 
   string ArgumentList::file_name() const
   {
-    string file_string = format("{}-{}", model_name, to_string(tactic));
+    string rv(model_t::filetag(model));
 
-    file_string += model_t::str_descr(algo::model(algorithm));
-
-    return file_string;
-  }
-
-  string ArgumentList::run_folder_name() const
-  {
-    string folder_string = algo::filetag(algorithm);
-
-    if (experiment)
-      folder_string += format("-exp{}", experiment->repetitions);
-
-    return folder_string;
-  }
-
-  fs::path ArgumentList::create_model_dir() const
-  {
-    fs::path results_folder = base_out();
-    if (experiment)
-      results_folder /= "experiments";
-
-    if (bounded)
-      results_folder /= "bounded";
-    else if (peter)
-      results_folder /= "peter";
-    else
-      results_folder /= "pebbling";
-
-    return setup(results_folder / model_name);
-  }
-
-  fs::path ArgumentList::setup_run_path() const
-  {
-    return setup(base_out() / "results" / model_name / run_folder_name());
+    return rv;
   }
 
   // PRIVATE MEMBERS
@@ -472,9 +449,7 @@ namespace my::cli
     }
 
     if (clresult.count(s_pdr))
-    {
       algorithm = algo::t_PDR();
-    }
     else if (clresult.count(s_ipdr))
     {
       pdr::Tactic t;
@@ -498,12 +473,10 @@ namespace my::cli
       else
         assert(false);
 
-      algorithm = alg::IPDR(t);
+      algorithm = algo::t_IPDR(t);
     }
     else if (clresult.count(s_bounded))
-    {
-      algorithm = algo::Bounded(m);
-    }
+      algorithm = algo::t_Bounded();
   }
 
   void ArgumentList::parse_run(cxxopts::ParseResult const& clresult)
@@ -536,9 +509,7 @@ namespace my::cli
   graph_src::Graph_var ArgumentList::parse_graph_src(
       cxxopts::ParseResult const& clresult)
   {
-    if (!one_of({ s_bench, s_tfc, s_hop }, clresult))
-      throw std::invalid_argument("Pebbling requires (only) one of a .bench or "
-                                  ".tfc inputfile, or a Hop specification.");
+    require_one_of({ s_bench, s_tfc, s_hop }, clresult);
 
     graph_src::Graph_var rv;
 
@@ -551,20 +522,19 @@ namespace my::cli
         throw std::invalid_argument(format(
             "{} requires two positive integers: bitwidth,modulus", s_hop));
 
-      rv         = graph_src::Hop{ hop_list[0], hop_list[1] };
-      model_name = graph_src::name(rv);
+      rv = graph_src::Hop{ hop_list[0], hop_list[1] };
     }
     else if (clresult.count(s_tfc))
     {
-      model_name = clresult[s_tfc].as<string>();
-      rv         = graph_src::tfcFile{ model_name,
-        io::file_in(folders.bench_src, model_name, ".tfc") };
+      string name = clresult[s_tfc].as<string>();
+      rv          = graph_src::tfcFile{ name,
+        io::file_in(folders.bench_src, name, ".tfc") };
     }
     else if (clresult.count(s_bench))
     {
-      model_name = clresult[s_bench].as<string>();
-      rv         = graph_src::benchFile{ model_name,
-        io::file_in(folders.bench_src, model_name, ".bench") };
+      string name = clresult[s_bench].as<string>();
+      rv          = graph_src::benchFile{ name,
+        io::file_in(folders.bench_src, name, ".bench") };
     }
     else
     {

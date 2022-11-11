@@ -10,13 +10,14 @@ namespace my::io
   namespace fs = ghc::filesystem;
 
   // run_type_dir / model_type_dir / model_dir / run_dir / run_files
+  // ex: output / experiments / ipdr / pebbling / ham3tc / ham3tc-ipdr_constrain-exp10
   struct FolderStructure
   {
     fs::path bench_src;
-    fs::path run_type_dir;
-    fs::path model_type_dir;
-    fs::path model_dir;
-    fs::path run_dir;
+    fs::path run_type_dir;   // (experiments | runs) / (pdr | ipdr | bounded)
+    fs::path model_type_dir; // pebbling or peterson
+    fs::path model_dir;      // model_name
+    fs::path run_dir;        // modeltag - algotag - experiment?
     fs::path analysis;
     std::string file_base;
 
