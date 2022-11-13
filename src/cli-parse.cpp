@@ -104,11 +104,29 @@ namespace my::cli
             "peterson algorithm. {} processes out of {} max.", m.start, m.max);
       }
     };
-
     string describe(Model_var const& m)
     {
       return std::visit(model_t_string_visitor{}, m);
     }
+
+    // SRC NAME
+    struct model_t_src_visitor
+    {
+      string operator()(Pebbling const& m) const
+      {
+        return graph_src::get_name(m.src);
+      }
+
+      string operator()(Peterson const& m) const
+      {
+        return format("peter_{}_{}", m.start, m.max);
+      }
+    };
+    string src_name(Model_var const& m)
+    {
+      return std::visit(model_t_src_visitor{}, m);
+    }
+
     // FOLDER
     struct model_name_visitor
     {

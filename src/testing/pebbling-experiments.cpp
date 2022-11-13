@@ -7,6 +7,7 @@
 #include "result.h"
 #include "tactic.h"
 
+#include "cli-parse.h"
 #include <cassert>
 #include <fmt/format.h>
 #include <numeric> // std::accumulate
@@ -16,6 +17,7 @@
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
+
 #include <vector>
 
 namespace pdr::pebbling::experiments
@@ -25,6 +27,7 @@ namespace pdr::pebbling::experiments
   using std::endl;
 
   using namespace ::pdr::experiments;
+  using namespace my::cli;
 
   void pebbling_run(
       PebblingModel& model, pdr::Logger& log, const my::cli::ArgumentList& args)
@@ -35,11 +38,10 @@ namespace pdr::pebbling::experiments
 
     using namespace my::io;
 
-    const fs::path model_dir   = create_model_dir(args);
-    const fs::path run_dir     = setup(model_dir / run_folder_name(args));
-    const std::string filename = file_name(args);
-    std::ofstream latex        = trunc_file(run_dir, filename, "tex");
-    std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
+    assert(args.experiment);
+
+    std::ofstream latex = args.folders.file_in_run("tex");
+    std::ofstream raw   = args.folders.file_in_run("md");
 
     vector<PebblingResult> repetitions;
     vector<PebblingResult> control_repetitions;
@@ -58,8 +60,10 @@ namespace pdr::pebbling::experiments
       control_table.format() = sample_table.format();
     }
 
-    unsigned N = args.exp_sample.value();
-    std::string tactic_str{ pdr::tactic::to_string(args.tactic) };
+    auto const& tactic = std::get<algo::t_IPDR>(args.algorithm).type;
+
+    unsigned N = args.experiment->repetitions;
+    std::string tactic_str{ pdr::tactic::to_string(tactic) };
 
     vector<unsigned> seeds(N);
     {
@@ -67,7 +71,7 @@ namespace pdr::pebbling::experiments
       std::generate(seeds.begin(), seeds.end(), rand);
     }
 
-    auto run = [&, N](
+    auto run = [&, N, tactic](
                    vector<PebblingResult>& reps, Table& t, bool control) -> Run
     {
       assert(reps.empty());
@@ -78,12 +82,12 @@ namespace pdr::pebbling::experiments
       {
         std::optional<unsigned> optimum;
         // new context with new random seed
-        pdr::Context ctx(model, args.delta, seeds[i]);
+        pdr::Context ctx(model, seeds[i]);
         cout << format("{}: {}", i, seeds[i]) << endl;
         pdr::pebbling::IPDR opt(ctx, model, args, log);
 
         PebblingResult result =
-            control ? opt.control_run(args.tactic) : opt.run(args.tactic);
+            control ? opt.control_run(tactic) : opt.run(tactic);
 
         if (!optimum)
           optimum = result.min_pebbles();
@@ -139,7 +143,7 @@ namespace pdr::pebbling::experiments
   // aggregate multiple experiments and format
   Run::Run(const my::cli::ArgumentList& args,
       const std::vector<PebblingResult>& results)
-      : model(args.model_name), tactic(args.tactic), avg_time(0.0)
+      : model(model_t::src_name(args.model)), tactic(args.tactic), avg_time(0.0)
   {
     using std::min;
 

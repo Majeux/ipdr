@@ -2,6 +2,7 @@
 #define PETER_EXPERIMENTS_H
 
 #include "cli-parse.h"
+#include "experiments.h"
 #include "logger.h"
 #include "peterson-result.h"
 #include "peterson.h"
@@ -20,18 +21,15 @@ namespace pdr::peterson::experiments
     latex,
     markdown
   };
-  struct Run
+  class PeterRun : pdr::experiments::Run
   {
+   public:
     using Row_t   = tabulate::Table::Row_t;
     using Table_t = std::array<Row_t, 4>;
-    std::string_view model;
-    Tactic tactic;
 
     bool correct;
-    double avg_time;
-    double std_dev_time;
 
-    Run(const my::cli::ArgumentList& args,
+    PeterRun(my::cli::ArgumentList& args,
         const std::vector<PetersonResult>& r);
     std::string str(output_format fmt) const;
     std::string str_compared(const Run& other, output_format fmt) const;
@@ -39,6 +37,14 @@ namespace pdr::peterson::experiments
    private:
     Table_t listing() const;
     Table_t combined_listing(const Run& control) const;
+  };
+
+  class PeterExperiment : pdr::experiments::Experiment
+  {
+    public:
+
+    private:
+
   };
 } // namespace pdr::peterson::experiments
 

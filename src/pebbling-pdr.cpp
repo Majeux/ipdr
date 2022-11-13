@@ -131,18 +131,7 @@ void peter_experiment(ArgumentList& args)
       args.folders.file_in_model(model_t::get_name(args.model), "model"),
       model);
 
-  ofstream stat_file =
-      trunc_file(args.folders.analysis, args.folders.file_base, "stats");
-  ofstream trace_file =
-      trunc_file(args.folders.analysis, args.folders.file_base, "trace");
-  fs::path log_file = args.folders.analysis / args.folders.file("log");
-
   args.folders.show(std::cerr);
-
-  pdr::Statistics stats =
-      pdr::Statistics::PeterStatistics(std::move(stat_file), p, N);
-  pdr::Logger logger =
-      pdr::Logger(log_file.string(), args.verbosity, std::move(stats));
 
   // return;
   pdr::peterson::experiments::peterson_run(model, logger, args);
@@ -180,15 +169,38 @@ int main(int argc, char* argv[])
             ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
             : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
 
-    pdr::PDR pdr_algo(context, pebbling, logger);
-    pebbling.constrain(peb_descr->get().max_pebbles.value());
-
-    pdr::PdrResult r = pdr_algo.run();
+    if (std::holds_alternative<algo::t_PDR>(args.algorithm))
     {
-      pdr::IpdrResult rs(pebbling);
-      rs.add(r).show(strat_file);
-      rs.show_traces(strat_file);
-      pdr_algo.show_solver(solver_dump);
+      pdr::PDR pdr_algo(context, pebbling, logger);
+      pebbling.constrain(peb_descr->get().max_pebbles.value());
+
+      pdr::PdrResult r = pdr_algo.run();
+      {
+        pdr::IpdrResult rs(pebbling);
+        rs.add(r).show(strat_file);
+        rs.show_traces(strat_file);
+        pdr_algo.show_solver(solver_dump);
+      }
+    }
+    else if (auto ipdr = get_cref<algo::t_IPDR>(args.algorithm))
+    {
+      if (args.experiment)
+        pdr::pebbling::experiments::pebbling_run(pebbling, logger, args);
+      else
+      {
+        pdr::pebbling::IPDR ipdr_algo(context, pebbling, args, logger);
+        pdr::pebbling::PebblingResult result = optimize.run(algo->type, false);
+        result.show(strat_file);
+        result.show_raw(strat_file);
+        result.show_traces(strat_file);
+        optimize.dump_solver(solver_dump);
+      }
+    }
+    else
+    {
+      assert(std::holds_alternative<algo::t_Bounded>(args.algorithm));
+      bounded::BoundedPebbling obj(G, args);
+      obj.find_for(G.nodes.size());
     }
   }
   else

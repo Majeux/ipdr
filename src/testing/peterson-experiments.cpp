@@ -32,11 +32,8 @@ namespace pdr::peterson::experiments
 
     using namespace my::io;
 
-    const fs::path model_dir   = create_model_dir(args);
-    const fs::path run_dir     = setup(model_dir / run_folder_name(args));
-    const std::string filename = file_name(args);
-    std::ofstream latex        = trunc_file(run_dir, filename, "tex");
-    std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
+    std::ofstream latex = args.folders.file_in_run("tex");
+    std::ofstream raw   = args.folders.file_in_run("md");
 
     vector<PetersonResult> repetitions;
     vector<PetersonResult> control_repetitions;
@@ -74,7 +71,7 @@ namespace pdr::peterson::experiments
       for (unsigned i = 0; i < N; i++)
       {
         // new context with new random seed
-        pdr::Context ctx(model, args.delta, seeds[i]);
+        pdr::Context ctx(model, seeds[i]);
         cout << format("{}: {}", i, seeds[i]) << endl;
         IPDR opt(ctx, model, args, log);
 

@@ -22,7 +22,7 @@ namespace pdr::pebbling::experiments
   {
     using Row_t   = tabulate::Table::Row_t;
     using Table_t = std::array<Row_t, 7>;
-    std::string_view model;
+    std::string model;
     Tactic tactic;
 
     double avg_time;

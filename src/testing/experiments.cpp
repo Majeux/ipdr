@@ -1,12 +1,18 @@
 #include "experiments.h"
+#include "cli-parse.h"
+#include "pebbling-result.h"
+#include "types-ext.h"
 
 #include <fmt/format.h>
 #include <numeric> // std::accumulate
 #include <tabulate/format.hpp>
 #include <tabulate/table.hpp>
+#include <variant>
 
 namespace pdr::experiments
 {
+  using namespace my::cli;
+
   namespace math
   {
     using std::vector;
@@ -50,4 +56,24 @@ namespace pdr::experiments
     }
   } // namespace tablef
 
+  // EXPERIMENT PUBLIC MEMBERS
+  //
+  Experiment::Experiment(my::cli::ArgumentList const& a)
+      : args(a), model(model_t::get_name(args.model)),
+        N_reps(args.experiment->repetitions)
+  {
+    if (auto ipdr = my::variant::get_cref<algo::t_IPDR>(args.algorithm))
+      tactic = ipdr->get().type;
+
+    sample_table.add_row(pebbling::result::summary_header);
+    sample_table.format()
+        .font_align(tabulate::FontAlign::right)
+        .hide_border_top()
+        .hide_border_bottom();
+    control_table.add_row(pebbling::result::summary_header);
+    control_table.format() = sample_table.format();
+
+    reps.reserve(N_reps);
+    control_reps.reserve(N_reps);
+  }
 } // namespace pdr::experiments

@@ -2,9 +2,10 @@
 #define EXPERIMENTS_H
 
 #include "cli-parse.h"
+#include "result.h"
 
-#include <tabulate/table.hpp>
 #include <tabulate/format.hpp>
+#include <tabulate/table.hpp>
 
 namespace pdr::experiments
 {
@@ -15,7 +16,7 @@ namespace pdr::experiments
     markdown
   };
 
-  namespace math 
+  namespace math
   {
     std::string time_str(double x);
 
@@ -39,12 +40,51 @@ namespace pdr::experiments
     double std_dev(const std::vector<double>& v, double mean);
   } // namespace math
 
-  namespace tablef 
+  namespace tablef
   {
     tabulate::Format& format_base(tabulate::Format& f);
     tabulate::Format& format_base(tabulate::Table& t);
     tabulate::Table init_table();
   } // namespace tablef
-} // namespace pdr::pebbling::experiments
+
+  using Row_t   = tabulate::Table::Row_t;
+  using Table_t = std::array<Row_t, 7>;
+
+  class Run
+  {
+   public:
+    double avg_time;
+    double std_dev_time;
+
+    std::string str(::pdr::experiments::output_format fmt) const;
+    std::string str_compared(
+        const Run& other, ::pdr::experiments::output_format fmt) const;
+
+   private:
+    // latex export
+    Table_t listing() const;
+    Table_t combined_listing(const Run& other) const;
+  };
+
+  class Experiment
+  {
+   public:
+    my::cli::ArgumentList const& args;
+    std::string model;
+    Tactic tactic;
+
+    tabulate::Table sample_table;
+    tabulate::Table control_table;
+    std::vector<std::unique_ptr<IpdrResult>> reps;
+    std::vector<std::unique_ptr<IpdrResult>> control_reps;
+
+    Experiment(my::cli::ArgumentList const& a);
+
+   private:
+    unsigned N_reps;
+
+    virtual Run do_run(bool control_run) = 0;
+  };
+} // namespace pdr::experiments
 
 #endif // EXPERIMENTS_H

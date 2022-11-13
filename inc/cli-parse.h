@@ -69,6 +69,7 @@ namespace my::cli
 
     using Model_var = std::variant<Pebbling, Peterson>;
 
+    std::string src_name(Model_var const& m);
     std::string describe(Model_var const& m);
     std::string get_name(Model_var const& m);
     std::string filetag(Model_var const& m);

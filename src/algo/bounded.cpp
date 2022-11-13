@@ -30,7 +30,7 @@ namespace bounded
       lit_names.emplace_back(s);
     std::sort(lit_names.begin(), lit_names.end());
 
-    result_out               = args.folders.file_in_run("trace");
+    result_out = args.folders.file_in_run("trace");
   }
 
   void BoundedPebbling::reset()
@@ -131,8 +131,8 @@ namespace bounded
 
   bool BoundedPebbling::find_for(size_t pebbles)
   {
-    using std::endl;
     using fmt::format;
+    using std::endl;
 
     total_time = 0.0;
     sub_times.resize(0);
