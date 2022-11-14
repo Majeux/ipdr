@@ -14,6 +14,7 @@
 #include "peterson-experiments.h"
 #include "peterson-result.h"
 #include "peterson.h"
+#include "result.h"
 #include "types-ext.h"
 
 #include <algorithm>
@@ -33,6 +34,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <stdexcept>
 #include <string>
+#include <tabulate/table.hpp>
 #include <tuple>
 #include <variant>
 #include <vector>
@@ -70,36 +72,6 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void experiment(ArgumentList& clargs)
-{
-  using std::ofstream;
-  using std::string;
-
-  std::cerr << "experiment()" << std::endl;
-
-  dag::Graph G = build_dag(clargs);
-
-  pdr::pebbling::PebblingModel model(clargs, G);
-
-  const fs::path model_dir = create_model_dir(clargs);
-  const string filename    = file_name(clargs);
-  const fs::path run_dir   = setup(model_dir / run_folder_name(clargs));
-
-  string sub = "analysis";
-  fs::create_directory(run_dir / sub);
-  ofstream stat_file = trunc_file(run_dir / sub, filename, "stats");
-  ofstream strategy  = trunc_file(run_dir / sub, filename, "strategy");
-  fs::path log_file  = run_dir / sub / fmt::format("{}.log", filename);
-
-  pdr::Statistics stats =
-      pdr::Statistics::PebblingStatistics(std::move(stat_file), G);
-  pdr::Logger logger =
-      pdr::Logger(log_file.string(), clargs.verbosity, std::move(stats));
-
-  pdr::pebbling::experiments::pebbling_run(model, logger, clargs);
-  std::cout << "experiment done" << std::endl;
-}
-
 void show_peter_model(
     fs::path const& out, pdr::peterson::PetersonModel const& model)
 {
@@ -134,7 +106,7 @@ void peter_experiment(ArgumentList& args)
   args.folders.show(std::cerr);
 
   // return;
-  pdr::peterson::experiments::peterson_run(model, logger, args);
+  // pdr::peterson::experiments::peterson_run(model, logger, args);
   std::cout << "experiment done" << std::endl;
 }
 
@@ -176,9 +148,15 @@ int main(int argc, char* argv[])
 
       pdr::PdrResult r = pdr_algo.run();
       {
-        pdr::IpdrResult rs(pebbling);
-        rs.add(r).show(strat_file);
-        rs.show_traces(strat_file);
+        tabulate::Table T;
+        {
+          auto const& row1 = pdr::PdrResult::header;
+          auto const row2  = r.listing();
+          T.add_row({ row1.cbegin(), row2.cend() });
+          T.add_row({ row2.cbegin(), row2.cend() });
+        }
+        strat_file << T << std::endl;
+        strat_file << pdr::result::trace_table(r, pebbling);
         pdr_algo.show_solver(solver_dump);
       }
     }
@@ -189,11 +167,11 @@ int main(int argc, char* argv[])
       else
       {
         pdr::pebbling::IPDR ipdr_algo(context, pebbling, args, logger);
-        pdr::pebbling::PebblingResult result = optimize.run(algo->type, false);
+        pdr::pebbling::PebblingResult result =
+            ipdr_algo.run(ipdr->get().type, false);
         result.show(strat_file);
         result.show_raw(strat_file);
-        result.show_traces(strat_file);
-        optimize.dump_solver(solver_dump);
+        ipdr_algo.dump_solver(solver_dump);
       }
     }
     else

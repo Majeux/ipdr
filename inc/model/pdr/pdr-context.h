@@ -3,6 +3,7 @@
 
 #include "pdr-model.h"
 #include "tactic.h"
+
 #include <cstdint>
 #include <z3++.h>
 
@@ -10,12 +11,11 @@ namespace pdr
 {
   class Context
   {
-   private:
-     IModel& model;
-
    public:
+    IModel& ts;
     uint32_t seed;
     Tactic type;
+
     Context(IModel& c, bool random_seed);
     Context(IModel& c, unsigned seed);
 

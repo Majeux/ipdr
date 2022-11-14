@@ -53,7 +53,7 @@ namespace pdr::peterson
 
     basic_reset(p);
     pdr::PdrResult invariant = alg.run();
-    total << invariant;
+    total.add(invariant);
 
     for (p = p + 1; invariant && p <= N; p++)
     {
@@ -64,7 +64,7 @@ namespace pdr::peterson
 
       invariant = alg.run();
 
-      total << invariant;
+      total.add(invariant);
     }
 
     if (invariant && p > N) // last run did not find a trace
@@ -82,7 +82,7 @@ namespace pdr::peterson
   //
   void IPDR::basic_reset(unsigned processes)
   {
-    assert(std::addressof(model) == std::addressof(alg.model));
+    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
 
     unsigned old = model.n_processes();
 
@@ -96,7 +96,7 @@ namespace pdr::peterson
 
   void IPDR::relax_reset(unsigned processes)
   {
-    assert(std::addressof(model) == std::addressof(alg.model));
+    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
 
     unsigned old = model.n_processes();
     assert(processes > old);
@@ -119,7 +119,7 @@ namespace pdr::peterson
     PetersonResult total(model, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
-    total << invariant;
+    total.add(invariant);
 
     unsigned oldp = model.n_processes();
     unsigned newp = oldp + step;
@@ -130,7 +130,7 @@ namespace pdr::peterson
     relax_reset(newp);
     invariant = alg.run();
 
-    total << invariant;
+    total.add(invariant);
 
     return total;
   }

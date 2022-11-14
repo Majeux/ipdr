@@ -42,6 +42,8 @@ namespace mysat::primed
     {
     }
 
+    virtual ~IPrimed() {}
+
     z3::context& get_ctx() const { return ctx; }
 
     virtual operator const Tcontainer&() const   = 0;

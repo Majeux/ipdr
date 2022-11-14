@@ -57,7 +57,6 @@ namespace pdr
 
    private:
     Context& ctx;
-    IModel& model;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;

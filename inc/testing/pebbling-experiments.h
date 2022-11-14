@@ -38,8 +38,23 @@ namespace pdr::pebbling::experiments
 
    private:
     // latex export
-    Table_t listing() const;
-    Table_t combined_listing(const Run& other) const;
+    Table_t table() const;
+    Table_t combined_table(const Run& other) const;
+  };
+
+  class PebblingExperiment : pdr::experiments::Experiment
+  {
+    using superRun = ::pdr::experiments::Run;
+
+   public:
+    PebblingExperiment(
+        my::cli::ArgumentList const& a, PebblingModel& m, Logger& l);
+
+   private:
+    PebblingModel& ts;
+    my::cli::model_t::Peterson ts_descr;
+
+    std::unique_ptr<superRun> single_run(bool is_control) override;
   };
 } // namespace pdr::pebbling::experiments
 

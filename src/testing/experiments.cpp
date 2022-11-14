@@ -1,22 +1,25 @@
 #include "experiments.h"
 #include "cli-parse.h"
 #include "pebbling-result.h"
+#include "result.h"
+#include "tactic.h"
 #include "types-ext.h"
 
 #include <fmt/format.h>
 #include <numeric> // std::accumulate
 #include <tabulate/format.hpp>
+#include <tabulate/latex_exporter.hpp>
+#include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
 #include <variant>
 
 namespace pdr::experiments
 {
   using namespace my::cli;
+  using std::vector;
 
   namespace math
   {
-    using std::vector;
-
     std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
 
     double std_dev(const vector<double>& v)
@@ -56,11 +59,79 @@ namespace pdr::experiments
     }
   } // namespace tablef
 
+  // RUN PUBLIC MEMBERS
+  //
+  Run::Run(vector<std::unique_ptr<IpdrResult>> const& r) : results(r)
+  {
+    double time_sum{ 0.0 };
+    vector<double> times;
+    for (auto const& r : results)
+    {
+      time_sum += r->get_total_time();
+      times.push_back(r->get_total_time());
+    }
+
+    assert(times.size() == results.size());
+    avg_time     = time_sum / times.size();
+    std_dev_time = math::std_dev(times, avg_time);
+  }
+
+  std::string Run::str(output_format fmt) const
+  {
+    using std::endl;
+    tabulate::Table table = tablef::init_table();
+
+    for (const Row_t& r : listing())
+      table.add_row(r);
+
+    std::stringstream ss;
+    switch (fmt)
+    {
+      case output_format::string:
+        ss << format("Experiment: {}", model) << endl << table;
+        break;
+      case output_format::latex:
+        ss << tabulate::LatexExporter().dump(table) << endl;
+        break;
+      case output_format::markdown:
+        ss << tabulate::MarkdownExporter().dump(table) << endl;
+        break;
+    }
+
+    return ss.str();
+  }
+
+  std::string Run::str_compared(const Run& other, output_format fmt) const
+  {
+    using std::endl;
+    tabulate::Table paired = tablef::init_table();
+
+    for (const Row_t& r : combined_listing(other))
+      paired.add_row(r);
+
+    std::stringstream ss;
+    switch (fmt)
+    {
+      case output_format::string:
+        ss << format("Experiment: {}", model) << endl << paired;
+        break;
+      case output_format::latex:
+        ss << tabulate::LatexExporter().dump(paired) << endl;
+        break;
+      case output_format::markdown:
+        ss << tabulate::MarkdownExporter().dump(paired) << endl;
+        break;
+    }
+    return ss.str();
+  }
+
+
   // EXPERIMENT PUBLIC MEMBERS
   //
-  Experiment::Experiment(my::cli::ArgumentList const& a)
+  Experiment::Experiment(my::cli::ArgumentList const& a, Logger& l)
       : args(a), model(model_t::get_name(args.model)),
-        N_reps(args.experiment->repetitions)
+        type(algo::get_name(args.algorithm)), log(l),
+        N_reps(args.experiment->repetitions), seeds(N_reps)
   {
     if (auto ipdr = my::variant::get_cref<algo::t_IPDR>(args.algorithm))
       tactic = ipdr->get().type;
@@ -73,7 +144,53 @@ namespace pdr::experiments
     control_table.add_row(pebbling::result::summary_header);
     control_table.format() = sample_table.format();
 
-    reps.reserve(N_reps);
-    control_reps.reserve(N_reps);
+    srand(time(0));
+    std::generate(seeds.begin(), seeds.end(), rand);
+  }
+
+  void Experiment::run()
+  {
+    using fmt::format;
+    using std::endl;
+
+    std::vector<std::unique_ptr<IpdrResult>> reps, control_reps;
+    std::ofstream latex = args.folders.file_in_run("tex");
+    std::ofstream raw   = args.folders.file_in_run("md");
+
+    std::cout << type + " run." << endl;
+
+    std::shared_ptr<Run> aggregate = single_run(false);
+    latex << aggregate->str(output_format::latex);
+
+    std::cout << "control run." << endl;
+    std::shared_ptr<Run> control_aggregate = single_run(true);
+    latex << control_aggregate->str(output_format::latex);
+
+    // write raw run data as markdown
+    {
+      tabulate::MarkdownExporter exporter;
+      auto dump = [&exporter, &raw](const IpdrResult& r, size_t i)
+      {
+        raw << format("### Sample {}", i) << endl;
+        tabulate::Table t{ r.raw_table() };
+        tablef::format_base(t);
+        raw << exporter.dump(t) << endl << endl;
+
+        raw << "#### Traces" << endl;
+        r.show_traces(raw);
+      };
+
+      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+                 tactic::to_string(tactic))
+          << endl;
+
+      raw << "## Experiment run." << endl;
+      for (size_t i = 0; i < reps.size(); i++)
+        dump(*reps[i], i);
+
+      raw << "## Control run." << endl;
+      for (size_t i = 0; i < control_reps.size(); i++)
+        dump(*control_reps[i], i);
+    }
   }
 } // namespace pdr::experiments

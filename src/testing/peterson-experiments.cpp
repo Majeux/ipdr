@@ -1,12 +1,17 @@
 #include "peterson-experiments.h"
+#include "cli-parse.h"
 #include "experiments.h"
 #include "io.h"
 #include "pdr-context.h"
 #include "pdr.h"
 #include "peterson-result.h"
+#include "peterson.h"
+#include "result.h"
+#include "types-ext.h"
 
 #include <cassert>
 #include <fmt/format.h>
+#include <memory>
 #include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
@@ -21,181 +26,54 @@ namespace pdr::peterson::experiments
   using fmt::format;
   using std::cout;
   using std::endl;
+  using std::shared_ptr;
+  using std::unique_ptr;
   using std::vector;
 
-  using namespace ::pdr::experiments;
-
-  void peterson_run(
-      PetersonModel& model, pdr::Logger& log, const my::cli::ArgumentList& args)
+  PeterExperiment::PeterExperiment(
+      my::cli::ArgumentList const& a, PetersonModel& m, Logger& l)
+      : Experiment(a, l), ts(m)
   {
-    using tabulate::Table;
+    auto peter = my::variant::get_cref<my::cli::model_t::Peterson>(args.model);
+    ts_descr   = peter->get();
+  }
 
-    using namespace my::io;
+  unique_ptr<PeterExperiment::superRun> PeterExperiment::single_run(
+      bool is_control)
+  {
+    vector<PetersonResult> results;
 
-    std::ofstream latex = args.folders.file_in_run("tex");
-    std::ofstream raw   = args.folders.file_in_run("md");
-
-    vector<PetersonResult> repetitions;
-    vector<PetersonResult> control_repetitions;
-
-    Table sample_table;
+    for (unsigned i = 0; i < N_reps; i++)
     {
-      sample_table.add_row(peterson::result::summary_header);
-      sample_table.format()
-          .font_align(tabulate::FontAlign::right)
-          .hide_border_top()
-          .hide_border_bottom();
-    }
-    Table control_table;
-    {
-      control_table.add_row(peterson::result::summary_header);
-      control_table.format() = sample_table.format();
-    }
+      cout << format("{}: {}", i, seeds[i]) << endl;
+      // new context with new random seed
+      pdr::Context ctx(ts, seeds[i]);
+      IPDR opt(ctx, ts, args, log);
 
-    unsigned start = args.starting_value.value_or(0);
-    unsigned N     = args.exp_sample.value();
-    std::string tactic_str{ pdr::tactic::to_string(args.tactic) };
-    vector<unsigned> seeds(N);
-    {
-      srand(time(0));
-      std::generate(seeds.begin(), seeds.end(), rand);
+      PetersonResult result = is_control
+                                ? opt.control_run(tactic, ts_descr.start)
+                                : opt.run(tactic, ts_descr.start);
+
+      if (!result.all_holds())
+        cout << "! counter found" << endl;
+
+      results.push_back(std::move(result));
+      results.back().add_summary_to(is_control ? control_table : sample_table);
     }
 
-    auto run = [&, N](
-                   vector<PetersonResult>& reps, Table& t, bool control) -> Run
-    {
-      assert(reps.empty());
-
-      cout << (control ? "control run" : "ipdr run") << endl;
-
-      for (unsigned i = 0; i < N; i++)
-      {
-        // new context with new random seed
-        pdr::Context ctx(model, seeds[i]);
-        cout << format("{}: {}", i, seeds[i]) << endl;
-        IPDR opt(ctx, model, args, log);
-
-        PetersonResult result = control ? opt.control_run(args.tactic, start)
-                                        : opt.run(args.tactic, start);
-
-        if (!result.all_holds())
-          cout << "! counter found" << endl;
-
-        reps.push_back(result);
-        // cout << format("## Experiment sample {}", i) << endl;
-        reps.back().add_summary_to(t);
-      }
-
-      return Run(args, reps);
-    };
-
-    cout << format("{} run. {} samples. {} tactic", model.name, N, tactic_str)
-         << endl;
-
-    Run aggregate = run(repetitions, sample_table, false);
-    latex << aggregate.str(output_format::latex);
-
-    Run control_aggregate = run(control_repetitions, control_table, true);
-    latex << aggregate.str_compared(control_aggregate, output_format::latex);
-
-    // write raw run data as markdown
-    {
-      tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const PetersonResult& r, size_t i)
-      {
-        raw << format("### Sample {}", i) << endl;
-        tabulate::Table t{ r.raw_table() };
-        tablef::format_base(t);
-        raw << exporter.dump(t) << endl << endl;
-
-        raw << "#### Traces" << endl;
-        r.show_traces(raw);
-      };
-
-      raw << format("# {}. {} samples. {} tactic.", model.name, N, tactic_str)
-          << endl;
-
-      raw << "## Experiment run." << endl;
-      for (size_t i = 0; i < repetitions.size(); i++)
-        dump(repetitions[i], i);
-
-      raw << "## Control run." << endl;
-      for (size_t i = 0; i < repetitions.size(); i++)
-        dump(control_repetitions[i], i);
-    }
+    return std::make_unique<PeterRun>(args, results);
   }
 
   // Run members
   //
   // aggregate multiple experiments and format
-  Run::Run(const my::cli::ArgumentList& args,
+  PeterRun::PeterRun(const my::cli::ArgumentList& args,
       const std::vector<PetersonResult>& results)
-      : model(args.model_name), tactic(args.tactic), correct(true),
-        avg_time(0.0)
+      : Run({results.cbegin(), results.cend()}),  correct(true)
   {
-    double time_sum{ 0.0 };
-    vector<double> times;
-    for (const PetersonResult& r : results)
-    {
-      time_sum += r.get_total_time();
-      times.push_back(r.get_total_time());
-
-      correct = correct && r.all_holds();
-    }
-
-    assert(times.size() == results.size());
-    avg_time     = time_sum / times.size();
-    std_dev_time = math::std_dev(times, avg_time);
   }
 
-  std::string Run::str(output_format fmt) const
-  {
-    tabulate::Table table = tablef::init_table();
-
-    for (const Row_t& r : listing())
-      table.add_row(r);
-
-    std::stringstream ss;
-    switch (fmt)
-    {
-      case output_format::string:
-        ss << format("Experiment: {}", model) << endl << table;
-        break;
-      case output_format::latex:
-        ss << tabulate::LatexExporter().dump(table) << endl;
-        break;
-      case output_format::markdown:
-        ss << tabulate::MarkdownExporter().dump(table) << endl;
-        break;
-    }
-
-    return ss.str();
-  }
-
-  std::string Run::str_compared(const Run& other, output_format fmt) const
-  {
-    tabulate::Table paired = tablef::init_table();
-
-    for (const Row_t& r : combined_listing(other))
-      paired.add_row(r);
-
-    std::stringstream ss;
-    switch (fmt)
-    {
-      case output_format::string:
-        ss << format("Experiment: {}", model) << endl << paired;
-        break;
-      case output_format::latex:
-        ss << tabulate::LatexExporter().dump(paired) << endl;
-        break;
-      case output_format::markdown:
-        ss << tabulate::MarkdownExporter().dump(paired) << endl;
-        break;
-    }
-    return ss.str();
-  }
-
-  Run::Table_t Run::listing() const
+  PeterRun::Table_t PeterRun::listing() const
   {
     Table_t t;
     {
@@ -212,7 +90,7 @@ namespace pdr::peterson::experiments
     return t;
   }
 
-  Run::Table_t Run::combined_listing(const Run& control) const
+  PeterRun::Table_t PeterRun::combined_listing(const Run& control) const
   {
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };

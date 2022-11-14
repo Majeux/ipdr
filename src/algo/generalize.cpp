@@ -41,8 +41,8 @@ namespace pdr
 
     // F_result & !cube & T & cube' = UNSAT
     // => F_result & !cube & T & core' = UNSAT
-    auto next_lits  = [this](const expr& e) { return model.vars.lit_is_p(e); };
-    auto to_current = [this](const expr& e) { return model.vars(e); };
+    auto next_lits  = [this](const expr& e) { return ctx.ts.vars.lit_is_p(e); };
+    auto to_current = [this](const expr& e) { return ctx.ts.vars(e); };
 
     optional<expr_vector> core;
 

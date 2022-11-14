@@ -179,7 +179,7 @@ namespace pdr::pebbling::experiments
   {
     tabulate::Table table = tablef::init_table();
 
-    for (const Row_t& r : listing())
+    for (const Row_t& r : table())
       table.add_row(r);
 
     std::stringstream ss;
@@ -203,7 +203,7 @@ namespace pdr::pebbling::experiments
   {
     tabulate::Table paired = tablef::init_table();
 
-    for (const Row_t& r : combined_listing(other))
+    for (const Row_t& r : combined_table(other))
       paired.add_row(r);
 
     std::stringstream ss;
@@ -222,7 +222,7 @@ namespace pdr::pebbling::experiments
     return ss.str();
   }
 
-  Run::Table_t Run::listing() const
+  Run::Table_t Run::table() const
   {
     Table_t t;
     {
@@ -249,12 +249,12 @@ namespace pdr::pebbling::experiments
     return t;
   }
 
-  Run::Table_t Run::combined_listing(const Run& other) const
+  Run::Table_t Run::combined_table(const Run& other) const
   {
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
-    Table_t rows = listing();
+    Table_t rows = table();
     {
       using fmt::to_string;
       size_t i = 0;

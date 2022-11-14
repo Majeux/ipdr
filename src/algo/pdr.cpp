@@ -31,7 +31,7 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(Context& c, IModel& m, Logger& l)
-      : ctx(c), model(m), log(l), frames(ctx, model, log)
+      : ctx(c), log(l), frames(ctx, m, log)
   {
   }
 
@@ -96,7 +96,7 @@ namespace pdr
     rv.time = final_time;
 
     log.stats.elapsed = final_time;
-    log.stats.write(model.constraint_str());
+    log.stats.write(ctx.ts.constraint_str());
     log.stats.write();
     log.stats.clear();
     store_frame_strings();
@@ -114,13 +114,13 @@ namespace pdr
     MYLOG_INFO(log, "Start initiation");
     assert(frames.frontier() == 0);
 
-    if (frames.init_solver.check(model.n_property))
+    if (frames.init_solver.check(ctx.ts.n_property))
     {
       MYLOG_INFO(log, "I =/> P");
-      return PdrResult::found_trace(model.get_initial());
+      return PdrResult::found_trace(ctx.ts.get_initial());
     }
 
-    if (frames.SAT(0, model.n_property.p()))
+    if (frames.SAT(0, ctx.ts.n_property.p()))
     { // there is a transitions from I to !P
       MYLOG_INFO(log, "I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
@@ -144,7 +144,7 @@ namespace pdr
       log_iteration();
       log.whisper("Iteration k={}", k);
       while (optional<z3ext::solver::Witness> cti =
-                 frames.get_trans_source(k, model.n_property.p(), true))
+                 frames.get_trans_source(k, ctx.ts.n_property.p(), true))
       {
         log_cti(cti->curr, k); // cti is an F_i state that leads to a violation
 
@@ -291,7 +291,7 @@ namespace pdr
     std::stringstream ss;
 
     ss << SEP3 << endl
-       << "# " << model.constraint_str() << endl
+       << "# " << ctx.ts.constraint_str() << endl
        << "Frames" << endl
        << frames.blocked_str() << endl
        << SEP2 << endl

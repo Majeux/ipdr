@@ -29,6 +29,7 @@ namespace pdr
     Diff_t diff{ Diff_t::none };
 
     IModel(const std::vector<std::string>& varnames);
+    virtual ~IModel() {}
 
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;

@@ -4,6 +4,7 @@
 #include "cli-parse.h"
 #include "experiments.h"
 #include "logger.h"
+#include "pdr-context.h"
 #include "peterson-result.h"
 #include "peterson.h"
 #include "result.h"
@@ -21,7 +22,8 @@ namespace pdr::peterson::experiments
     latex,
     markdown
   };
-  class PeterRun : pdr::experiments::Run
+
+  class PeterRun final : public pdr::experiments::Run
   {
    public:
     using Row_t   = tabulate::Table::Row_t;
@@ -29,8 +31,7 @@ namespace pdr::peterson::experiments
 
     bool correct;
 
-    PeterRun(my::cli::ArgumentList& args,
-        const std::vector<PetersonResult>& r);
+    PeterRun(my::cli::ArgumentList const& args, std::vector<PetersonResult> const& r);
     std::string str(output_format fmt) const;
     std::string str_compared(const Run& other, output_format fmt) const;
 
@@ -41,10 +42,17 @@ namespace pdr::peterson::experiments
 
   class PeterExperiment : pdr::experiments::Experiment
   {
-    public:
+    using superRun = ::pdr::experiments::Run;
 
-    private:
+   public:
+    PeterExperiment(
+        my::cli::ArgumentList const& a, PetersonModel& m, Logger& l);
 
+   private:
+    PetersonModel& ts;
+    my::cli::model_t::Peterson ts_descr;
+
+    std::unique_ptr<superRun> single_run(bool is_control) override;
   };
 } // namespace pdr::peterson::experiments
 

@@ -1,5 +1,6 @@
 #include "result.h"
 #include "obligation.h"
+#include "pdr-model.h"
 #include "pebbling-model.h"
 
 #include <TextTable.h>
@@ -53,7 +54,7 @@ namespace pdr
   {
     assert(!states.empty());
     unsigned pebbled = 0;
-    for (const z3::expr_vector& s : states)
+    for (z3::expr_vector const& s : states)
       pebbled = std::max(pebbled, state::no_marked(s));
     return pebbled;
     ;
@@ -81,7 +82,7 @@ namespace pdr
   PdrResult PdrResult::empty_true() { return PdrResult(-1); }
   PdrResult PdrResult::empty_false() { return PdrResult(nullptr); }
 
-  void PdrResult::append_final(const z3::expr_vector& f)
+  void PdrResult::append_final(z3::expr_vector const& f)
   {
     assert(has_trace());
     trace().states.push_back(f);
@@ -97,11 +98,11 @@ namespace pdr
     return std::holds_alternative<Trace>(output);
   }
 
-  const Invariant& PdrResult::invariant() const
+  Invariant const& PdrResult::invariant() const
   {
     return get<Invariant>(output);
   }
-  const Trace& PdrResult::trace() const { return get<Trace>(output); }
+  Trace const& PdrResult::trace() const { return get<Trace>(output); }
   Invariant& PdrResult::invariant() { return get<Invariant>(output); }
   Trace& PdrResult::trace() { return get<Trace>(output); }
 
@@ -120,38 +121,34 @@ namespace pdr
   // Public members
   //
 
-  IpdrResult::IpdrResult(const IModel& m) : model(m) {}
+  IpdrResult::IpdrResult(IModel const& m) : model(m) {}
   IpdrResult::~IpdrResult() {}
-
-  tabulate::Table IpdrResult::new_table() const
-  {
-    tabulate::Table t;
-    t.add_row(header());
-    return t;
-  }
-
   void IpdrResult::reset() { rows.resize(0); }
+
+
+  double IpdrResult::get_total_time() const { return total_time; }
 
   std::vector<double> IpdrResult::g_times() const
   {
     std::vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
-        [](const PdrResult& r) { return r.time; });
+        [](PdrResult const& r) { return r.time; });
     return times;
   }
 
   tabulate::Table IpdrResult::raw_table() const
   {
-    tabulate::Table t = new_table();
+    tabulate::Table t;
+    t.add_row(header());
     {
-      for (const auto& row : rows)
+      for (auto const& row : rows)
         t.add_row(row);
       tabulate::Table::Row_t total;
       total.resize(rows.at(0).size());
 
       std::vector<double> times = g_times();
-      total.back() =
-          fmt::format("{}", std::accumulate(times.begin(), times.end(), 0.0));
+      assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
+      total.back() = fmt::format("{}", total_time);
       t.add_row(total);
     }
 
@@ -160,7 +157,7 @@ namespace pdr
 
   void IpdrResult::show_traces(std::ostream& out) const
   {
-    for (const PdrResult& result : original)
+    for (PdrResult const& result : original)
       out << process_trace(result) << std::endl;
   }
 
@@ -172,9 +169,10 @@ namespace pdr
     show_traces(out);
   }
 
-  IpdrResult& IpdrResult::add(const PdrResult& r)
+  IpdrResult& IpdrResult::add(PdrResult const& r)
   {
     original.push_back(r);
+    total_time += r.time;
 
     tabulate::Table::Row_t res_row = table_row(r);
     assert(res_row.size() == header().size());
@@ -183,7 +181,7 @@ namespace pdr
     return *this;
   }
 
-  const tabulate::Table::Row_t IpdrResult::table_row(const PdrResult& r)
+  const tabulate::Table::Row_t IpdrResult::table_row(PdrResult const& r)
   {
     tabulate::Table::Row_t row;
 
@@ -193,14 +191,28 @@ namespace pdr
     return row;
   }
 
-  IpdrResult& operator<<(IpdrResult& rs, const PdrResult& r)
-  {
-    return rs.add(r);
-  }
-
   // Private members
   //
-  std::string IpdrResult::process_trace(const PdrResult& res) const
+  std::string IpdrResult::process_trace(PdrResult const& res) const
+  {
+    return result::trace_table(res, model);
+  }
+
+  const tabulate::Table::Row_t IpdrResult::header() const
+  {
+    return { "invariant index", "trace length", "time" };
+  }
+
+  const tabulate::Table::Row_t IpdrResult::summary_header() const
+  {
+    tabulate::Table::Row_t rv;
+    rv.assign(PdrResult::header.cbegin(), PdrResult::header.cend());
+    return rv;
+  }
+
+  // GENERAL
+  //
+  std::string trace_table(PdrResult const& res, IModel const& model)
   {
     using fmt::format;
     using std::string;
@@ -230,7 +242,7 @@ namespace pdr
       t.add_row(trace_header);
     }
 
-    auto make_row = [&lits, longest](string i, const PdrState& s)
+    auto make_row = [&lits, longest](string i, PdrState const& s)
     {
       std::vector<std::string> r = state::marking(s, lits, longest);
       r.insert(r.begin(), string(i));
@@ -249,7 +261,7 @@ namespace pdr
     {
       for (size_t i = 0; i < res.trace().states.size(); i++)
       {
-        const PdrState& s        = res.trace().states[i];
+        PdrState const& s        = res.trace().states[i];
         Table::Row_t row_marking = make_row(to_string(i), s);
         t.add_row(row_marking);
       }
@@ -264,17 +276,5 @@ namespace pdr
 
     ss << tabulate::MarkdownExporter().dump(t);
     return ss.str();
-  }
-
-  const tabulate::Table::Row_t IpdrResult::header() const
-  {
-    return { "invariant index", "trace length", "time" };
-  }
-
-  const tabulate::Table::Row_t IpdrResult::summary_header() const
-  {
-    tabulate::Table::Row_t rv;
-    rv.assign(PdrResult::header.cbegin(), PdrResult::header.cend());
-    return rv;
   }
 } // namespace pdr

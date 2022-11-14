@@ -61,7 +61,7 @@ namespace pdr::pebbling
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
-    total << invariant;
+    total.add(invariant);
 
     for (N = N + 1; invariant && N <= model.n_nodes(); N++)
     {
@@ -72,7 +72,7 @@ namespace pdr::pebbling
 
       invariant = alg.run();
 
-      total << invariant;
+      total.add(invariant);
     }
 
     if (N > model.n_nodes()) // last run did not find a trace
@@ -94,7 +94,7 @@ namespace pdr::pebbling
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
-    total << invariant;
+    total.add(invariant);
     if (!invariant)
       N = std::min(N, total.min_pebbles().value_or(N));
 
@@ -116,7 +116,7 @@ namespace pdr::pebbling
           invariant = alg.run();
       }
 
-      total << invariant;
+      total.add(invariant);
       if (!invariant)
         N = std::min(N, total.min_pebbles().value_or(N));
     }
@@ -140,7 +140,7 @@ namespace pdr::pebbling
     PebblingResult total(model, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
-    total << invariant;
+    total.add(invariant);
 
     unsigned maxp = model.get_max_pebbles().value();
     unsigned newp = maxp + step;
@@ -151,7 +151,7 @@ namespace pdr::pebbling
       relax_reset(newp);
       invariant = alg.run();
 
-      total << invariant;
+      total.add(invariant);
     }
 
     return total;
@@ -163,7 +163,7 @@ namespace pdr::pebbling
   //
   void IPDR::basic_reset(unsigned pebbles)
   {
-    assert(std::addressof(model) == std::addressof(alg.model));
+    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
 
     std::optional<unsigned> current = model.get_max_pebbles();
     std::string from = current ? std::to_string(*current) : "any";
@@ -181,7 +181,7 @@ namespace pdr::pebbling
 
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles > old.value());
-    assert(std::addressof(model) == std::addressof(alg.model));
+    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
     alg.log.and_show(
         "increment from {} -> {} pebbles", old.value(), pebbles);
 
@@ -197,7 +197,7 @@ namespace pdr::pebbling
 
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles < old.value());
-    assert(std::addressof(model) == std::addressof(alg.model));
+    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
     alg.log.and_show(
         "decrement from {} -> {} pebbles", old.value(), pebbles);
 

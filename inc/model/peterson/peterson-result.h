@@ -29,14 +29,13 @@ namespace pdr::peterson
     bool all_holds() const;
 
     void show(std::ostream& out) const override;
-    void add_summary_to(tabulate::Table& t) const;
+    void add_summary_to(tabulate::Table& t) const override;
 
    private:
     const PetersonModel& model;
     const Tactic tactic;
     unsigned max_processes;
     unsigned processes;
-    double total_time{ 0.0 };
     bool holds{ true };
 
     const tabulate::Table::Row_t header() const override;

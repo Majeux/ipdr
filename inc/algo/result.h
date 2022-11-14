@@ -87,18 +87,27 @@ namespace pdr
    public:
     IpdrResult(const IModel& m);
     virtual ~IpdrResult();
-    tabulate::Table new_table() const;
+
     void reset();
-    tabulate::Table raw_table() const;
-    void show_traces(std::ostream& out) const;
+
+    double get_total_time() const;
     std::vector<double> g_times() const;
 
-    virtual void show(std::ostream& out) const;
-    IpdrResult& add(const PdrResult& r);
+    tabulate::Table raw_table() const;
 
-    friend IpdrResult& operator<<(IpdrResult& rs, const PdrResult& r);
+    // row...| time
+    // ...   | ...
+    // show_traces()
+    virtual void show(std::ostream& out) const;
+    // processes all traces and outputs them in table
+    void show_traces(std::ostream& out) const;
+
+    // track r in "original" and update the total time and "rows" summary
+    IpdrResult& add(const PdrResult& r);
+    virtual void add_summary_to(tabulate::Table& t) const = 0;
 
    protected:
+    double total_time{ 0.0 };
     // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
     // summary of the "original" vector
@@ -110,14 +119,18 @@ namespace pdr
 
     // adds a pdr result to the IpdrResult::rows table
     // { processes, max_proc, invariant level, trace length, time }
-    // called by add(PdrResult)
+    // called by add(PdrResult), does additional work for add in subclasses
     virtual const tabulate::Table::Row_t table_row(const PdrResult& r);
-
     // string representation of the trace or invariant
     virtual std::string process_trace(const PdrResult& res) const;
 
    private:
     const pdr::IModel& model;
   };
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res, IModel const& model);
+  } // namespace result
 } // namespace pdr
 #endif // PDR_RESULT_H

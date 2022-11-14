@@ -2,6 +2,8 @@
 #define EXPERIMENTS_H
 
 #include "cli-parse.h"
+#include "pdr-context.h"
+#include "pdr-model.h"
 #include "result.h"
 
 #include <tabulate/format.hpp>
@@ -53,9 +55,12 @@ namespace pdr::experiments
   class Run
   {
    public:
+    std::vector<std::unique_ptr<IpdrResult>> results;
     double avg_time;
     double std_dev_time;
 
+    Run(std::vector<std::unique_ptr<IpdrResult>> const& r);
+    virtual ~Run() {}
     std::string str(::pdr::experiments::output_format fmt) const;
     std::string str_compared(
         const Run& other, ::pdr::experiments::output_format fmt) const;
@@ -64,26 +69,31 @@ namespace pdr::experiments
     // latex export
     Table_t listing() const;
     Table_t combined_listing(const Run& other) const;
+    Table_t summary() const;
   };
 
   class Experiment
   {
    public:
+    Experiment(my::cli::ArgumentList const& a, Logger& l);
+    virtual ~Experiment() {}
+    void run();
+
+   protected:
     my::cli::ArgumentList const& args;
     std::string model;
+    std::string type;
+
     Tactic tactic;
+
+    Logger& log;
+    unsigned N_reps;
+    std::vector<unsigned> seeds;
 
     tabulate::Table sample_table;
     tabulate::Table control_table;
-    std::vector<std::unique_ptr<IpdrResult>> reps;
-    std::vector<std::unique_ptr<IpdrResult>> control_reps;
 
-    Experiment(my::cli::ArgumentList const& a);
-
-   private:
-    unsigned N_reps;
-
-    virtual Run do_run(bool control_run) = 0;
+    virtual std::unique_ptr<Run> single_run(bool is_control) = 0;
   };
 } // namespace pdr::experiments
 

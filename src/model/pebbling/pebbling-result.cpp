@@ -15,14 +15,14 @@ namespace pdr::pebbling
   // PebblingResult members
   //
   PebblingResult::PebblingResult(const PebblingModel& m, Tactic t)
-      : IpdrResult(m), model(m), tactic(t)
+      : IpdrResult(m), model(m), tactic(t), total{ total_time, {}, {} }
   {
-    assert(t == Tactic::constrain || t == Tactic::increment);
+    assert(t == Tactic::constrain || t == Tactic::relax);
   }
 
   PebblingResult::PebblingResult(
       const IpdrResult& r, const PebblingModel& m, Tactic t)
-      : IpdrResult(r), model(m), tactic(t)
+      : IpdrResult(r), model(m), tactic(t), total{ total_time, {}, {} }
   {
     rows.resize(0);
     for (const PdrResult& r : original)
@@ -117,9 +117,6 @@ namespace pdr::pebbling
 
   const tabulate::Table::Row_t PebblingResult::table_row(const PdrResult& r)
   {
-#warning takes highest constrained invariant, and lowest number of pebbles used. Vs lowest level and minimal length?? Vs store latest
-    total.time += r.time;
-
     // row with { invariant level, trace length, time }
     tabulate::Table::Row_t row = IpdrResult::table_row(r);
     // expand to { constraint, marked, invariant level, trace length, time }
@@ -139,7 +136,7 @@ namespace pdr::pebbling
 
       if (tactic == Tactic::constrain)
       {
-        assert(++invariants <= 1);
+        assert(++n_invariants <= 1);
       }
     }
     else // only happens multiple times in decreasing
@@ -156,7 +153,7 @@ namespace pdr::pebbling
 
       if (tactic == Tactic::relax)
       {
-        assert(++traces <= 1);
+        assert(++n_traces <= 1);
       }
     }
 
@@ -183,7 +180,7 @@ namespace pdr::pebbling
 
     // process trace
     std::stringstream ss;
-    std::vector<std::string> lits = model.vars.names();
+    std::vector<std::string> lits  = model.vars.names();
     std::vector<std::string> litsp = model.vars.names_p();
     std::sort(lits.begin(), lits.end());
 
@@ -212,7 +209,7 @@ namespace pdr::pebbling
     // Write strategy states
     {
       unsigned marked = model.get_f_pebbles();
-      size_t N = res.trace().states.size();
+      size_t N        = res.trace().states.size();
       for (size_t i = 0; i < N; i++)
       {
         const z3::expr_vector& s = res.trace().states[i];

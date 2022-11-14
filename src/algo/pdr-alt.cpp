@@ -38,7 +38,7 @@ namespace pdr
     {
       log_iteration();
       while (optional<Witness> witness =
-                 frames.get_trans_source(k, model.n_property.p(), true))
+                 frames.get_trans_source(k, ctx.ts.n_property.p(), true))
       {
         log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 

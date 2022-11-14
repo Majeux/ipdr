@@ -80,8 +80,6 @@ namespace pdr::peterson
 
   const tabulate::Table::Row_t PetersonResult::table_row(const PdrResult& r)
   {
-    total_time += r.time;
-
     // row with { invariant level, trace length, time }
     tabulate::Table::Row_t row = IpdrResult::table_row(r);
     // expand to { processes, max_proc, invariant level, trace length, time }

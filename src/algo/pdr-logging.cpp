@@ -8,7 +8,7 @@ namespace pdr
   void PDR::log_start() const
   {
     MYLOG_INFO(log, "");
-    MYLOG_INFO(log, "PDR start ({}):", model.constraint_str());
+    MYLOG_INFO(log, "PDR start ({}):", ctx.ts.constraint_str());
     MYLOG_INFO(log, "");
   }
 
