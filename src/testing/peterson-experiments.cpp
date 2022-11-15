@@ -28,7 +28,7 @@ namespace pdr::peterson::experiments
   using fmt::format;
   using std::cout;
   using std::endl;
-  using std::unique_ptr;
+  using std::shared_ptr;
   using std::vector;
 
   PeterExperiment::PeterExperiment(
@@ -39,7 +39,7 @@ namespace pdr::peterson::experiments
     ts_descr   = peter->get();
   }
 
-  unique_ptr<expsuper::Run> PeterExperiment::single_run(bool is_control)
+  shared_ptr<expsuper::Run> PeterExperiment::single_run(bool is_control)
   {
     vector<PetersonResult> results;
 
@@ -61,7 +61,7 @@ namespace pdr::peterson::experiments
       results.back().add_summary_to(is_control ? control_table : sample_table);
     }
 
-    return std::make_unique<PeterRun>(model, type, results);
+    return std::make_shared<PeterRun>(model, type, results);
   }
 
   // Run members

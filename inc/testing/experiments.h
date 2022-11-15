@@ -55,14 +55,14 @@ namespace pdr::experiments
   class Run
   {
    public:
-    std::vector<std::unique_ptr<IpdrResult>> results;
+    std::vector<std::shared_ptr<IpdrResult>> results;
     std::string model;
     std::string tactic;
     double avg_time;
     double std_dev_time;
 
     Run(std::string const& t, std::string const& m, 
-        std::vector<std::unique_ptr<IpdrResult>> const& r);
+        std::vector<std::shared_ptr<IpdrResult>> const& r);
     virtual ~Run() {}
     std::string str(::pdr::experiments::output_format fmt) const;
     std::string str_compared(
@@ -98,7 +98,7 @@ namespace pdr::experiments
     tabulate::Table sample_table;
     tabulate::Table control_table;
 
-    virtual std::unique_ptr<Run> single_run(bool is_control) = 0;
+    virtual std::shared_ptr<Run> single_run(bool is_control) = 0;
   };
 } // namespace pdr::experiments
 

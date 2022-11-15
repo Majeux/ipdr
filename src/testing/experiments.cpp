@@ -62,7 +62,7 @@ namespace pdr::experiments
   // RUN PUBLIC MEMBERS
   //
   Run::Run(std::string const& t, std::string const& m,
-      vector<std::unique_ptr<IpdrResult>> const& r)
+      vector<std::shared_ptr<IpdrResult>> const& r)
       : results(r), model(m), tactic(t)
   {
     double time_sum{ 0.0 };
@@ -163,6 +163,7 @@ namespace pdr::experiments
     using fmt::format;
     using std::endl;
 
+    // TODO: haal reps uit Run
     std::vector<std::unique_ptr<IpdrResult>> reps, control_reps;
     std::ofstream latex = args.folders.file_in_run("tex");
     std::ofstream raw   = args.folders.file_in_run("md");

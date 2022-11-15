@@ -1,6 +1,7 @@
 #include "pdr-model.h"
 #include "pdr.h"
-#include <bits/types/FILE.h>
+#include "types-ext.h"
+
 #include <cassert>
 #include <cstddef>
 #include <stdexcept>
@@ -12,8 +13,11 @@ namespace pdr::pebbling
 
   IPDR::IPDR(
       Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l)
-      : alg(c, m, l), model(m), starting_value(args.starting_value)
+      : alg(c, m, l), model(m), starting_value()
   {
+    auto const& peb =
+        my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
+    starting_value = peb.max_pebbles;
   }
 
   PebblingResult IPDR::control_run(Tactic tactic)
@@ -167,8 +171,7 @@ namespace pdr::pebbling
 
     std::optional<unsigned> current = model.get_max_pebbles();
     std::string from = current ? std::to_string(*current) : "any";
-    alg.log.and_show("naive change from {} -> {} pebbles",
-        from, pebbles);
+    alg.log.and_show("naive change from {} -> {} pebbles", from, pebbles);
 
     model.constrain(pebbles);
     alg.ctx.type = Tactic::basic;
@@ -182,8 +185,7 @@ namespace pdr::pebbling
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles > old.value());
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.log.and_show(
-        "increment from {} -> {} pebbles", old.value(), pebbles);
+    alg.log.and_show("increment from {} -> {} pebbles", old.value(), pebbles);
 
     model.constrain(pebbles);
 
@@ -198,8 +200,7 @@ namespace pdr::pebbling
     optional<unsigned> old = model.get_max_pebbles();
     assert(pebbles < old.value());
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.log.and_show(
-        "decrement from {} -> {} pebbles", old.value(), pebbles);
+    alg.log.and_show("decrement from {} -> {} pebbles", old.value(), pebbles);
 
     model.constrain(pebbles);
 

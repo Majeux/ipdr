@@ -18,7 +18,7 @@ namespace pdr::pebbling
       my::cli::ArgumentList const& args, dag::Graph const& G)
       : IModel(std::vector<string>(G.nodes.begin(), G.nodes.end()))
   {
-    name = my::cli::graph_src::get_name(args.src.value());
+    name = my::cli::model_t::src_name(args.model);
 
     for (expr const& e : vars())
       initial.push_back(!e);

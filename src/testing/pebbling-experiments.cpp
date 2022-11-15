@@ -25,7 +25,7 @@ namespace pdr::pebbling::experiments
   using fmt::format;
   using std::cout;
   using std::endl;
-  using std::unique_ptr;
+  using std::shared_ptr;
   using std::vector;
 
   using namespace ::pdr::experiments;
@@ -37,7 +37,7 @@ namespace pdr::pebbling::experiments
   {
   }
 
-  unique_ptr<expsuper::Run> PebblingExperiment::single_run(bool is_control)
+  shared_ptr<expsuper::Run> PebblingExperiment::single_run(bool is_control)
   {
     vector<PebblingResult> results;
 
@@ -61,7 +61,7 @@ namespace pdr::pebbling::experiments
       results.back().add_summary_to(is_control ? control_table : sample_table);
     }
 
-    return std::make_unique<PebblingRun>(model, type, results);
+    return std::make_shared<PebblingRun>(model, type, results);
   }
 
   // Run members
