@@ -56,20 +56,27 @@ namespace pdr::experiments
   {
    public:
     std::vector<std::unique_ptr<IpdrResult>> results;
+    std::string ts;
+    std::string tactic;
     double avg_time;
     double std_dev_time;
 
-    Run(std::vector<std::unique_ptr<IpdrResult>> const& r);
+    Run(std::string const& t, std::string const& m, 
+        std::vector<std::unique_ptr<IpdrResult>> const& r);
     virtual ~Run() {}
     std::string str(::pdr::experiments::output_format fmt) const;
     std::string str_compared(
         const Run& other, ::pdr::experiments::output_format fmt) const;
 
-   private:
+   protected:
+    Row_t tactic_row() const;
+    Row_t avg_time_row() const;
+    Row_t std_time_row() const;
     // latex export
-    Table_t listing() const;
-    Table_t combined_listing(const Run& other) const;
-    Table_t summary() const;
+    virtual tabulate::Table listing() const                          = 0;
+    // must pass a Run of same subtype
+    virtual tabulate::Table combined_listing(const Run& other) const = 0;
+    virtual tabulate::Table summary() const;
   };
 
   class Experiment

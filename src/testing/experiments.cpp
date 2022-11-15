@@ -61,7 +61,9 @@ namespace pdr::experiments
 
   // RUN PUBLIC MEMBERS
   //
-  Run::Run(vector<std::unique_ptr<IpdrResult>> const& r) : results(r)
+  Run::Run(std::string const& t, std::string const& m,
+      vector<std::unique_ptr<IpdrResult>> const& r)
+      : results(r), ts(m), tactic(t)
   {
     double time_sum{ 0.0 };
     vector<double> times;
@@ -76,19 +78,30 @@ namespace pdr::experiments
     std_dev_time = math::std_dev(times, avg_time);
   }
 
-  std::string Run::str(output_format fmt) const
+  tabulate::Table::Row_t Run::tactic_row() const { return { "", tactic }; }
+
+  tabulate::Table::Row_t Run::avg_time_row() const
+  {
+    return { "avg time", math::time_str(avg_time) };
+  }
+
+  tabulate::Table::Row_t Run::std_time_row() const
+  {
+    return { "std dev time", math::time_str(std_dev_time) };
+  }
+
+  std::string Run::str(output_format form) const
   {
     using std::endl;
-    tabulate::Table table = tablef::init_table();
-
-    for (const Row_t& r : listing())
-      table.add_row(r);
+    // tabulate::Table table = tablef::init_table();
+    tabulate::Table table = listing();
+    tablef::format_base(table);
 
     std::stringstream ss;
-    switch (fmt)
+    switch (form)
     {
       case output_format::string:
-        ss << format("Experiment: {}", model) << endl << table;
+        ss << fmt::format("Experiment: {}", ts) << endl << table;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(table) << endl;
@@ -101,19 +114,17 @@ namespace pdr::experiments
     return ss.str();
   }
 
-  std::string Run::str_compared(const Run& other, output_format fmt) const
+  std::string Run::str_compared(const Run& other, output_format form) const
   {
     using std::endl;
-    tabulate::Table paired = tablef::init_table();
-
-    for (const Row_t& r : combined_listing(other))
-      paired.add_row(r);
+    tabulate::Table paired = combined_listing(other);
+    tablef::format_base(paired);
 
     std::stringstream ss;
-    switch (fmt)
+    switch (form)
     {
       case output_format::string:
-        ss << format("Experiment: {}", model) << endl << paired;
+        ss << fmt::format("Experiment: {}", ts) << endl << paired;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(paired) << endl;
@@ -124,7 +135,6 @@ namespace pdr::experiments
     }
     return ss.str();
   }
-
 
   // EXPERIMENT PUBLIC MEMBERS
   //

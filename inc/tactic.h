@@ -16,10 +16,10 @@ namespace pdr
 
   namespace tactic
   {
-    const std::string decrement_str("dec");
-    const std::string increment_str("inc");
-    const std::string inc_jump_str("inc-jump-test");
-    const std::string inc_one_str("inc-one-test");
+    const std::string constrain_str{"constrain"};
+    const std::string relax_str{"relax"};
+    const std::string inc_jump_str{"inc-jump-test"};
+    const std::string inc_one_str{"inc-one-test"};
 
     std::string to_string(pdr::Tactic r);
   } // namespace tactic

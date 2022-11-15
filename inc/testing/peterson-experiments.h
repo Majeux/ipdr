@@ -13,6 +13,8 @@
 
 namespace pdr::peterson::experiments
 {
+  namespace expsuper = ::pdr::experiments;
+
   void peterson_run(PetersonModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 
@@ -27,7 +29,6 @@ namespace pdr::peterson::experiments
   {
    public:
     using Row_t   = tabulate::Table::Row_t;
-    using Table_t = std::array<Row_t, 4>;
 
     bool correct;
 
@@ -36,14 +37,13 @@ namespace pdr::peterson::experiments
     std::string str_compared(const Run& other, output_format fmt) const;
 
    private:
-    Table_t listing() const;
-    Table_t combined_listing(const Run& control) const;
+    tabulate::Table::Row_t correct_row() const;
+    tabulate::Table listing() const override;
+    tabulate::Table combined_listing(const Run& control) const override;
   };
 
   class PeterExperiment : pdr::experiments::Experiment
   {
-    using superRun = ::pdr::experiments::Run;
-
    public:
     PeterExperiment(
         my::cli::ArgumentList const& a, PetersonModel& m, Logger& l);
@@ -52,7 +52,7 @@ namespace pdr::peterson::experiments
     PetersonModel& ts;
     my::cli::model_t::Peterson ts_descr;
 
-    std::unique_ptr<superRun> single_run(bool is_control) override;
+    std::unique_ptr<expsuper::Run> single_run(bool is_control) override;
   };
 } // namespace pdr::peterson::experiments
 

@@ -15,10 +15,12 @@
 #include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
+#include <typeinfo>
 #include <vector>
 
 namespace pdr::peterson::experiments
@@ -26,7 +28,6 @@ namespace pdr::peterson::experiments
   using fmt::format;
   using std::cout;
   using std::endl;
-  using std::shared_ptr;
   using std::unique_ptr;
   using std::vector;
 
@@ -38,8 +39,7 @@ namespace pdr::peterson::experiments
     ts_descr   = peter->get();
   }
 
-  unique_ptr<PeterExperiment::superRun> PeterExperiment::single_run(
-      bool is_control)
+  unique_ptr<expsuper::Run> PeterExperiment::single_run(bool is_control)
   {
     vector<PetersonResult> results;
 
@@ -67,58 +67,80 @@ namespace pdr::peterson::experiments
   // Run members
   //
   // aggregate multiple experiments and format
-  PeterRun::PeterRun(const my::cli::ArgumentList& args,
+  PeterRun::PeterRun(std::string const& t, std::string const& m,
       const std::vector<PetersonResult>& results)
-      : Run({results.cbegin(), results.cend()}),  correct(true)
+      : Run(t, m, { results.cbegin(), results.cend() }), tactic(), correct(true)
   {
   }
 
-  PeterRun::Table_t PeterRun::listing() const
+  tabulate::Table::Row_t PeterRun::correct_row() const
   {
-    Table_t t;
+    return { "all hold", correct ? "yes" : "no" };
+  }
+
+  tabulate::Table PeterRun::listing() const
+  {
+    tabulate::Table t;
     {
       using fmt::to_string;
-      size_t i = 0;
 
-      t.at(i++) = { "", tactic::to_string(tactic) };
-      t.at(i++) = { "avg time", math::time_str(avg_time) };
-      t.at(i++) = { "std dev time", math::time_str(std_dev_time) };
+      t.add_row(tactic_row());
+      t.add_row(avg_time_row());
+      t.add_row(std_time_row());
 
-      t.at(i++) = { "all hold", correct ? "yes" : "no" };
-      assert(i == t.size());
+      t.add_row(correct_row());
     }
+
+    assert(t.shape().first == 4); // n_rows == 4
+
     return t;
   }
 
-  PeterRun::Table_t PeterRun::combined_listing(const Run& control) const
+  tabulate::Table PeterRun::combined_listing(const Run& control) const
   {
+    using namespace expsuper::math;
+    using fmt::to_string;
+
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
-    Table_t rows = listing();
+    tabulate::Table t;
+    try
     {
-      using fmt::to_string;
-      size_t i = 0;
-      // append control column
+      auto peter_control = dynamic_cast<PeterRun const&>(control);
+      // append control and improvement column:
+      // tactic | control | improvement (%)
       {
-        rows.at(i).push_back("control");
-        rows.at(i).push_back("improvement");
-        i++;
+        auto r = tactic_row();
+        r.push_back("control");
+        r.push_back("improvement");
+        t.add_row(r);
       }
-
       {
-        rows.at(i).push_back(math::time_str(control.avg_time));
-        // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
-        double speedup = math::percentage_dec(control.avg_time, avg_time);
-        rows.at(i).push_back(perc_str(speedup));
-        i++;
+        auto r = avg_time_row();
+        r.push_back(time_str(peter_control.avg_time));
+        double speedup = percentage_dec(peter_control.avg_time, avg_time);
+        r.push_back(perc_str(speedup));
+        t.add_row(r);
       }
-
-      rows.at(i++).push_back(math::time_str(control.std_dev_time));
-      rows.at(i++).push_back(control.correct ? "yes" : "no");
-      assert(i == rows.size());
+      {
+        auto r = std_time_row();
+        r.push_back(time_str(peter_control.std_dev_time));
+        t.add_row(r);
+      }
+      {
+        auto r = correct_row();
+        r.push_back(peter_control.correct ? "yes" : "no");
+        t.add_row(r);
+      }
+    }
+    catch (std::bad_cast const& e)
+    {
+      throw std::invalid_argument("combined_listing expects a PeterRun const&");
     }
 
-    return rows;
+    assert(t.shape().first == 4); // n_rows == 4
+
+    return t;
   }
 } // namespace pdr::peterson::experiments

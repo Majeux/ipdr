@@ -18,7 +18,7 @@ namespace pdr::pebbling::experiments
   void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 
-  struct Run
+  struct PebblingRun : public ::pdr::experiments::Run
   {
     using Row_t   = tabulate::Table::Row_t;
     using Table_t = std::array<Row_t, 7>;
