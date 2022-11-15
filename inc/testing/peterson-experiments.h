@@ -9,6 +9,7 @@
 #include "peterson.h"
 #include "result.h"
 
+#include <memory>
 #include <tabulate/table.hpp>
 
 namespace pdr::peterson::experiments
@@ -28,18 +29,17 @@ namespace pdr::peterson::experiments
   class PeterRun final : public pdr::experiments::Run
   {
    public:
-    using Row_t   = tabulate::Table::Row_t;
+    using Row_t = tabulate::Table::Row_t;
 
     bool correct;
 
-    PeterRun(my::cli::ArgumentList const& args, std::vector<PetersonResult> const& r);
-    std::string str(output_format fmt) const;
-    std::string str_compared(const Run& other, output_format fmt) const;
+    PeterRun(std::string const& t, std::string const& m,
+        std::vector<PetersonResult> const& r);
 
    private:
     tabulate::Table::Row_t correct_row() const;
-    tabulate::Table listing() const override;
-    tabulate::Table combined_listing(const Run& control) const override;
+    tabulate::Table make_table() const override;
+    tabulate::Table make_combined_table(const Run& control) const override;
   };
 
   class PeterExperiment : pdr::experiments::Experiment

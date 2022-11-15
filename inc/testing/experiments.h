@@ -56,7 +56,7 @@ namespace pdr::experiments
   {
    public:
     std::vector<std::unique_ptr<IpdrResult>> results;
-    std::string ts;
+    std::string model;
     std::string tactic;
     double avg_time;
     double std_dev_time;
@@ -72,11 +72,10 @@ namespace pdr::experiments
     Row_t tactic_row() const;
     Row_t avg_time_row() const;
     Row_t std_time_row() const;
-    // latex export
-    virtual tabulate::Table listing() const                          = 0;
+    // latex export, called by str and str_compared to show results
+    virtual tabulate::Table make_table() const                          = 0;
     // must pass a Run of same subtype
-    virtual tabulate::Table combined_listing(const Run& other) const = 0;
-    virtual tabulate::Table summary() const;
+    virtual tabulate::Table make_combined_table(const Run& other) const = 0;
   };
 
   class Experiment
@@ -90,7 +89,6 @@ namespace pdr::experiments
     my::cli::ArgumentList const& args;
     std::string model;
     std::string type;
-
     Tactic tactic;
 
     Logger& log;

@@ -61,7 +61,7 @@ namespace pdr::peterson::experiments
       results.back().add_summary_to(is_control ? control_table : sample_table);
     }
 
-    return std::make_unique<PeterRun>(args, results);
+    return std::make_unique<PeterRun>(model, type, results);
   }
 
   // Run members
@@ -69,7 +69,7 @@ namespace pdr::peterson::experiments
   // aggregate multiple experiments and format
   PeterRun::PeterRun(std::string const& t, std::string const& m,
       const std::vector<PetersonResult>& results)
-      : Run(t, m, { results.cbegin(), results.cend() }), tactic(), correct(true)
+      : Run(t, m, { results.cbegin(), results.cend() }), correct(true)
   {
   }
 
@@ -78,7 +78,7 @@ namespace pdr::peterson::experiments
     return { "all hold", correct ? "yes" : "no" };
   }
 
-  tabulate::Table PeterRun::listing() const
+  tabulate::Table PeterRun::make_table() const
   {
     tabulate::Table t;
     {
@@ -96,7 +96,7 @@ namespace pdr::peterson::experiments
     return t;
   }
 
-  tabulate::Table PeterRun::combined_listing(const Run& control) const
+  tabulate::Table PeterRun::make_combined_table(const Run& control) const
   {
     using namespace expsuper::math;
     using fmt::to_string;

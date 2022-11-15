@@ -4,7 +4,6 @@
 #include "_logging.h"
 #include "stats.h"
 
-#include <dbg.h>
 #include <fmt/core.h>
 #include <fstream>
 #include <memory>

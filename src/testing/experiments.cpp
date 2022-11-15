@@ -63,7 +63,7 @@ namespace pdr::experiments
   //
   Run::Run(std::string const& t, std::string const& m,
       vector<std::unique_ptr<IpdrResult>> const& r)
-      : results(r), ts(m), tactic(t)
+      : results(r), model(m), tactic(t)
   {
     double time_sum{ 0.0 };
     vector<double> times;
@@ -94,14 +94,14 @@ namespace pdr::experiments
   {
     using std::endl;
     // tabulate::Table table = tablef::init_table();
-    tabulate::Table table = listing();
+    tabulate::Table table = make_table();
     tablef::format_base(table);
 
     std::stringstream ss;
     switch (form)
     {
       case output_format::string:
-        ss << fmt::format("Experiment: {}", ts) << endl << table;
+        ss << fmt::format("Experiment: {}", model) << endl << table;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(table) << endl;
@@ -117,14 +117,14 @@ namespace pdr::experiments
   std::string Run::str_compared(const Run& other, output_format form) const
   {
     using std::endl;
-    tabulate::Table paired = combined_listing(other);
+    tabulate::Table paired = make_combined_table(other);
     tablef::format_base(paired);
 
     std::stringstream ss;
     switch (form)
     {
       case output_format::string:
-        ss << fmt::format("Experiment: {}", ts) << endl << paired;
+        ss << fmt::format("Experiment: {}", model) << endl << paired;
         break;
       case output_format::latex:
         ss << tabulate::LatexExporter().dump(paired) << endl;

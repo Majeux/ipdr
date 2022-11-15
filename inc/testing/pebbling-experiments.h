@@ -15,37 +15,34 @@
 
 namespace pdr::pebbling::experiments
 {
+  namespace expsuper = ::pdr::experiments;
+
   void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
       const my::cli::ArgumentList& args);
 
-  struct PebblingRun : public ::pdr::experiments::Run
+  struct PebblingRun final : public ::pdr::experiments::Run
   {
     using Row_t   = tabulate::Table::Row_t;
-    using Table_t = std::array<Row_t, 7>;
-    std::string model;
-    Tactic tactic;
+    // 7 rows
 
-    double avg_time;
-    double std_dev_time;
     std::optional<PebblingResult::PebblingInvariant> min_inv;
     std::optional<PebblingResult::PebblingTrace> min_strat;
 
-    Run(const my::cli::ArgumentList& args,
-        const std::vector<pebbling::PebblingResult>& r);
-    std::string str(::pdr::experiments::output_format fmt) const;
-    std::string str_compared(
-        const Run& other, ::pdr::experiments::output_format fmt) const;
+    PebblingRun(std::string const& t, std::string const& m,
+        const std::vector<pebbling::PebblingResult>& results);
 
    private:
+    tabulate::Table::Row_t constraint_row() const;
+    tabulate::Table::Row_t level_row() const;
+    tabulate::Table::Row_t pebbled_row() const;
+    tabulate::Table::Row_t length_row() const;
     // latex export
-    Table_t table() const;
-    Table_t combined_table(const Run& other) const;
+    tabulate::Table make_table() const override;
+    tabulate::Table make_combined_table(const Run& control) const override;
   };
 
-  class PebblingExperiment : pdr::experiments::Experiment
+  class PebblingExperiment final : pdr::experiments::Experiment
   {
-    using superRun = ::pdr::experiments::Run;
-
    public:
     PebblingExperiment(
         my::cli::ArgumentList const& a, PebblingModel& m, Logger& l);
@@ -54,7 +51,7 @@ namespace pdr::pebbling::experiments
     PebblingModel& ts;
     my::cli::model_t::Peterson ts_descr;
 
-    std::unique_ptr<superRun> single_run(bool is_control) override;
+    std::unique_ptr<expsuper::Run> single_run(bool is_control) override;
   };
 } // namespace pdr::pebbling::experiments
 
