@@ -34,7 +34,7 @@ namespace pdr::peterson::experiments
     bool correct;
 
     PeterRun(std::string const& t, std::string const& m,
-        std::vector<PetersonResult> const& r);
+        std::vector<std::unique_ptr<IpdrResult>>&& results);
 
    private:
     tabulate::Table::Row_t correct_row() const;

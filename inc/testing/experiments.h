@@ -6,6 +6,7 @@
 #include "pdr-model.h"
 #include "result.h"
 
+#include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/table.hpp>
 
@@ -55,18 +56,20 @@ namespace pdr::experiments
   class Run
   {
    public:
-    std::vector<std::shared_ptr<IpdrResult>> results;
+    std::vector<std::unique_ptr<IpdrResult>> results;
     std::string model;
     std::string tactic;
     double avg_time;
     double std_dev_time;
 
-    Run(std::string const& t, std::string const& m, 
-        std::vector<std::shared_ptr<IpdrResult>> const& r);
+    Run(std::string const& t, std::string const& m,
+        std::vector<std::unique_ptr<IpdrResult>>&& r);
     virtual ~Run() {}
+
     std::string str(::pdr::experiments::output_format fmt) const;
     std::string str_compared(
         const Run& other, ::pdr::experiments::output_format fmt) const;
+    void dump(tabulate::Exporter& exp, std::ostream& out) const;
 
    protected:
     Row_t tactic_row() const;

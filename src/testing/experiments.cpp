@@ -7,6 +7,7 @@
 
 #include <fmt/format.h>
 #include <numeric> // std::accumulate
+#include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
@@ -62,8 +63,8 @@ namespace pdr::experiments
   // RUN PUBLIC MEMBERS
   //
   Run::Run(std::string const& t, std::string const& m,
-      vector<std::shared_ptr<IpdrResult>> const& r)
-      : results(r), model(m), tactic(t)
+      std::vector<std::unique_ptr<IpdrResult>>&& r)
+      : model(m), tactic(t), results(r)
   {
     double time_sum{ 0.0 };
     vector<double> times;
@@ -136,9 +137,26 @@ namespace pdr::experiments
     return ss.str();
   }
 
+  void Run::dump(tabulate::Exporter& exporter, std::ostream& out) const
+  {
+    using std::endl;
+
+    for (size_t i{ 0 }; i < results.size(); i++)
+    {
+      out << fmt::format("### Sample {}", i) << endl;
+      tabulate::Table t{ results[i]->raw_table() };
+      tablef::format_base(t);
+      out << exporter.dump(t) << endl << endl;
+
+      out << "#### Traces" << endl;
+      results[i]->show_traces(out);
+    }
+  }
+
   // EXPERIMENT PUBLIC MEMBERS
   //
-  Experiment::Experiment(my::cli::ArgumentList const& a, Logger& l)
+  Experiment::Experiment(
+      my::cli::ArgumentList const& a, Logger& l)
       : args(a), model(model_t::get_name(args.model)),
         type(algo::get_name(args.algorithm)), log(l),
         N_reps(args.experiment->repetitions), seeds(N_reps)
@@ -164,7 +182,6 @@ namespace pdr::experiments
     using std::endl;
 
     // TODO: haal reps uit Run
-    std::vector<std::unique_ptr<IpdrResult>> reps, control_reps;
     std::ofstream latex = args.folders.file_in_run("tex");
     std::ofstream raw   = args.folders.file_in_run("md");
 
@@ -178,30 +195,15 @@ namespace pdr::experiments
     latex << control_aggregate->str(output_format::latex);
 
     // write raw run data as markdown
-    {
-      tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const IpdrResult& r, size_t i)
-      {
-        raw << format("### Sample {}", i) << endl;
-        tabulate::Table t{ r.raw_table() };
-        tablef::format_base(t);
-        raw << exporter.dump(t) << endl << endl;
+    tabulate::MarkdownExporter exporter;
+    raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+               tactic::to_string(tactic))
+        << endl;
 
-        raw << "#### Traces" << endl;
-        r.show_traces(raw);
-      };
+    raw << "## Experiment run." << endl;
+    aggregate->dump(exporter, raw);
 
-      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
-                 tactic::to_string(tactic))
-          << endl;
-
-      raw << "## Experiment run." << endl;
-      for (size_t i = 0; i < reps.size(); i++)
-        dump(*reps[i], i);
-
-      raw << "## Control run." << endl;
-      for (size_t i = 0; i < control_reps.size(); i++)
-        dump(*control_reps[i], i);
-    }
+    raw << "## Control run." << endl;
+    control_aggregate->dump(exporter, raw);
   }
 } // namespace pdr::experiments

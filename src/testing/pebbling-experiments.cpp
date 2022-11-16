@@ -68,30 +68,39 @@ namespace pdr::pebbling::experiments
   //
   // aggregate multiple experiments and format
   PebblingRun::PebblingRun(std::string const& t, std::string const& m,
-      std::vector<pebbling::PebblingResult> const& results)
-      : Run(t, m, { results.cbegin(), results.cend() })
+      std::vector<std::unique_ptr<IpdrResult>>&& r)
+      : Run(t, m, std::move(r))
   {
     using std::min;
 
     double time_sum{ 0.0 };
     std::vector<double> times;
-    for (PebblingResult const& r : results)
+    for (IpdrResult const& r : results)
     {
-      PebblingResult::Data_t total = r.get_total();
-
-      // time is done by Run()
-
-      if (total.inv) // get the lowest invariant level we found
+      try
       {
-        if (!min_inv || total.inv->invariant.level < min_inv->invariant.level)
-          min_inv = total.inv;
+        auto const& pebbling_r       = dynamic_cast<PebblingResult const&>(r);
+        PebblingResult::Data_t total = pebbling_r.get_total();
+
+        // time is done by Run()
+
+        if (total.inv) // get the lowest invariant level we found
+        {
+          if (!min_inv || total.inv->invariant.level < min_inv->invariant.level)
+            min_inv = total.inv;
+        }
+
+        if (total.strategy) // get the shortest trace we found
+        {
+          if (!min_strat ||
+              total.strategy->trace.length < min_strat->trace.length)
+            min_strat = total.strategy;
+        }
       }
-
-      if (total.strategy) // get the shortest trace we found
+      catch (std::bad_cast const& e)
       {
-        if (!min_strat ||
-            total.strategy->trace.length < min_strat->trace.length)
-          min_strat = total.strategy;
+        throw std::invalid_argument(
+            "combined_listing expects a PebblingRun const&");
       }
     }
     assert(times.size() == results.size());

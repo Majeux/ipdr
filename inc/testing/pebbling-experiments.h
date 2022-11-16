@@ -24,12 +24,12 @@ namespace pdr::pebbling::experiments
   {
     using Row_t   = tabulate::Table::Row_t;
     // 7 rows
+    std::vector<std::unique_ptr<PebblingResult>> results;
 
     std::optional<PebblingResult::PebblingInvariant> min_inv;
     std::optional<PebblingResult::PebblingTrace> min_strat;
-
     PebblingRun(std::string const& t, std::string const& m,
-        const std::vector<pebbling::PebblingResult>& results);
+        std::vector<std::unique_ptr<IpdrResult>>&& results);
 
    private:
     tabulate::Table::Row_t constraint_row() const;
