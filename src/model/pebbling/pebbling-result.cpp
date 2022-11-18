@@ -5,6 +5,7 @@
 #include <cassert>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
+#include <tabulate/table.hpp>
 #include <z3++.h>
 
 namespace pdr::pebbling
@@ -24,16 +25,41 @@ namespace pdr::pebbling
       const IpdrResult& r, const PebblingModel& m, Tactic t)
       : IpdrResult(r), model(m), tactic(t), total{ total_time, {}, {} }
   {
-    rows.resize(0);
+    pdr_summaries.resize(0);
     for (const PdrResult& r : original)
     {
-      tabulate::Table::Row_t res_row = table_row(r);
-      assert(res_row.size() == header().size());
-      rows.push_back(res_row);
+      tabulate::Table::Row_t res_row = process_row(r);
+      pdr_summaries.push_back(res_row);
     }
   }
 
-  void PebblingResult::add_summary_to(tabulate::Table& t) const
+  std::string PebblingResult::end_result() const
+  {
+    if (total.strategy)
+    {
+      return fmt::format("Strategy for {} pebbles, with length {}.",
+          total.strategy->pebbled, total.strategy->trace.length);
+    }
+
+    return "No strategy exists.";
+  }
+
+  const PebblingResult::Data_t& PebblingResult::get_total() const
+  {
+    return total;
+  }
+
+  // if decreasing: min strategy = the latest of the multiple strategies
+  // if increasing: min strategy = the only (first) strategy found
+  const std::optional<unsigned> PebblingResult::min_pebbles() const
+  {
+    if (total.strategy)
+      return total.strategy->pebbled;
+
+    return {};
+  }
+
+  tabulate::Table::Row_t PebblingResult::total_row() const
   {
     using fmt::format;
     using std::to_string;
@@ -69,56 +95,26 @@ namespace pdr::pebbling
       trace_length = "--";
     }
 
-    t.add_row({ time_str, inv_constr, inv_level, trace_marked, trace_length });
-  }
-
-  void PebblingResult::show_raw(std::ostream& out) const
-  {
-    IpdrResult::show(out);
-  }
-
-  void PebblingResult::show(std::ostream& out) const
-  {
-    using fmt::format;
-    using std::to_string;
-
-    tabulate::Table table;
-    table.format().font_align(tabulate::FontAlign::right);
-
-    table.add_row(result::summary_header);
-    add_summary_to(table);
-
-    out << table << std::endl;
-    auto latex = tabulate::LatexExporter().dump(table);
-    out << latex << std::endl;
-  }
-
-  const PebblingResult::Data_t& PebblingResult::get_total() const
-  {
-    return total;
-  }
-
-  // if decreasing: min strategy = the latest of the multiple strategies
-  // if increasing: min strategy = the only (first) strategy found
-  const std::optional<unsigned> PebblingResult::min_pebbles() const
-  {
-    if (total.strategy)
-      return total.strategy->pebbled;
-
-    return {};
+    return { time_str, inv_constr, inv_level, trace_marked, trace_length };
   }
 
   // Private Members
   //
-  const tabulate::Table::Row_t PebblingResult::header() const
+  const tabulate::Table::Row_t PebblingResult::summary_header() const
   {
-    return result::result_header;
+    return { "constraint", "pebbled", "invariant index", "trace length",
+      "time" };
   }
 
-  const tabulate::Table::Row_t PebblingResult::table_row(const PdrResult& r)
+  const tabulate::Table::Row_t PebblingResult::total_header() const
+  {
+    return { "runtime", "min constraint strategy", "length" };
+  }
+
+  const tabulate::Table::Row_t PebblingResult::process_row(const PdrResult& r)
   {
     // row with { invariant level, trace length, time }
-    tabulate::Table::Row_t row = IpdrResult::table_row(r);
+    tabulate::Table::Row_t row = IpdrResult::process_row(r);
     // expand to { constraint, marked, invariant level, trace length, time }
 
     if (r.has_invariant()) // only happens multiple times in increasing
@@ -157,6 +153,7 @@ namespace pdr::pebbling
       }
     }
 
+    assert(row.size() == summary_header().size());
     return row;
   }
 

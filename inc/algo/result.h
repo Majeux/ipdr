@@ -24,8 +24,8 @@ namespace pdr
   {
     using ResultRow = std::array<std::string, 3>;
 
-    inline const static ResultRow header = { "invariant index", "trace length",
-      "Total time" };
+    inline const static ResultRow fields = { "invariant index", "trace length",
+      "total time" };
 
     struct Invariant
     {
@@ -90,37 +90,43 @@ namespace pdr
 
     void reset();
 
+    // track r in "original" and update the total time and "rows" summary
+    // each result is added to "rows" via the virtual add_to_rows() function
+    IpdrResult& add(const PdrResult& r);
+
+    // output the pdr_summaries in a formatted table and append the total time
+    // build using rows from process_row()
+    tabulate::Table summary_table() const;
+    // table with total header and single row
+    // build using row from total_row()
+    tabulate::Table total_table() const;
+
     double get_total_time() const;
     std::vector<double> g_times() const;
 
-    tabulate::Table raw_table() const;
-
-    // row...| time
-    // ...   | ...
-    // show_traces()
-    virtual void show(std::ostream& out) const;
-    // processes all traces and outputs them in table
-    void show_traces(std::ostream& out) const;
-
-    // track r in "original" and update the total time and "rows" summary
-    IpdrResult& add(const PdrResult& r);
-    virtual void add_summary_to(tabulate::Table& t) const = 0;
+    // show a small string that described the end result of the run
+    virtual std::string end_result() const = 0;
+    // represent total for a formatted table
+    virtual tabulate::Table::Row_t total_row() const = 0;
+    // get all traces using the virtual process_trace() function
+    std::string all_traces() const;
 
    protected:
     double total_time{ 0.0 };
     // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
-    // summary of the "original" vector
-    std::vector<tabulate::Table::Row_t> rows;
+    // data extracted for the original pdr results
+    std::vector<tabulate::Table::Row_t> pdr_summaries;
 
-    // field names for internal and summary tables
-    virtual const tabulate::Table::Row_t header() const;
+    // field names for table headers
     virtual const tabulate::Table::Row_t summary_header() const;
+    virtual const tabulate::Table::Row_t total_header() const = 0;
 
-    // adds a pdr result to the IpdrResult::rows table
-    // { processes, max_proc, invariant level, trace length, time }
-    // called by add(PdrResult), does additional work for add in subclasses
-    virtual const tabulate::Table::Row_t table_row(const PdrResult& r);
+    // store data from a result: totals and summaries
+    // generate and return a summary row for "pdr_summaries":
+    //  { processes, max_proc, invariant level, trace length, time }
+    // called by add(PdrResult), override to process additional data in derived
+    virtual const tabulate::Table::Row_t process_row(const PdrResult& r);
     // string representation of the trace or invariant
     virtual std::string process_trace(const PdrResult& res) const;
 

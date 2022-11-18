@@ -15,6 +15,37 @@ namespace my::io
   using fmt::format;
   using std::string;
 
+  // AUX
+  //
+  fs::path base_out() { return setup(fs::current_path() / "output"); }
+
+  fs::path setup(fs::path p)
+  {
+    fs::create_directories(p);
+    return p;
+  }
+
+  const fs::path file_in(
+      const fs::path& folder, std::string_view name, std::string_view extension)
+  {
+    return base_out() / folder / format("{}.{}", name, extension);
+  }
+
+  std::ofstream trunc_file(const fs::path& path)
+  {
+    std::ofstream stream(
+        path.string(), std::fstream::out | std::fstream::trunc);
+    assert(stream.is_open());
+    return stream;
+  }
+  std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
+      const std::string& ext)
+  {
+    return trunc_file(folder / format("{}.{}", filename, ext));
+  }
+
+  // FOLDERSTRUCTURE
+  //
   void FolderStructure::show(std::ostream& out) const
   {
     tabulate::Table t;
@@ -56,33 +87,4 @@ namespace my::io
     return model_dir / format("{}.{}", file_base, extension);
   }
 
-  // AUX
-  //
-
-  fs::path base_out() { return setup(fs::current_path() / "output"); }
-
-  fs::path setup(fs::path p)
-  {
-    fs::create_directories(p);
-    return p;
-  }
-
-  const fs::path file_in(
-      const fs::path& folder, std::string_view name, std::string_view extension)
-  {
-    return base_out() / folder / format("{}.{}", name, extension);
-  }
-
-  std::ofstream trunc_file(const fs::path& path)
-  {
-    std::ofstream stream(
-        path.string(), std::fstream::out | std::fstream::trunc);
-    assert(stream.is_open());
-    return stream;
-  }
-  std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
-      const std::string& ext)
-  {
-    return trunc_file(folder / format("{}.{}", filename, ext));
-  }
 } // namespace my::io

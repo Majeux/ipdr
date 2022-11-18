@@ -17,9 +17,6 @@ namespace pdr::pebbling::experiments
 {
   namespace expsuper = ::pdr::experiments;
 
-  void pebbling_run(pebbling::PebblingModel& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args);
-
   struct PebblingRun final : public ::pdr::experiments::Run
   {
     using Row_t   = tabulate::Table::Row_t;
@@ -41,7 +38,7 @@ namespace pdr::pebbling::experiments
     tabulate::Table make_combined_table(const Run& control) const override;
   };
 
-  class PebblingExperiment final : pdr::experiments::Experiment
+  class PebblingExperiment final : public expsuper::Experiment
   {
    public:
     PebblingExperiment(

@@ -64,7 +64,7 @@ namespace pdr::experiments
   //
   Run::Run(std::string const& t, std::string const& m,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
-      : model(m), tactic(t), results(r)
+      : results(std::move(r)), model(m), tactic(t)
   {
     double time_sum{ 0.0 };
     vector<double> times;
@@ -144,12 +144,12 @@ namespace pdr::experiments
     for (size_t i{ 0 }; i < results.size(); i++)
     {
       out << fmt::format("### Sample {}", i) << endl;
-      tabulate::Table t{ results[i]->raw_table() };
+      tabulate::Table t{ results[i]->summary_table() };
       tablef::format_base(t);
       out << exporter.dump(t) << endl << endl;
 
       out << "#### Traces" << endl;
-      results[i]->show_traces(out);
+      out << results[i]->all_traces() << endl;
     }
   }
 

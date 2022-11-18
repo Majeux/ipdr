@@ -31,7 +31,7 @@ namespace pdr::peterson::experiments
   using std::shared_ptr;
   using std::vector;
 
-  PeterExperiment::PeterExperiment(
+  PetersonExperiment::PetersonExperiment(
       my::cli::ArgumentList const& a, PetersonModel& m, Logger& l)
       : Experiment(a, l), ts(m)
   {
@@ -39,7 +39,7 @@ namespace pdr::peterson::experiments
     ts_descr   = peter->get();
   }
 
-  shared_ptr<expsuper::Run> PeterExperiment::single_run(bool is_control)
+  shared_ptr<expsuper::Run> PetersonExperiment::single_run(bool is_control)
   {
     vector<PetersonResult> results;
 
@@ -71,6 +71,21 @@ namespace pdr::peterson::experiments
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : Run(t, m, std::move(r)), correct(true)
   {
+    for (auto const& r : results)
+    {
+      try
+      {
+        auto const& peter_r       = dynamic_cast<PetersonResult const&>(*r);
+
+        // time is done by Run()
+        correct = correct && peter_r.all_holds();
+      }
+      catch (std::bad_cast const& e)
+      {
+        throw std::invalid_argument(
+            "PeterRun expects a vector of PetersonResult ptrs");
+      }
+    }
   }
 
   tabulate::Table::Row_t PeterRun::correct_row() const

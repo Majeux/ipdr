@@ -5,8 +5,8 @@
 
 namespace pdr::peterson
 {
-  IPDR::IPDR(
-      Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l)
+  IPDR::IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args,
+      Logger& l)
       : alg(c, m, l), model(m)
   {
   }
@@ -73,8 +73,7 @@ namespace pdr::peterson
       return total;
     }
     // N is minimal
-    alg.log.and_whisper(
-        "! Counter for p={}", p-1);
+    alg.log.and_whisper("! Counter for p={}", p - 1);
     return total;
   }
 

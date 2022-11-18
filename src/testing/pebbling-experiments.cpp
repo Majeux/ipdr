@@ -71,15 +71,11 @@ namespace pdr::pebbling::experiments
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : Run(t, m, std::move(r))
   {
-    using std::min;
-
-    double time_sum{ 0.0 };
-    std::vector<double> times;
-    for (IpdrResult const& r : results)
+    for (auto const& r : results)
     {
       try
       {
-        auto const& pebbling_r       = dynamic_cast<PebblingResult const&>(r);
+        auto const& pebbling_r       = dynamic_cast<PebblingResult const&>(*r);
         PebblingResult::Data_t total = pebbling_r.get_total();
 
         // time is done by Run()
@@ -100,13 +96,9 @@ namespace pdr::pebbling::experiments
       catch (std::bad_cast const& e)
       {
         throw std::invalid_argument(
-            "combined_listing expects a PebblingRun const&");
+            "PebblingRun expects a vector of PebblingResult ptrs");
       }
     }
-    assert(times.size() == results.size());
-    avg_time = time_sum / times.size();
-
-    std_dev_time = math::std_dev(times, avg_time);
   }
 
   tabulate::Table::Row_t PebblingRun::constraint_row() const

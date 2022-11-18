@@ -42,10 +42,10 @@ namespace pdr::peterson::experiments
     tabulate::Table make_combined_table(const Run& control) const override;
   };
 
-  class PeterExperiment : pdr::experiments::Experiment
+  class PetersonExperiment : public expsuper::Experiment
   {
    public:
-    PeterExperiment(
+    PetersonExperiment(
         my::cli::ArgumentList const& a, PetersonModel& m, Logger& l);
 
    private:

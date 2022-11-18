@@ -3,19 +3,10 @@
 
 #include "pebbling-model.h"
 #include "result.h"
+#include <tabulate/table.hpp>
 
 namespace pdr::pebbling
 {
-  namespace result
-  {
-    static tabulate::Table::Row_t result_header = { "constraint", "pebbled",
-      "invariant index", "trace length", "time" };
-
-    static tabulate::Table::Row_t summary_header = { "runtime",
-      "max constraint with invariant", "level", "min constraint with strategy",
-      "length" };
-  } // namespace result
-
   // aggregates multiple pdr runs into a single ipdr result for pebbling
   // collects: total time spent, highest level invariant, and trace with the
   // lowest marking
@@ -42,24 +33,27 @@ namespace pdr::pebbling
     PebblingResult(const PebblingModel& m, Tactic t);
     PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
 
-    void add_summary_to(tabulate::Table& t) const override;
-    void show_raw(std::ostream& out) const;
-
-    void show(std::ostream& out) const override;
-
+    std::string end_result() const override;
     Data_t const& get_total() const;
     const std::optional<unsigned> min_pebbles() const;
+    tabulate::Table::Row_t total_row() const override;
 
    private:
     PebblingModel const& model;
     const Tactic tactic;
-    Data_t total; // the latest invariant and trace, with the total time spent
+    // the latest invariant and trace, with the total time spent
+    // if constraining: strategy = the latest of the multiple strategies
+    //                  inv = the first invariant found
+    // if relaxing:     strategy = the only (first) strategy found
+    //                  inv = the highest invariant found
+    Data_t total;
     unsigned n_invariants{ 0 };
     unsigned n_traces{ 0 };
 
-    const tabulate::Table::Row_t header() const override;
+    const tabulate::Table::Row_t summary_header() const override;
+    const tabulate::Table::Row_t total_header() const override;
     // expand row with constraint and length, and store the latest in total
-    const tabulate::Table::Row_t table_row(const PdrResult& r) override;
+    const tabulate::Table::Row_t process_row(const PdrResult& r) override;
     std::string process_trace(const PdrResult& res) const override;
   };
 } // namespace pdr::pebbling

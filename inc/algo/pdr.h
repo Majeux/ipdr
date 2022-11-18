@@ -122,7 +122,7 @@ namespace pdr
       std::optional<size_t> constrain_reset(unsigned pebbles);
 
      public:
-      IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l);
+      IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args, Logger& l);
 
       // runs the optimizer as dictated by the argument
       PebblingResult run(Tactic tactic, bool control = false);
@@ -142,7 +142,7 @@ namespace pdr
     class IPDR
     {
      public:
-      IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList args, Logger& l);
+      IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args, Logger& l);
 
       // runs the optimizer as dictated by the argument
       PetersonResult run(

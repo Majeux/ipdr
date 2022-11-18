@@ -11,8 +11,8 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  IPDR::IPDR(
-      Context& c, PebblingModel& m, my::cli::ArgumentList args, Logger& l)
+  IPDR::IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args,
+      Logger& l)
       : alg(c, m, l), model(m), starting_value()
   {
     auto const& peb =

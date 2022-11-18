@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fmt/core.h>
 #include <iterator>
 #include <string>
 #include <string_view>
@@ -31,23 +32,14 @@ namespace pdr::peterson
   double PetersonResult::get_total_time() const { return total_time; }
   bool PetersonResult::all_holds() const { return holds; }
 
-  void PetersonResult::show(std::ostream& out) const
+  std::string PetersonResult::end_result() const
   {
-    using fmt::format;
-    using std::to_string;
-
-    tabulate::Table table;
-    table.format().font_align(tabulate::FontAlign::right);
-
-    table.add_row({ "runtime", "proven for p=", "maximum p" });
-    add_summary_to(table);
-
-    out << table << std::endl;
-    auto latex = tabulate::LatexExporter().dump(table);
-    out << latex << std::endl;
+    assert(!all_holds() || last_proof_procs == model.max_processes());
+    return fmt::format("Peterson protocol proven for {}..{} processes",
+        model.n_processes(), last_proof_procs);
   }
 
-  void PetersonResult::add_summary_to(tabulate::Table& t) const
+  tabulate::Table::Row_t PetersonResult::total_row() const
   {
     using fmt::format;
     using std::string;
@@ -58,36 +50,45 @@ namespace pdr::peterson
     string time_str = to_string(total_time);
 
     std::vector<string_view> proc_values;
-    std::transform(rows.cbegin(), rows.cend(), std::back_inserter(proc_values),
+    std::transform(pdr_summaries.cbegin(), pdr_summaries.cend(),
+        std::back_inserter(proc_values),
         [](const Table::Row_t& r) -> string { return to_string(r.front()); });
     string proven_str = str::ext::join(proc_values);
 
-    auto limit_str = rows.front().at(1);
-    assert(std::all_of(rows.cbegin(), rows.cend(),
+    auto limit_str = pdr_summaries.front().at(1);
+    assert(std::all_of(pdr_summaries.cbegin(), pdr_summaries.cend(),
         [&limit_str](const Table::Row_t& row) -> bool
         { return to_string(row.at(1)) == to_string(limit_str); }));
 
-    t.add_row({ time_str, proven_str, limit_str });
+    return { time_str, proven_str, limit_str };
   }
 
   // PetersonModel private members
   //
   // processes | max_processes | invariant | trace | time
-  const tabulate::Table::Row_t PetersonResult::header() const
+  const tabulate::Table::Row_t PetersonResult::summary_header() const
   {
-    return result::result_header;
+    return { "processes", "max_processes", "invariant index", "trace_length",
+      "time" };
   }
 
-  const tabulate::Table::Row_t PetersonResult::table_row(const PdrResult& r)
+  const tabulate::Table::Row_t PetersonResult::total_header() const
+  {
+    return { "runtime", "proven for p=", "maximum p" };
+  }
+
+  const tabulate::Table::Row_t PetersonResult::process_row(const PdrResult& r)
   {
     // row with { invariant level, trace length, time }
-    tabulate::Table::Row_t row = IpdrResult::table_row(r);
+    tabulate::Table::Row_t row = IpdrResult::process_row(r);
     // expand to { processes, max_proc, invariant level, trace length, time }
     if (r.has_trace())
     {
       holds = false;
       std::cout << process_trace(r) << std::endl;
     }
+    else
+      last_proof_procs = model.n_processes();
 
     row.insert(row.begin(), std::to_string(model.max_processes()));
     row.insert(row.begin(), std::to_string(model.n_processes()));
