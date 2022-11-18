@@ -52,7 +52,8 @@ namespace pdr::peterson::experiments
     PetersonModel& ts;
     my::cli::model_t::Peterson ts_descr;
 
-    std::shared_ptr<expsuper::Run> single_run(bool is_control) override;
+    void reset_tables() override;
+    std::shared_ptr<expsuper::Run> do_reps(bool is_control) override;
   };
 } // namespace pdr::peterson::experiments
 

@@ -26,6 +26,7 @@ namespace pdr::pebbling::experiments
   using std::cout;
   using std::endl;
   using std::shared_ptr;
+  using std::unique_ptr;
   using std::vector;
 
   using namespace ::pdr::experiments;
@@ -37,9 +38,20 @@ namespace pdr::pebbling::experiments
   {
   }
 
-  shared_ptr<expsuper::Run> PebblingExperiment::single_run(bool is_control)
+  void PebblingExperiment::reset_tables()
   {
-    vector<PebblingResult> results;
+    sample_table          = tabulate::Table();
+    sample_table.format() = control_table.format();
+    sample_table.add_row(PebblingResult::pebbling_total_header);
+
+    control_table          = tabulate::Table();
+    control_table.format() = sample_table.format();
+    control_table.add_row(PebblingResult::pebbling_total_header);
+  }
+
+  shared_ptr<expsuper::Run> PebblingExperiment::do_reps(bool is_control)
+  {
+    vector<unique_ptr<IpdrResult>> results;
 
     for (unsigned i = 0; i < N_reps; i++)
     {
@@ -49,19 +61,26 @@ namespace pdr::pebbling::experiments
       pdr::Context ctx(ts, seeds[i]);
       IPDR opt(ctx, ts, args, log);
 
-      PebblingResult result =
-          is_control ? opt.control_run(tactic) : opt.run(tactic);
+      {
+        PebblingResult result =
+            is_control ? opt.control_run(tactic) : opt.run(tactic);
 
-      if (!optimum)
-        optimum = result.min_pebbles();
+        if (!optimum)
+          optimum = result.min_pebbles();
 
-      assert(optimum == result.min_pebbles()); // all results should be same
+        assert(optimum == result.min_pebbles()); // all results should be same
 
-      results.push_back(std::move(result));
-      results.back().add_summary_to(is_control ? control_table : sample_table);
+        results.emplace_back(
+            std::make_unique<PebblingResult>(std::move(result)));
+      }
+
+      if (is_control)
+        control_table.add_row(results.back()->total_row());
+      else
+        sample_table.add_row(results.back()->total_row());
     }
 
-    return std::make_shared<PebblingRun>(model, type, results);
+    return std::make_shared<PebblingRun>(model, type, std::move(results));
   }
 
   // Run members
@@ -192,12 +211,14 @@ namespace pdr::pebbling::experiments
       {
         {
           auto r = constraint_row();
-          r.push_back(fmt::to_string(pebbling_ctrl.min_inv->constraint));
+          r.push_back(
+              fmt::to_string(pebbling_ctrl.min_inv->constraint.value()));
           t.add_row(r);
         }
         {
           auto r = level_row();
-          r.push_back(fmt::to_string(pebbling_ctrl.min_inv->constraint));
+          r.push_back(
+              fmt::to_string(pebbling_ctrl.min_inv->constraint.value()));
           double dec = math::percentage_dec(
               pebbling_ctrl.min_strat->trace.length, min_strat->trace.length);
           r.push_back(perc_str(dec));

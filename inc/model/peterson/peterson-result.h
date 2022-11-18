@@ -18,6 +18,13 @@ namespace pdr::peterson
   class PetersonResult final : public IpdrResult
   {
    public:
+    inline static const tabulate::Table::Row_t peterson_summary_header = {
+      "processes", "max_processes", "invariant index", "trace_length", "time"
+    };
+    inline static const tabulate::Table::Row_t peterson_total_header = {
+      "runtime", "proven for p=", "maximum p"
+    };
+
     PetersonResult(const PetersonModel& m, Tactic t);
 
     double get_total_time() const;

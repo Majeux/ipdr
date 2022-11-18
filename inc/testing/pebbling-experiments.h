@@ -21,7 +21,6 @@ namespace pdr::pebbling::experiments
   {
     using Row_t   = tabulate::Table::Row_t;
     // 7 rows
-    std::vector<std::unique_ptr<PebblingResult>> results;
 
     std::optional<PebblingResult::PebblingInvariant> min_inv;
     std::optional<PebblingResult::PebblingTrace> min_strat;
@@ -48,7 +47,8 @@ namespace pdr::pebbling::experiments
     PebblingModel& ts;
     my::cli::model_t::Peterson ts_descr;
 
-    std::shared_ptr<expsuper::Run> single_run(bool is_control) override;
+    void reset_tables() override;
+    std::shared_ptr<expsuper::Run> do_reps(bool is_control) override;
   };
 } // namespace pdr::pebbling::experiments
 

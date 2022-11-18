@@ -13,6 +13,13 @@ namespace pdr::pebbling
   class PebblingResult final : public IpdrResult
   {
    public:
+    inline static const tabulate::Table::Row_t pebbling_summary_header = {
+      "constraint", "pebbled", "invariant index", "trace length", "time"
+    };
+    inline static const tabulate::Table::Row_t pebbling_total_header = {
+      "constraint", "pebbled", "invariant index", "trace length", "time"
+    };
+
     struct PebblingInvariant
     {
       PdrResult::Invariant invariant;
@@ -33,8 +40,8 @@ namespace pdr::pebbling
     PebblingResult(const PebblingModel& m, Tactic t);
     PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
 
-    std::string end_result() const override;
     Data_t const& get_total() const;
+    std::string end_result() const override;
     const std::optional<unsigned> min_pebbles() const;
     tabulate::Table::Row_t total_row() const override;
 

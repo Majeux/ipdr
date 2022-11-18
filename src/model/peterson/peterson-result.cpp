@@ -68,13 +68,12 @@ namespace pdr::peterson
   // processes | max_processes | invariant | trace | time
   const tabulate::Table::Row_t PetersonResult::summary_header() const
   {
-    return { "processes", "max_processes", "invariant index", "trace_length",
-      "time" };
+    return peterson_summary_header;
   }
 
   const tabulate::Table::Row_t PetersonResult::total_header() const
   {
-    return { "runtime", "proven for p=", "maximum p" };
+    return peterson_total_header;
   }
 
   const tabulate::Table::Row_t PetersonResult::process_row(const PdrResult& r)

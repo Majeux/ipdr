@@ -115,11 +115,17 @@ void handle_pebbling(
     }
     else
     {
+      using std::endl;
+
       pdr::pebbling::IPDR ipdr_algo(context, pebbling, args, log);
       pdr::pebbling::PebblingResult result =
           ipdr_algo.run(ipdr->get().type, false);
-      result.show(args.folders.trace_file);
-      result.show_raw(args.folders.trace_file);
+
+      args.folders.trace_file << result.end_result() << endl
+                              << result.summary_table() << endl
+                              << std::string('=', 20) << endl
+                              << result.all_traces() << endl;
+
       ipdr_algo.dump_solver(args.folders.solver_dump);
     }
   }
@@ -173,10 +179,17 @@ void handle_peterson(
     }
     else
     {
+      using std::endl;
+      std::vector<std::unique_ptr<pdr::IpdrResult>> test;
+
       IPDR ipdr_algo(context, peter, args, log);
       PetersonResult result = ipdr_algo.run(ipdr->get().type, false);
-      result.show(args.folders.trace_file);
-      result.show_raw(args.folders.trace_file);
+
+      args.folders.trace_file << result.end_result() << endl
+                              << result.summary_table() << endl
+                              << std::string('=', 20) << endl
+                              << result.all_traces() << endl;
+
       ipdr_algo.dump_solver(args.folders.solver_dump);
     }
   }

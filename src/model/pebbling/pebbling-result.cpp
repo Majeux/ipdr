@@ -49,8 +49,6 @@ namespace pdr::pebbling
     return total;
   }
 
-  // if decreasing: min strategy = the latest of the multiple strategies
-  // if increasing: min strategy = the only (first) strategy found
   const std::optional<unsigned> PebblingResult::min_pebbles() const
   {
     if (total.strategy)
@@ -102,13 +100,12 @@ namespace pdr::pebbling
   //
   const tabulate::Table::Row_t PebblingResult::summary_header() const
   {
-    return { "constraint", "pebbled", "invariant index", "trace length",
-      "time" };
+    return pebbling_summary_header;
   }
 
   const tabulate::Table::Row_t PebblingResult::total_header() const
   {
-    return { "runtime", "min constraint strategy", "length" };
+    return pebbling_total_header;
   }
 
   const tabulate::Table::Row_t PebblingResult::process_row(const PdrResult& r)

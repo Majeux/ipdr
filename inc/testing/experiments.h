@@ -101,7 +101,10 @@ namespace pdr::experiments
     tabulate::Table sample_table;
     tabulate::Table control_table;
 
-    virtual std::shared_ptr<Run> single_run(bool is_control) = 0;
+    // reset the sample and control tables to the header
+    virtual void reset_tables() = 0;
+
+    virtual std::shared_ptr<Run> do_reps(bool is_control) = 0;
   };
 } // namespace pdr::experiments
 

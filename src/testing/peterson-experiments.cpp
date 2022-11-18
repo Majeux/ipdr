@@ -29,6 +29,7 @@ namespace pdr::peterson::experiments
   using std::cout;
   using std::endl;
   using std::shared_ptr;
+  using std::unique_ptr;
   using std::vector;
 
   PetersonExperiment::PetersonExperiment(
@@ -39,9 +40,20 @@ namespace pdr::peterson::experiments
     ts_descr   = peter->get();
   }
 
-  shared_ptr<expsuper::Run> PetersonExperiment::single_run(bool is_control)
+  void PetersonExperiment::reset_tables()
   {
-    vector<PetersonResult> results;
+    sample_table          = tabulate::Table();
+    sample_table.format() = control_table.format();
+    sample_table.add_row(PetersonResult::peterson_total_header);
+
+    control_table          = tabulate::Table();
+    control_table.format() = sample_table.format();
+    control_table.add_row(PetersonResult::peterson_total_header);
+  }
+
+  shared_ptr<expsuper::Run> PetersonExperiment::do_reps(bool is_control)
+  {
+    vector<unique_ptr<IpdrResult>> results;
 
     for (unsigned i = 0; i < N_reps; i++)
     {
@@ -50,18 +62,25 @@ namespace pdr::peterson::experiments
       pdr::Context ctx(ts, seeds[i]);
       IPDR opt(ctx, ts, args, log);
 
-      PetersonResult result = is_control
-                                ? opt.control_run(tactic, ts_descr.start)
-                                : opt.run(tactic, ts_descr.start);
+      {
+        PetersonResult result = is_control
+                                  ? opt.control_run(tactic, ts_descr.start)
+                                  : opt.run(tactic, ts_descr.start);
 
-      if (!result.all_holds())
-        cout << "! counter found" << endl;
+        if (!result.all_holds())
+          cout << "! counter found" << endl;
 
-      results.push_back(std::move(result));
-      results.back().add_summary_to(is_control ? control_table : sample_table);
+        results.emplace_back(
+            std::make_unique<PetersonResult>(std::move(result)));
+      }
+
+      if (is_control)
+        control_table.add_row(results.back()->total_row());
+      else
+        sample_table.add_row(results.back()->total_row());
     }
 
-    return std::make_shared<PeterRun>(model, type, results);
+    return std::make_shared<PeterRun>(model, type, std::move(results));
   }
 
   // Run members
@@ -75,7 +94,7 @@ namespace pdr::peterson::experiments
     {
       try
       {
-        auto const& peter_r       = dynamic_cast<PetersonResult const&>(*r);
+        auto const& peter_r = dynamic_cast<PetersonResult const&>(*r);
 
         // time is done by Run()
         correct = correct && peter_r.all_holds();

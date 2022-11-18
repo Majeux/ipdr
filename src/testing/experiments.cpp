@@ -164,12 +164,10 @@ namespace pdr::experiments
     if (auto ipdr = my::variant::get_cref<algo::t_IPDR>(args.algorithm))
       tactic = ipdr->get().type;
 
-    sample_table.add_row(pebbling::result::summary_header);
     sample_table.format()
         .font_align(tabulate::FontAlign::right)
         .hide_border_top()
         .hide_border_bottom();
-    control_table.add_row(pebbling::result::summary_header);
     control_table.format() = sample_table.format();
 
     srand(time(0));
@@ -181,17 +179,18 @@ namespace pdr::experiments
     using fmt::format;
     using std::endl;
 
-    // TODO: haal reps uit Run
+    reset_tables();
+
     std::ofstream latex = args.folders.file_in_run("tex");
     std::ofstream raw   = args.folders.file_in_run("md");
 
     std::cout << type + " run." << endl;
 
-    std::shared_ptr<Run> aggregate = single_run(false);
+    std::shared_ptr<Run> aggregate = do_reps(false);
     latex << aggregate->str(output_format::latex);
 
     std::cout << "control run." << endl;
-    std::shared_ptr<Run> control_aggregate = single_run(true);
+    std::shared_ptr<Run> control_aggregate = do_reps(true);
     latex << control_aggregate->str(output_format::latex);
 
     // write raw run data as markdown
