@@ -17,7 +17,7 @@ namespace pdr::pebbling
       "constraint", "pebbled", "invariant index", "trace length", "time"
     };
     inline static const tabulate::Table::Row_t pebbling_total_header = {
-      "constraint", "pebbled", "invariant index", "trace length", "time"
+      "runtime", "min constraint strategy", "length"
     };
 
     struct PebblingInvariant
