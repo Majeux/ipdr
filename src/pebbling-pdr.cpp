@@ -25,7 +25,6 @@
 #include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <fstream>
 #include <ghc/filesystem.hpp>
 #include <iostream>
 #include <lorina/bench.hpp>
@@ -75,6 +74,7 @@ void handle_pebbling(
 {
   using namespace pdr::pebbling;
   using my::variant::get_cref;
+  using std::endl;
 
   dag::Graph G = model_t::make_graph(descr.src);
   G.show(args.folders.model_dir / "dag", true);
@@ -94,6 +94,7 @@ void handle_pebbling(
 
     pdr::PdrResult r = pdr_algo.run();
     {
+      std::cout << "result" << std::endl;
       tabulate::Table T;
       {
         T.add_row(
@@ -101,7 +102,7 @@ void handle_pebbling(
         auto const row2 = r.listing();
         T.add_row({ row2.cbegin(), row2.cend() });
       }
-      args.folders.trace_file << T << std::endl;
+      args.folders.trace_file << T << endl << endl;
       args.folders.trace_file << pdr::result::trace_table(r, pebbling);
       pdr_algo.show_solver(args.folders.solver_dump);
     }
@@ -115,7 +116,6 @@ void handle_pebbling(
     }
     else
     {
-      using std::endl;
 
       pdr::pebbling::IPDR ipdr_algo(context, pebbling, args, log);
       pdr::pebbling::PebblingResult result =
@@ -142,6 +142,7 @@ void handle_peterson(
 {
   using namespace pdr::peterson;
   using my::variant::get_cref;
+  using std::endl;
 
   PetersonModel peter(descr.start, descr.max);
   log.stats.is_peter(descr.start, descr.max);
@@ -165,7 +166,7 @@ void handle_peterson(
         auto const row2 = r.listing();
         T.add_row({ row2.cbegin(), row2.cend() });
       }
-      args.folders.trace_file << T << std::endl;
+      args.folders.trace_file << T << endl << endl;
       args.folders.trace_file << pdr::result::trace_table(r, peter);
       pdr_algo.show_solver(args.folders.solver_dump);
     }
@@ -220,12 +221,20 @@ void show_peter_model(
 int main(int argc, char* argv[])
 {
   using my::variant::get_cref;
-  using std::ofstream;
 
   ArgumentList args(argc, argv);
 
-  pdr::Logger logger = pdr::Logger(args.folders.file_in_run("log"), *args.out,
-      args.verbosity, pdr::Statistics(args.folders.file_in_run("stats")));
+  if (args.onlyshow)
+    return 0;
+
+  std::cout << args.folders.trace_file.is_open() << std::endl;
+
+  args.show_header(std::cerr);
+  args.folders.show(std::cerr);
+
+  pdr::Logger logger = pdr::Logger(args.folders.file_in_analysis("log"),
+      args.out, args.verbosity,
+      pdr::Statistics(args.folders.file_in_analysis("stats")));
 
   if (auto peb_descr = get_cref<model_t::Pebbling>(args.model))
     handle_pebbling(peb_descr->get(), args, logger);
@@ -235,11 +244,6 @@ int main(int argc, char* argv[])
     auto const& peter_descr = std::get<model_t::Peterson>(args.model);
     handle_peterson(peter_descr, args, logger);
   }
-
-  if (args.onlyshow)
-    return 0;
-
-  args.show_header(std::cerr);
 
   // if (std::holds_alternative<algo::PDR>(args.algorithm))
   // {

@@ -10,6 +10,7 @@
 #include "cli-parse.h"
 #include <cassert>
 #include <fmt/format.h>
+#include <iterator>
 #include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
@@ -171,7 +172,10 @@ namespace pdr::pebbling::experiments
         t.add_row({});
       }
     }
-    assert(t.shape().first == 7); // n_rows == 7
+    size_t rows{0};
+    auto it = t.begin();
+    while(it != t.end()) { rows++; ++it; }
+    assert(rows == 7); // n_rows == 7
     return t;
   }
 

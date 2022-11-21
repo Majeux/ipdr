@@ -8,6 +8,7 @@
 
 #include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <filesystem>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -16,13 +17,11 @@
 
 namespace my::cli
 {
+  namespace fs = std::filesystem;
   using namespace cxxopts;
   using namespace my::io;
 
-  namespace fs = ghc::filesystem;
-
   class ArgumentList;
-
 
   namespace graph_src
   {
@@ -128,7 +127,6 @@ namespace my::cli
     ArgumentList(int argc, char* argv[]);
     void show_header(std::ostream& out) const;
     const FolderStructure make_folders() const;
-    std::string file_name() const;
 
    private:
     // constructor helpers

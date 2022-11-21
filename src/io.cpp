@@ -1,13 +1,14 @@
+#include "cli-parse.h"
+#include "io.h"
+#include "tactic.h"
+
+#include <filesystem>
 #include <fmt/core.h>
 #include <ghc/filesystem.hpp>
 #include <string>
 #include <string_view>
 #include <tabulate/table.hpp>
 #include <type_traits>
-
-#include "cli-parse.h"
-#include "io.h"
-#include "tactic.h"
 
 namespace my::io
 {
@@ -18,6 +19,7 @@ namespace my::io
   // AUX
   //
   fs::path base_out() { return setup(fs::current_path() / "output"); }
+  fs::path in_root(fs::path const& p) { return fs::current_path() / p; }
 
   fs::path setup(fs::path p)
   {
@@ -26,20 +28,20 @@ namespace my::io
   }
 
   const fs::path file_in(
-      const fs::path& folder, std::string_view name, std::string_view extension)
+      fs::path const& folder, std::string_view name, std::string_view extension)
   {
     return base_out() / folder / format("{}.{}", name, extension);
   }
 
-  std::ofstream trunc_file(const fs::path& path)
+  std::ofstream trunc_file(fs::path const& path)
   {
     std::ofstream stream(
         path.string(), std::fstream::out | std::fstream::trunc);
     assert(stream.is_open());
     return stream;
   }
-  std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
-      const std::string& ext)
+  std::ofstream trunc_file(fs::path const& folder, std::string const& filename,
+      std::string const& ext)
   {
     return trunc_file(folder / format("{}.{}", filename, ext));
   }
@@ -65,6 +67,7 @@ namespace my::io
     return format("{}.{}", file_base, extension);
   }
 
+  // MODEL
   fs::path FolderStructure::file_in_model(
       std::string_view name, std::string_view extension) const
   {
@@ -76,15 +79,34 @@ namespace my::io
     return model_dir / format("{}.{}", file_base, extension);
   }
 
+  // RUN
   fs::path FolderStructure::file_in_run(
       std::string_view name, std::string_view extension) const
   {
-    return model_dir / format("{}.{}", name, extension);
+    return run_dir / format("{}.{}", name, extension);
   }
 
   fs::path FolderStructure::file_in_run(std::string_view extension) const
   {
-    return model_dir / format("{}.{}", file_base, extension);
+    return run_dir / format("{}.{}", file_base, extension);
   }
 
+  // ANALYSIS
+  fs::path FolderStructure::file_in_analysis(
+      std::string_view name, std::string_view extension) const
+  {
+    return analysis / format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_analysis(std::string_view extension) const
+  {
+    return analysis / format("{}.{}", file_base, extension);
+  }
+
+  // BENCH
+  fs::path FolderStructure::src_file(
+      std::string_view name, std::string_view extension) const
+  {
+    return fs::current_path() / bench_src / format("{}.{}", name, extension);
+  }
 } // namespace my::io

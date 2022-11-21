@@ -21,7 +21,6 @@
 #warning display settings for: delta, seed, mic_retries
 namespace my::cli
 {
-  namespace fs = ghc::filesystem;
   using namespace pdr::tactic;
   using fmt::format;
   using std::optional;
@@ -260,13 +259,6 @@ namespace my::cli
       throw;
     }
 
-    folders.file_base = model_t::filetag(model);
-    {
-      folders.file_base += '-' + algo::filetag(algorithm);
-      if (experiment)
-        folders.file_base += format("-exp{}", experiment->repetitions);
-    }
-
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
 
@@ -284,11 +276,25 @@ namespace my::cli
       }
     }
 
-    folders.run_dir   = folders.model_dir / file_name();
+    folders.run_dir   = folders.model_dir / model_t::filetag(model);
     folders.analysis  = folders.run_dir / "analysis";
-    folders.file_base = file_name();
+    folders.file_base = model_t::src_name(model);
+    folders.file_base += '-' + model_t::filetag(model);
+    {
+      folders.file_base += '-' + algo::filetag(algorithm);
+      if (experiment)
+      {
+        if (experiment->control)
+          folders.file_base += format("-exp_C_{}", experiment->repetitions);
+        else
+          folders.file_base += format("-exp_{}", experiment->repetitions);
+      }
+    }
 
     fs::create_directories(folders.analysis);
+    folders.trace_file.open(folders.file_in_run("trace"));
+    folders.solver_dump.open(folders.file_in_run("solver_dump", "solver"));
+    folders.model_file = trunc_file(folders.model_dir, "model", "txt");
   }
 
   void ArgumentList::show_header(std::ostream& out) const
@@ -315,13 +321,6 @@ namespace my::cli
     if (tseytin)
       out << "Using tseytin encoded transition." << endl;
     out << endl;
-  }
-
-  string ArgumentList::file_name() const
-  {
-    string rv(model_t::filetag(model));
-
-    return rv;
   }
 
   // PRIVATE MEMBERS
@@ -423,52 +422,30 @@ namespace my::cli
     void atmost_one_of(
         std::initializer_list<string> names, cxxopts::ParseResult const& r)
     {
-      if (occurences(names, r) > 1)
-        throw std::invalid_argument(
-            format("At most one of `{}` allowed", str::ext::join(names)));
+      unsigned n = occurences(names, r);
+      if (n > 1)
+        throw std::invalid_argument(format(
+            "At most one of `{}` allowed. Have {}", str::ext::join(names), n));
     }
 
     void require_one_of(
         std::initializer_list<string> names, cxxopts::ParseResult const& r)
     {
-      if (occurences(names, r) != 1)
-        throw std::invalid_argument(format(
-            "One (and only one) of `{}` required", str::ext::join(names)));
+      unsigned n = occurences(names, r);
+      if (n != 1)
+        throw std::invalid_argument(
+            format("One of `{}` required. Have {}.", str::ext::join(names), n));
     }
   } // namespace
 
   void ArgumentList::parse_alg(cxxopts::ParseResult const& clresult)
   {
-    require_one_of({ s_pdr, s_ipdr, s_bounded }, clresult);
-    require_one_of({ s_pebbling, s_peter }, clresult);
-    atmost_one_of({ s_pebbles, s_procs }, clresult);
+    require_one_of({ o_alg }, clresult);
+    std::string a = clresult[o_alg].as<std::string>();
 
-    if (clresult.count(s_peter))
-    {
-      model_t::Peterson peter;
-
-      if (clresult.count(s_procs))
-        peter.start = clresult[s_procs].as<unsigned>();
-      else
-        throw std::invalid_argument(
-            "peterson requires a number of (starting) processes");
-
-      peter.max = clresult[s_peter].as<unsigned>();
-      model     = peter;
-    }
-    else if (clresult.count(s_pebbling))
-    {
-      model_t::Pebbling pebbling;
-      pebbling.src = parse_graph_src(clresult);
-      if (clresult.count(s_pebbles))
-        pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
-
-      model = pebbling;
-    }
-
-    if (clresult.count(s_pdr))
+    if (a == s_pdr)
       algorithm = algo::t_PDR();
-    else if (clresult.count(s_ipdr))
+    else if (a == s_ipdr)
     {
       pdr::Tactic t;
       if (clresult.count(o_inc))
@@ -493,8 +470,42 @@ namespace my::cli
 
       algorithm = algo::t_IPDR(t);
     }
-    else if (clresult.count(s_bounded))
+    else if (a == s_bounded)
       algorithm = algo::t_Bounded();
+    else
+    {
+      assert(false);
+    }
+
+    require_one_of({ s_pebbling, s_peter }, clresult);
+    atmost_one_of({ s_pebbles, s_procs }, clresult);
+
+    if (clresult.count(s_peter))
+    {
+      model_t::Peterson peter;
+
+      if (clresult.count(s_procs))
+        peter.start = clresult[s_procs].as<unsigned>();
+      else
+        throw std::invalid_argument(
+            "peterson requires a number of (starting) processes");
+
+      peter.max = clresult[s_peter].as<unsigned>();
+      model     = peter;
+    }
+    else if (clresult.count(s_pebbling))
+    {
+      model_t::Pebbling pebbling;
+      pebbling.src = parse_graph_src(clresult);
+      if (clresult.count(s_pebbles))
+        pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
+      else if (a == s_pdr)
+        throw std::invalid_argument(
+            format("pebbling pdr requires a starting number of pebbles: {}",
+                s_pebbles));
+
+      model = pebbling;
+    }
   }
 
   void ArgumentList::parse_run(cxxopts::ParseResult const& clresult)
@@ -524,6 +535,21 @@ namespace my::cli
     }
   }
 
+  namespace
+  {
+    // if filename has an extension, it must be ext.
+    // return filename without any extension
+    std::string strip_extension(fs::path const& filename, std::string_view ext)
+    {
+      std::string extension = filename.extension();
+      if (extension == format(".{}", ext) || extension == "")
+        return filename.stem();
+
+      throw std::invalid_argument(
+          format("benchmark file must have extension .{}", ext));
+    }
+  } // namespace
+
   graph_src::Graph_var ArgumentList::parse_graph_src(
       cxxopts::ParseResult const& clresult)
   {
@@ -545,14 +571,14 @@ namespace my::cli
     else if (clresult.count(s_tfc))
     {
       string name = clresult[s_tfc].as<string>();
-      rv          = graph_src::tfcFile{ name,
-        io::file_in(folders.bench_src, name, ".tfc") };
+      name        = strip_extension(name, "tfc");
+      rv          = graph_src::tfcFile{ name, folders.src_file(name, "tfc") };
     }
     else if (clresult.count(s_bench))
     {
       string name = clresult[s_bench].as<string>();
-      rv          = graph_src::benchFile{ name,
-        io::file_in(folders.bench_src, name, ".bench") };
+      name        = strip_extension(name, "bench");
+      rv = graph_src::benchFile{ name, folders.src_file(name, "bench") };
     }
     else
     {

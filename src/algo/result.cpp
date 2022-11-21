@@ -197,7 +197,7 @@ namespace pdr
     PdrResult::ResultRow listing = r.listing();
     row.assign(listing.begin(), listing.end());
 
-    assert(row.size() == summary_header().size());
+    assert(row.size() == PdrResult::fields.size());
     return row;
   }
 
@@ -261,15 +261,18 @@ namespace pdr
       // Write initial state
       {
         expr_vector initial_state = model.get_initial();
-        Table::Row_t initial_row  = make_row("0", PdrState(initial_state));
+        Table::Row_t initial_row  = make_row("I", PdrState(initial_state));
         t.add_row(initial_row);
       }
       // Write trace states
       {
         for (size_t i = 0; i < res.trace().states.size(); i++)
         {
-          PdrState const& s        = res.trace().states[i];
-          Table::Row_t row_marking = make_row(to_string(i), s);
+          z3::expr_vector const& s        = res.trace().states[i];
+          string index_str         = (i == 0) ? "I" : to_string(i);
+          assert(i > 0 || z3ext::eq(s, model.get_initial()));
+
+          Table::Row_t row_marking = make_row(index_str, s);
           t.add_row(row_marking);
         }
       }

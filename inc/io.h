@@ -1,17 +1,21 @@
 #ifndef IO_H
 #define IO_H
 
-#include <ghc/filesystem.hpp>
+// #include <ghc/filesystem.hpp>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <string_view>
 
 namespace my::io
 {
-  namespace fs = ghc::filesystem;
+  namespace fs = std::filesystem;
+  // namespace fs = ghc::filesystem;
 
   const fs::path BENCH_FOLDER = fs::current_path();
 
   fs::path base_out();
+  fs::path in_root(fs::path const& p);
   fs::path setup(fs::path p);
   const fs::path file_in(fs::path const& folder, std::string_view name,
       std::string_view extension);
@@ -34,9 +38,9 @@ namespace my::io
     fs::path analysis;
     std::string file_base;
 
-    std::ofstream trace_file{ file_in_run("trace") };
-    std::ofstream solver_dump{ file_in_run("solver_dump", "solver") };
-    std::ofstream model_file{ trunc_file(model_dir, "model", "txt") };
+    std::ofstream trace_file;
+    std::ofstream solver_dump;
+    std::ofstream model_file;
 
     void show(std::ostream& out) const;
     fs::path file(std::string_view name, std::string_view extension) const;
@@ -47,6 +51,10 @@ namespace my::io
     fs::path file_in_run(
         std::string_view name, std::string_view extension) const;
     fs::path file_in_run(std::string_view extension) const;
+    fs::path file_in_analysis(
+        std::string_view name, std::string_view extension) const;
+    fs::path file_in_analysis(std::string_view extension) const;
+    fs::path src_file(std::string_view name, std::string_view extension) const;
   };
 } // namespace my::io
 #endif // IO_H
