@@ -64,6 +64,7 @@ namespace pdr::experiments
 
     Run(std::string const& t, std::string const& m,
         std::vector<std::unique_ptr<IpdrResult>>&& r);
+    Run(Run const& r) = delete; // cannot copy vector<unique_ptr>
     virtual ~Run() {}
 
     std::string str(::pdr::experiments::output_format fmt) const;

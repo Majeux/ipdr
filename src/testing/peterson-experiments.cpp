@@ -141,7 +141,7 @@ namespace pdr::peterson::experiments
     tabulate::Table t;
     try
     {
-      auto peter_control = dynamic_cast<PeterRun const&>(control);
+      auto const& peter_control = dynamic_cast<PeterRun const&>(control);
       // append control and improvement column:
       // tactic | control | improvement (%)
       {

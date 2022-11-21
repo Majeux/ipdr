@@ -217,69 +217,72 @@ namespace pdr
 
   // GENERAL
   //
-  std::string trace_table(PdrResult const& res, IModel const& model)
+  namespace result
   {
-    using fmt::format;
-    using std::string;
-    using std::to_string;
-    using tabulate::Table;
-    using z3::expr;
-    using z3::expr_vector;
-
-    if (res.has_invariant())
-      return "Invariant, no trace.";
-
-    // process trace
-    std::stringstream ss;
-    std::vector<std::string> lits = model.vars.names();
-    std::sort(lits.begin(), lits.end());
-
-    size_t longest =
-        std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
-
-    Table t;
-    // Write top row
+    std::string trace_table(PdrResult const& res, IModel const& model)
     {
-      Table::Row_t trace_header = {
-        "",
-      };
-      trace_header.insert(trace_header.end(), lits.begin(), lits.end());
-      t.add_row(trace_header);
-    }
+      using fmt::format;
+      using std::string;
+      using std::to_string;
+      using tabulate::Table;
+      using z3::expr;
+      using z3::expr_vector;
 
-    auto make_row = [&lits, longest](string i, PdrState const& s)
-    {
-      std::vector<std::string> r = state::marking(s, lits, longest);
-      r.insert(r.begin(), string(i));
-      Table::Row_t rv;
-      rv.assign(r.begin(), r.end());
-      return rv;
-    };
+      if (res.has_invariant())
+        return "Invariant, no trace.";
 
-    // Write initial state
-    {
-      expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row  = make_row("0", PdrState(initial_state));
-      t.add_row(initial_row);
-    }
-    // Write trace states
-    {
-      for (size_t i = 0; i < res.trace().states.size(); i++)
+      // process trace
+      std::stringstream ss;
+      std::vector<std::string> lits = model.vars.names();
+      std::sort(lits.begin(), lits.end());
+
+      size_t longest =
+          std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
+
+      Table t;
+      // Write top row
       {
-        PdrState const& s        = res.trace().states[i];
-        Table::Row_t row_marking = make_row(to_string(i), s);
-        t.add_row(row_marking);
+        Table::Row_t trace_header = {
+          "",
+        };
+        trace_header.insert(trace_header.end(), lits.begin(), lits.end());
+        t.add_row(trace_header);
       }
-    }
-    // Write final state
-    {
-      Table::Row_t final_row = make_row("!P", PdrState(model.n_property));
-      t.add_row(final_row);
-    }
 
-    t.format().font_align(tabulate::FontAlign::right);
+      auto make_row = [&lits, longest](string i, PdrState const& s)
+      {
+        std::vector<std::string> r = state::marking(s, lits, longest);
+        r.insert(r.begin(), string(i));
+        Table::Row_t rv;
+        rv.assign(r.begin(), r.end());
+        return rv;
+      };
 
-    ss << tabulate::MarkdownExporter().dump(t);
-    return ss.str();
-  }
+      // Write initial state
+      {
+        expr_vector initial_state = model.get_initial();
+        Table::Row_t initial_row  = make_row("0", PdrState(initial_state));
+        t.add_row(initial_row);
+      }
+      // Write trace states
+      {
+        for (size_t i = 0; i < res.trace().states.size(); i++)
+        {
+          PdrState const& s        = res.trace().states[i];
+          Table::Row_t row_marking = make_row(to_string(i), s);
+          t.add_row(row_marking);
+        }
+      }
+      // Write final state
+      {
+        Table::Row_t final_row = make_row("!P", PdrState(model.n_property));
+        t.add_row(final_row);
+      }
+
+      t.format().font_align(tabulate::FontAlign::right);
+
+      ss << tabulate::MarkdownExporter().dump(t);
+      return ss.str();
+    }
+  } // namespace result
 } // namespace pdr

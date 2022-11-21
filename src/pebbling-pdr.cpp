@@ -126,7 +126,7 @@ void handle_pebbling(
                               << std::string('=', 20) << endl
                               << result.all_traces() << endl;
 
-      ipdr_algo.dump_solver(args.folders.solver_dump);
+      ipdr_algo.internal_alg().show_solver(args.folders.solver_dump);
     }
   }
   else
@@ -190,7 +190,7 @@ void handle_peterson(
                               << std::string('=', 20) << endl
                               << result.all_traces() << endl;
 
-      ipdr_algo.dump_solver(args.folders.solver_dump);
+      ipdr_algo.internal_alg().show_solver(args.folders.solver_dump);
     }
   }
   assert(false && "TODO: peterson control flow");

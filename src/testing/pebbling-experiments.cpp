@@ -186,7 +186,7 @@ namespace pdr::pebbling::experiments
     tabulate::Table t;
     try
     {
-      auto pebbling_ctrl = dynamic_cast<PebblingRun const&>(control);
+      auto const& pebbling_ctrl = dynamic_cast<PebblingRun const&>(control);
       // append control and improvement column:
       // tactic | control | improvement (%)
       {

@@ -77,7 +77,7 @@ namespace my::cli
       }
     };
 
-    dag::Graph get_graph(Graph_var const& g)
+    dag::Graph make_graph(Graph_var const& g)
     {
       return std::visit(src_graph_visitor{}, g);
     }

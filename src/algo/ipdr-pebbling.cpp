@@ -161,8 +161,6 @@ namespace pdr::pebbling
     return total;
   }
 
-  void IPDR::dump_solver(std::ofstream& out) const { alg.show_solver(out); }
-
   // Private members
   //
   void IPDR::basic_reset(unsigned pebbles)
@@ -207,4 +205,6 @@ namespace pdr::pebbling
     alg.ctx.type = Tactic::constrain;
     return alg.frames.reuse();
   }
+
+  PDR const& IPDR::internal_alg() const { return alg; }
 } // namespace pdr::pebbling

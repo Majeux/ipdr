@@ -112,17 +112,9 @@ namespace pdr
   {
     class IPDR
     {
-     private:
-      PDR alg;
-      PebblingModel& model; // same instance as the IModel in alg
-      std::optional<unsigned> starting_value;
-
-      void basic_reset(unsigned pebbles);
-      void relax_reset(unsigned pebbles);
-      std::optional<size_t> constrain_reset(unsigned pebbles);
-
      public:
-      IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args, Logger& l);
+      IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args,
+          Logger& l);
 
       // runs the optimizer as dictated by the argument
       PebblingResult run(Tactic tactic, bool control = false);
@@ -133,7 +125,16 @@ namespace pdr
       PebblingResult constrain(bool control);
       PebblingResult relax_jump_test(unsigned start, int step);
 
-      void dump_solver(std::ofstream& out) const;
+      PDR const& internal_alg() const;
+
+     private:
+      PDR alg;
+      PebblingModel& model; // same instance as the IModel in alg
+      std::optional<unsigned> starting_value;
+
+      void basic_reset(unsigned pebbles);
+      void relax_reset(unsigned pebbles);
+      std::optional<size_t> constrain_reset(unsigned pebbles);
     }; // class Optimizer
   }    // namespace pebbling
 
@@ -142,7 +143,8 @@ namespace pdr
     class IPDR
     {
      public:
-      IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args, Logger& l);
+      IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args,
+          Logger& l);
 
       // runs the optimizer as dictated by the argument
       PetersonResult run(
@@ -153,7 +155,7 @@ namespace pdr
       PetersonResult relax(unsigned processes, bool control);
       PetersonResult relax_jump_test(unsigned start, int step);
 
-      void dump_solver(std::ofstream& out) const;
+      PDR const& internal_alg() const;
 
      private:
       PDR alg;

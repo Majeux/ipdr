@@ -134,4 +134,5 @@ namespace pdr::peterson
     return total;
   }
 
+  PDR const& IPDR::internal_alg() const { return alg; }
 } // namespace pdr::peterson
