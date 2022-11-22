@@ -187,6 +187,7 @@ namespace pdr::pebbling::experiments
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
+# warning !! takes the minimal trace, should take minimal trace of latest run (with smallest pebbles)
     tabulate::Table t;
     try
     {

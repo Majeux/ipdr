@@ -233,8 +233,10 @@ namespace pdr
 
       // process trace
       std::stringstream ss;
-      std::vector<std::string> lits = model.vars.names();
+      vector<string> lits  = model.vars.names();
+      vector<string> litsp = model.vars.names_p();
       std::sort(lits.begin(), lits.end());
+      std::sort(litsp.begin(), litsp.end());
 
       size_t longest =
           std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
@@ -249,9 +251,10 @@ namespace pdr
         t.add_row(trace_header);
       }
 
-      auto make_row = [&lits, longest](string i, PdrState const& s)
+      auto make_row =
+          [longest](string i, const expr_vector& s, const vector<string>& names)
       {
-        std::vector<std::string> r = state::marking(s, lits, longest);
+        vector<string> r = state::marking(s, names, longest);
         r.insert(r.begin(), string(i));
         Table::Row_t rv;
         rv.assign(r.begin(), r.end());
@@ -261,25 +264,28 @@ namespace pdr
       // Write initial state
       {
         expr_vector initial_state = model.get_initial();
-        Table::Row_t initial_row  = make_row("I", PdrState(initial_state));
+        Table::Row_t initial_row  = make_row("I", initial_state, lits);
         t.add_row(initial_row);
       }
       // Write trace states
       {
-        for (size_t i = 0; i < res.trace().states.size(); i++)
+        size_t N = res.trace().states.size();
+        for (size_t i = 0; i < N; i++)
         {
-          z3::expr_vector const& s        = res.trace().states[i];
-          string index_str         = (i == 0) ? "I" : to_string(i);
-          assert(i > 0 || z3ext::eq(s, model.get_initial()));
+          size_t ind           = i + 1;
+          expr_vector const& s = res.trace().states[i];
+          string index_str;
+          if (i == N - 1)
+            index_str = "(!P) " + to_string(ind);
+          else
+            index_str = to_string(ind);
+          // string index_str         = (i == 0) ? "I" : to_string(i);
+          // assert(i > 0 || z3ext::eq(s, model.get_initial()));
 
-          Table::Row_t row_marking = make_row(index_str, s);
+          Table::Row_t row_marking =
+              make_row(index_str, s, (i < N - 1 ? lits : litsp));
           t.add_row(row_marking);
         }
-      }
-      // Write final state
-      {
-        Table::Row_t final_row = make_row("!P", PdrState(model.n_property));
-        t.add_row(final_row);
       }
 
       t.format().font_align(tabulate::FontAlign::right);

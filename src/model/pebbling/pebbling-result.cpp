@@ -174,9 +174,10 @@ namespace pdr::pebbling
 
     // process trace
     std::stringstream ss;
-    std::vector<std::string> lits  = model.vars.names();
-    std::vector<std::string> litsp = model.vars.names_p();
+    vector<string> lits  = model.vars.names();
+    vector<string> litsp = model.vars.names_p();
     std::sort(lits.begin(), lits.end());
+    std::sort(litsp.begin(), litsp.end());
 
     size_t longest =
         std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
@@ -192,7 +193,7 @@ namespace pdr::pebbling
     auto make_row = [&longest](string a, string b, const expr_vector& s,
                         const vector<string>& names)
     {
-      std::vector<std::string> r = state::marking(s, names, longest);
+      vector<string> r = state::marking(s, names, longest);
       r.insert(r.begin(), b);
       r.insert(r.begin(), a);
       Table::Row_t rv;
@@ -200,17 +201,29 @@ namespace pdr::pebbling
       return rv;
     };
 
+    // Write initial state
+    {
+      expr_vector initial_state = model.get_initial();
+      Table::Row_t initial_row  = make_row("I", "0", initial_state, lits);
+      t.add_row(initial_row);
+    }
     // Write strategy states
     {
       unsigned marked = model.get_f_pebbles();
       size_t N        = res.trace().states.size();
       for (size_t i = 0; i < N; i++)
       {
-        const z3::expr_vector& s = res.trace().states[i];
-        unsigned pebbled         = state::no_marked(s);
-        marked                   = std::max(marked, pebbled);
-        string index_str         = (i == 0) ? "I" : to_string(i);
-        assert(i > 0 || z3ext::eq(s, model.get_initial()));
+        size_t ind           = i + 1;
+        const expr_vector& s = res.trace().states[i];
+        unsigned pebbled     = state::no_marked(s);
+        marked               = std::max(marked, pebbled);
+        string index_str;
+        if (i == N - 1)
+          index_str = "(!P) " + to_string(ind);
+        else
+          index_str = to_string(ind);
+        // string index_str         = (i == 0) ? "I" : to_string(i);
+        // assert(i > 0 || z3ext::eq(s, model.get_initial()));
 
         Table::Row_t row_marking = make_row(
             index_str, to_string(pebbled), s, (i < N - 1 ? lits : litsp));
