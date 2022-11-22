@@ -85,15 +85,16 @@ namespace dag
         output.size(), nodes.size());
   }
 
-  std::ostream& operator<<(std::ostream& stream, Graph const& g)
+  std::string Graph::DAG_string() const
   {
-    stream << "DAG \{" << endl
-           << "\tinput { " << str::ext::join(g.input) << " }" << endl
-           << "\toutput { " << str::ext::join(g.output) << " }" << endl
-           << "\tnodes { " << str::ext::join(g.nodes) << " }" << endl
-           << "\tedges { " << str::ext::join(g.edges) << " }" << endl
-           << "}" << endl;
-    return stream;
+    std::stringstream ss;
+    ss << "DAG \{" << endl
+       << "\tinput { " << str::ext::join(input) << " }" << endl
+       << "\toutput { " << str::ext::join(output) << " }" << endl
+       << "\tnodes { " << str::ext::join(nodes) << " }" << endl
+       << "\tedges { " << str::ext::join(edges) << " }" << endl
+       << "}" << endl;
+    return ss.str();
   }
 
   void Graph::show_image(string const& destination)
@@ -106,10 +107,12 @@ namespace dag
   void Graph::show(string const& destination, bool to_cout)
   {
     show_image(destination);
-    std::ofstream out = my::io::trunc_file(destination + "txt");
+    std::ofstream out = my::io::trunc_file(destination + ".txt");
     if (to_cout)
-      std::cout << summary() << endl;
-    out << summary() << endl;
+    {
+      std::cout << summary() << endl << endl << DAG_string() << endl;
+    }
+    out << summary() << endl << endl << DAG_string() << endl;
   }
 
   string Graph::dot()

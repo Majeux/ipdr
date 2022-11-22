@@ -87,9 +87,9 @@ namespace pdr::pebbling::experiments
   // Run members
   //
   // aggregate multiple experiments and format
-  PebblingRun::PebblingRun(std::string const& t, std::string const& m,
+  PebblingRun::PebblingRun(std::string const& m, std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
-      : Run(t, m, std::move(r))
+      : Run(m, t, std::move(r))
   {
     for (auto const& r : results)
     {
@@ -100,6 +100,7 @@ namespace pdr::pebbling::experiments
 
         // time is done by Run()
 
+        // from all the totals:
         if (total.inv) // get the lowest invariant level we found
         {
           if (!min_inv || total.inv->invariant.level < min_inv->invariant.level)
@@ -172,9 +173,13 @@ namespace pdr::pebbling::experiments
         t.add_row({});
       }
     }
-    size_t rows{0};
+    size_t rows{ 0 };
     auto it = t.begin();
-    while(it != t.end()) { rows++; ++it; }
+    while (it != t.end())
+    {
+      rows++;
+      ++it;
+    }
     assert(rows == 7); // n_rows == 7
     return t;
   }
@@ -187,7 +192,7 @@ namespace pdr::pebbling::experiments
     std::string percentage_fmt{ "{:.2f} \\\%" };
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
-# warning !! takes the minimal trace, should take minimal trace of latest run (with smallest pebbles)
+#warning !! takes the minimal trace, should take minimal trace of latest run (with smallest pebbles)
     tabulate::Table t;
     try
     {
@@ -224,8 +229,9 @@ namespace pdr::pebbling::experiments
           auto r = level_row();
           r.push_back(
               fmt::to_string(pebbling_ctrl.min_inv->constraint.value()));
-          double dec = math::percentage_dec(
-              pebbling_ctrl.min_strat->trace.length, min_strat->trace.length);
+          double dec =
+              math::percentage_dec(pebbling_ctrl.min_inv->constraint.value(),
+                  min_inv->constraint.value());
           r.push_back(perc_str(dec));
           t.add_row(r);
         }

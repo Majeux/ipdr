@@ -33,7 +33,7 @@ namespace pdr::peterson::experiments
 
     bool correct;
 
-    PeterRun(std::string const& t, std::string const& m,
+    PeterRun(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& results);
 
    private:

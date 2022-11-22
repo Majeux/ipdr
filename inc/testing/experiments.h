@@ -62,7 +62,7 @@ namespace pdr::experiments
     double avg_time;
     double std_dev_time;
 
-    Run(std::string const& t, std::string const& m,
+    Run(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& r);
     Run(Run const& r) = delete; // cannot copy vector<unique_ptr>
     virtual ~Run() {}

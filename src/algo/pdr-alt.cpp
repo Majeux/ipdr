@@ -79,7 +79,7 @@ namespace pdr
     }
     else
     {
-      MYLOG_DEBUG_SHOW(log, "Reused obligations.");
+      MYLOG_DEBUG_SHOW(log, "Reused obligations: {}.", obligations.size());
     }
 
     unsigned period = 0;

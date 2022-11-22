@@ -147,7 +147,18 @@ namespace pdr::peterson
       {
         const z3::expr_vector& s = res.trace().states[i];
 
-        string index_str = (i == 0) ? "I" : to_string(i);
+        string index_str;
+        {
+          if (i == 0)
+          {
+            assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
+            index_str = "I";
+          }
+          else if (i == N - 1)
+            index_str = "(!P) " + to_string(i);
+          else
+            index_str = to_string(i);
+        }
 
         Table::Row_t row_marking =
             make_row(index_str, s, (i < N - 1 ? lits : litsp));

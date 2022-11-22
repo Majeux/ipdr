@@ -56,6 +56,7 @@ namespace z3ext
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
 
   bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool quick_implies(const z3::expr_vector& l, const z3::expr_vector& r);
 
   // COMPARATOR FUNCTORS
   //

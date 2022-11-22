@@ -86,9 +86,9 @@ namespace pdr::peterson::experiments
   // Run members
   //
   // aggregate multiple experiments and format
-  PeterRun::PeterRun(std::string const& t, std::string const& m,
+  PeterRun::PeterRun(std::string const& m, std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
-      : Run(t, m, std::move(r)), correct(true)
+      : Run(m, t, std::move(r)), correct(true)
   {
     for (auto const& r : results)
     {

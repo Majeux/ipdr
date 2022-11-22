@@ -67,8 +67,8 @@ namespace dag
     void add_edges_to(std::vector<std::string> from, std::string to);
 
     std::string summary() const;
+    std::string DAG_string() const;
 
-    friend std::ostream& operator<<(std::ostream& stream, Graph const& g);
     // write a dot image to the destination (path/filename without extension)
     void show_image(std::string const& destination);
     // write a dot image and text description

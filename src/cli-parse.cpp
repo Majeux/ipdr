@@ -276,11 +276,9 @@ namespace my::cli
       }
     }
 
-    folders.run_dir   = folders.model_dir / model_t::filetag(model);
-    folders.analysis  = folders.run_dir / "analysis";
     folders.file_base = model_t::src_name(model);
-    folders.file_base += '-' + model_t::filetag(model);
     {
+      folders.file_base += '-' + model_t::filetag(model);
       folders.file_base += '-' + algo::filetag(algorithm);
       if (experiment)
       {
@@ -291,6 +289,8 @@ namespace my::cli
       }
     }
 
+    folders.run_dir  = folders.model_dir / folders.file_base;
+    folders.analysis = folders.run_dir / "analysis";
     fs::create_directories(folders.analysis);
     folders.trace_file.open(folders.file_in_run("trace"));
     folders.solver_dump.open(folders.file_in_run("solver_dump", "solver"));

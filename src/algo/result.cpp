@@ -261,26 +261,24 @@ namespace pdr
         return rv;
       };
 
-      // Write initial state
-      {
-        expr_vector initial_state = model.get_initial();
-        Table::Row_t initial_row  = make_row("I", initial_state, lits);
-        t.add_row(initial_row);
-      }
       // Write trace states
       {
         size_t N = res.trace().states.size();
         for (size_t i = 0; i < N; i++)
         {
-          size_t ind           = i + 1;
           expr_vector const& s = res.trace().states[i];
           string index_str;
-          if (i == N - 1)
-            index_str = "(!P) " + to_string(ind);
-          else
-            index_str = to_string(ind);
-          // string index_str         = (i == 0) ? "I" : to_string(i);
-          // assert(i > 0 || z3ext::eq(s, model.get_initial()));
+          {
+            if (i == 0)
+            {
+              assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
+              index_str = "I";
+            }
+            else if (i == N - 1)
+              index_str = "(!P) " + to_string(i);
+            else
+              index_str = to_string(i);
+          }
 
           Table::Row_t row_marking =
               make_row(index_str, s, (i < N - 1 ? lits : litsp));

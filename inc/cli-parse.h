@@ -8,7 +8,7 @@
 
 #include <cxxopts.hpp>
 #include <fmt/core.h>
-#include <filesystem>
+// #include <filesystem>
 #include <memory>
 #include <ostream>
 #include <stdexcept>
@@ -17,7 +17,6 @@
 
 namespace my::cli
 {
-  namespace fs = std::filesystem;
   using namespace cxxopts;
   using namespace my::io;
 

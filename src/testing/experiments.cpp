@@ -62,7 +62,7 @@ namespace pdr::experiments
 
   // RUN PUBLIC MEMBERS
   //
-  Run::Run(std::string const& t, std::string const& m,
+  Run::Run(std::string const& m, std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : results(std::move(r)), model(m), tactic(t)
   {
@@ -191,7 +191,8 @@ namespace pdr::experiments
 
     std::cout << "control run." << endl;
     std::shared_ptr<Run> control_aggregate = do_reps(true);
-    latex << control_aggregate->str(output_format::latex);
+    assert(control_aggregate != nullptr);
+    latex << aggregate->str_compared(*control_aggregate, output_format::latex);
 
     // write raw run data as markdown
     tabulate::MarkdownExporter exporter;

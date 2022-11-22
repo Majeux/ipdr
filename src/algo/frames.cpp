@@ -141,6 +141,7 @@ namespace pdr
     frames.push_back(make_unique<Frame>(frames.size(), log));
   }
 
+#warning TODO: refresh solver based on % or no. subsumed ??
   void Frames::repopulate_solvers()
   {
     delta_solver.reset();
@@ -291,7 +292,7 @@ namespace pdr
       const z3::expr_vector& cube, size_t frame)
   {
     if (!inductive(cube, frame))
-      return delta_solver.witness_current();
+      return get_solver(frame).witness_current();
 
     return {};
   }

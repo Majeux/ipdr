@@ -135,7 +135,7 @@ namespace pdr::pebbling
     else // only happens multiple times in decreasing
     {
       // when done multiple time, we are decreasing the constraint,
-      // decreasing the pebbles used
+      // track the strategy with the lowest number of pebbles
       unsigned pebbled = r.trace().total_pebbled();
       assert(!total.strategy || pebbled < total.strategy->pebbled);
 
@@ -201,29 +201,27 @@ namespace pdr::pebbling
       return rv;
     };
 
-    // Write initial state
-    {
-      expr_vector initial_state = model.get_initial();
-      Table::Row_t initial_row  = make_row("I", "0", initial_state, lits);
-      t.add_row(initial_row);
-    }
     // Write strategy states
     {
       unsigned marked = model.get_f_pebbles();
       size_t N        = res.trace().states.size();
       for (size_t i = 0; i < N; i++)
       {
-        size_t ind           = i + 1;
         const expr_vector& s = res.trace().states[i];
         unsigned pebbled     = state::no_marked(s);
         marked               = std::max(marked, pebbled);
         string index_str;
-        if (i == N - 1)
-          index_str = "(!P) " + to_string(ind);
-        else
-          index_str = to_string(ind);
-        // string index_str         = (i == 0) ? "I" : to_string(i);
-        // assert(i > 0 || z3ext::eq(s, model.get_initial()));
+        {
+          if (i == 0)
+          {
+            assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
+            index_str = "I";
+          }
+          else if (i == N - 1)
+            index_str = "(!P) " + to_string(i);
+          else
+            index_str = to_string(i);
+        }
 
         Table::Row_t row_marking = make_row(
             index_str, to_string(pebbled), s, (i < N - 1 ? lits : litsp));

@@ -24,7 +24,7 @@ namespace pdr::pebbling::experiments
 
     std::optional<PebblingResult::PebblingInvariant> min_inv;
     std::optional<PebblingResult::PebblingTrace> min_strat;
-    PebblingRun(std::string const& t, std::string const& m,
+    PebblingRun(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& results);
 
    private:
