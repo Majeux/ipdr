@@ -136,7 +136,7 @@ namespace my::cli
     graph_src::Graph_var parse_graph_src(ParseResult const& clresult);
 
     // cli names
-    inline static const std::string o_alg     = "alg";
+    inline static const std::string o_alg     = "algo";
     inline static const std::string s_pdr     = "pdr";
     inline static const std::string s_ipdr    = "ipdr";
     inline static const std::string s_bounded = "bounded";

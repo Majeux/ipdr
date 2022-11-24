@@ -24,12 +24,10 @@ do
 		echo -e "Running experiment for $filename\n"
 		folder="--dir=$BENCHMARKS"
 		model="--tfc=$m"
-		type="--optimize=dec"
-		# type="--bounded"
 		exp="--experiment=$sample"
 		# exp=""
 
-		command="$EXEC --silent --delta $type $exp $folder $model"
+		command="$EXEC --silent --algo=ipdr --pebbling $folder $model $exp"
 
 		echo "${bold}$command${normal}"
 		$command
