@@ -38,8 +38,6 @@ namespace pdr
   Context const& PDR::get_ctx() const { return ctx; }
   Context& PDR::get_ctx() { return ctx; }
 
-  void PDR::reset() { frames.reset(); }
-
   void PDR::print_model(z3::model const& m)
   {
     log.show("model consts \{");
