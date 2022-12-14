@@ -2,10 +2,12 @@
 
 namespace pdr
 {
-  Context::Context(IModel& m, unsigned s) : ts(m), seed(s), type(Tactic::undef) {}
+  Context::Context(IModel& m, unsigned s) : ts(m), seed(s), type(Tactic::undef)
+  {
+    std::cout << "random seed " << seed << std::endl;
+  }
 
-  Context::Context(IModel& m, bool random_seed)
-      : ts(m), type(Tactic::undef)
+  Context::Context(IModel& m, bool random_seed) : ts(m), type(Tactic::undef)
   {
     srand(time(0));
     seed = random_seed ? rand() : 0u;

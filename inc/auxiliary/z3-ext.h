@@ -7,6 +7,7 @@
 #include <random>
 #include <set>
 #include <sstream>
+#include <type_traits>
 #include <vector>
 #include <z3++.h>
 
@@ -18,11 +19,55 @@ namespace z3ext
   // throws if e is not a literal
   z3::expr strip_not(const z3::expr& e);
 
+  z3::expr_vector make_expr_vec(std::initializer_list<z3::expr> l);
+
+  template <typename Container>
+  z3::expr_vector make_expr_vec(z3::context& ctx, Container container)
+  {
+    z3::ast_vector_tpl<typename Container::value_type> rv(ctx);
+    for (typename Container::value_type const& e : container)
+      rv.push_back(e);
+
+    return rv;
+  }
+
+
   // allocates new vector
   // by default, assignment and copy constructors copy a reference to an
   // internal vector. This constructs a deep copy, preventing the original
   // from being altered
   z3::expr_vector copy(const z3::expr_vector& v);
+
+  template <typename T>
+  z3::ast_vector_tpl<T> vec_add(
+      z3::ast_vector_tpl<T> const& a, z3::ast_vector_tpl<T> const& b)
+  {
+    z3::ast_vector_tpl<T> rv(a.ctx());
+
+    for (T const& e : a)
+      rv.push_back(e);
+
+    for (T const& e : b)
+      rv.push_back(e);
+
+    return rv;
+  }
+
+  // return a new z3::expr_vector,
+  // made by transforming the z3::expr from an existing vector
+  template <typename T, typename F>
+  z3::ast_vector_tpl<T> transform(z3::ast_vector_tpl<T> const& v, F func)
+  {
+    static_assert(
+        std::is_same<typename std::invoke_result<F, T const&>::type, T>::value,
+        "transform function must be of form func: T const& -> T");
+
+    z3::ast_vector_tpl<T> rv(v.ctx());
+    for (T const& e : v)
+      rv.push_back(func(e));
+
+    return rv;
+  }
 
   // allocates new vector
   // negate every literal in the vector
@@ -60,7 +105,7 @@ namespace z3ext
 
   // COMPARATOR FUNCTORS
   //
-  // compares literals by their symbol
+  // compares literals by their atom
   struct lit_less
   {
     bool operator()(const z3::expr& l, const z3::expr& r) const;

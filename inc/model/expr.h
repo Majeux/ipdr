@@ -37,7 +37,7 @@ namespace mysat::primed
     const std::string name;
     const std::string next_name;
 
-    IPrimed(z3::context& c, const std::string& n)
+    IPrimed(z3::context& c, std::string const& n)
         : name(n), next_name(prime(n)), ctx(c), current(ctx), next(ctx)
     {
     }
@@ -46,9 +46,9 @@ namespace mysat::primed
 
     z3::context& get_ctx() const { return ctx; }
 
-    virtual operator const Tcontainer&() const   = 0;
-    virtual const Tcontainer& operator()() const = 0;
-    virtual const Tcontainer& p() const          = 0;
+    virtual operator Tcontainer const&() const   = 0;
+    virtual Tcontainer const& operator()() const = 0;
+    virtual Tcontainer const& p() const          = 0;
 
    protected:
     z3::context& ctx;
@@ -66,16 +66,16 @@ namespace mysat::primed
   class Lit final : public IPrimed<z3::expr>, public IStays
   {
    public:
-    Lit(z3::context& c, const std::string& name);
+    Lit(z3::context& c, std::string const& name);
 
-    operator const z3::expr&() const override;
-    const z3::expr& operator()() const override;
-    const z3::expr& p() const override;
+    operator z3::expr const&() const override;
+    z3::expr const& operator()() const override;
+    z3::expr const& p() const override;
     z3::expr unchanged() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
-    bool extract_value(const z3::expr_vector& cube, lit_type t = base) const;
+    bool extract_value(z3::expr_vector const& cube, lit_type t = base) const;
 
   }; // class Lit
 
@@ -83,30 +83,30 @@ namespace mysat::primed
   class VarVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    VarVec(z3::context& c, const std::vector<std::string>& varnames);
+    VarVec(z3::context& c, std::vector<std::string> const& varnames);
 
     // add literals with given names and automatically generate next-state vars
-    void add(const std::vector<std::string>& varnames);
+    void add(std::vector<std::string> const& varnames);
     // add literals with given names and automatically generate next-state vars
-    void add(const std::vector<std::string>& currnames,
-        const std::vector<std::string>& nextnames);
+    void add(std::vector<std::string> const& currnames,
+        std::vector<std::string> const& nextnames);
 
-    operator const z3::expr_vector&() const override;
-    const z3::expr_vector& operator()() const override;
-    const z3::expr_vector& p() const override;
+    operator z3::expr_vector const&() const override;
+    z3::expr_vector const& operator()() const override;
+    z3::expr_vector const& p() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
     z3::expr operator()(size_t i) const;
     z3::expr p(size_t i) const;
-    z3::expr operator()(const z3::expr& e) const;
-    z3::expr p(const z3::expr& e) const;
+    z3::expr operator()(z3::expr const& e) const;
+    z3::expr p(z3::expr const& e) const;
     // convert expressions to and form current and next
-    z3::expr_vector operator()(const z3::expr_vector& ev) const;
-    z3::expr_vector p(const z3::expr_vector& ev) const;
+    z3::expr_vector operator()(z3::expr_vector const& ev) const;
+    z3::expr_vector p(z3::expr_vector const& ev) const;
 
-    bool lit_is_current(const z3::expr& e) const;
-    bool lit_is_p(const z3::expr& e) const;
+    bool lit_is_current(z3::expr const& e) const;
+    bool lit_is_p(z3::expr const& e) const;
 
    private:
     // std::unordered_map<z3::expr, z3::expr, z3ext::expr_hash> to_current;
@@ -123,23 +123,23 @@ namespace mysat::primed
   class ExpVec final : public IPrimed<z3::expr_vector>
   {
    public:
-    ExpVec(z3::context& c, const VarVec& v);
+    ExpVec(z3::context& c, VarVec const& v);
 
-    operator const z3::expr_vector&() const override;
-    const z3::expr_vector& operator()() const override;
-    const z3::expr_vector& p() const override;
+    operator z3::expr_vector const&() const override;
+    z3::expr_vector const& operator()() const override;
+    z3::expr_vector const& p() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
     // add and automatically generate next state
     ExpVec& add(z3::expr e);
     // add current and next state explicitly
-    ExpVec& add(const z3::expr& curr, const z3::expr& next);
+    ExpVec& add(z3::expr const& curr, z3::expr const& next);
     // ensure that no further expressions can be added
     void finish();
 
    private:
-    const VarVec& vars;
+    VarVec const& vars;
     bool finished{ false };
 
   }; // class ExpVec
@@ -154,16 +154,16 @@ namespace mysat::primed
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
-    BitVec(z3::context& c, const std::string& n, size_t Nbits);
+    BitVec(z3::context& c, std::string const& n, size_t Nbits);
 
     // construct a bitvector capable of holding the number in max_val
     static BitVec holding(
-        z3::context& c, const std::string& n, numrep_t max_val);
+        z3::context& c, std::string const& n, numrep_t max_val);
 
     // return all literals comprising the vector
-    operator const z3::expr_vector&() const override;
-    const z3::expr_vector& operator()() const override;
-    const z3::expr_vector& p() const override;
+    operator z3::expr_vector const&() const override;
+    z3::expr_vector const& operator()() const override;
+    z3::expr_vector const& p() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
@@ -182,7 +182,7 @@ namespace mysat::primed
 
     // extract uint representation from relevant literals in a cube
     numrep_t extract_value(
-        const z3::expr_vector& cube, const lit_type t = base) const;
+        z3::expr_vector const& cube, const lit_type t = base) const;
 
     // equality operator to expression conversions
     // * CNF
@@ -191,7 +191,7 @@ namespace mysat::primed
 
     //  N-bit less comparison
     //  returns a formula in cnf
-    template <typename Tnum> z3::expr less(const Tnum& n) const
+    template <typename Tnum> z3::expr less(Tnum const& n) const
     {
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,
@@ -207,14 +207,14 @@ namespace mysat::primed
     // compare bits 4 bits of of "bv" with 4 bits of "n"
     // 'i' is the most significant bit
     z3::expr less_4b(numrep_t n, size_t msb) const;
-    z3::expr less_4b(const BitVec& cube, size_t msb) const;
+    z3::expr less_4b(BitVec const& cube, size_t msb) const;
 
     // compares the 'nbits' most significant bits, starting from 'msb' down
     z3::expr eq(numrep_t n, size_t msb, size_t nbits) const;
-    z3::expr eq(const BitVec& n, size_t msb, size_t nbits) const;
+    z3::expr eq(BitVec const& n, size_t msb, size_t nbits) const;
     // compares the 'Nbits' most significant bits, starting from 'msb' down
     template <typename Tnum>
-    z3::expr rec_less(const Tnum& n, size_t msb, size_t nbits) const
+    z3::expr rec_less(Tnum const& n, size_t msb, size_t nbits) const
     {
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,

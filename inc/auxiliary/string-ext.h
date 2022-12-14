@@ -3,10 +3,12 @@
 
 #include <algorithm>
 #include <iterator>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <regex>
 #include <z3++.h>
 
 namespace str::ext
@@ -42,6 +44,17 @@ namespace str::ext
     ltrim(s);
     rtrim(s);
   }
+
+  // indent the start of each line in str with 2*n spaces
+  inline std::string indent(std::string const& str, unsigned n = 1)
+  {
+    return std::regex_replace(str, std::regex("^"), std::string(2*n, ' '));
+  }
+  inline void indent_inplace(std::string& str, unsigned n = 1)
+  {
+    std::regex_replace(str, std::regex("^"), std::string(2*n, ' '));
+  }
+
   template <typename Container>
   string join(const Container& container, const string delimiter = ", ")
   {

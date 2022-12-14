@@ -12,11 +12,9 @@
 namespace pdr
 {
   using std::optional;
-  using std::pair;
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
-  using z3ext::join_expr_vec;
 
   bool ev_str_eq(const z3::expr_vector& ev, const vector<std::string>& str)
   {
@@ -56,6 +54,7 @@ namespace pdr
         break;
       }
       core = frames.get_solver(i).unsat_core(next_lits, to_current);
+      MYLOG_DEBUG(log, "core @{}: [{}]", i, z3ext::join_expr_vec(core.value()));
     }
 
     MYLOG_DEBUG(
@@ -86,22 +85,22 @@ namespace pdr
 
     MYLOG_DEBUG(
         log, "unsat core reduction: {} -> {}", cube.size(), rv_core.size());
-    MYLOG_DEBUG(log, "new cube: [{}]", join_expr_vec(rv_core, false));
+    // MYLOG_DEBUG(log, "new cube: [{}]", join_expr_vec(rv_core, false));
     return { result.level, rv_core };
   }
 
   expr_vector PDR::generalize(const expr_vector& state, int level)
   {
     MYLOG_DEBUG(log, "generalize cube");
-    MYLOG_DEBUG(log, "[{}]", join_expr_vec(state, false));
+    // MYLOG_DEBUG(log, "[{}]", join_expr_vec(state, false));
     log.indent++;
     expr_vector smaller_cube = MIC(state, level);
     log.indent--;
 
     MYLOG_DEBUG(
         log, "generalization: {} -> {}", state.size(), smaller_cube.size());
-    MYLOG_DEBUG(
-        log, "final reduced cube = [{}]", join_expr_vec(smaller_cube, false));
+    // MYLOG_DEBUG(
+        // log, "final reduced cube = [{}]", join_expr_vec(smaller_cube, false));
     return smaller_cube;
   }
 

@@ -36,6 +36,16 @@ namespace z3ext
     return rv;
   }
 
+  expr_vector make_expr_vec(std::initializer_list<z3::expr> l)
+  {
+    assert(not l.empty());
+    expr_vector rv(l.begin()->ctx());
+    for (expr e : l)
+      rv.push_back(e);
+
+    return rv;
+  }
+
   expr_vector copy(expr_vector const& v)
   {
     z3::expr_vector new_v(v.ctx());

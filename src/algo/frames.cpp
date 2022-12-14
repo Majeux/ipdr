@@ -40,8 +40,8 @@ namespace pdr
     extend();
     assert(frontier() == 0);
 
-    MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", true));
-    MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", true));
+    MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", false));
+    MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", false));
   }
 
   void Frames::reset()
@@ -196,7 +196,9 @@ namespace pdr
       return true;
     }
     else
+    {
       MYLOG_DEBUG(log, "was already blocked in {}", level);
+    }
 
     return false;
   }
@@ -371,6 +373,8 @@ namespace pdr
 
   const z3::model Frames::get_model(size_t frame) const
   {
+    (void)frame;
+
     assert(frame > 0);
     assert(frame < frames.size());
 
@@ -428,6 +432,8 @@ namespace pdr
 
   void Frames::log_solver(bool only_clauses) const
   {
+    (void)only_clauses;
+
     MYLOG_DEBUG(log, SEP3);
     log_blocked();
     MYLOG_DEBUG(log, FI_solver.as_str("", only_clauses));

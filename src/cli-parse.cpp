@@ -313,8 +313,13 @@ namespace my::cli
       out << endl;
     }
 
-    if (std::holds_alternative<bool>(r_seed))
-      out << "Using randomized seed." << endl;
+    if (auto rand = variant::get_cref<bool>(r_seed))
+    {
+      if (rand)
+        out << "Using randomized seed." << endl;
+      else
+        out << "Using 0-seed." << endl;
+    }
     else
       out << format("Using seed: {}.", std::get<unsigned>(r_seed));
 
@@ -506,6 +511,14 @@ namespace my::cli
 
       model = pebbling;
     }
+
+    atmost_one_of({ s_rand, s_seed }, clresult);
+
+    if(clresult.count(s_rand))
+      r_seed = clresult[s_rand].as<bool>();
+
+    if(clresult.count(s_seed))
+      r_seed = clresult[s_seed].as<unsigned>();
   }
 
   void ArgumentList::parse_run(cxxopts::ParseResult const& clresult)
