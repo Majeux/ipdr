@@ -19,10 +19,10 @@ namespace z3ext
   // throws if e is not a literal
   z3::expr strip_not(const z3::expr& e);
 
-  z3::expr_vector make_expr_vec(std::initializer_list<z3::expr> l);
+  z3::expr_vector mk_expr_vec(std::initializer_list<z3::expr> l);
 
   template <typename Container>
-  z3::expr_vector make_expr_vec(z3::context& ctx, Container container)
+  z3::expr_vector mk_expr_vec(z3::context& ctx, Container container)
   {
     z3::ast_vector_tpl<typename Container::value_type> rv(ctx);
     for (typename Container::value_type const& e : container)
@@ -31,6 +31,15 @@ namespace z3ext
     return rv;
   }
 
+  // generate a new vector contain n copies of val
+  template <typename T> z3::ast_vector_tpl<T> mk_vec(T const& val, size_t n)
+  {
+    z3::ast_vector_tpl<T> rv(val.ctx());
+    for (size_t i{ 0 }; i < n; i++)
+      rv.push_back(val);
+
+    return rv;
+  }
 
   // allocates new vector
   // by default, assignment and copy constructors copy a reference to an
@@ -56,14 +65,14 @@ namespace z3ext
   // return a new z3::expr_vector,
   // made by transforming the z3::expr from an existing vector
   template <typename T, typename F>
-  z3::ast_vector_tpl<T> transform(z3::ast_vector_tpl<T> const& v, F func)
+  z3::ast_vector_tpl<T> transform(z3::ast_vector_tpl<T> const& vec, F func)
   {
     static_assert(
         std::is_same<typename std::invoke_result<F, T const&>::type, T>::value,
         "transform function must be of form func: T const& -> T");
 
-    z3::ast_vector_tpl<T> rv(v.ctx());
-    for (T const& e : v)
+    z3::ast_vector_tpl<T> rv(vec.ctx());
+    for (T const& e : vec)
       rv.push_back(func(e));
 
     return rv;

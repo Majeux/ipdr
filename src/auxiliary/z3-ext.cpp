@@ -36,7 +36,7 @@ namespace z3ext
     return rv;
   }
 
-  expr_vector make_expr_vec(std::initializer_list<z3::expr> l)
+  expr_vector mk_expr_vec(std::initializer_list<z3::expr> l)
   {
     assert(not l.empty());
     expr_vector rv(l.begin()->ctx());

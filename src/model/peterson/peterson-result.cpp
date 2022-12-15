@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <iterator>
 #include <string>
 #include <string_view>
@@ -53,7 +54,7 @@ namespace pdr::peterson
     std::transform(pdr_summaries.cbegin(), pdr_summaries.cend(),
         std::back_inserter(proc_values),
         [](const Table::Row_t& r) -> string { return to_string(r.front()); });
-    string proven_str = str::ext::join(proc_values);
+    string proven_str = fmt::format("{}", proc_values);
 
     auto limit_str = pdr_summaries.front().at(1);
     assert(std::all_of(pdr_summaries.cbegin(), pdr_summaries.cend(),

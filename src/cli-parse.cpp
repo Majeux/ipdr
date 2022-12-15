@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <initializer_list>
 #include <lorina/bench.hpp>
 #include <mockturtle/io/bench_reader.hpp>
@@ -430,7 +431,7 @@ namespace my::cli
       unsigned n = occurences(names, r);
       if (n > 1)
         throw std::invalid_argument(format(
-            "At most one of `{}` allowed. Have {}", str::ext::join(names), n));
+            "At most one of `{}` allowed. Have {}", names, n));
     }
 
     void require_one_of(
@@ -439,7 +440,7 @@ namespace my::cli
       unsigned n = occurences(names, r);
       if (n != 1)
         throw std::invalid_argument(
-            format("One of `{}` required. Have {}.", str::ext::join(names), n));
+            format("One of `{}` required. Have {}.", names, n));
     }
   } // namespace
 

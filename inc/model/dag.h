@@ -89,4 +89,13 @@ namespace dag
   };
 } // namespace dag
 
+// formatter for edges
+template <> struct fmt::formatter<dag::Edge> : fmt::formatter<std::string_view>
+{
+  auto format(dag::Edge e, fmt::format_context& ctx) const
+  {
+    std::string e_str = "(" + e.from + ", " + e.to + ")"; 
+    return fmt::formatter<std::string_view>::format(e_str, ctx);
+  }
+};
 #endif // DAG_H

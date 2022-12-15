@@ -55,25 +55,6 @@ namespace str::ext
     std::regex_replace(str, std::regex("^"), std::string(2*n, ' '));
   }
 
-  template <typename Container>
-  string join(const Container& container, const string delimiter = ", ")
-  {
-    // only join containers that can stream into stringstream
-    if (container.size() == 0)
-      return "";
-
-    bool first = true;
-    std::stringstream ss;
-    for (auto i : container)
-    {
-      if (!first)
-        ss << delimiter;
-      first = false;
-      ss << i;
-    }
-    return ss.str();
-  }
-
   inline vector<string> split(const string s, const char delimiter)
   {
     std::vector<string> list;

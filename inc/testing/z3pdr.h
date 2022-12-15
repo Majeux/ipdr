@@ -56,6 +56,8 @@ namespace pdr::test
 
     Rule pebbling_transition(z3::expr const& parent,
         std::set<z3::expr, z3ext::expr_less> const& children);
+
+    std::vector<std::string> get_trace();
   };
 } // namespace pdr::test
 

@@ -1,5 +1,7 @@
 #include "pdr-context.h"
 
+#include <iostream>
+
 namespace pdr
 {
   Context::Context(IModel& m, unsigned s) : ts(m), seed(s), type(Tactic::undef)

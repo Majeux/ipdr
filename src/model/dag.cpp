@@ -1,6 +1,8 @@
 #include "dag.h"
 #include "io.h"
 
+#include <fmt/ranges.h>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <ostream>
@@ -89,10 +91,10 @@ namespace dag
   {
     std::stringstream ss;
     ss << "DAG \{" << endl
-       << "\tinput { " << str::ext::join(input) << " }" << endl
-       << "\toutput { " << str::ext::join(output) << " }" << endl
-       << "\tnodes { " << str::ext::join(nodes) << " }" << endl
-       << "\tedges { " << str::ext::join(edges) << " }" << endl
+       << fmt::format("\tinput {}", input) << endl
+       << fmt::format("\toutput {}", output) << " }" << endl
+       << fmt::format("\tnodes {}", nodes) << " }" << endl
+       << fmt::format("\tedges {}", edges) << " }" << endl
        << "}" << endl;
     return ss.str();
   }
