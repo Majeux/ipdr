@@ -266,7 +266,10 @@ namespace my::cli
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
 
-    folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
+    if (z3pdr)
+      folders.model_type_dir = folders.run_type_dir / "z3pdr";
+    else
+      folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
     folders.model_dir = folders.model_type_dir;
     {
