@@ -1,6 +1,7 @@
 #ifndef Z3_EXT
 #define Z3_EXT
 
+#include "string-ext.h"
 #include <algorithm>
 #include <fmt/core.h>
 #include <optional>
@@ -13,11 +14,11 @@
 
 namespace z3ext
 {
-  z3::expr minus(const z3::expr& e);
-  bool is_lit(const z3::expr& e);
+  z3::expr minus(z3::expr const& e);
+  bool is_lit(z3::expr const& e);
   // get the variable of a literal
   // throws if e is not a literal
-  z3::expr strip_not(const z3::expr& e);
+  z3::expr strip_not(z3::expr const& e);
 
   z3::expr_vector mk_expr_vec(std::initializer_list<z3::expr> l);
 
@@ -45,7 +46,7 @@ namespace z3ext
   // by default, assignment and copy constructors copy a reference to an
   // internal vector. This constructs a deep copy, preventing the original
   // from being altered
-  z3::expr_vector copy(const z3::expr_vector& v);
+  z3::expr_vector copy(z3::expr_vector const& v);
 
   template <typename T>
   z3::ast_vector_tpl<T> vec_add(
@@ -143,7 +144,7 @@ namespace z3ext
   inline expr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
-  bool lits_ordered(const std::vector<z3::expr>& cube);
+  bool lits_ordered(std::vector<z3::expr> const& cube);
 
   // TEMPLATE FUNCTIONS
   //
@@ -153,39 +154,50 @@ namespace z3ext
     std::vector<std::string> strings;
     strings.reserve(v.size());
     std::transform(v.begin(), v.end(), std::back_inserter(strings),
-        [](const z3::expr& i) { return i.to_string(); });
+        [](z3::expr const& i) { return i.to_string(); });
 
     return strings;
   }
 
-  // return a string representation of a vector of z3::expr
   template <typename ExprVector>
-  inline std::string join_expr_vec(const ExprVector& c, bool align = true,
+  inline std::string join_ev_aligned(
+      ExprVector const& c, const std::string delimiter = ", ")
+  {
+
+    std::vector<std::string> strings = to_strings(c);
+
+    unsigned largest =
+        std::max_element(strings.cbegin(), strings.cend(), str::ext::size_lt)
+            ->size();
+
+    std::stringstream ss;
+    for(size_t i{0}; i < strings.size(); i++)
+    {
+      if (i > 0)
+        ss << delimiter;
+      ss << fmt::format("{: ^{}}", strings[i], largest);
+    }
+    return ss.str();
+  }
+
+  // return a string representation of any vector containing z3::expr
+  template <typename ExprVector>
+  inline std::string join_ev(ExprVector const& c, bool align = false,
       const std::string delimiter = ", ")
   {
     // only join containers that can stream into stringstream
     if (c.size() == 0)
       return "";
 
-    std::vector<std::string> strings = to_strings(c);
+    if (align)
+      return join_ev_aligned(c, delimiter);
 
-    bool first = true;
-    unsigned largest;
-    for (const std::string& s : strings)
-    {
-      if (first || s.length() > largest)
-        largest = s.length();
-      first = false;
-    }
-
-    first = true;
     std::stringstream ss;
-    for (const std::string& s : strings)
+    for(size_t i{0}; i < c.size(); i++)
     {
-      if (!first)
+      if (i > 0)
         ss << delimiter;
-      first = false;
-      ss << fmt::format("{: ^{}}", s, align ? largest : 0);
+      ss << c[i].to_string();
     }
     return ss.str();
   }
@@ -199,27 +211,27 @@ namespace z3ext
       z3::expr_vector curr;
       z3::expr_vector next;
 
-      Witness(const z3::expr_vector& c, const z3::expr_vector& n);
+      Witness(z3::expr_vector const& c, z3::expr_vector const& n);
     };
     // retrieve the current model in the solver as a cube
     // the resulting cube is sorted by lit_less
     // @ s has just completed a satisfiable check()
-    z3::expr_vector get_witness(const z3::solver& s);
-    std::vector<z3::expr> get_std_witness(const z3::solver& s);
+    z3::expr_vector get_witness(z3::solver const& s);
+    std::vector<z3::expr> get_std_witness(z3::solver const& s);
 
     // retrieve the current unsat core in the solver as a cube
     // the resulting cube is sorted by lit_less
     // @ s has just completed an unsatisfiable check()
-    z3::expr_vector get_core(const z3::solver& s);
-    std::vector<z3::expr> get_std_core(const z3::solver& s);
+    z3::expr_vector get_core(z3::solver const& s);
+    std::vector<z3::expr> get_std_core(z3::solver const& s);
 
     // perform a solver.check() and return the resulting witness
     std::optional<z3::expr_vector> check_witness(z3::solver& s);
     std::optional<z3::expr_vector> check_witness(
-        z3::solver& s, const z3::expr_vector& assumptions);
+        z3::solver& s, z3::expr_vector const& assumptions);
 
     template <typename UnaryPredicate>
-    std::vector<z3::expr> std_witness_st(const z3::model& m, UnaryPredicate p)
+    std::vector<z3::expr> std_witness_st(z3::model const& m, UnaryPredicate p)
     {
       std::vector<z3::expr> v;
       v.reserve(m.num_consts());
@@ -243,7 +255,7 @@ namespace z3ext
     }
 
     template <typename UnaryPredicate>
-    z3::expr_vector witness_st(const z3::solver& s, UnaryPredicate p)
+    z3::expr_vector witness_st(z3::solver const& s, UnaryPredicate p)
     {
       return convert(std_witness_st(s, p));
     }
@@ -252,33 +264,33 @@ namespace z3ext
   namespace tseytin
   {
     // convert e to cnf using z3's simplify and tseitin conversion tactics
-    z3::expr_vector to_cnf_vec(const z3::expr& e);
-    z3::expr to_cnf(const z3::expr& e);
+    z3::expr_vector to_cnf_vec(z3::expr const& e);
+    z3::expr to_cnf(z3::expr const& e);
 
     // add a tseytin encoded AND statement to "cnf"
     // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
-    z3::expr add_and(z3::expr_vector& cnf, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
+    z3::expr add_and(z3::expr_vector& cnf, std::string const& name,
+        z3::expr const& a, z3::expr const& b);
 
     // add a tseytin encoded OR statement to "cnf"
     // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
-    z3::expr add_or(z3::expr_vector& cnf, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
+    z3::expr add_or(z3::expr_vector& cnf, std::string const& name,
+        z3::expr const& a, z3::expr const& b);
 
     // add a tseytin encoded IMPLIES statement to "cnf"
     // a => b <=> !a | b
-    z3::expr add_implies(z3::expr_vector& cnf, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
+    z3::expr add_implies(z3::expr_vector& cnf, std::string const& name,
+        z3::expr const& a, z3::expr const& b);
 
     // add a tseytin encoded XOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
-    z3::expr add_xor(z3::expr_vector& cnf, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
+    z3::expr add_xor(z3::expr_vector& cnf, std::string const& name,
+        z3::expr const& a, z3::expr const& b);
 
     // add a tseytin encoded XNOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | c) & (a | b | c) & (a | !b | !c) & (!a | b | !c)
-    z3::expr add_xnor(z3::expr_vector& cnf, const std::string& name,
-        const z3::expr& a, const z3::expr& b);
+    z3::expr add_xnor(z3::expr_vector& cnf, std::string const& name,
+        z3::expr const& a, z3::expr const& b);
   } // namespace tseytin
 } // namespace z3ext
 #endif // Z3_EXT

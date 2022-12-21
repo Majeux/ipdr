@@ -152,7 +152,7 @@ namespace pdr
 
   vector<expr> Solver::witness_current_intersect(const vector<expr>& ev) const
   {
-    using z3ext::join_expr_vec;
+    using z3ext::join_ev;
     using z3ext::lit_less;
 
     if(state != SolverState::witness_available)

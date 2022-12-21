@@ -5,6 +5,8 @@
 //
 namespace pdr
 {
+  using z3ext::join_ev;
+
   void PDR::log_start() const
   {
     MYLOG_INFO(log, "");
@@ -26,7 +28,7 @@ namespace pdr
     MYLOG_DEBUG(log, SEP2);
     log.stats.ctis.add(level);
     MYLOG_DEBUG(log, "cti at frame {}", level);
-    MYLOG_DEBUG(log, "[{}]", str::ext::join(cti));
+    MYLOG_DEBUG(log, "[{}]", join_ev(cti));
   }
 
   void PDR::log_propagation(unsigned level, double time)
@@ -45,7 +47,7 @@ namespace pdr
     MYLOG_DEBUG(log, "obligations pending: {}", queue_size);
     MYLOG_DEBUG(log, "top obligation");
     log.indent++;
-    MYLOG_DEBUG(log, "{}, [{}]", top_level, str::ext::join(top));
+    MYLOG_DEBUG(log, "{}, [{}]", top_level, join_ev(top));
     log.indent--;
   }
 
@@ -54,7 +56,7 @@ namespace pdr
     (void)p; // ignore unused warning when logging is off
     MYLOG_DEBUG(log, "predecessor:");
     log.indent++;
-    MYLOG_DEBUG(log, "[{}]", str::ext::join(p));
+    MYLOG_DEBUG(log, "[{}]", join_ev(p));
     log.indent--;
   }
 

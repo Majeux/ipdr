@@ -54,7 +54,7 @@ namespace pdr
         break;
       }
       core = frames.get_solver(i).unsat_core(next_lits, to_current);
-      MYLOG_DEBUG(log, "core @{}: [{}]", i, z3ext::join_expr_vec(core.value()));
+      MYLOG_DEBUG(log, "core @{}: [{}]", i, z3ext::join_ev(core.value()));
     }
 
     MYLOG_DEBUG(

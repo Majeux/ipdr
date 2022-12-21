@@ -15,7 +15,7 @@ namespace pdr::test
   class z3PDR
   {
    public:
-    z3PDR(Context& m, Logger& l, dag::Graph const& G);
+    z3PDR(Logger& l, dag::Graph const& G);
 
     void run();
 
@@ -29,12 +29,12 @@ namespace pdr::test
       Rule(z3::expr const& e, z3::symbol const& n) : expr(e), name(n) {}
     };
 
-    Context& ctx;
+    z3::context ctx;
     Logger& log;
     z3::fixedpoint engine;
 
-    z3::expr const z3_true  = ctx().bool_val(true);
-    z3::expr const z3_false = ctx().bool_val(false);
+    z3::expr const z3_true  = ctx.bool_val(true);
+    z3::expr const z3_false = ctx.bool_val(false);
 
     mysat::primed::VarVec vars;
 

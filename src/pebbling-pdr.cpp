@@ -81,17 +81,21 @@ void handle_pebbling(
   G.show(args.folders.model_dir / "dag", true);
   log.stats.is_pebbling(G);
 
+  if (args.z3pdr)
+  {
+    std::cerr << "z3 pdr pebbling test" << std::endl;
+    pdr::test::z3PDR z3test(log, G);
+    z3test.run();
+    std::cerr << "ignoring other arguments" << std::endl;
+    return;
+  }
+
   PebblingModel pebbling(args, G);
   pebbling.show(args.folders.model_file);
   pdr::Context context =
       std::holds_alternative<bool>(args.r_seed)
           ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
           : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
-
-  std::cerr << "z3 pdr test" << std::endl;
-  pdr::test::z3PDR z3test(context, log, G);
-  z3test.run();
-  return;
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
@@ -158,6 +162,14 @@ void handle_peterson(
       std::holds_alternative<bool>(args.r_seed)
           ? pdr::Context(peter, std::get<bool>(args.r_seed))
           : pdr::Context(peter, std::get<unsigned>(args.r_seed));
+
+  if (args.z3pdr)
+  {
+    std::cerr << "z3 pdr peterson test" << std::endl;
+    std::cerr << "not implemented" << std::endl;
+    std::cerr << "ignoring other arguments" << std::endl;
+    return;
+  }
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
@@ -229,6 +241,7 @@ int main(int argc, char* argv[])
   using my::variant::get_cref;
 
   ArgumentList args(argc, argv);
+
 
   if (args.onlyshow)
     return 0;

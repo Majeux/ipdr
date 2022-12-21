@@ -121,6 +121,8 @@ namespace my::cli
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
     bool onlyshow; // only read in and produce the model image and description
 
+    bool z3pdr;
+
     bool _failed = false;
 
     ArgumentList(int argc, char* argv[]);
@@ -132,6 +134,7 @@ namespace my::cli
     Options make_options(std::string name);
     void parse_verbosity(ParseResult const& clresult);
     void parse_alg(ParseResult const& clresult);
+    void parse_model(ParseResult const& clresult);
     void parse_run(ParseResult const& clresult);
     graph_src::Graph_var parse_graph_src(ParseResult const& clresult);
 
@@ -143,6 +146,8 @@ namespace my::cli
 
     inline static const std::string s_pebbling = "pebbling";
     inline static const std::string s_peter    = "peterson";
+
+    inline static const std::string s_z3pdr = "z3pdr";
 
     inline static const std::string s_exp     = "experiment";
     inline static const std::string s_control = "control";

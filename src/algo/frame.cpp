@@ -23,7 +23,7 @@ namespace pdr
       if (z3ext::subsumes_l(blocked_cube, cube))
       {
         logger.tabbed_trace("already blocked in F{} by {}", level,
-            z3ext::join_expr_vec(blocked_cube));
+            z3ext::join_ev(blocked_cube));
         return true; // equal or stronger clause found
       }
     }
@@ -107,7 +107,7 @@ namespace pdr
   {
     std::string str(fmt::format("blocked cubes level {}\n", level));
     for (const z3::expr_vector& e : blocked_cubes)
-      str += fmt::format("- {}\n", z3ext::join_expr_vec(e, " & "));
+      str += fmt::format("- {}\n", z3ext::join_ev(e, " & "));
 
     return str;
   }

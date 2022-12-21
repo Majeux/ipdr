@@ -26,8 +26,8 @@ namespace pdr::test
 
   // done in setup, defines relation between state and next state
   // if step(state, state.p) |-> true && state, then state.p
-  z3PDR::z3PDR(Context& c, Logger& l, dag::Graph const& G)
-      : ctx(c), log(l), engine(ctx),
+  z3PDR::z3PDR(Logger& l, dag::Graph const& G)
+      : ctx(), log(l), engine(ctx),
         vars(ctx, vector<string>(G.nodes.begin(), G.nodes.end())), target(ctx),
         state_sorts(ctx), state(ctx), step(ctx), reach_rule(ctx), initial(ctx)
   {
@@ -48,11 +48,11 @@ namespace pdr::test
 
     { // registering functions for states and transitions
       for (size_t i{ 0 }; i < G.nodes.size(); i++)
-        state_sorts.push_back(ctx().bool_sort());
+        state_sorts.push_back(ctx.bool_sort());
 
-      state = z3::function("state", state_sorts, ctx().bool_sort());
+      state = z3::function("state", state_sorts, ctx.bool_sort());
       step  = z3::function(
-          "step", z3ext::vec_add(state_sorts, state_sorts), ctx().bool_sort());
+           "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
 
       engine.register_relation(state);
       engine.register_relation(step);
@@ -85,7 +85,7 @@ namespace pdr::test
 
       std::set<expr, z3ext::expr_less> children;
       for (string const& c : G.get_children(parent.to_string()))
-        children.insert(ctx().bool_const(c.c_str()));
+        children.insert(ctx.bool_const(c.c_str()));
 
       rules.push_back(pebbling_transition(parent, children));
     }
@@ -140,14 +140,13 @@ namespace pdr::test
 
   z3PDR::Rule z3PDR::mk_rule(expr const& e, string const& n)
   {
-    return { forall_vars(e), ctx().str_symbol(n.c_str()) };
+    return { forall_vars(e), ctx.str_symbol(n.c_str()) };
   }
 
   z3PDR::Rule z3PDR::mk_rule(
       expr const& head, expr const& body, string const& n)
   {
-    return { forall_vars(z3::implies(body, head)),
-      ctx().str_symbol(n.c_str()) };
+    return { forall_vars(z3::implies(body, head)), ctx.str_symbol(n.c_str()) };
   }
 
   expr z3PDR::forall_vars(expr const& e) const
@@ -183,8 +182,7 @@ namespace pdr::test
 
   std::vector<std::string> z3PDR::get_trace()
   {
-    z3::symbol raw(
-        ctx(), Z3_fixedpoint_get_rule_names_along_trace(ctx(), engine));
+    z3::symbol raw(ctx, Z3_fixedpoint_get_rule_names_along_trace(ctx, engine));
 
     std::vector<std::string> trace = str::ext::split(raw.str(), ';');
     std::reverse(trace.begin(), trace.end());

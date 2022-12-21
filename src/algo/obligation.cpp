@@ -38,14 +38,14 @@ namespace pdr
     };
 
     unsigned i = 1;
-    steps.emplace_back(i, z3ext::join_expr_vec(cube), count_pebbled(cube));
+    steps.emplace_back(i, z3ext::join_ev(cube), count_pebbled(cube));
 
     shared_ptr<PdrState> current = prev;
     while (current)
     {
       i++;
       steps.emplace_back(
-          i, z3ext::join_expr_vec(current->cube), count_pebbled(current->cube));
+          i, z3ext::join_ev(current->cube), count_pebbled(current->cube));
       current = current->prev;
     }
     unsigned i_padding = i / 10 + 1;

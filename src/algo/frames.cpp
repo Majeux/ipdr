@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <fmt/format.h>
 #include <memory>
 #include <optional>
 #include <spdlog/spdlog.h>
@@ -95,7 +96,7 @@ namespace pdr
     extend();                               // reinstate level 1
 
     unsigned count = 0;
-    for (const z3::expr_vector& cube : old)
+    for (z3::expr_vector const& cube : old)
     {
       if (SAT(0, cube))
       {
@@ -158,19 +159,19 @@ namespace pdr
     for (; i < frames.size(); i++)
     {
       // TODO non-const getter allows std::move
-      const z3ext::CubeSet& Fi = frames[i]->get_blocked();
+      z3ext::CubeSet const& Fi = frames[i]->get_blocked();
       blocked.insert(Fi.begin(), Fi.end());
     }
 
     return blocked;
   }
 
-  bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
+  bool Frames::remove_state(z3::expr_vector const& cube, size_t level)
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
     MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
-        str::ext::join(cube));
+        z3ext::join_ev(cube));
 
     log.indent++;
     bool result = delta_remove_state(cube, level);
@@ -178,7 +179,7 @@ namespace pdr
     return result;
   }
 
-  bool Frames::delta_remove_state(const z3::expr_vector& cube, size_t level)
+  bool Frames::delta_remove_state(z3::expr_vector const& cube, size_t level)
   {
     for (unsigned i = 1; i <= level; i++)
     {
@@ -234,7 +235,7 @@ namespace pdr
 
     unsigned count         = 0;
     z3ext::CubeSet blocked = frames.at(level)->get_blocked();
-    for (const z3::expr_vector& cube : blocked)
+    for (z3::expr_vector const& cube : blocked)
     {
       if (!trans_source(level, cube))
       {
@@ -255,14 +256,14 @@ namespace pdr
 
   // queries
   //
-  bool Frames::inductive(const std::vector<z3::expr>& cube, size_t frame)
+  bool Frames::inductive(std::vector<z3::expr> const& cube, size_t frame)
   {
     return inductive(z3ext::convert(cube), frame);
   }
 
   // verifies if !cube is inductive relative to F_[frame]
   // query: Fi & !s & T /=> !s'
-  bool Frames::inductive(const z3::expr_vector& cube, size_t frame)
+  bool Frames::inductive(z3::expr_vector const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
 
@@ -280,7 +281,7 @@ namespace pdr
   }
 
   std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
-      const std::vector<z3::expr>& cube, size_t frame)
+      std::vector<z3::expr> const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "get counter relative inductiveness, frame{}", frame);
 
@@ -291,7 +292,7 @@ namespace pdr
   }
 
   std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
-      const z3::expr_vector& cube, size_t frame)
+      z3::expr_vector const& cube, size_t frame)
   {
     if (!inductive(cube, frame))
       return get_solver(frame).witness_current();
@@ -301,7 +302,7 @@ namespace pdr
 
   // if primed: cube is already in next state, else first convert it
   bool Frames::trans_source(
-      size_t frame, const z3::expr_vector& dest_cube, bool primed)
+      size_t frame, z3::expr_vector const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "check transition source, frame{}", frame);
     if (!primed) // cube is in current, bring to next
@@ -311,7 +312,7 @@ namespace pdr
   }
 
   std::optional<Witness> Frames::get_trans_source(
-      size_t frame, const z3::expr_vector& dest_cube, bool primed)
+      size_t frame, z3::expr_vector const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "get transition source, frame{}", frame);
 
@@ -335,7 +336,7 @@ namespace pdr
 
   // SAT interface
   //
-  bool Frames::SAT(size_t frame, const z3::expr_vector& assumptions)
+  bool Frames::SAT(size_t frame, z3::expr_vector const& assumptions)
   {
     return SAT(frame, z3ext::copy(assumptions));
   }

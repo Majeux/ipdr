@@ -233,8 +233,8 @@ namespace my::cli
   ArgumentList::ArgumentList(int argc, char* argv[])
   {
     cxxopts::Options clopt = make_options(argv[0]);
-    try
-    {
+    // try
+    // {
       cxxopts::ParseResult clresult = clopt.parse(argc, argv);
 
       if (clresult.count("help"))
@@ -243,22 +243,25 @@ namespace my::cli
         exit(0);
       }
 
-      parse_verbosity(clresult);
-      parse_alg(clresult);
+      if (!z3pdr)
+      {
+        parse_verbosity(clresult);
+        parse_alg(clresult);
+      }
+      parse_model(clresult);
+      
 
-      if (onlyshow)
-        return;
-
-      parse_run(clresult);
-    }
-    catch (std::exception const& e)
-    {
-      std::cerr << e.what() << std::endl
-                << "Error parsing command line arguments" << std::endl
-                << std::endl
-                << clopt.help() << std::endl;
-      throw;
-    }
+      if (!onlyshow && !z3pdr)
+        parse_run(clresult);
+    // }
+    // catch (std::exception const& e)
+    // {
+    //   std::cerr << e.what() << std::endl
+    //             << "Error parsing command line arguments" << std::endl
+    //             << std::endl
+    //             << clopt.help() << std::endl;
+    //   throw;
+    // }
 
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
@@ -365,6 +368,9 @@ namespace my::cli
       (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes as a transition system.",
        value< unsigned >(), "(uint: N)")
 
+      (s_z3pdr, "Perform a hard coded test with z3's pdr engine: spacer.",
+       value<bool>(z3pdr))
+
       // tactic option
       (sh('e', s_exp), "run an experiment with I iterations.",
         value< unsigned >(), "(uint: I)")
@@ -430,8 +436,8 @@ namespace my::cli
     {
       unsigned n = occurences(names, r);
       if (n > 1)
-        throw std::invalid_argument(format(
-            "At most one of `{}` allowed. Have {}", names, n));
+        throw std::invalid_argument(
+            format("At most one of `{}` allowed. Have {}", names, n));
     }
 
     void require_one_of(
@@ -483,8 +489,26 @@ namespace my::cli
       assert(false);
     }
 
+    atmost_one_of({ s_rand, s_seed }, clresult);
+
+    if (clresult.count(s_rand))
+      r_seed = clresult[s_rand].as<bool>();
+
+    if (clresult.count(s_seed))
+      r_seed = clresult[s_seed].as<unsigned>();
+  }
+
+  void ArgumentList::parse_model(cxxopts::ParseResult const& clresult)
+  {
     require_one_of({ s_pebbling, s_peter }, clresult);
     atmost_one_of({ s_pebbles, s_procs }, clresult);
+
+    std::string a = "";
+    if (!z3pdr)
+    {
+      require_one_of({ o_alg }, clresult);
+      a = clresult[o_alg].as<std::string>();
+    }
 
     if (clresult.count(s_peter))
     {
@@ -512,14 +536,6 @@ namespace my::cli
 
       model = pebbling;
     }
-
-    atmost_one_of({ s_rand, s_seed }, clresult);
-
-    if(clresult.count(s_rand))
-      r_seed = clresult[s_rand].as<bool>();
-
-    if(clresult.count(s_seed))
-      r_seed = clresult[s_seed].as<unsigned>();
   }
 
   void ArgumentList::parse_run(cxxopts::ParseResult const& clresult)
