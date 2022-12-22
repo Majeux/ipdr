@@ -70,6 +70,8 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
   return o;
 }
 
+#include <dbg.h>
+
 void handle_pebbling(
     model_t::Pebbling const& descr, ArgumentList& args, pdr::Logger& log)
 {
@@ -99,8 +101,8 @@ void handle_pebbling(
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
+    pebbling.constrain(dbg(descr.max_pebbles).value());
     pdr::PDR pdr_algo(context, pebbling, log);
-    pebbling.constrain(descr.max_pebbles.value());
 
     pdr::PdrResult r = pdr_algo.run();
     {
@@ -112,6 +114,8 @@ void handle_pebbling(
         auto const row2 = r.listing();
         T.add_row({ row2.cbegin(), row2.cend() });
       }
+      std::cout << T << endl << endl;
+      std::cout << pdr::result::trace_table(r, pebbling);
       args.folders.trace_file << T << endl << endl;
       args.folders.trace_file << pdr::result::trace_table(r, pebbling);
       pdr_algo.show_solver(args.folders.solver_dump);
