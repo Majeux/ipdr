@@ -130,7 +130,7 @@ namespace pdr
      private:
       PDR alg;
       PebblingModel& model; // same instance as the IModel in alg
-      std::optional<unsigned> starting_value;
+      std::optional<unsigned> starting_pebbles;
 
       void basic_reset(unsigned pebbles);
       void relax_reset(unsigned pebbles);

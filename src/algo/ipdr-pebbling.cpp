@@ -13,11 +13,11 @@ namespace pdr::pebbling
 
   IPDR::IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args,
       Logger& l)
-      : alg(c, m, l), model(m), starting_value()
+      : alg(c, m, l), model(m), starting_pebbles()
   {
     auto const& peb =
         my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
-    starting_value = peb.max_pebbles;
+    starting_pebbles = peb.max_pebbles;
   }
 
   PebblingResult IPDR::control_run(Tactic tactic)
@@ -27,10 +27,10 @@ namespace pdr::pebbling
       case Tactic::constrain: return constrain(true);
       case Tactic::relax: return relax(true);
       case Tactic::inc_jump_test:
-        relax_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_pebbles.value(), 10);
         break;
       case Tactic::inc_one_test:
-        relax_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_pebbles.value(), 1);
         break;
       default: break;
     }
@@ -45,10 +45,10 @@ namespace pdr::pebbling
       case Tactic::constrain: return constrain(control);
       case Tactic::relax: return relax(control);
       case Tactic::inc_jump_test:
-        relax_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_pebbles.value(), 10);
         break;
       case Tactic::inc_one_test:
-        relax_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_pebbles.value(), 1);
         break;
       default: break;
     }
@@ -61,7 +61,8 @@ namespace pdr::pebbling
     alg.log.and_whisper("! Optimization run: increment max pebbles.");
 
     PebblingResult total(model, Tactic::relax);
-    unsigned N = model.get_f_pebbles(); // need at least this many pebbles
+    // need at least this many pebbles
+    unsigned N = starting_pebbles.value_or(model.get_f_pebbles());
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
@@ -94,7 +95,8 @@ namespace pdr::pebbling
     alg.log.and_whisper("! Optimization run: decrement max pebbles.");
 
     PebblingResult total(model, Tactic::constrain);
-    unsigned N = model.n_nodes(); // need at least this many pebbles
+    // need at least this many pebbles
+    unsigned N = starting_pebbles.value_or(model.n_nodes());
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
