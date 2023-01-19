@@ -186,7 +186,8 @@ namespace pdr::pebbling
     optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles > old.value());
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.logger.and_show("increment from {} -> {} pebbles", old.value(), pebbles);
+    alg.logger.and_show(
+        "increment from {} -> {} pebbles", old.value(), pebbles);
 
     ts.constrain(pebbles);
 
@@ -201,7 +202,8 @@ namespace pdr::pebbling
     optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles < old.value());
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.logger.and_show("decrement from {} -> {} pebbles", old.value(), pebbles);
+    alg.logger.and_show(
+        "decrement from {} -> {} pebbles", old.value(), pebbles);
 
     ts.constrain(pebbles);
 
