@@ -58,6 +58,7 @@ namespace dag
     std::string node(std::string name) { return prefix + name; }
 
     Graph();
+    Graph(Graph const& G);
     Graph(std::string const& s);
     Graph(std::string const& s, std::string const& dot);
 

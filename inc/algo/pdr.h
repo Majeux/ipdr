@@ -1,6 +1,7 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
+#include "dag.h"
 #include "frames.h"
 #include "pdr-context.h"
 #include "pdr-model.h"
@@ -10,7 +11,10 @@
 #include "peterson.h"
 #include "result.h"
 #include "stats.h"
+#include "vpdr.h"
 #include "z3-ext.h"
+#include "z3-pebbling-model.h"
+#include "z3pdr.h"
 
 #include <climits>
 #include <cstdint>
@@ -35,32 +39,34 @@ namespace pdr
     class IPDR;
   }
 
-  class PDR
+  class PDR : public vPDR
   {
     friend class pebbling::IPDR;
     friend class peterson::IPDR;
 
    public:
-    PDR(Context& c, IModel& m, Logger& l);
+    // Inherited from vPDR
+    // vPDR(Context& c, Logger& l)
+    // get_ctx() -> Context const&
 
-    // prepare PDR for new run. discards old trace
-    void reset();
-    PdrResult run();
+    PDR(Context c, Logger& l, IModel& m);
 
-    Context const& get_ctx() const;
-    Context& get_ctx();
+    PdrResult run() override;
+    void reset() override;
 
     Statistics& stats();
-    void show_solver(std::ostream& out) const;
+    void show_solver(std::ostream& out) const override;
     std::vector<std::string> trace_row(z3::expr_vector const& v);
     int length_shortest_strategy() const;
 
    private:
-    Context& ctx;
+    // inherited from vPDR
+    // Context ctx
+    // Logger& logger
+    IModel& ts;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
-    Logger& log;
 
     Frames frames; // sequence of candidates
     std::set<Obligation, std::less<Obligation>> obligations;
@@ -129,7 +135,7 @@ namespace pdr
 
      private:
       PDR alg;
-      PebblingModel& model; // same instance as the IModel in alg
+      PebblingModel& ts; // same instance as the IModel in alg
       std::optional<unsigned> starting_pebbles;
 
       void basic_reset(unsigned pebbles);
@@ -159,7 +165,7 @@ namespace pdr
 
      private:
       PDR alg;
-      PetersonModel& model; // same instance as the IModel in alg
+      PetersonModel& ts; // same instance as the IModel in alg
 
       void basic_reset(unsigned processes);
       void relax_reset(unsigned processes);

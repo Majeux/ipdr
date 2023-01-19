@@ -38,7 +38,7 @@ namespace pdr
     {
       log_iteration();
       while (optional<Witness> witness =
-                 frames.get_trans_source(k, ctx.ts.n_property.p(), true))
+                 frames.get_trans_source(k, ts.n_property.p(), true))
       {
         log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 
@@ -49,9 +49,9 @@ namespace pdr
           return res;
         }
 
-        MYLOG_DEBUG(log, "");
+        MYLOG_DEBUG(logger, "");
       }
-      MYLOG_INFO(log, "no more counters at F_{}", k);
+      MYLOG_INFO(logger, "no more counters at F_{}", k);
 
       sub_timer.reset();
 
@@ -68,18 +68,18 @@ namespace pdr
   PdrResult PDR::block_short(expr_vector&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    log.indented("eliminate predecessors");
-    log.indent++;
+    logger.indented("eliminate predecessors");
+    logger.indent++;
 
 #warning is dit nog enigzins ok?
     if (ctx.type != Tactic::relax)
     {
-      MYLOG_DEBUG_SHOW(log, "Cleared obligations.");
+      MYLOG_DEBUG_SHOW(logger, "Cleared obligations.");
       obligations.clear();
     }
     else
     {
-      MYLOG_DEBUG_SHOW(log, "Reused obligations: {}.", obligations.size());
+      MYLOG_DEBUG_SHOW(logger, "Reused obligations: {}.", obligations.size());
     }
 
     unsigned period = 0;
@@ -144,7 +144,7 @@ namespace pdr
       elapsed = -1.0;
     }
 
-    log.indent--;
+    logger.indent--;
     return PdrResult::empty_true();
   }
 } // namespace pdr

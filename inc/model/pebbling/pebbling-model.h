@@ -17,6 +17,7 @@ namespace pdr::pebbling
   class PebblingModel : public pdr::IModel
   {
    public:
+    const dag::Graph dag;
     // std::string name;
     // z3::context ctx;
     // ExpressionCache lits;
@@ -28,7 +29,8 @@ namespace pdr::pebbling
 
     // void show(std::ostream& out) const;
 
-    PebblingModel(const my::cli::ArgumentList& model_name, const dag::Graph& G);
+    PebblingModel(
+        const my::cli::ArgumentList& args, z3::context& c, const dag::Graph& G);
 
     // set a constraint on the transition relation to reduce the state-space
     void constrain(std::optional<unsigned> new_p);
@@ -37,7 +39,7 @@ namespace pdr::pebbling
     // return the number of pebbles in the final state
     unsigned get_f_pebbles() const;
     // return the current maximum number of pebbles
-    std::optional<unsigned> get_max_pebbles() const;
+    std::optional<unsigned> get_pebble_constraint() const;
     // return string representation of the constraint
     const std::string constraint_str() const override;
 
@@ -45,8 +47,10 @@ namespace pdr::pebbling
     // z3::expr_vector initial;
     // z3::expr_vector transition; // vector of clauses (cnf)
 
-    unsigned final_pebbles; // number of marked literals in property
-    std::optional<unsigned> max_pebbles;
+    // number of marked literals in property
+    unsigned final_pebbles;
+    // maximum number of pebbled nodes allowed per state
+    std::optional<unsigned> pebble_constraint;
 
     void load_pebble_transition(const dag::Graph& G);
     void load_pebble_transition_tseytin(const dag::Graph& G);

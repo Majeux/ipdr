@@ -4,20 +4,22 @@
 
 namespace pdr
 {
-  Context::Context(IModel& m, unsigned s) : ts(m), seed(s), type(Tactic::undef)
+  Context::Context(z3::context& c, unsigned s)
+      : z3_ctx(c), seed(s), type(Tactic::undef),
+        mic_retries(MIC_RETRIES_DEFAULT)
   {
     std::cout << "random seed " << seed << std::endl;
   }
 
-  Context::Context(IModel& m, bool random_seed) : ts(m), type(Tactic::undef)
+  Context::Context(z3::context& c, bool random_seed) : z3_ctx(c), type(Tactic::undef)
   {
     srand(time(0));
     seed = random_seed ? rand() : 0u;
     std::cout << "random seed " << seed << std::endl;
   }
 
-  Context::operator z3::context&() { return ts.ctx; }
-  Context::operator const z3::context&() const { return ts.ctx; }
+  Context::operator z3::context&() { return z3_ctx; }
+  Context::operator const z3::context&() const { return z3_ctx; }
 
-  z3::context& Context::operator()() { return ts.ctx; }
+  z3::context& Context::operator()() { return z3_ctx; }
 } // namespace pdr

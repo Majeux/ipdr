@@ -1,8 +1,11 @@
 #include "pebbling-result.h"
+#include "expr.h"
 #include "obligation.h"
 #include "string-ext.h"
+#include "types-ext.h"
 
 #include <cassert>
+#include <string>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
@@ -10,20 +13,40 @@
 
 namespace pdr::pebbling
 {
+  using mysat::primed::VarVec;
+  using std::optional;
   using std::string;
   using std::vector;
 
   // PebblingResult members
   //
-  PebblingResult::PebblingResult(const PebblingModel& m, Tactic t)
-      : IpdrResult(m), model(m), tactic(t), total{ total_time, {}, {} }
+  // Constructors
+  PebblingResult::PebblingResult(PebblingModel const& m, Tactic t)
+      : IpdrResult(m),
+        pebbles_final(m.get_f_pebbles()),
+        pebble_constraint(m.get_pebble_constraint()),
+        tactic(t),
+        total{ total_time, {}, {} }
   {
     assert(t == Tactic::constrain || t == Tactic::relax);
   }
-
+  PebblingResult::PebblingResult(z3::expr_vector initial, VarVec const& vars,
+      unsigned pebbles_final, optional<unsigned> pebbles_max, Tactic t)
+      : IpdrResult(initial, vars),
+        pebbles_final(pebbles_final),
+        pebble_constraint(pebbles_max),
+        tactic(t),
+        total{ total_time, {}, {} }
+  {
+  }
+  // IpdrResult conversion constructors
   PebblingResult::PebblingResult(
-      const IpdrResult& r, const PebblingModel& m, Tactic t)
-      : IpdrResult(r), model(m), tactic(t), total{ total_time, {}, {} }
+      IpdrResult const& r, PebblingModel const& m, Tactic t)
+      : IpdrResult(r),
+        pebbles_final(m.get_f_pebbles()),
+        pebble_constraint(m.get_pebble_constraint()),
+        tactic(t),
+        total{ total_time, {}, {} }
   {
     pdr_summaries.resize(0);
     for (const PdrResult& r : original)
@@ -31,6 +54,15 @@ namespace pdr::pebbling
       tabulate::Table::Row_t res_row = process_row(r);
       pdr_summaries.push_back(res_row);
     }
+  }
+  PebblingResult::PebblingResult(IpdrResult const& r, unsigned pebbles_final,
+      optional<unsigned> pebbles_max, Tactic t)
+      : IpdrResult(r),
+        pebbles_final(pebbles_final),
+        pebble_constraint(pebbles_max),
+        tactic(t),
+        total{ total_time, {}, {} }
+  {
   }
 
   std::string PebblingResult::end_result() const
@@ -49,7 +81,7 @@ namespace pdr::pebbling
     return total;
   }
 
-  const std::optional<unsigned> PebblingResult::min_pebbles() const
+  const optional<unsigned> PebblingResult::min_pebbles() const
   {
     if (total.strategy)
       return total.strategy->pebbled;
@@ -117,14 +149,12 @@ namespace pdr::pebbling
     if (r.has_invariant()) // only happens multiple times in increasing
     {
       // when done multiple time, we are increasing the constraint
-      optional<unsigned> constraint = model.get_max_pebbles();
-      assert(constraint);
+      assert(pebble_constraint);
       assert(!total.inv || constraint > total.inv->constraint);
 
-      total.inv = { r.invariant(), constraint };
-
+      total.inv = { r.invariant(), pebble_constraint };
       row.insert(row.begin(), "-");
-      std::string inv_str = constraint ? std::to_string(*constraint) : "none";
+      std::string inv_str = my::optional::to_string(pebble_constraint);
       row.insert(row.begin(), inv_str);
 
       if (tactic == Tactic::constrain)
@@ -166,16 +196,13 @@ namespace pdr::pebbling
 
     if (res.has_invariant())
     {
-      if (model.get_max_pebbles())
-        return format("No strategy for {}\n", *model.get_max_pebbles());
-      else
-        return "No strategy\n";
+      return format("No strategy for constraint {}\n",
+          my::optional::to_string(pebble_constraint));
     }
 
     // process trace
     std::stringstream ss;
-    vector<string> lits  = model.vars.names();
-    vector<string> litsp = model.vars.names_p();
+    vector<string> lits = vars.names(), litsp = vars.names_p();
     std::sort(lits.begin(), lits.end());
     std::sort(litsp.begin(), litsp.end());
 
@@ -203,7 +230,7 @@ namespace pdr::pebbling
 
     // Write strategy states
     {
-      unsigned marked = model.get_f_pebbles();
+      unsigned marked = pebbles_final;
       size_t N        = res.trace().states.size();
       for (size_t i = 0; i < N; i++)
       {

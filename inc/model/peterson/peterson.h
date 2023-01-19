@@ -25,7 +25,7 @@ namespace pdr::peterson
 
     friend PetersonState;
 
-    PetersonModel(numrep_t n_procs, numrep_t max_procs);
+    PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
     unsigned n_processes() const;

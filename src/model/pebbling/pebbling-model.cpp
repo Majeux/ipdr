@@ -9,14 +9,13 @@
 
 namespace pdr::pebbling
 {
-  using std::pair;
   using std::string;
   using z3::expr;
   using z3::expr_vector;
 
   PebblingModel::PebblingModel(
-      my::cli::ArgumentList const& args, dag::Graph const& G)
-      : IModel(std::vector<string>(G.nodes.begin(), G.nodes.end()))
+      const my::cli::ArgumentList& args, z3::context& c, const dag::Graph& G)
+      : IModel(c, std::vector<string>(G.nodes.begin(), G.nodes.end())), dag(G)
   {
     name = my::cli::model_t::src_name(args.model);
 
@@ -175,16 +174,17 @@ namespace pdr::pebbling
     constraint.resize(0);
     assert(constraint.size() == 0);
 
-    if (new_p && max_pebbles)
+    if (new_p && pebble_constraint)
     {
-      if (new_p == max_pebbles)
+      if (new_p == pebble_constraint)
         diff = Diff_t::none;
       else
-        diff = new_p < max_pebbles ? Diff_t::constrained : Diff_t::relaxed;
+        diff =
+            new_p < pebble_constraint ? Diff_t::constrained : Diff_t::relaxed;
     }
-    else if (new_p && !max_pebbles)
+    else if (new_p && !pebble_constraint)
       diff = Diff_t::constrained;
-    else if (!new_p && max_pebbles)
+    else if (!new_p && pebble_constraint)
       diff = Diff_t::relaxed;
     else
       diff = Diff_t::none;
@@ -195,23 +195,23 @@ namespace pdr::pebbling
       constraint.push_back(z3::atmost(vars.p(), *new_p));
     }
 
-    max_pebbles = new_p;
+    pebble_constraint = new_p;
     assert(constraint.size() == 2);
   }
 
   unsigned PebblingModel::get_f_pebbles() const { return final_pebbles; }
 
-  std::optional<unsigned> PebblingModel::get_max_pebbles() const
+  std::optional<unsigned> PebblingModel::get_pebble_constraint() const
   {
-    return max_pebbles;
+    return pebble_constraint;
   }
 
   const std::string PebblingModel::constraint_str() const
   {
-    if (max_pebbles)
+    if (pebble_constraint)
     {
       assert(!constraint.empty());
-      return fmt::format("cardinality {}", *max_pebbles);
+      return fmt::format("cardinality {}", *pebble_constraint);
     }
     assert(constraint.empty());
     return "no constraint";

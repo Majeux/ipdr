@@ -1,4 +1,5 @@
 #include "result.h"
+#include "expr.h"
 #include "obligation.h"
 #include "pdr-model.h"
 #include "pebbling-model.h"
@@ -62,9 +63,11 @@ namespace pdr
 
   // Result members
   //
+  PdrResult::PdrResult(std::variant<Invariant, Trace> o) : output(o) {}
+
   PdrResult::PdrResult(std::shared_ptr<PdrState> s) : output(Trace(s)) {}
 
-  PdrResult::PdrResult(int l) : output(Invariant(l)) {}
+  PdrResult::PdrResult(int level) : output(Invariant(level)) {}
 
   PdrResult PdrResult::found_trace(std::shared_ptr<PdrState> s)
   {
@@ -74,6 +77,11 @@ namespace pdr
   PdrResult PdrResult::found_trace(PdrState&& s)
   {
     return PdrResult(std::make_shared<PdrState>(s));
+  }
+
+  PdrResult PdrResult::incomplete_trace(unsigned length)
+  {
+    return PdrResult(Trace(length));
   }
 
 #warning TODO int level to size_t
@@ -121,8 +129,18 @@ namespace pdr
   // Public members
   //
 
-  IpdrResult::IpdrResult(IModel const& m) : model(m) {}
+  IpdrResult::IpdrResult(IModel const& m)
+      : initial_state(m.get_initial()), vars(m.vars)
+  {
+  }
+
+  IpdrResult::IpdrResult(z3::expr_vector I, mysat::primed::VarVec const& v)
+      : initial_state(I), vars(v)
+  {
+  }
+
   IpdrResult::~IpdrResult() {}
+
   void IpdrResult::reset() { pdr_summaries.resize(0); }
 
   double IpdrResult::get_total_time() const { return total_time; }
@@ -205,7 +223,7 @@ namespace pdr
   //
   std::string IpdrResult::process_trace(PdrResult const& res) const
   {
-    return result::trace_table(res, model);
+    return result::trace_table(res, vars, initial_state);
   }
 
   const tabulate::Table::Row_t IpdrResult::summary_header() const
@@ -219,7 +237,10 @@ namespace pdr
   //
   namespace result
   {
-    std::string trace_table(PdrResult const& res, IModel const& model)
+    using mysat::primed::VarVec;
+
+    std::string trace_table(
+        PdrResult const& res, VarVec const& vars, z3::expr_vector initial)
     {
       using fmt::format;
       using std::string;
@@ -233,8 +254,8 @@ namespace pdr
 
       // process trace
       std::stringstream ss;
-      vector<string> lits  = model.vars.names();
-      vector<string> litsp = model.vars.names_p();
+      vector<string> lits  = vars.names();
+      vector<string> litsp = vars.names_p();
       std::sort(lits.begin(), lits.end());
       std::sort(litsp.begin(), litsp.end());
 
@@ -271,7 +292,7 @@ namespace pdr
           {
             if (i == 0)
             {
-              assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
+              assert(z3ext::quick_implies(s, initial)); // s \in I
               index_str = "I";
             }
             else if (i == N - 1)

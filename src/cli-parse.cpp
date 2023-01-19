@@ -371,7 +371,7 @@ namespace my::cli
       (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes as a transition system.",
        value< unsigned >(), "(uint: N)")
 
-      (s_z3pdr, "Perform a hard coded test with z3's pdr engine: spacer.",
+      (s_z3pdr, "Use Z3's fixedpoint engine for pdr (spacer)",
        value<bool>(z3pdr))
 
       // tactic option

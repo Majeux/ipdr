@@ -16,6 +16,7 @@
 #include "peterson.h"
 #include "result.h"
 #include "types-ext.h"
+#include "z3-pebbling-model.h"
 #include "z3pdr.h"
 
 #include <algorithm>
@@ -30,6 +31,7 @@
 #include <iostream>
 #include <lorina/bench.hpp>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <stdexcept>
@@ -72,75 +74,105 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 
 #include <dbg.h>
 
-void handle_pebbling(
-    model_t::Pebbling const& descr, ArgumentList& args, pdr::Logger& log)
+void handle_pebbling(model_t::Pebbling const& descr, ArgumentList& args,
+    pdr::Context context, pdr::Logger& log)
 {
   using namespace pdr::pebbling;
   using my::variant::get_cref;
+  using my::variant::get_ref;
+  using pdr::test::Z3PebblingModel;
   using std::endl;
+  using std::make_unique;
+  using std::unique_ptr;
+
+  assert(!args.z3pdr);
 
   dag::Graph G = model_t::make_graph(descr.src);
   G.show(args.folders.model_dir / "dag", true);
   log.stats.is_pebbling(G);
 
-  if (args.z3pdr)
+  auto determine_model = [&]() -> std::variant<Z3PebblingModel, PebblingModel>
   {
-    std::cerr << "z3 pdr pebbling test" << std::endl;
-    pdr::test::z3PDR z3test(log, G);
-    z3test.run();
-    std::cerr << "ignoring other arguments" << std::endl;
-    return;
-  }
+    if (args.z3pdr)
+      return Z3PebblingModel(args, context.z3_ctx, G);
+    else
+      return PebblingModel(args, context.z3_ctx, G);
+  };
 
-  PebblingModel pebbling(args, G);
-  pebbling.show(args.folders.model_file);
-  pdr::Context context =
-      std::holds_alternative<bool>(args.r_seed)
-          ? pdr::Context(pebbling, std::get<bool>(args.r_seed))
-          : pdr::Context(pebbling, std::get<unsigned>(args.r_seed));
+  std::variant<Z3PebblingModel, PebblingModel> pebbling = determine_model();
+
+  auto show = [&](auto const& var) { var.show(args.folders.model_file); };
+  std::visit(show, pebbling);
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
-    pebbling.constrain(dbg(descr.max_pebbles).value());
-    pdr::PDR pdr_algo(context, pebbling, log);
+    unique_ptr<pdr::vPDR> pdr_algo;
 
-    pdr::PdrResult r = pdr_algo.run();
+    if (auto peb = get_ref<PebblingModel>(pebbling))
+    {
+      peb->get().constrain(descr.max_pebbles.value());
+      pdr_algo = make_unique<pdr::PDR>(context, log, peb->get());
+    }
+    else if (auto z3peb = get_ref<Z3PebblingModel>(pebbling))
+    {
+      pdr_algo = make_unique<pdr::test::z3PDR>(context, log, z3peb->get());
+    }
+    else
+    {
+      assert(false);
+    }
+
+    pdr::PdrResult r = pdr_algo->run();
     {
       std::cout << "result" << std::endl;
       tabulate::Table T;
-      {
-        T.add_row(
-            { pdr::PdrResult::fields.cbegin(), pdr::PdrResult::fields.cend() });
-        auto const row2 = r.listing();
-        T.add_row({ row2.cbegin(), row2.cend() });
-      }
+      T.add_row(
+          { pdr::PdrResult::fields.cbegin(), pdr::PdrResult::fields.cend() });
+      auto const row2 = r.listing();
+      T.add_row({ row2.cbegin(), row2.cend() });
+
       std::cout << T << endl << endl;
-      std::cout << pdr::result::trace_table(r, pebbling);
       args.folders.trace_file << T << endl << endl;
-      args.folders.trace_file << pdr::result::trace_table(r, pebbling);
-      pdr_algo.show_solver(args.folders.solver_dump);
+
+      if (auto peb = get_ref<PebblingModel>(pebbling))
+      {
+        std::string trace = pdr::result::trace_table(
+            r, peb->get().vars, peb->get().get_initial());
+        std::cout << trace;
+        args.folders.trace_file << trace;
+      }
+
+      pdr_algo->show_solver(args.folders.solver_dump);
     }
   }
   else if (auto ipdr = get_cref<algo::t_IPDR>(args.algorithm))
   {
-    if (args.experiment)
+    if (auto peb = get_ref<PebblingModel>(pebbling))
     {
-      pdr::pebbling::experiments::PebblingExperiment exp(args, pebbling, log);
-      exp.run();
+      if (args.experiment)
+      {
+        pdr::pebbling::experiments::PebblingExperiment exp(
+            args, peb->get(), log);
+        exp.run();
+      }
+      else
+      {
+
+        pdr::pebbling::IPDR ipdr_algo(context, peb->get(), args, log);
+        pdr::pebbling::PebblingResult result =
+            ipdr_algo.run(ipdr->get().type, false);
+
+        args.folders.trace_file << result.end_result() << endl
+                                << result.summary_table() << endl
+                                << std::string(20, '=') << endl
+                                << result.all_traces() << endl;
+
+        ipdr_algo.internal_alg().show_solver(args.folders.solver_dump);
+      }
     }
     else
     {
-
-      pdr::pebbling::IPDR ipdr_algo(context, pebbling, args, log);
-      pdr::pebbling::PebblingResult result =
-          ipdr_algo.run(ipdr->get().type, false);
-
-      args.folders.trace_file << result.end_result() << endl
-                              << result.summary_table() << endl
-                              << std::string(20, '=') << endl
-                              << result.all_traces() << endl;
-
-      ipdr_algo.internal_alg().show_solver(args.folders.solver_dump);
+      assert(false && "todo");
     }
   }
   else
@@ -151,25 +183,22 @@ void handle_pebbling(
   }
 }
 
-void handle_peterson(
-    model_t::Peterson const& descr, ArgumentList& args, pdr::Logger& log)
+void handle_peterson(model_t::Peterson const& descr, ArgumentList& args,
+    pdr::Context context, pdr::Logger& log)
 {
   using namespace pdr::peterson;
   using my::variant::get_cref;
   using std::endl;
+  using std::make_unique;
+  using std::unique_ptr;
 
-  PetersonModel peter(descr.start, descr.max);
+  PetersonModel peter(context.z3_ctx, descr.start, descr.max);
   log.stats.is_peter(descr.start, descr.max);
   peter.show(args.folders.model_file);
 
-  pdr::Context context =
-      std::holds_alternative<bool>(args.r_seed)
-          ? pdr::Context(peter, std::get<bool>(args.r_seed))
-          : pdr::Context(peter, std::get<unsigned>(args.r_seed));
-
   if (args.z3pdr)
   {
-    std::cerr << "z3 pdr peterson test" << std::endl;
+    std::cerr << "z3 pdr peterson" << std::endl;
     std::cerr << "not implemented" << std::endl;
     std::cerr << "ignoring other arguments" << std::endl;
     return;
@@ -177,9 +206,16 @@ void handle_peterson(
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
-    pdr::PDR pdr_algo(context, peter, log);
+    unique_ptr<pdr::vPDR> pdr_algo;
+    if (args.z3pdr)
+    {
+      std::cout << "z3 peterson not implemented" << std::endl;
+      // pdr_algo = make_unique<pdr::test::z3PDR>(context, log);
+    }
+    else
+      pdr_algo = make_unique<pdr::PDR>(context, log, peter);
 
-    pdr::PdrResult r = pdr_algo.run();
+    pdr::PdrResult r = pdr_algo->run();
     {
       tabulate::Table T;
       {
@@ -189,8 +225,8 @@ void handle_peterson(
         T.add_row({ row2.cbegin(), row2.cend() });
       }
       args.folders.trace_file << T << endl << endl;
-      args.folders.trace_file << pdr::result::trace_table(r, peter);
-      pdr_algo.show_solver(args.folders.solver_dump);
+      args.folders.trace_file << pdr::result::trace_table(r, peter.vars, peter.get_initial());
+      pdr_algo->show_solver(args.folders.solver_dump);
     }
   }
   else if (auto ipdr = get_cref<algo::t_IPDR>(args.algorithm))
@@ -246,7 +282,6 @@ int main(int argc, char* argv[])
 
   ArgumentList args(argc, argv);
 
-
   if (args.onlyshow)
     return 0;
 
@@ -255,17 +290,22 @@ int main(int argc, char* argv[])
   args.show_header(std::cerr);
   args.folders.show(std::cerr);
 
+  z3::context ctx;
+  pdr::Context context = std::holds_alternative<bool>(args.r_seed)
+                           ? pdr::Context(ctx, std::get<bool>(args.r_seed))
+                           : pdr::Context(ctx, std::get<unsigned>(args.r_seed));
+
   pdr::Logger logger = pdr::Logger(args.folders.file_in_analysis("log"),
       args.out, args.verbosity,
       pdr::Statistics(args.folders.file_in_analysis("stats")));
 
   if (auto peb_descr = get_cref<model_t::Pebbling>(args.model))
-    handle_pebbling(peb_descr->get(), args, logger);
+    handle_pebbling(peb_descr->get(), args, context, logger);
   else
   {
     using namespace pdr::peterson;
     auto const& peter_descr = std::get<model_t::Peterson>(args.model);
-    handle_peterson(peter_descr, args, logger);
+    handle_peterson(peter_descr, args, context, logger);
   }
 
   std::cout << "goodbye :)" << std::endl;

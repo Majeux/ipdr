@@ -33,14 +33,14 @@ namespace pdr
     int max = frames.frontier();
     if (min <= 0 && !frames.inductive(cube, 0))
     {
-      MYLOG_DEBUG(log, "Intersects I");
+      MYLOG_DEBUG(logger, "Intersects I");
       return { -1, {} };
     }
 
     // F_result & !cube & T & cube' = UNSAT
     // => F_result & !cube & T & core' = UNSAT
-    auto next_lits  = [this](const expr& e) { return ctx.ts.vars.lit_is_p(e); };
-    auto to_current = [this](const expr& e) { return ctx.ts.vars(e); };
+    auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e); };
+    auto to_current = [this](const expr& e) { return ts.vars(e); };
 
     optional<expr_vector> core;
 
@@ -54,11 +54,11 @@ namespace pdr
         break;
       }
       core = frames.get_solver(i).unsat_core(next_lits, to_current);
-      MYLOG_DEBUG(log, "core @{}: [{}]", i, z3ext::join_ev(core.value()));
+      MYLOG_DEBUG(logger, "core @{}: [{}]", i, z3ext::join_ev(core.value()));
     }
 
-    MYLOG_DEBUG(
-        log, "highest inductive frame is {} / {}", highest, frames.frontier());
+    MYLOG_DEBUG(logger, "highest inductive frame is {} / {}", highest,
+        frames.frontier());
     return { highest, core };
   }
 
@@ -71,7 +71,7 @@ namespace pdr
     {
       if (result.core->size() == 0)
       {
-        log.warn("0 core at level {}", result.level);
+        logger.warn("0 core at level {}", result.level);
         frames.log_solver(true);
       }
       // if I => !core, the subclause survives initiation and is inductive
@@ -84,23 +84,23 @@ namespace pdr
       rv_core = cube; // no core produced
 
     MYLOG_DEBUG(
-        log, "unsat core reduction: {} -> {}", cube.size(), rv_core.size());
-    // MYLOG_DEBUG(log, "new cube: [{}]", join_expr_vec(rv_core, false));
+        logger, "unsat core reduction: {} -> {}", cube.size(), rv_core.size());
+    // MYLOG_DEBUG(logger, "new cube: [{}]", join_expr_vec(rv_core, false));
     return { result.level, rv_core };
   }
 
   expr_vector PDR::generalize(const expr_vector& state, int level)
   {
-    MYLOG_DEBUG(log, "generalize cube");
-    // MYLOG_DEBUG(log, "[{}]", join_expr_vec(state, false));
-    log.indent++;
+    MYLOG_DEBUG(logger, "generalize cube");
+    // MYLOG_DEBUG(logger, "[{}]", join_expr_vec(state, false));
+    logger.indent++;
     expr_vector smaller_cube = MIC(state, level);
-    log.indent--;
+    logger.indent--;
 
     MYLOG_DEBUG(
-        log, "generalization: {} -> {}", state.size(), smaller_cube.size());
+        logger, "generalization: {} -> {}", state.size(), smaller_cube.size());
     // MYLOG_DEBUG(
-        // log, "final reduced cube = [{}]", join_expr_vec(smaller_cube, false));
+    // logger, "final reduced cube = [{}]", join_expr_vec(smaller_cube, false));
     return smaller_cube;
   }
 
@@ -116,7 +116,7 @@ namespace pdr
       assert(z3ext::lits_ordered(cube));
       if (attempts > mic_retries)
       {
-        MYLOG_WARN(log, "MIC exceeded {} attempts", mic_retries);
+        MYLOG_WARN(logger, "MIC exceeded {} attempts", mic_retries);
         break;
       }
       vector<expr> new_cube(cube.begin(), cube.begin() + i);
@@ -124,13 +124,13 @@ namespace pdr
       new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
 
       MYLOG_TRACE(
-          log, "verifying subcube [{}]", join_expr_vec(new_cube, false));
+          logger, "verifying subcube [{}]", join_expr_vec(new_cube, false));
 
-      log.indent++;
+      logger.indent++;
       if (down(new_cube, level))
       {
-        MYLOG_TRACE(log, "sub-cube survived");
-        MYLOG_TRACE(log, "down-reduced cube ({} -> {}): [{}]", cube.size(),
+        MYLOG_TRACE(logger, "sub-cube survived");
+        MYLOG_TRACE(logger, "down-reduced cube ({} -> {}): [{}]", cube.size(),
             new_cube.size(), join_expr_vec(new_cube));
         // current literal was dropped, i now points to the next
         cube     = std::move(new_cube);
@@ -138,11 +138,11 @@ namespace pdr
       }
       else
       {
-        MYLOG_TRACE(log, "sub-cube failed");
+        MYLOG_TRACE(logger, "sub-cube failed");
         i++;
         attempts++;
       }
-      log.indent--;
+      logger.indent--;
     }
 
     return z3ext::convert(cube);
@@ -158,18 +158,19 @@ namespace pdr
       expr* const raw_state = state.data();
       if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
       {
-        MYLOG_TRACE(log, "state includes I");
+        MYLOG_TRACE(logger, "state includes I");
         return false;
       }
 
       if (!frames.inductive(state, level))
       {
-        MYLOG_TRACE(log, "state is not inductive");
-        MYLOG_TRACE(log, "intersect with witness");
-        log.indent++;
+        MYLOG_TRACE(logger, "state is not inductive");
+        MYLOG_TRACE(logger, "intersect with witness");
+        logger.indent++;
         state = frames.get_solver(level).witness_current_intersect(state);
-        log.indent--;
-        MYLOG_TRACE(log, "new intersected state -> [{}]", join_expr_vec(state));
+        logger.indent--;
+        MYLOG_TRACE(
+            logger, "new intersected state -> [{}]", join_expr_vec(state));
       }
       else
         return true;

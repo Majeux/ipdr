@@ -1,9 +1,11 @@
 #ifndef PEBBLING_RESULT_H
 #define PEBBLING_RESULT_H
 
+#include "expr.h"
 #include "pebbling-model.h"
 #include "result.h"
 #include <tabulate/table.hpp>
+#include <z3++.h>
 
 namespace pdr::pebbling
 {
@@ -37,8 +39,14 @@ namespace pdr::pebbling
       std::optional<PebblingTrace> strategy;
     };
 
+    // construct PebblingResult
     PebblingResult(const PebblingModel& m, Tactic t);
+    PebblingResult(z3::expr_vector initial, mysat::primed::VarVec const& vars,
+        unsigned pebbles_final, std::optional<unsigned> pebbles_max, Tactic t);
+    // convert from general IpdrResult to PebblingResult
     PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
+    PebblingResult(const IpdrResult& r, unsigned pebbles_final,
+        std::optional<unsigned> pebbles_max, Tactic t);
 
     Data_t const& get_total() const;
     std::string end_result() const override;
@@ -46,7 +54,10 @@ namespace pdr::pebbling
     tabulate::Table::Row_t total_row() const override;
 
    private:
-    PebblingModel const& model;
+    // pebbling model info
+    unsigned pebbles_final;
+    std::optional<unsigned> pebble_constraint;
+
     const Tactic tactic;
     // the latest invariant and trace, with the total time spent
     // if constraining: strategy = the latest of the multiple strategies

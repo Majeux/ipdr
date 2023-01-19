@@ -173,8 +173,6 @@ namespace pdr
 #define SEP2 std::string(SEPWITH, '=')
 #define SEP3 std::string(SEPWITH, '#')
 
-#warning todo: make show and whisper macros to avoid computation of arguments
-
 #define MYLOG_WARN(logger, format, ...)  \
   logger.whisper(format, ##__VA_ARGS__); \
   SPDLOG_LOGGER_WARN(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)

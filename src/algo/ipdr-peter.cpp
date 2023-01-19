@@ -7,7 +7,7 @@ namespace pdr::peterson
 {
   IPDR::IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args,
       Logger& l)
-      : alg(c, m, l), model(m)
+      : alg(c, l, m), ts(m)
   {
   }
 
@@ -45,11 +45,11 @@ namespace pdr::peterson
 
   PetersonResult IPDR::relax(unsigned processes, bool control)
   {
-    unsigned p = processes, N = model.max_processes();
-    alg.log.and_whisper(
+    unsigned p = processes, N = ts.max_processes();
+    alg.logger.and_whisper(
         "! Proving peterson for {}..{} processes.", processes, N);
 
-    PetersonResult total(model, Tactic::relax);
+    PetersonResult total(ts, Tactic::relax);
 
     basic_reset(p);
     pdr::PdrResult invariant = alg.run();
@@ -69,11 +69,11 @@ namespace pdr::peterson
 
     if (invariant && p > N) // last run did not find a trace
     {
-      alg.log.and_whisper("! No trace exists.");
+      alg.logger.and_whisper("! No trace exists.");
       return total;
     }
     // N is minimal
-    alg.log.and_whisper("! Counter for p={}", p - 1);
+    alg.logger.and_whisper("! Counter for p={}", p - 1);
     return total;
   }
 
@@ -83,27 +83,27 @@ namespace pdr::peterson
   {
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
 
-    unsigned old = model.n_processes();
+    unsigned old = ts.n_processes();
 
-    alg.log.and_show("naive change from {} / {} -> {} / {}", old,
-        model.max_processes(), processes, model.max_processes());
+    alg.logger.and_show("naive change from {} / {} -> {} / {}", old,
+        ts.max_processes(), processes, ts.max_processes());
 
-    model.constrain(processes);
+    ts.constrain(processes);
     alg.ctx.type = Tactic::basic;
-    alg.frames.reset();
+    alg.reset();
   }
 
   void IPDR::relax_reset(unsigned processes)
   {
     assert(std::addressof(model) == std::addressof(alg.ctx.ts));
 
-    unsigned old = model.n_processes();
+    unsigned old = ts.n_processes();
     assert(processes > old);
 
-    alg.log.and_show("increment from {} / {} -> {} / {} processes", old,
-        model.max_processes(), processes, model.max_processes());
+    alg.logger.and_show("increment from {} / {} -> {} / {} processes", old,
+        ts.max_processes(), processes, ts.max_processes());
 
-    model.constrain(processes);
+    ts.constrain(processes);
 
     alg.ctx.type = Tactic::relax;
     alg.frames.reset_to_F1();
@@ -112,15 +112,15 @@ namespace pdr::peterson
   PetersonResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
-    alg.log.and_show("NEW INC JUMP TEST RUN");
-    alg.log.and_show("start {}. step {}", start, step);
+    alg.logger.and_show("NEW INC JUMP TEST RUN");
+    alg.logger.and_show("start {}. step {}", start, step);
 
-    PetersonResult total(model, Tactic::relax);
+    PetersonResult total(ts, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
     total.add(invariant);
 
-    unsigned oldp = model.n_processes();
+    unsigned oldp = ts.n_processes();
     unsigned newp = oldp + step;
     assert(newp > 0);
     assert(oldp < newp);

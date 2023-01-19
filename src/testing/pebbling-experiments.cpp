@@ -59,7 +59,7 @@ namespace pdr::pebbling::experiments
       cout << format("{}: {}", i, seeds[i]) << endl;
       std::optional<unsigned> optimum;
       // new context with new random seed
-      pdr::Context ctx(ts, seeds[i]);
+      pdr::Context ctx(ts.ctx, seeds[i]);
       IPDR opt(ctx, ts, args, log);
 
       {

@@ -16,6 +16,18 @@ namespace dag
   using std::vector;
 
   Graph::Graph() {}
+  Graph::Graph(Graph const& G)
+  {
+    name        = G.name;
+    prefix      = G.prefix;
+    input       = G.input;
+    nodes       = G.nodes;
+    output      = G.output;
+    edges       = G.edges;
+    children    = G.children;
+    input_edges = G.input_edges;
+    empty_vec   = G.empty_vec;
+  }
   Graph::Graph(string const& s) : name(s) {}
   Graph::Graph(string const& name, string const& dotstring)
       : name(name), image(std::make_unique<graphviz::Graph>(dotstring))

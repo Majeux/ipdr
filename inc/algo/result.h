@@ -53,6 +53,7 @@ namespace pdr
     // Result builders
     static PdrResult found_trace(std::shared_ptr<PdrState> s);
     static PdrResult found_trace(PdrState&& s);
+    static PdrResult incomplete_trace(unsigned length);
     static PdrResult found_invariant(int level);
     static PdrResult empty_true();
     static PdrResult empty_false();
@@ -75,8 +76,9 @@ namespace pdr
     ResultRow listing() const;
 
    private:
+    PdrResult(std::variant<Invariant, Trace> o);
     PdrResult(std::shared_ptr<PdrState> s);
-    PdrResult(int l);
+    PdrResult(int level);
   };
 
   // collection of >= 1 pdr results that represents a single ipdr run
@@ -86,6 +88,7 @@ namespace pdr
   {
    public:
     IpdrResult(const IModel& m);
+    IpdrResult(z3::expr_vector I, mysat::primed::VarVec const& v);
     virtual ~IpdrResult();
 
     void reset();
@@ -105,13 +108,18 @@ namespace pdr
     std::vector<double> g_times() const;
 
     // show a small string that described the end result of the run
-    virtual std::string end_result() const = 0;
+    virtual std::string end_result() const           = 0;
     // represent total for a formatted table
     virtual tabulate::Table::Row_t total_row() const = 0;
     // get all traces using the virtual process_trace() function
     std::string all_traces() const;
 
    protected:
+    // transition system information
+    z3::expr_vector initial_state;
+    mysat::primed::VarVec const& vars;
+
+    // accumulated time of every result
     double total_time{ 0.0 };
     // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
@@ -129,14 +137,12 @@ namespace pdr
     virtual const tabulate::Table::Row_t process_row(const PdrResult& r);
     // string representation of the trace or invariant
     virtual std::string process_trace(const PdrResult& res) const;
-
-   private:
-    const pdr::IModel& model;
   };
 
   namespace result
   {
-    std::string trace_table(PdrResult const& res, IModel const& model);
+    std::string trace_table(PdrResult const& res,
+        mysat::primed::VarVec const& vars, z3::expr_vector initial);
   } // namespace result
 } // namespace pdr
 #endif // PDR_RESULT_H
