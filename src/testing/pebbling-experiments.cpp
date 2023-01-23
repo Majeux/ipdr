@@ -50,7 +50,7 @@ namespace pdr::pebbling::experiments
     control_table.add_row(PebblingResult::pebbling_total_header);
   }
 
-  shared_ptr<expsuper::Run> PebblingExperiment::do_reps(bool is_control)
+  shared_ptr<expsuper::Run> PebblingExperiment::do_reps(const bool is_control)
   {
     vector<unique_ptr<IpdrResult>> results;
 

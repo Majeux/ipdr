@@ -17,7 +17,6 @@ namespace pdr::test
 
     void add_initial(z3::fixedpoint& engine) override;
     void add_transitions(z3::fixedpoint& engine) override;
-    void add_constraint(z3::fixedpoint& engine) override;
     z3::expr get_target() const override;
     z3::check_result reach_target(z3::fixedpoint& engine) override;
 
@@ -45,6 +44,8 @@ namespace pdr::test
 
     Rule pebbling_transition(z3::expr const& parent,
         std::set<z3::expr, z3ext::expr_less> const& children);
+
+    z3::expr make_constraint();
 
     void prepare_initial();
     void prepare_transitions();

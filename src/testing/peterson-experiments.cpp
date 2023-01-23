@@ -51,7 +51,7 @@ namespace pdr::peterson::experiments
     control_table.add_row(PetersonResult::peterson_total_header);
   }
 
-  shared_ptr<expsuper::Run> PetersonExperiment::do_reps(bool is_control)
+  shared_ptr<expsuper::Run> PetersonExperiment::do_reps(const bool is_control)
   {
     vector<unique_ptr<IpdrResult>> results;
 

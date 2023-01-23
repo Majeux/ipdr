@@ -71,11 +71,4 @@ namespace pdr
   {
     return z3::forall(z3ext::vec_add(vars(), vars.p()), e);
   }
-
-  void Z3Model::assert_constraint(
-      z3::fixedpoint& engine, expr const& constraint)
-  {
-    expr e = forall_vars(constraint);
-    Z3_fixedpoint_assert(ctx, engine, e);
-  }
 } // namespace pdr

@@ -29,7 +29,6 @@
 #include <fmt/format.h>
 #include <ghc/filesystem.hpp>
 #include <iostream>
-#include <lorina/bench.hpp>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -106,21 +105,16 @@ void handle_pebbling(model_t::Pebbling const& descr, ArgumentList& args,
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
   {
-    unique_ptr<pdr::vPDR> pdr_algo;
+    auto constrain = [&](auto& var) { var.constrain(descr.max_pebbles); };
+    std::visit(constrain, pebbling);
 
+    unique_ptr<pdr::vPDR> pdr_algo;
     if (auto peb = get_ref<PebblingModel>(pebbling))
-    {
-      peb->get().constrain(descr.max_pebbles.value());
       pdr_algo = make_unique<pdr::PDR>(context, log, peb->get());
-    }
     else if (auto z3peb = get_ref<Z3PebblingModel>(pebbling))
-    {
       pdr_algo = make_unique<pdr::test::z3PDR>(context, log, z3peb->get());
-    }
     else
-    {
       assert(false);
-    }
 
     pdr::PdrResult r = pdr_algo->run();
     {

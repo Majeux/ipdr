@@ -1,8 +1,9 @@
 #include "z3-pebbling-model.h"
 #include "pdr-model.h"
+#include <dbg.h>
 #include <sstream>
 #include <z3++.h>
-#include <dbg.h>
+#include <z3_spacer.h>
 
 namespace pdr::test
 {
@@ -53,25 +54,26 @@ namespace pdr::test
       engine.add_rule(r.expr, r.name);
   }
 
-  void Z3PebblingModel::add_constraint(z3::fixedpoint& engine)
-  {
-    if (pebble_constraint)
-    {
-      assert_constraint(engine, z3::atmost(vars, *pebble_constraint));
-      assert_constraint(engine, z3::atmost(vars.p(), *pebble_constraint));
-    }
-  }
-
   expr Z3PebblingModel::get_target() const { return target; }
 
   z3::check_result Z3PebblingModel::reach_target(z3::fixedpoint& engine)
   {
-    return engine.query(target);
+    dbg(engine.assertions());
+    // dbg(engine.rules());
+    auto rv = engine.query(target);
+    // auto d = target.decl();
+    // for (size_t i{0}; i < engine.get_num_levels(d); i++)
+    // {
+    //   dbg(engine.get_cover_delta(i, d));
+    // }
+    return rv;
   }
 
   void Z3PebblingModel::constrain(std::optional<unsigned int> maximum_pebbles)
   {
     pebble_constraint = maximum_pebbles;
+    rules.clear();
+    prepare_transitions();
   }
 
   // Model definitions
@@ -87,6 +89,13 @@ namespace pdr::test
          << std::endl;
 
     return ss.str();
+  }
+
+  expr Z3PebblingModel::make_constraint()
+  {
+    if (pebble_constraint)
+      return z3::atmost(vars.p(), *pebble_constraint);
+    return z3_true;
   }
 
   expr_vector Z3PebblingModel::get_initial() const
@@ -119,7 +128,9 @@ namespace pdr::test
     }
 
     expr_vector child_vec = z3ext::mk_expr_vec(ctx, children);
-    expr guard            = child_vec.empty() ? z3_true : z3::mk_and(child_vec);
+    expr guard = make_constraint();
+    if (not child_vec.empty())
+      guard = guard & z3::mk_and(child_vec);
 
     return mk_rule(
         step(args), guard, fmt::format("flip {}", parent.to_string()));
@@ -147,7 +158,7 @@ namespace pdr::test
       expr parent = vars(i);
 
       std::set<expr, z3ext::expr_less> children;
-      for (string const& c : dag.get_children(dbg(parent.to_string())))
+      for (string const& c : dag.get_children(parent.to_string()))
         children.insert(ctx.bool_const(c.c_str()));
 
       rules.push_back(pebbling_transition(parent, children));

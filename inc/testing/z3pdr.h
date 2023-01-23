@@ -38,11 +38,12 @@ namespace pdr::test
     };
 
     Z3Model& ts;
-    z3::fixedpoint engine;
     z3::check_result last_result = z3::check_result::unknown;
 
-    std::vector<std::string> get_trace();
-    std::vector<std::string> get_trace_states();
+    std::vector<std::string> get_trace(z3::fixedpoint& engine);
+    std::vector<std::string> get_trace_states(z3::fixedpoint& engine);
+
+    z3::fixedpoint mk_prepare_fixedpoint();
   };
 
   // class to verify against z3's pdr implementation

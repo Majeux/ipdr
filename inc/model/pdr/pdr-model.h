@@ -58,7 +58,6 @@ namespace pdr
 
     virtual void add_initial(z3::fixedpoint& engine)              = 0;
     virtual void add_transitions(z3::fixedpoint& engine)          = 0;
-    virtual void add_constraint(z3::fixedpoint& engine)                = 0;
     virtual z3::expr get_target() const                           = 0;
     virtual z3::check_result reach_target(z3::fixedpoint& engine) = 0;
 
@@ -82,9 +81,6 @@ namespace pdr
 
     // quantify over all variables in vars
     z3::expr forall_vars(z3::expr const& e) const;
-
-    // put a constraint into a fixedpoint engine
-    void assert_constraint(z3::fixedpoint& engine, z3::expr const& constraint);
   };
 } // namespace pdr
 

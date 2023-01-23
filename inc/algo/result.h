@@ -58,6 +58,9 @@ namespace pdr
     static PdrResult empty_true();
     static PdrResult empty_false();
 
+    // building methods
+    PdrResult& with_duration(double t);
+
     // for testing
     void append_final(const z3::expr_vector& f);
 

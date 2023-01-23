@@ -84,6 +84,12 @@ namespace pdr
     return PdrResult(Trace(length));
   }
 
+  PdrResult& PdrResult::with_duration(double t)
+  {
+    time = t;
+    return *this;
+  }
+
 #warning TODO int level to size_t
   PdrResult PdrResult::found_invariant(int level) { return PdrResult(level); }
 
