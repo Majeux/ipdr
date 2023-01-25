@@ -14,6 +14,7 @@ namespace pdr::test
 
     Z3PebblingModel(
         const my::cli::ArgumentList& args, z3::context& c, const dag::Graph& G);
+    Z3PebblingModel& constrained(std::optional<unsigned> maximum_pebbles);
 
     void add_initial(z3::fixedpoint& engine) override;
     void add_transitions(z3::fixedpoint& engine) override;

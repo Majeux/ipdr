@@ -2,7 +2,6 @@
 #include "pdr-model.h"
 #include <sstream>
 #include <z3++.h>
-#include <dbg.h>
 
 namespace pdr::test
 {
@@ -31,11 +30,18 @@ namespace pdr::test
 
     state = z3::function("state", state_sorts, ctx.bool_sort());
     step  = z3::function(
-         "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
+        "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
 
     prepare_initial();
     prepare_transitions();
     prepare_target();
+  }
+
+  Z3PebblingModel& Z3PebblingModel::constrained(
+      std::optional<unsigned int> maximum_pebbles)
+  {
+    constrain(maximum_pebbles);
+    return *this;
   }
 
   void Z3PebblingModel::add_initial(z3::fixedpoint& engine)

@@ -45,6 +45,13 @@ namespace pdr::pebbling
     //   std::cout << param_out << std::endl;
   }
 
+  PebblingModel& PebblingModel::constrained(
+      std::optional<unsigned int> maximum_pebbles)
+  {
+    constrain(maximum_pebbles);
+    return *this;
+  }
+
   size_t PebblingModel::n_nodes() const { return initial.size(); }
 
   void PebblingModel::load_pebble_transition(dag::Graph const& G)
