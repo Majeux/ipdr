@@ -31,6 +31,7 @@ namespace pdr::pebbling
 
     PebblingModel(
         const my::cli::ArgumentList& args, z3::context& c, const dag::Graph& G);
+    PebblingModel& constrained(std::optional<unsigned> maximum_pebbles);
 
     // set a constraint on the transition relation to reduce the state-space
     void constrain(std::optional<unsigned> new_p);

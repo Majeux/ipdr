@@ -71,8 +71,6 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
   return o;
 }
 
-#include <dbg.h>
-
 void handle_pebbling(model_t::Pebbling const& descr, ArgumentList& args,
     pdr::Context context, pdr::Logger& log)
 {
@@ -97,7 +95,6 @@ void handle_pebbling(model_t::Pebbling const& descr, ArgumentList& args,
     else
       return PebblingModel(args, context.z3_ctx, G);
   };
-
   std::variant<Z3PebblingModel, PebblingModel> pebbling = determine_model();
 
   auto show = [&](auto const& var) { var.show(args.folders.model_file); };
@@ -177,6 +174,57 @@ void handle_pebbling(model_t::Pebbling const& descr, ArgumentList& args,
   }
 }
 
+void handle(ArgumentList& args, pdr::Context context, pdr::Logger& log)
+{
+  using namespace pdr::pebbling;
+  using my::variant::get_cref;
+  using my::variant::get_ref;
+  using pdr::peterson::PetersonModel;
+  using pdr::test::Z3PebblingModel;
+  using std::endl;
+  using std::make_unique;
+  using std::unique_ptr;
+
+  using ModelVariant = std::variant<std::monostate, Z3PebblingModel,
+      PebblingModel, PetersonModel>;
+
+  auto determine_model = [&]() -> ModelVariant
+  {
+    if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
+    {
+      dag::Graph G = model_t::make_graph(pebbling->get().src);
+      G.show(args.folders.model_dir / "dag", true);
+      log.stats.is_pebbling(G);
+
+      if (args.z3pdr)
+        return Z3PebblingModel(args, context.z3_ctx, G)
+            .constrained(pebbling->get().max_pebbles);
+      else
+        return PebblingModel(args, context.z3_ctx, G)
+            .constrained(pebbling->get().max_pebbles);
+    }
+    else if (auto peterson = get_cref<model_t::Peterson>(args.model))
+    {
+      unsigned start = peterson->get().start, max = peterson->get().max;
+      PetersonModel peter(context.z3_ctx, start, max);
+      log.stats.is_peter(start, max);
+      peter.show(args.folders.model_file);
+
+      return peter;
+    }
+
+    assert(false);
+    return {};
+  };
+  ModelVariant model = determine_model();
+  std::variant<pdr::PDR, pdr::test::z3PDR> algo;
+
+  auto run = [&](auto const& model, auto const& algo) {
+
+  };
+  std::visit(run, model, algo);
+}
+
 void handle_peterson(model_t::Peterson const& descr, ArgumentList& args,
     pdr::Context context, pdr::Logger& log)
 {
@@ -219,7 +267,8 @@ void handle_peterson(model_t::Peterson const& descr, ArgumentList& args,
         T.add_row({ row2.cbegin(), row2.cend() });
       }
       args.folders.trace_file << T << endl << endl;
-      args.folders.trace_file << pdr::result::trace_table(r, peter.vars, peter.get_initial());
+      args.folders.trace_file
+          << pdr::result::trace_table(r, peter.vars, peter.get_initial());
       pdr_algo->show_solver(args.folders.solver_dump);
     }
   }
