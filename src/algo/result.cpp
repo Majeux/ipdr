@@ -3,6 +3,7 @@
 #include "obligation.h"
 #include "pdr-model.h"
 #include "pebbling-model.h"
+#include "z3-ext.h"
 
 #include <TextTable.h>
 #include <algorithm>
@@ -24,6 +25,11 @@ namespace pdr
   using std::shared_ptr;
   using std::string;
   using std::vector;
+  using z3ext::LitStr;
+  using Invariant  = PdrResult::Invariant;
+  using Trace      = PdrResult::Trace;
+  using TraceState = PdrResult::Trace::TraceState;
+  using TraceVec   = PdrResult::Trace::TraceVec;
 
   namespace // helper
   {
@@ -31,34 +37,56 @@ namespace pdr
     {
       return a.size() < b.size();
     };
+
+    // convert a linked list of PdrStates
+    TraceVec make_trace_marking(shared_ptr<const PdrState> s)
+    {
+      TraceVec rv;
+      while (s)
+      {
+        vector<LitStr> state;
+        for (z3::expr const& e : s->cube)
+          state.push_back(z3ext::LitStr(e));
+        rv.push_back(state);
+
+        s = s->prev;
+      }
+      return rv;
+    }
+
+    // return greatest amount of positive literals among each vector in trace
+    size_t greatest_marking(TraceVec const& trace)
+    {
+      size_t rv{ 0 };
+      for (TraceState const& s : trace)
+      {
+        rv = std::max(rv, state::n_marked(s));
+      }
+      return rv;
+    }
   } // namespace
 
   // Result::Invariant and Trace members
   //
-  using Invariant = PdrResult::Invariant;
-  using Trace     = PdrResult::Trace;
   Invariant::Invariant(int l) : level(l) {}
 
-  Trace::Trace() : length(0) {}
-  Trace::Trace(unsigned l) : length(l) {}
-  Trace::Trace(shared_ptr<const PdrState> s) : length(0)
+  Trace::Trace() : length{ 0 }, n_marked{ 0 } {}
+  // Trace::Trace(Trace const& t)
+  //     : states(t.states), length(t.length), n_marked(t.n_marked)
+  // {
+  // }
+  Trace::Trace(unsigned l) : length{ l }, n_marked{ 0 } {}
+  Trace::Trace(shared_ptr<const PdrState> s)
+      : states(make_trace_marking(s)),
+        length(states.size()),
+        n_marked(greatest_marking(states))
   {
-    while (s)
-    {
-      states.push_back(s->cube);
-      length++;
-      s = s->prev;
-    }
   }
-
-  unsigned Trace::total_pebbled() const
+  Trace::Trace(TraceVec const& trace_states)
+      : states(trace_states),
+        length(trace_states.size()),
+        n_marked(greatest_marking(trace_states))
   {
-    assert(!states.empty());
-    unsigned pebbled = 0;
-    for (z3::expr_vector const& s : states)
-      pebbled = std::max(pebbled, state::no_marked(s));
-    return pebbled;
-    ;
   }
 
   // Result members
@@ -69,21 +97,25 @@ namespace pdr
 
   PdrResult::PdrResult(int level) : output(Invariant(level)) {}
 
+  PdrResult::PdrResult(TraceVec const& trace) : output(Trace(trace)) {}
+
+  // build functions
+  PdrResult PdrResult::found_trace(TraceVec const& trace)
+  {
+    return PdrResult(trace);
+  }
   PdrResult PdrResult::found_trace(std::shared_ptr<PdrState> s)
   {
     return PdrResult(s);
   }
-
   PdrResult PdrResult::found_trace(PdrState&& s)
   {
     return PdrResult(std::make_shared<PdrState>(s));
   }
-
   PdrResult PdrResult::incomplete_trace(unsigned length)
   {
     return PdrResult(Trace(length));
   }
-
   PdrResult& PdrResult::with_duration(double t)
   {
     time = t;
@@ -99,7 +131,11 @@ namespace pdr
   void PdrResult::append_final(z3::expr_vector const& f)
   {
     assert(has_trace());
-    trace().states.push_back(f);
+    TraceState final;
+    for (z3::expr const& e : f)
+      final.emplace_back(e);
+
+    trace().states.push_back(final);
   }
 
   PdrResult::operator bool() const { return has_invariant(); }
@@ -129,6 +165,17 @@ namespace pdr
       return { format("F_{}", invariant().level), "", to_string(time) };
     else
       return { "", to_string(trace().length), to_string(time) };
+  }
+
+  tabulate::Table PdrResult::get_table() const
+  {
+    tabulate::Table T;
+    {
+      T.add_row({ PdrResult::fields.cbegin(), PdrResult::fields.cend() });
+      auto const row2 = listing();
+      T.add_row({ row2.cbegin(), row2.cend() });
+    }
+    return T;
   }
 
   // IpdrResult
@@ -204,18 +251,18 @@ namespace pdr
 
   IpdrResult& IpdrResult::add(PdrResult const& r)
   {
-    original.push_back(r);
-    total_time += r.time;
-
-    tabulate::Table::Row_t res_row = process_row(r);
+    tabulate::Table::Row_t res_row = process_result(r);
     assert(res_row.size() == summary_header().size());
     pdr_summaries.push_back(res_row);
 
     return *this;
   }
 
-  const tabulate::Table::Row_t IpdrResult::process_row(PdrResult const& r)
+  const tabulate::Table::Row_t IpdrResult::process_result(PdrResult const& r)
   {
+    original.push_back(r);
+    total_time += r.time;
+
     tabulate::Table::Row_t row;
 
     PdrResult::ResultRow listing = r.listing();
@@ -279,7 +326,7 @@ namespace pdr
       }
 
       auto make_row =
-          [longest](string i, const expr_vector& s, const vector<string>& names)
+          [longest](string i, TraceState const& s, const vector<string>& names)
       {
         vector<string> r = state::marking(s, names, longest);
         r.insert(r.begin(), string(i));
@@ -293,12 +340,12 @@ namespace pdr
         size_t N = res.trace().states.size();
         for (size_t i = 0; i < N; i++)
         {
-          expr_vector const& s = res.trace().states[i];
+          TraceState const& s = res.trace().states[i];
           string index_str;
           {
             if (i == 0)
             {
-              assert(z3ext::quick_implies(s, initial)); // s \in I
+              // assert(z3ext::quick_implies(s, initial)); // s \in I
               index_str = "I";
             }
             else if (i == N - 1)
@@ -307,6 +354,7 @@ namespace pdr
               index_str = to_string(i);
           }
 
+#warning z3pdr result uses only list, litsp gives ? in final result
           Table::Row_t row_marking =
               make_row(index_str, s, (i < N - 1 ? lits : litsp));
           t.add_row(row_marking);
@@ -319,4 +367,37 @@ namespace pdr
       return ss.str();
     }
   } // namespace result
+
+  namespace state
+  {
+    size_t n_marked(PdrResult::Trace::TraceState const& s)
+    {
+      return std::accumulate(s.cbegin(), s.cend(), size_t{ 0 },
+          [](size_t a, LitStr const& l) { return a + l.sign; });
+    }
+
+    // return strings that mark whether every state in header a positive or
+    // negative literal
+    vector<string> marking(
+        TraceState const& state, vector<string> header, unsigned width)
+    {
+      assert(std::is_sorted(header.begin(), header.end()));
+
+      vector<string> rv(header.size(), "?");
+      for (z3ext::LitStr const& lit : state)
+      {
+        auto it = std::lower_bound(header.begin(), header.end(), lit,
+            [](std::string_view h, LitStr const& l) { return h < l.atom; });
+
+        if (it != header.end() && *it == lit.atom) // it points to s
+        {
+          string fill_X           = fmt::format("{:X^{}}", "", width);
+          rv[it - header.begin()] = lit.sign ? fill_X : "";
+        }
+      }
+
+      return rv;
+    }
+  } // namespace state
+
 } // namespace pdr

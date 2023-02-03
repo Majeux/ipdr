@@ -198,7 +198,10 @@ namespace bounded
       std::regex postfix(R"(^([[:alnum:]_]+).([[:digit:]]+)$)");
       std::smatch postfix_match;
       std::string lit_str{ m[i]().to_string() };
-      assert(std::regex_match(lit_str, postfix_match, postfix));
+      if(!std::regex_match(lit_str, postfix_match, postfix))
+      {
+        assert(false);
+      }
       assert(postfix_match.size() == 3);
 
       rv.name            = postfix_match[1];

@@ -1,4 +1,5 @@
 #include "z3-pebbling-model.h"
+#include "logger.h"
 #include "pdr-model.h"
 #include <dbg.h>
 #include <sstream>
@@ -19,6 +20,7 @@ namespace pdr::test
       my::cli::ArgumentList const& args, z3::context& c, dag::Graph const& G)
       : Z3Model(c, std::vector<string>(G.nodes.begin(), G.nodes.end())),
         dag(G),
+        pebble_constraint{},
         initial(ctx),
         target(ctx),
         reach_rule(ctx),
@@ -65,20 +67,12 @@ namespace pdr::test
 
   z3::check_result Z3PebblingModel::reach_target(z3::fixedpoint& engine)
   {
-    dbg(engine.assertions());
-    // dbg(engine.rules());
-    auto rv = engine.query(target);
-    // auto d = target.decl();
-    // for (size_t i{0}; i < engine.get_num_levels(d); i++)
-    // {
-    //   dbg(engine.get_cover_delta(i, d));
-    // }
-    return rv;
+    return engine.query(target);
   }
 
   void Z3PebblingModel::constrain(std::optional<unsigned int> maximum_pebbles)
   {
-    pebble_constraint = maximum_pebbles;
+    pebble_constraint = dbg(maximum_pebbles);
     rules.clear();
     prepare_transitions();
   }
@@ -101,7 +95,7 @@ namespace pdr::test
   expr Z3PebblingModel::make_constraint()
   {
     if (pebble_constraint)
-      return z3::atmost(vars.p(), *pebble_constraint);
+      return z3::atmost(vars, *pebble_constraint);
     return z3_true;
   }
 

@@ -10,14 +10,16 @@
 
 #include <algorithm>
 #include <cassert>
-#include <dbg.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <iterator>
 #include <numeric>
+#include <regex>
 #include <spdlog/stopwatch.h>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <tabulate/table.hpp>
 #include <z3++.h>
 #include <z3_fixedpoint.h>
 #include <z3_spacer.h>
@@ -68,48 +70,60 @@ namespace pdr::test
     // std::cout << ts.to_string() << std::endl;
 
     z3::func_decl t_decl = ts.get_target().decl();
-    cout << endl << "Target" << endl;
-    cout << ts.get_target().to_string() << endl << endl;
-
-    cout << "Fixedpoint engine" << endl << engine.to_string() << endl;
+    MYLOG_INFO(logger, "Target:\n{}", ts.get_target().to_string());
+    MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 
     spdlog::stopwatch timer;
     last_result = ts.reach_target(engine);
     double time = timer.elapsed().count();
 
-    std::vector<std::string> trace;
+    cover_string = "fixedpoint delta-covers:{}";
+    {
+      auto d = ts.get_target().decl();
+      for (size_t i{ 0 }; i < engine.get_num_levels(d); i++)
+      {
+        cover_string += fmt::format("-- level {}\n", i);
+        cover_string +=
+            fmt::format("{}\n", engine.get_cover_delta(i, d).to_string());
+        cover_string += "\n";
+      }
+    }
+
+    vector<std::string> trace;
+    unsigned n_levels;
     switch (last_result)
     {
       case z3::check_result::sat:
         trace = get_trace(engine);
-        cout << "sat fixed point " << fmt::format("trace: {}", trace) << endl;
-        // get_trace_states(engine);
-        return PdrResult::incomplete_trace(trace.size() - 1)
+        MYLOG_DEBUG(logger, "SAT fixedpoint");
+        MYLOG_DEBUG(logger, "Trace: {}", trace);
+        return PdrResult::found_trace(get_trace_states(engine))
             .with_duration(time);
       case z3::check_result::unsat:
-        cout << "unsat fixed point";
-        return PdrResult::found_invariant(engine.get_num_levels(t_decl))
-            .with_duration(time);
+        n_levels = engine.get_num_levels(t_decl);
+        MYLOG_DEBUG(logger, "UNSAT fixedpoint");
+        MYLOG_DEBUG(logger, "Invariant found after {} levels", n_levels);
+        return PdrResult::found_invariant(n_levels).with_duration(time);
       default: break;
     }
 
-    std::cerr << "unknown result" << endl;
+    MYLOG_WARN(logger, "Undefined fixedpoint result");
     return PdrResult::empty_true();
   }
 
   void z3PDR::show_solver(std::ostream& out) const
   {
-    out << "no solver, fixed point engine" << std::endl;
-    // out << engine.to_string() << std::endl;
+    out << "no solver, fixed point engine covers:" << std::endl
+        << cover_string << std::endl;
   }
 
-  std::vector<std::string> z3PDR::get_trace(z3::fixedpoint& engine)
+  vector<std::string> z3PDR::get_trace(z3::fixedpoint& engine)
   {
-    assert(last_result == z3::check_result::last_result);
+    assert(last_result == z3::check_result::sat);
 
     z3::symbol raw(
         ctx(), Z3_fixedpoint_get_rule_names_along_trace(ctx(), engine));
-    std::vector<std::string> trace = str::ext::split(raw.str(), ';');
+    vector<std::string> trace = str::ext::split(raw.str(), ';');
     trace.erase(std::remove_if(trace.begin(), trace.end(),
                     [](string_view a) { return a == "->"; }),
         trace.end());
@@ -120,44 +134,53 @@ namespace pdr::test
     return trace;
   }
 
-  std::string expr_info(expr const& e, unsigned level = 0)
+  PdrResult::Trace::TraceVec z3PDR::get_trace_states(z3::fixedpoint& engine)
   {
-    std::string indent(level, '\t');
-    std::stringstream ss;
+    using tabulate::Table;
+    using z3ext::LitStr;
+    using namespace str::ext;
+    assert(last_result == z3::check_result::sat);
 
-    std::cout << indent << "type:" << e.get_sort() << std::endl;
-    std::cout << indent << "args:" << e.num_args();
+    vector<vector<LitStr>> rv;
+    const vector<string> header = ts.vars.names();
+    vector<expr> states = z3ext::fixedpoint::extract_trace_states(engine);
 
-    return ss.str();
-  }
+    auto invalid = [](std::string_view s)
+    {
+      return std::invalid_argument(
+          fmt::format("\"{}\" is not a valid state in the trace", s));
+    };
 
-  std::vector<std::string> z3PDR::get_trace_states(z3::fixedpoint& engine)
-  {
-    assert(last_result == z3::check_result::last_result);
+    // use regex to extract the assignments of "true" and "false" from a state
+    // they are in order of ts.vars.names()
+    const std::regex marking(R"(\(state((?: (?:true|false))*)\))");
+    std::smatch match;
 
-    expr answer = engine.get_answer();
-    // first argument is proof
-    // second is query
-    // third is result
+    for (size_t i{ 0 }; i < states.size(); i++)
+    {
+      std::string state_str(states[i].to_string());
+      if (!std::regex_match(state_str, match, marking))
+        throw invalid(state_str);
+      assert(match.size() == 2);
 
-    std::cout << "--\n--raw answer" << answer << std::endl << std::endl;
+      string mark_string = match[1];
+      trim(mark_string);
+      vector<string> marks = split(mark_string, ' ');
 
-    // std::cout << expr_info(answer, 0) << std::endl;
-    // for (size_t i{ 0 }; i < answer.num_args(); i++)
-    // {
-    //   std::cout << "\t==" << answer.arg(i) << std::endl
-    //             << expr_info(answer.arg(i), 1) << std::endl;
-    // }
+      assert(marks.size() == header.size());
+      vector<LitStr> state;
+      for (size_t j{ 0 }; j < marks.size(); j++)
+      {
+        if (marks[j] == "true")
+          state.emplace_back(header.at(j), true);
+        else if (marks[j] == "false")
+          state.emplace_back(header.at(j), false);
+        else
+          throw invalid(state_str);
+      }
+      rv.push_back(state);
+    }
 
-    // std::cout << "L2" << std::endl;
-    // expr proof = answer.arg(0);
-    // for (size_t i{ 0 }; i < proof.num_args(); i++)
-    // {
-    //   std::cout << "\t==\n"
-    //             << expr_info(proof.arg(i), 2) << std::endl
-    //             << "\t" << proof.arg(i) << std::endl;
-    // }
-
-    return {};
+    return rv;
   }
 } // namespace pdr::test

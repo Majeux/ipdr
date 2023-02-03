@@ -22,8 +22,8 @@ namespace pdr::pebbling::experiments
     using Row_t   = tabulate::Table::Row_t;
     // 7 rows
 
-    std::optional<PebblingResult::PebblingInvariant> min_inv;
-    std::optional<PebblingResult::PebblingTrace> min_strat;
+    std::optional<IpdrPebblingResult::PebblingInvariant> min_inv;
+    std::optional<IpdrPebblingResult::PebblingTrace> min_strat;
     PebblingRun(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& results);
 

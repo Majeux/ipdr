@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <cxxopts.hpp>
+#include <dbg.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <initializer_list>
@@ -232,27 +233,23 @@ namespace my::cli
 
   ArgumentList::ArgumentList(int argc, char* argv[])
   {
-    cxxopts::Options clopt = make_options(argv[0]);
+    cxxopts::Options clopt        = make_options(argv[0]);
     // try
     // {
-      cxxopts::ParseResult clresult = clopt.parse(argc, argv);
+    cxxopts::ParseResult clresult = clopt.parse(argc, argv);
 
-      if (clresult.count("help"))
-      {
-        std::cerr << clopt.help() << std::endl;
-        exit(0);
-      }
+    if (clresult.count("help"))
+    {
+      std::cerr << clopt.help() << std::endl;
+      exit(0);
+    }
 
-      if (!z3pdr)
-      {
-        parse_verbosity(clresult);
-        parse_alg(clresult);
-      }
-      parse_model(clresult);
-      
+    parse_verbosity(clresult);
+    parse_alg(clresult);
+    parse_model(clresult);
 
-      if (!onlyshow && !z3pdr)
-        parse_run(clresult);
+    if (!onlyshow && !z3pdr)
+      parse_run(clresult);
     // }
     // catch (std::exception const& e)
     // {
@@ -458,7 +455,7 @@ namespace my::cli
     require_one_of({ o_alg }, clresult);
     std::string a = clresult[o_alg].as<std::string>();
 
-    if (a == s_pdr)
+    if (dbg(a) == s_pdr)
       algorithm = algo::t_PDR();
     else if (a == s_ipdr)
     {
@@ -505,13 +502,9 @@ namespace my::cli
   {
     require_one_of({ s_pebbling, s_peter }, clresult);
     atmost_one_of({ s_pebbles, s_procs }, clresult);
+    require_one_of({ o_alg }, clresult);
 
-    std::string a = "";
-    if (!z3pdr)
-    {
-      require_one_of({ o_alg }, clresult);
-      a = clresult[o_alg].as<std::string>();
-    }
+    std::string a = clresult[o_alg].as<std::string>();
 
     if (clresult.count(s_peter))
     {

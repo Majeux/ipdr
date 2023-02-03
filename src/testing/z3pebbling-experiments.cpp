@@ -24,16 +24,16 @@ namespace pdr::test::experiments
   {
     sample_table          = tabulate::Table();
     sample_table.format() = control_table.format();
-    sample_table.add_row(pebbling::PebblingResult::pebbling_total_header);
+    sample_table.add_row(pebbling::IpdrPebblingResult::pebbling_total_header);
 
     control_table          = tabulate::Table();
     control_table.format() = sample_table.format();
-    control_table.add_row(pebbling::PebblingResult::pebbling_total_header);
+    control_table.add_row(pebbling::IpdrPebblingResult::pebbling_total_header);
   }
 
   shared_ptr<expsuper::Run> Z3PebblingExperiment::do_reps(const bool is_control)
   {
-    using pebbling::PebblingResult;
+    using pebbling::IpdrPebblingResult;
     using pebbling::experiments::PebblingRun;
 
     assert(is_control);
@@ -45,9 +45,9 @@ namespace pdr::test::experiments
       std::optional<unsigned> optimum;
       // new context with new random seed
       pdr::Context ctx(ts.ctx, seeds[i]);
-      z3PebblingIPDR opt(ctx, ts, args, log);
+      z3PebblingIPDR opt(args, ctx, log, ts);
       {
-        PebblingResult result = opt.control_run(tactic);
+        IpdrPebblingResult result = opt.control_run(tactic);
 
         if (!optimum)
           optimum = result.min_pebbles();
@@ -55,7 +55,7 @@ namespace pdr::test::experiments
         assert(optimum == result.min_pebbles()); // all results should be same
 
         results.emplace_back(
-            std::make_unique<PebblingResult>(std::move(result)));
+            std::make_unique<IpdrPebblingResult>(std::move(result)));
       }
 
       if (is_control)

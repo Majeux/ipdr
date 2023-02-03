@@ -31,7 +31,7 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  PDR::PDR(Context c, Logger& l, IModel& m)
+  PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
       : vPDR(c, l), ts(m), frames(ctx, m, logger)
   {
   }
@@ -66,7 +66,7 @@ namespace pdr
       }
     }
 
-    MYLOG_INFO(logger, "\nStart iteration");
+    // MYLOG_INFO(logger, "\nStart iteration");
     logger.indent++;
     if (PdrResult it_res = iterate_short())
     {

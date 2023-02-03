@@ -12,7 +12,7 @@ namespace pdr::pebbling
   // aggregates multiple pdr runs into a single ipdr result for pebbling
   // collects: total time spent, highest level invariant, and trace with the
   // lowest marking
-  class PebblingResult final : public IpdrResult
+  class IpdrPebblingResult final : public IpdrResult
   {
    public:
     inline static const tabulate::Table::Row_t pebbling_summary_header = {
@@ -27,11 +27,7 @@ namespace pdr::pebbling
       PdrResult::Invariant invariant;
       std::optional<unsigned> constraint;
     };
-    struct PebblingTrace
-    {
-      PdrResult::Trace trace;
-      unsigned pebbled{ 0 };
-    };
+    using PebblingTrace = PdrResult::Trace;
     struct Data_t
     {
       double const& time; // refers to IpdrResult::total_time
@@ -40,13 +36,15 @@ namespace pdr::pebbling
     };
 
     // construct PebblingResult
-    PebblingResult(const PebblingModel& m, Tactic t);
-    PebblingResult(z3::expr_vector initial, mysat::primed::VarVec const& vars,
-        unsigned pebbles_final, std::optional<unsigned> pebbles_max, Tactic t);
+    IpdrPebblingResult(const PebblingModel& m, Tactic t);
+    IpdrPebblingResult(z3::expr_vector initial,
+        mysat::primed::VarVec const& vars, unsigned pebbles_final, Tactic t);
     // convert from general IpdrResult to PebblingResult
-    PebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
-    PebblingResult(const IpdrResult& r, unsigned pebbles_final,
-        std::optional<unsigned> pebbles_max, Tactic t);
+    IpdrPebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
+    IpdrPebblingResult(const IpdrResult& r, unsigned pebbles_final, Tactic t);
+
+    IpdrPebblingResult& add(
+        const PdrResult& r, std::optional<unsigned> constraint);
 
     Data_t const& get_total() const;
     std::string end_result() const override;
@@ -56,7 +54,6 @@ namespace pdr::pebbling
    private:
     // pebbling model info
     unsigned pebbles_final;
-    std::optional<unsigned> pebble_constraint;
 
     const Tactic tactic;
     // the latest invariant and trace, with the total time spent
@@ -71,7 +68,8 @@ namespace pdr::pebbling
     const tabulate::Table::Row_t summary_header() const override;
     const tabulate::Table::Row_t total_header() const override;
     // expand row with constraint and length, and store the latest in total
-    const tabulate::Table::Row_t process_row(const PdrResult& r) override;
+    const tabulate::Table::Row_t process_result(
+        const PdrResult& r, std::optional<unsigned> constraint);
     std::string process_trace(const PdrResult& res) const override;
   };
 } // namespace pdr::pebbling

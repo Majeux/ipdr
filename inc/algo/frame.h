@@ -22,14 +22,13 @@ namespace pdr
     {
       private:
         z3ext::CubeSet blocked_cubes;
-        unsigned level;
-        Logger& logger;
+        const unsigned level;
         // the arguments of the clause are sorted by mic, use id to search
 
         void init_solver();
 
       public:
-        Frame(unsigned i, Logger& l);
+        Frame(unsigned i);
 
         unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
         bool blocked(const z3::expr_vector& cube);

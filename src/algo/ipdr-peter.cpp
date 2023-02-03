@@ -5,13 +5,13 @@
 
 namespace pdr::peterson
 {
-  IPDR::IPDR(Context& c, PetersonModel& m, my::cli::ArgumentList const& args,
-      Logger& l)
-      : alg(c, l, m), ts(m)
+  IPDR::IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+      PetersonModel& m)
+      : vIPDR(args, c, l, m), ts(m)
   {
   }
 
-  PetersonResult IPDR::control_run(Tactic tactic, unsigned processes)
+  IpdrPetersonResult IPDR::control_run(Tactic tactic, unsigned processes)
   {
     switch (tactic)
     {
@@ -27,33 +27,42 @@ namespace pdr::peterson
         "No optimization pdr tactic has been selected.");
   }
 
-  PetersonResult IPDR::run(Tactic tactic, unsigned processes, bool control)
+  IpdrPetersonResult IPDR::run(
+      Tactic tactic, std::optional<unsigned> processes, bool control)
   {
+    unsigned p;
+    if (processes)
+    {
+      p = processes.value();
+      basic_reset(p);
+    }
+    else
+      p = ts.n_processes();
+
     switch (tactic)
     {
       case Tactic::constrain:
         throw std::invalid_argument("Decrement not implemented.");
         break;
-      case Tactic::relax: return relax(processes, control);
-      case Tactic::inc_jump_test: relax_jump_test(processes, 10); break;
-      case Tactic::inc_one_test: relax_jump_test(processes, 1); break;
+      case Tactic::relax: return relax(p, control);
+      case Tactic::inc_jump_test: relax_jump_test(p, 10); break;
+      case Tactic::inc_one_test: relax_jump_test(p, 1); break;
       default: break;
     }
     throw std::invalid_argument(
         "No optimization pdr tactic has been selected.");
   }
 
-  PetersonResult IPDR::relax(unsigned processes, bool control)
+  IpdrPetersonResult IPDR::relax(unsigned p, bool control)
   {
-    unsigned p = processes, N = ts.max_processes();
-    alg.logger.and_whisper(
-        "! Proving peterson for {}..{} processes.", processes, N);
+    assert(p == ts.n_processes());
+    unsigned N = ts.max_processes();
+    alg.logger.and_whisper("! Proving peterson for {}..{} processes.", p, N);
 
-    PetersonResult total(ts, Tactic::relax);
+    IpdrPetersonResult total(ts, Tactic::relax);
 
-    basic_reset(p);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.n_processes());
 
     for (p = p + 1; invariant && p <= N; p++)
     {
@@ -64,7 +73,7 @@ namespace pdr::peterson
 
       invariant = alg.run();
 
-      total.add(invariant);
+      total.add(invariant, ts.n_processes());
     }
 
     if (invariant && p > N) // last run did not find a trace
@@ -81,7 +90,7 @@ namespace pdr::peterson
   //
   void IPDR::basic_reset(unsigned processes)
   {
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
+    assert(std::addressof(ts) == std::addressof(alg.ts));
 
     unsigned old = ts.n_processes();
 
@@ -95,7 +104,7 @@ namespace pdr::peterson
 
   void IPDR::relax_reset(unsigned processes)
   {
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
+    assert(std::addressof(ts) == std::addressof(alg.ts));
 
     unsigned old = ts.n_processes();
     assert(processes > old);
@@ -109,30 +118,28 @@ namespace pdr::peterson
     alg.frames.reset_to_F1();
   }
 
-  PetersonResult IPDR::relax_jump_test(unsigned start, int step)
+  IpdrPetersonResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
     alg.logger.and_show("NEW INC JUMP TEST RUN");
     alg.logger.and_show("start {}. step {}", start, step);
 
-    PetersonResult total(ts, Tactic::relax);
+    IpdrPetersonResult total(ts, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.n_processes());
 
     unsigned oldp = ts.n_processes();
     unsigned newp = oldp + step;
     assert(newp > 0);
     assert(oldp < newp);
-    assert(newp <= model.max_processes());
+    assert(newp <= ts.max_processes());
 
     relax_reset(newp);
     invariant = alg.run();
 
-    total.add(invariant);
+    total.add(invariant, ts.n_processes());
 
     return total;
   }
-
-  PDR const& IPDR::internal_alg() const { return alg; }
 } // namespace pdr::peterson

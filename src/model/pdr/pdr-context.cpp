@@ -1,17 +1,21 @@
 #include "pdr-context.h"
 
 #include <iostream>
+#include <memory>
 
 namespace pdr
 {
   Context::Context(z3::context& c, unsigned s)
-      : z3_ctx(c), seed(s), type(Tactic::undef),
+      : z3_ctx(c),
+        seed(s),
+        type(Tactic::undef),
         mic_retries(MIC_RETRIES_DEFAULT)
   {
     std::cout << "random seed " << seed << std::endl;
   }
 
-  Context::Context(z3::context& c, bool random_seed) : z3_ctx(c), type(Tactic::undef)
+  Context::Context(z3::context& c, bool random_seed)
+      : z3_ctx(c), type(Tactic::undef), mic_retries(MIC_RETRIES_DEFAULT)
   {
     srand(time(0));
     seed = random_seed ? rand() : 0u;

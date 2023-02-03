@@ -28,7 +28,7 @@ namespace pdr
     Logger& log;
     const bool LOG_SAT_CALLS = false;
 
-    std::vector<std::unique_ptr<Frame>> frames;
+    std::vector<Frame> frames;
     Solver FI_solver;
     Solver delta_solver;
     std::vector<z3::expr> act; // activation variables for each frame
@@ -38,6 +38,8 @@ namespace pdr
     z3::solver init_solver; // TODO immutable interface
 
     Frames(Context& c, IModel& m, Logger& l);
+    // ~Frames() noexcept = default;
+    // Frames(Frames&&) = default;
 
     // reset the sequence to F_0, F_1 (frontier 0)
     void reset();

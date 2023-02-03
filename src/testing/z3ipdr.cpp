@@ -4,23 +4,24 @@
 #include "z3pdr.h"
 
 #include <cassert>
+#include <dbg.h>
 #include <optional>
 
 namespace pdr::test
 {
   using std::optional;
 
-  z3PebblingIPDR::z3PebblingIPDR(Context& c, Z3PebblingModel& m,
-      my::cli::ArgumentList const& args, Logger& l)
+  z3PebblingIPDR::z3PebblingIPDR(my::cli::ArgumentList const& args, Context& c,
+      Logger& l, Z3PebblingModel& m)
       : alg(c, l, m), ts(m), starting_pebbles()
   {
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
+    assert(std::addressof(ts) == std::addressof(alg.ts));
     auto const& peb =
         my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
     starting_pebbles = peb.max_pebbles;
   }
 
-  pebbling::PebblingResult z3PebblingIPDR::control_run(Tactic tactic)
+  pebbling::IpdrPebblingResult z3PebblingIPDR::control_run(Tactic tactic)
   {
     switch (tactic)
     {
@@ -32,29 +33,30 @@ namespace pdr::test
     }
   }
 
-  pebbling::PebblingResult z3PebblingIPDR::relax(bool control)
+  pebbling::IpdrPebblingResult z3PebblingIPDR::relax(bool control)
   {
     assert(control && "only naive ipdr supported for z3");
     alg.logger.and_whisper("! Optimization run: increment max pebbles.");
 
-    unsigned n_nodes               = ts.dag.nodes.size();
-    unsigned final_n_pebbles       = ts.dag.output.size();
-    pebbling::PebblingResult total = new_total(Tactic::relax);
+    unsigned n_nodes                   = ts.dag.nodes.size();
+    unsigned final_n_pebbles           = ts.dag.output.size();
+    pebbling::IpdrPebblingResult total = new_total(Tactic::relax);
 
     // need at least this many pebbles
     unsigned N = starting_pebbles.value_or(final_n_pebbles);
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.get_pebble_constraint());
 
     for (N = N + 1; invariant && N <= n_nodes; N++)
     {
+      assert(N > ts.get_pebble_constraint());
       basic_reset(N);
 
       invariant = alg.run();
 
-      total.add(invariant);
+      total.add(invariant, ts.get_pebble_constraint());
     }
 
     if (N > n_nodes) // last run did not find a trace
@@ -67,21 +69,21 @@ namespace pdr::test
     return total;
   }
 
-  pebbling::PebblingResult z3PebblingIPDR::constrain(bool control)
+  pebbling::IpdrPebblingResult z3PebblingIPDR::constrain(bool control)
   {
     assert(control && "only naive ipdr supported for z3");
     alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
 
-    unsigned n_nodes               = ts.dag.nodes.size();
-    unsigned final_n_pebbles       = ts.dag.output.size();
-    pebbling::PebblingResult total = new_total(Tactic::constrain);
+    unsigned n_nodes                   = ts.dag.nodes.size();
+    unsigned final_n_pebbles           = ts.dag.output.size();
+    pebbling::IpdrPebblingResult total = new_total(Tactic::constrain);
 
     // we can use at most this many pebbles
     unsigned N = starting_pebbles.value_or(n_nodes);
 
-    basic_reset(N);
+    basic_reset(dbg(N));
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.get_pebble_constraint());
     if (!invariant)
       N = std::min(N, total.min_pebbles().value_or(N));
 
@@ -89,10 +91,11 @@ namespace pdr::test
     // so iterate until a strategy is found or until then
     for (N = N - 1; !invariant && N >= final_n_pebbles; N--)
     {
-      basic_reset(N);
+      assert(N < ts.get_pebble_constraint());
+      basic_reset(dbg(N));
       invariant = alg.run();
 
-      total.add(invariant);
+      total.add(invariant, ts.get_pebble_constraint());
       if (!invariant)
         N = std::min(N, total.min_pebbles().value_or(N));
     }
@@ -109,15 +112,15 @@ namespace pdr::test
 
   // Private members
   //
-  pebbling::PebblingResult z3PebblingIPDR::new_total(Tactic t) const
+  pebbling::IpdrPebblingResult z3PebblingIPDR::new_total(Tactic t) const
   {
-    return pebbling::PebblingResult(ts.get_initial(), ts.vars,
-        ts.dag.output.size(), ts.get_pebble_constraint(), t);
+    return pebbling::IpdrPebblingResult(
+        ts.get_initial(), ts.vars, ts.dag.output.size(), t);
   }
 
   void z3PebblingIPDR::basic_reset(unsigned pebbles)
   {
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
+    assert(std::addressof(ts) == std::addressof(alg.ts));
 
     std::optional<unsigned> current = ts.get_pebble_constraint();
     std::string from = current ? std::to_string(*current) : "any";
@@ -127,4 +130,6 @@ namespace pdr::test
     alg.ctx.type = Tactic::basic;
     alg.reset();
   }
+
+  z3PDR const& z3PebblingIPDR::internal_alg() const { return alg; }
 } // namespace pdr::test

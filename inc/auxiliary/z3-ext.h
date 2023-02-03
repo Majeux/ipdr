@@ -14,6 +14,19 @@
 
 namespace z3ext
 {
+  // atoms and literals
+  //
+  struct LitStr
+  {
+    std::string atom;
+    bool sign;
+    // extract the string representation and sign from a literal expressions
+    LitStr(std::string_view a, bool s);
+    LitStr(z3::expr const& l);
+    // LitStr(LitStr const&) = default;
+    z3::expr to_expr(z3::context& ctx);
+  };
+
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
   // get the variable of a literal
@@ -171,7 +184,7 @@ namespace z3ext
             ->size();
 
     std::stringstream ss;
-    for(size_t i{0}; i < strings.size(); i++)
+    for (size_t i{ 0 }; i < strings.size(); i++)
     {
       if (i > 0)
         ss << delimiter;
@@ -193,7 +206,7 @@ namespace z3ext
       return join_ev_aligned(c, delimiter);
 
     std::stringstream ss;
-    for(size_t i{0}; i < c.size(); i++)
+    for (size_t i{ 0 }; i < c.size(); i++)
     {
       if (i > 0)
         ss << delimiter;
@@ -260,6 +273,11 @@ namespace z3ext
       return convert(std_witness_st(s, p));
     }
   } // namespace solver
+
+  namespace fixedpoint
+  {
+    std::vector<z3::expr> extract_trace_states(z3::fixedpoint& engine);
+  } // namespace fixedpoint
 
   namespace tseytin
   {

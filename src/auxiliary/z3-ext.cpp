@@ -1,7 +1,10 @@
 #include "z3-ext.h"
 
 #include <algorithm>
+#include <fmt/core.h>
+#include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 #include <z3++.h>
 
@@ -11,6 +14,41 @@ namespace z3ext
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+
+  // atoms and lits
+  //
+  LitStr::LitStr(std::string_view a, bool s) : atom(a), sign(s) {}
+  LitStr::LitStr(expr const& l)
+  {
+    const auto invalid = std::invalid_argument(
+        fmt::format("\"{}\" is not boolean literal", l.to_string()));
+
+    if (!l.is_bool())
+      throw invalid;
+
+    if (l.is_const())
+    {
+      atom = l.to_string();
+      sign = true;
+    }
+    else if (l.is_not())
+    {
+      if (!l.arg(0).is_const())
+        throw invalid;
+      atom = l.arg(0).to_string();
+      sign = false;
+    }
+    else
+      throw invalid;
+  }
+
+  z3::expr LitStr::to_expr(z3::context& ctx)
+  {
+    if (sign)
+      return ctx.bool_const(atom.c_str());
+
+    return !ctx.bool_const(atom.c_str());
+  }
 
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
@@ -38,7 +76,7 @@ namespace z3ext
 
   expr_vector mk_expr_vec(std::initializer_list<z3::expr> l)
   {
-    assert(not l.empty());
+    assert(not std::empty(l));
     expr_vector rv(l.begin()->ctx());
     for (expr e : l)
       rv.push_back(e);
@@ -314,6 +352,54 @@ namespace z3ext
         return {};
     }
   } // namespace solver
+
+  std::string expr_info(expr const& e, unsigned level = 0)
+  {
+    std::string indent(level, '\t');
+    std::stringstream ss;
+
+    ss << indent
+       << fmt::format(
+              "type: {} - args: {}", e.get_sort().to_string(), e.num_args());
+
+    return ss.str();
+  }
+
+  namespace fixedpoint
+  {
+    std::vector<z3::expr> extract_trace_states(z3::fixedpoint& engine)
+    {
+      std::vector<z3::expr> rv;
+      // answer {
+      // arg(0) = proof {
+      //  arg(0) = define-target
+      //  arg(1) = recursive-state
+      //  arg(2) = assert-target
+      //  }
+      // arg(1) = query
+      // arg(2) = result
+      // }
+      expr recursive_state = engine.get_answer().arg(0).arg(1);
+
+      // recursive-state {
+      //  arg(0) = define-step
+      //  arg(1) = step
+      //  arg(2) = recursive-state
+      //  arg(3) = destination state
+      // }
+      while (recursive_state.num_args() == 4)
+      {
+        rv.push_back(recursive_state.arg(3));
+
+        recursive_state = recursive_state.arg(2);
+      }
+      assert(recursive_state.num_args() == 2);
+      rv.push_back(recursive_state.arg(1));
+
+      std::reverse(rv.begin(), rv.end());
+      return rv;
+    }
+  } // namespace fixedpoint
 
   // TSEYTIN ENCODING
   //

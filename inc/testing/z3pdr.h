@@ -10,6 +10,7 @@
 #include "vpdr.h"
 #include "z3-pebbling-model.h"
 
+#include <tabulate/table.hpp>
 #include <z3++.h>
 
 namespace pdr::test
@@ -39,9 +40,10 @@ namespace pdr::test
 
     Z3Model& ts;
     z3::check_result last_result = z3::check_result::unknown;
+    std::string cover_string{ "" };
 
     std::vector<std::string> get_trace(z3::fixedpoint& engine);
-    std::vector<std::string> get_trace_states(z3::fixedpoint& engine);
+    PdrResult::Trace::TraceVec get_trace_states(z3::fixedpoint& engine);
 
     z3::fixedpoint mk_prepare_fixedpoint();
   };
@@ -51,15 +53,15 @@ namespace pdr::test
   class z3PebblingIPDR
   {
    public:
-    z3PebblingIPDR(Context& c, Z3PebblingModel& m,
-        my::cli::ArgumentList const& args, Logger& l);
+    z3PebblingIPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+        Z3PebblingModel& m);
 
     // run ipdr without any incremental funtionality
-    pebbling::PebblingResult control_run(Tactic tactic);
-    pebbling::PebblingResult relax(bool control);
-    pebbling::PebblingResult constrain(bool control);
+    pebbling::IpdrPebblingResult control_run(Tactic tactic);
+    pebbling::IpdrPebblingResult relax(bool control);
+    pebbling::IpdrPebblingResult constrain(bool control);
 
-    pebbling::PebblingResult new_total(Tactic t) const;
+    pebbling::IpdrPebblingResult new_total(Tactic t) const;
     z3PDR const& internal_alg() const;
 
    private:

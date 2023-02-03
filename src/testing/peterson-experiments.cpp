@@ -44,11 +44,11 @@ namespace pdr::peterson::experiments
   {
     sample_table          = tabulate::Table();
     sample_table.format() = control_table.format();
-    sample_table.add_row(PetersonResult::peterson_total_header);
+    sample_table.add_row(IpdrPetersonResult::peterson_total_header);
 
     control_table          = tabulate::Table();
     control_table.format() = sample_table.format();
-    control_table.add_row(PetersonResult::peterson_total_header);
+    control_table.add_row(IpdrPetersonResult::peterson_total_header);
   }
 
   shared_ptr<expsuper::Run> PetersonExperiment::do_reps(const bool is_control)
@@ -60,10 +60,10 @@ namespace pdr::peterson::experiments
       cout << format("{}: {}", i, seeds[i]) << endl;
       // new context with new random seed
       pdr::Context ctx(ts.ctx, seeds[i]);
-      IPDR opt(ctx, ts, args, log);
+      IPDR opt(args, ctx, log, ts);
 
       {
-        PetersonResult result = is_control
+        IpdrPetersonResult result = is_control
                                   ? opt.control_run(tactic, ts_descr.start)
                                   : opt.run(tactic, ts_descr.start);
 
@@ -71,7 +71,7 @@ namespace pdr::peterson::experiments
           cout << "! counter found" << endl;
 
         results.emplace_back(
-            std::make_unique<PetersonResult>(std::move(result)));
+            std::make_unique<IpdrPetersonResult>(std::move(result)));
       }
 
       if (is_control)
@@ -94,7 +94,7 @@ namespace pdr::peterson::experiments
     {
       try
       {
-        auto const& peter_r = dynamic_cast<PetersonResult const&>(*r);
+        auto const& peter_r = dynamic_cast<IpdrPetersonResult const&>(*r);
 
         // time is done by Run()
         correct = correct && peter_r.all_holds();

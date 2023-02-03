@@ -18,7 +18,6 @@
 
 namespace pdr
 {
-  using std::make_unique;
   using std::optional;
   using z3::expr;
   using z3::expr_vector;
@@ -35,7 +34,7 @@ namespace pdr
     init_solver.reset();
     init_solver.add(model.get_initial());
 
-    frames.push_back(make_unique<Frame>(0, log));
+    frames.emplace_back(0);
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
@@ -49,11 +48,10 @@ namespace pdr
   {
     assert(frames.size() == act.size());
 
-    frames.resize(0);
-    while (act.size() > 0)
-      act.pop_back();
+    frames.clear();
+    act.clear();
 
-    frames.push_back(make_unique<Frame>(0, log));
+    frames.emplace_back(0);
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
@@ -74,7 +72,7 @@ namespace pdr
 
     // repopulate
     for (size_t i{ 1 }; i < frames.size(); i++)
-      delta_solver.block(frames[i]->get_blocked(), act.at(i));
+      delta_solver.block(frames[i].get_blocked(), act.at(i));
 
     // with fewer transitions, new cubes may be propagated
     MYLOG_INFO(log, "Redoing last propagation: {}", frontier() - 1);
@@ -139,7 +137,7 @@ namespace pdr
     assert(frames.size() > 0);
     std::string acti = fmt::format("__act{}__", frames.size());
     act.push_back(ctx().bool_const(acti.c_str()));
-    frames.push_back(make_unique<Frame>(frames.size(), log));
+    frames.emplace_back(frames.size());
   }
 
 #warning TODO: refresh solver based on % or no. subsumed ??
@@ -147,7 +145,7 @@ namespace pdr
   {
     delta_solver.reset();
     for (size_t i = 1; i < frames.size(); i++)
-      delta_solver.block(frames[i]->get_blocked(), act.at(i));
+      delta_solver.block(frames[i].get_blocked(), act.at(i));
   }
 
   z3ext::CubeSet Frames::get_blocked_in(size_t i) const
@@ -159,7 +157,7 @@ namespace pdr
     for (; i < frames.size(); i++)
     {
       // TODO non-const getter allows std::move
-      z3ext::CubeSet const& Fi = frames[i]->get_blocked();
+      z3ext::CubeSet const& Fi = frames[i].get_blocked();
       blocked.insert(Fi.begin(), Fi.end());
     }
 
@@ -184,13 +182,13 @@ namespace pdr
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
-      unsigned n_removed = frames.at(i)->remove_subsumed(cube, i < level);
+      unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
       log.stats.subsumed_cubes.add(level, n_removed);
     }
 
     assert(level > 0 && level < frames.size());
 #warning subsumes is now not automatic
-    if (frames[level]->block(cube))
+    if (frames[level].block(cube))
     {
       delta_solver.block(cube, act.at(level));
       MYLOG_DEBUG(log, "blocked in {}", level);
@@ -216,7 +214,7 @@ namespace pdr
       push_forward_delta(i, repeat);
 
     for (size_t i = 1; i <= k; i++)
-      if (frames.at(i)->empty())
+      if (frames.at(i).empty())
       {
         MYLOG_INFO(log, "F[{}] \\ F[{}] == 0", i, i + 1);
         return i;
@@ -234,7 +232,7 @@ namespace pdr
     auto start = steady_clock::now();
 
     unsigned count         = 0;
-    z3ext::CubeSet blocked = frames.at(level)->get_blocked();
+    z3ext::CubeSet blocked = frames.at(level).get_blocked();
     for (z3::expr_vector const& cube : blocked)
     {
       if (!trans_source(level, cube))
@@ -418,7 +416,7 @@ namespace pdr
   {
     assert(i > 0);
     assert(i < frames.size());
-    return *frames[i];
+    return frames[i];
   }
 
   //
@@ -447,7 +445,7 @@ namespace pdr
     std::string str;
     for (auto& f : frames)
     {
-      str += f->blocked_str();
+      str += f.blocked_str();
       str += '\n';
     }
     return str;
