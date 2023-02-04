@@ -155,11 +155,13 @@ namespace pdr::experiments
 
   // EXPERIMENT PUBLIC MEMBERS
   //
-  Experiment::Experiment(
-      my::cli::ArgumentList const& a, Logger& l)
-      : args(a), model(model_t::get_name(args.model)),
-        type(algo::get_name(args.algorithm)), log(l),
-        N_reps(args.experiment->repetitions), seeds(N_reps)
+  Experiment::Experiment(my::cli::ArgumentList const& a, Logger& l)
+      : args(a),
+        model(model_t::get_name(args.model)),
+        type(algo::get_name(args.algorithm)),
+        log(l),
+        N_reps(args.experiment->repetitions),
+        seeds(N_reps)
   {
     if (auto ipdr = my::variant::get_cref<algo::t_IPDR>(args.algorithm))
       tactic = ipdr->get().type;
@@ -183,27 +185,46 @@ namespace pdr::experiments
 
     std::ofstream latex = args.folders.file_in_run("tex");
     std::ofstream raw   = args.folders.file_in_run("md");
-
-    std::cout << type + " run." << endl;
-
-    std::shared_ptr<Run> aggregate = do_reps(false);
-    latex << aggregate->str(output_format::latex);
-
-    std::cout << "control run." << endl;
-    std::shared_ptr<Run> control_aggregate = do_reps(true);
-    assert(control_aggregate != nullptr);
-    latex << aggregate->str_compared(*control_aggregate, output_format::latex);
-
-    // write raw run data as markdown
     tabulate::MarkdownExporter exporter;
-    raw << format("# {}. {} samples. {} tactic.", model, N_reps,
-               tactic::to_string(tactic))
-        << endl;
 
-    raw << "## Experiment run." << endl;
-    aggregate->dump(exporter, raw);
+    if (args.experiment->control_only)
+    {
+      std::cout << type + " (only) control run." << endl;
+      std::shared_ptr<Run> control_aggregate = do_reps(true);
+      assert(control_aggregate != nullptr);
+      latex << control_aggregate->str(output_format::latex);
 
-    raw << "## Control run." << endl;
-    control_aggregate->dump(exporter, raw);
+      // write raw run data as markdown
+      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+                 tactic::to_string(tactic))
+          << endl;
+
+      raw << "## Control run." << endl;
+      control_aggregate->dump(exporter, raw);
+    }
+    else
+    {
+      std::cout << type + " run." << endl;
+
+      std::shared_ptr<Run> aggregate = do_reps(false);
+      latex << aggregate->str(output_format::latex);
+
+      std::cout << "control run." << endl;
+      std::shared_ptr<Run> control_aggregate = do_reps(true);
+      assert(control_aggregate != nullptr);
+      latex << aggregate->str_compared(
+          *control_aggregate, output_format::latex);
+
+      // write raw run data as markdown
+      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+                 tactic::to_string(tactic))
+          << endl;
+
+      raw << "## Experiment run." << endl;
+      aggregate->dump(exporter, raw);
+
+      raw << "## Control run." << endl;
+      control_aggregate->dump(exporter, raw);
+    }
   }
 } // namespace pdr::experiments

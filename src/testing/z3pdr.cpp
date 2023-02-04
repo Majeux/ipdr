@@ -41,6 +41,7 @@ namespace pdr::test
     z3::fixedpoint engine(ctx);
     z3::params p(ctx);
     p.set("engine", "spacer");      // z3 pdr implementation
+    p.set("spacer.random_seed", ctx.seed);
     p.set("spacer.push_pob", true); // pushing blocked facts
     p.set("print_answer", true);
     // p.set("spacer.p3.share_invariants", true); // invariant lemmas
@@ -63,7 +64,7 @@ namespace pdr::test
     using std::endl;
 
     z3::fixedpoint engine = mk_prepare_fixedpoint();
-    // dbg(engine.help());
+    engine.help();
 
     ts.add_initial(engine);
     ts.add_transitions(engine);

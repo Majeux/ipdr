@@ -248,7 +248,7 @@ namespace my::cli
     parse_alg(clresult);
     parse_model(clresult);
 
-    if (!onlyshow && !z3pdr)
+    if (!onlyshow)
       parse_run(clresult);
     // }
     // catch (std::exception const& e)
@@ -286,7 +286,7 @@ namespace my::cli
       folders.file_base += '-' + algo::filetag(algorithm);
       if (experiment)
       {
-        if (experiment->control)
+        if (experiment->control_only)
           folders.file_base += format("-exp_C_{}", experiment->repetitions);
         else
           folders.file_base += format("-exp_{}", experiment->repetitions);
@@ -312,7 +312,7 @@ namespace my::cli
     {
       out << format(
           "Running an experiment with {} samples. ", experiment->repetitions);
-      if (experiment->control)
+      if (experiment->control_only)
         out << "(a control run)";
       out << endl;
     }
@@ -452,7 +452,8 @@ namespace my::cli
 
   void ArgumentList::parse_alg(cxxopts::ParseResult const& clresult)
   {
-    require_one_of({ o_alg }, clresult);
+    if (!experiment)
+      require_one_of({ o_alg }, clresult);
     std::string a = clresult[o_alg].as<std::string>();
 
     if (dbg(a) == s_pdr)
@@ -556,8 +557,10 @@ namespace my::cli
       if (clresult.count(s_pdr))
         throw std::invalid_argument("Experiments verify incremental runs only");
 
-      bool control = (clresult.count(s_control) == 1);
+      // the z3 fixedpoint implementation does only naive (control) runs
+      bool control = z3pdr ? true : (clresult.count(s_control) == 1);
       experiment   = { reps, control };
+      experiment.has_value();
     }
   }
 

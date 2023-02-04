@@ -1,7 +1,6 @@
 #include "z3-pebbling-model.h"
 #include "logger.h"
 #include "pdr-model.h"
-#include <dbg.h>
 #include <sstream>
 #include <z3++.h>
 #include <z3_spacer.h>
@@ -72,7 +71,7 @@ namespace pdr::test
 
   void Z3PebblingModel::constrain(std::optional<unsigned int> maximum_pebbles)
   {
-    pebble_constraint = dbg(maximum_pebbles);
+    pebble_constraint = maximum_pebbles;
     rules.clear();
     prepare_transitions();
   }

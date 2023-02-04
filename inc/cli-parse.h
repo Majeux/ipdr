@@ -101,7 +101,7 @@ namespace my::cli
   struct Experiment
   {
     unsigned repetitions;
-    bool control;
+    bool control_only;
   };
 
   class ArgumentList

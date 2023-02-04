@@ -4,7 +4,6 @@
 #include "z3pdr.h"
 
 #include <cassert>
-#include <dbg.h>
 #include <optional>
 
 namespace pdr::test
@@ -81,7 +80,7 @@ namespace pdr::test
     // we can use at most this many pebbles
     unsigned N = starting_pebbles.value_or(n_nodes);
 
-    basic_reset(dbg(N));
+    basic_reset(N);
     pdr::PdrResult invariant = alg.run();
     total.add(invariant, ts.get_pebble_constraint());
     if (!invariant)
@@ -92,7 +91,7 @@ namespace pdr::test
     for (N = N - 1; !invariant && N >= final_n_pebbles; N--)
     {
       assert(N < ts.get_pebble_constraint());
-      basic_reset(dbg(N));
+      basic_reset(N);
       invariant = alg.run();
 
       total.add(invariant, ts.get_pebble_constraint());

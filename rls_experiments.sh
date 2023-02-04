@@ -5,6 +5,7 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
+Z3="--z3pdr"
 
 if [ $# -eq 0 ]
 then
@@ -27,7 +28,7 @@ do
 		exp="--experiment=$sample"
 		# exp=""
 
-		command="$EXEC --silent --algo=ipdr --pebbling $folder $model $exp"
+		command="$EXEC --silent --algo=ipdr --pebbling $Z3 $folder $model $exp"
 
 		echo "${bold}$command${normal}"
 		$command
