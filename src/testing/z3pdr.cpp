@@ -154,7 +154,7 @@ namespace pdr::test
 
     // use regex to extract the assignments of "true" and "false" from a state
     // they are in order of ts.vars.names()
-    const std::regex marking(R"(\(state((?: (?:true|false))*)\))");
+    const std::regex marking(R"(\(state((?:\s+(?:true|false))*)\))");
     std::smatch match;
 
     for (size_t i{ 0 }; i < states.size(); i++)
@@ -165,7 +165,10 @@ namespace pdr::test
       assert(match.size() == 2);
 
       string mark_string = match[1];
-      trim(mark_string);
+      trim(mark_string); // remove white spaces at beginning and end
+      // replace all white spaces by " "
+      mark_string = std::regex_replace(mark_string, std::regex("\\s+"), " ");
+
       vector<string> marks = split(mark_string, ' ');
 
       assert(marks.size() == header.size());
