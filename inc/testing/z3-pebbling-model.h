@@ -22,6 +22,7 @@ namespace pdr::test
     z3::check_result reach_target(z3::fixedpoint& engine) override;
 
     void constrain(std::optional<unsigned> maximum_pebbles);
+    z3::expr constraint_assertion();
 
     std::string to_string() const override;
     z3::expr_vector get_initial() const;

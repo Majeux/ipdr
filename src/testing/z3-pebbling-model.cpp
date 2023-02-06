@@ -98,6 +98,13 @@ namespace pdr::test
     return z3_true;
   }
 
+  expr Z3PebblingModel::constraint_assertion()
+  {
+    if (pebble_constraint)
+      return forall_vars(z3::atmost(vars, *pebble_constraint));
+    return z3_true;
+  }
+
   expr_vector Z3PebblingModel::get_initial() const
   {
     return z3ext::transform(vars(), [](expr const& e) { return !e; });
@@ -129,6 +136,7 @@ namespace pdr::test
 
     expr_vector child_vec = z3ext::mk_expr_vec(ctx, children);
     expr guard = make_constraint();
+    // expr guard = z3_true;
     if (not child_vec.empty())
       guard = guard & z3::mk_and(child_vec);
 

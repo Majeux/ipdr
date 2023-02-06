@@ -7,6 +7,7 @@
 #include "string-ext.h"
 #include "vpdr.h"
 #include "z3-ext.h"
+#include "z3-pebbling-model.h"
 
 #include <algorithm>
 #include <cassert>
@@ -40,10 +41,11 @@ namespace pdr::test
   {
     z3::fixedpoint engine(ctx);
     z3::params p(ctx);
-    p.set("engine", "spacer");      // z3 pdr implementation
+    p.set("engine", "spacer"); // z3 pdr implementation
     p.set("spacer.random_seed", ctx.seed);
     p.set("spacer.push_pob", true); // pushing blocked facts
-    p.set("print_answer", true);
+    p.set("spacer.use_bg_invs", true);
+    // p.set("print_answer", true);
     // p.set("spacer.p3.share_invariants", true); // invariant lemmas
     // p.set("spacer.p3.share_lemmas", true);     // frame lemmas (clauses?)
     engine.set(p);
@@ -64,11 +66,13 @@ namespace pdr::test
     using std::endl;
 
     z3::fixedpoint engine = mk_prepare_fixedpoint();
-    engine.help();
 
     ts.add_initial(engine);
     ts.add_transitions(engine);
-    // std::cout << ts.to_string() << std::endl;
+
+    auto pts = dynamic_cast<Z3PebblingModel&>(ts);
+    // cout << engine.help() << endl;
+    // Z3_fixedpoint_assert(ctx(), engine, pts.constraint_assertion());
 
     z3::func_decl t_decl = ts.get_target().decl();
     MYLOG_INFO(logger, "Target:\n{}", ts.get_target().to_string());
