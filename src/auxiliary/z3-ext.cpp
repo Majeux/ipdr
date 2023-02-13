@@ -1,6 +1,7 @@
 #include "z3-ext.h"
 
 #include <algorithm>
+#include <dbg.h>
 #include <fmt/core.h>
 #include <iostream>
 #include <sstream>
@@ -49,6 +50,12 @@ namespace z3ext
 
     return !ctx.bool_const(atom.c_str());
   }
+  
+  std::string LitStr::to_string() const
+  {
+    return fmt::format("{} -> {}", atom, sign ? "true" : "false");
+  }
+
 
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
@@ -393,7 +400,7 @@ namespace z3ext
 
         recursive_state = recursive_state.arg(2);
       }
-      assert(recursive_state.num_args() == 2);
+      assert(dbg(recursive_state).num_args() == 2);
       rv.push_back(recursive_state.arg(1));
 
       std::reverse(rv.begin(), rv.end());

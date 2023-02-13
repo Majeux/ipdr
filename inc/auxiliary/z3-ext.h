@@ -25,6 +25,7 @@ namespace z3ext
     LitStr(z3::expr const& l);
     // LitStr(LitStr const&) = default;
     z3::expr to_expr(z3::context& ctx);
+    std::string to_string() const;
   };
 
   z3::expr minus(z3::expr const& e);

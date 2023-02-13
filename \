@@ -11,9 +11,9 @@
 
 #include <algorithm>
 #include <cassert>
-#include <dbg.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
+#include <dbg.h>
 #include <iterator>
 #include <numeric>
 #include <regex>
@@ -78,7 +78,7 @@ namespace pdr::test
     expr target               = ts.get_target();
     z3::func_decl target_decl = target.decl();
 
-    cout << pts.to_string() << endl;
+    // cout << engine.help() << endl;
     // Z3_fixedpoint_assert(ctx(), engine, pts.constraint_assertion());
 
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
@@ -156,12 +156,6 @@ namespace pdr::test
 
     vector<vector<LitStr>> rv;
     const vector<string> header = ts.vars.names();
-    auto answer = engine.get_answer().arg(0);
-    MYLOG_DEBUG(logger, "Raw answer:");
-    for (size_t i{0}; i < answer.num_args(); i++){
-      MYLOG_DEBUG(logger, "{} ------------------\n{}", i, answer.arg(i).to_string());
-    }
-
     vector<expr> states = z3ext::fixedpoint::extract_trace_states(engine);
 
     auto invalid = [](std::string_view s)
@@ -175,7 +169,6 @@ namespace pdr::test
     const std::regex marking(R"(\(state((?:\s+(?:true|false))*)\))");
     std::smatch match;
 
-    MYLOG_DEBUG(logger, "Trace markings:");
     for (size_t i{ 0 }; i < states.size(); i++)
     {
       std::string state_str(states[i].to_string());
@@ -202,14 +195,6 @@ namespace pdr::test
           throw invalid(state_str);
       }
       rv.push_back(state);
-      MYLOG_DEBUG(logger, "- {}",
-          [&state]() -> string
-          {
-            string rv{ "" };
-            for (LitStr const& l : state)
-              rv += l.to_string() + ", ";
-            return rv;
-          }());
     }
 
     return rv;

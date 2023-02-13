@@ -23,6 +23,7 @@ namespace pdr::test
 
     void constrain(std::optional<unsigned> maximum_pebbles);
     z3::expr constraint_assertion();
+    z3::expr make_constraint() const;
 
     std::string to_string() const override;
     z3::expr_vector get_initial() const;
@@ -46,8 +47,7 @@ namespace pdr::test
 
     Rule pebbling_transition(z3::expr const& parent,
         std::set<z3::expr, z3ext::expr_less> const& children);
-
-    z3::expr make_constraint();
+    Rule parallel_pebbling_transitions();
 
     void prepare_initial();
     void prepare_transitions();
