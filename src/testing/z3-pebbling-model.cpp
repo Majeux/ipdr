@@ -5,7 +5,7 @@
 #include <z3++.h>
 #include <z3_spacer.h>
 
-#define PAR_T false
+#define PAR_T true
 
 namespace pdr::test
 {
@@ -112,7 +112,7 @@ namespace pdr::test
 
   expr_vector Z3PebblingModel::get_initial() const
   {
-    return z3ext::transform(vars(), [](expr const& e) { return !e; });
+    return z3ext::transform(vars(), [this](expr const& e) { return e == z3_false; });
   }
 
   std::optional<unsigned> Z3PebblingModel::get_pebble_constraint() const
@@ -126,8 +126,6 @@ namespace pdr::test
   Z3PebblingModel::Rule Z3PebblingModel::pebbling_transition(
       expr const& parent, std::set<expr, z3ext::expr_less> const& children)
   {
-    assert(parent);
-
     expr_vector args = z3ext::copy(vars()); // state(vars) -> vars in next
     for (expr const& e : vars())
     {
@@ -165,16 +163,17 @@ namespace pdr::test
     {
       expr parent = vars(i);
 
-      expr_vector stay(ctx);
+      expr_vector stay_conj(ctx);
       for (string const& c : dag.get_children(parent.to_string()))
       {
         expr child = ctx.bool_const(c.c_str());
-        stay.push_back(child == vars.p(child));
+        stay_conj.push_back(child == vars.p(child));
       }
 
       expr flip = parent ^ vars.p(parent);
+      expr stay = stay_conj.size() == 0 ? z3_true : z3::mk_and(stay_conj);
 
-      T_conj.push_back(z3::implies(flip, z3::mk_and(stay)));
+      T_conj.push_back(z3::implies(flip, stay));
     }
 
     return mk_rule(head, guard && z3::mk_or(T_conj), "T");
@@ -193,6 +192,7 @@ namespace pdr::test
       rules.push_back(parallel_pebbling_transitions());
       return;
     }
+
     // register reachability from current to next state as a rule
     // state.p <= state && step(state, state.p)
     {

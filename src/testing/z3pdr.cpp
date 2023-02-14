@@ -156,7 +156,7 @@ namespace pdr::test
 
     vector<vector<LitStr>> rv;
     const vector<string> header = ts.vars.names();
-    auto answer = engine.get_answer().arg(0);
+    auto answer = engine.get_answer().arg(0).arg(1);
     MYLOG_DEBUG(logger, "Raw answer:");
     for (size_t i{0}; i < answer.num_args(); i++){
       MYLOG_DEBUG(logger, "{} ------------------\n{}", i, answer.arg(i).to_string());
