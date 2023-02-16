@@ -57,11 +57,11 @@ namespace pdr::test
   void Z3PebblingModel::add_transitions(z3::fixedpoint& engine)
   {
     engine.register_relation(state);
-    if (!PAR_T)
-    {
+    // if (!PAR_T)
+    // {
       engine.register_relation(step);
       engine.add_rule(reach_rule.expr, reach_rule.name);
-    }
+    // }
 
     for (Rule& r : rules)
       engine.add_rule(r.expr, r.name);
@@ -112,7 +112,8 @@ namespace pdr::test
 
   expr_vector Z3PebblingModel::get_initial() const
   {
-    return z3ext::transform(vars(), [this](expr const& e) { return e == z3_false; });
+    return z3ext::transform(
+        vars(), [this](expr const& e) { return e == z3_false; });
   }
 
   std::optional<unsigned> Z3PebblingModel::get_pebble_constraint() const
@@ -138,7 +139,7 @@ namespace pdr::test
     }
 
     expr_vector child_vec = z3ext::mk_expr_vec(ctx, children);
-    expr guard = make_constraint();
+    expr guard            = make_constraint();
 
     if (not child_vec.empty())
       guard = guard & z3::mk_and(child_vec);
@@ -149,15 +150,7 @@ namespace pdr::test
 
   Z3PebblingModel::Rule Z3PebblingModel::parallel_pebbling_transitions()
   {
-    // allow any number of nodes to be pebbled as long as its children remain
-    // pebbled
-    // cardinality(P) => V_parents (
-    //   (children &  parent & !parent') v
-    //   (children & !parent &  parent')
-    // )
-    //
-    expr guard = make_constraint() && state(vars);
-    expr head  = state(vars.p());
+    expr guard = make_constraint();
     expr_vector T_conj(ctx);
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
@@ -167,7 +160,7 @@ namespace pdr::test
       for (string const& c : dag.get_children(parent.to_string()))
       {
         expr child = ctx.bool_const(c.c_str());
-        stay_conj.push_back(child == vars.p(child));
+        stay_conj.push_back(child && vars.p(child));
       }
 
       expr flip = parent ^ vars.p(parent);
@@ -176,7 +169,8 @@ namespace pdr::test
       T_conj.push_back(z3::implies(flip, stay));
     }
 
-    return mk_rule(head, guard && z3::mk_or(T_conj), "T");
+    return mk_rule(state(vars.p()),
+        state(vars) && z3::mk_and(T_conj) && guard, "T");
   }
 
   void Z3PebblingModel::prepare_initial()
@@ -187,12 +181,6 @@ namespace pdr::test
 
   void Z3PebblingModel::prepare_transitions()
   {
-    if (PAR_T)
-    {
-      rules.push_back(parallel_pebbling_transitions());
-      return;
-    }
-
     // register reachability from current to next state as a rule
     // state.p <= state && step(state, state.p)
     {
@@ -200,6 +188,12 @@ namespace pdr::test
       expr_vector all = z3ext::vec_add(vars(), vars.p());
       expr body       = state(vars()) && step(all);
       reach_rule      = mk_rule(z3::implies(body, head), "->");
+    }
+
+    if (PAR_T)
+    {
+      rules.push_back(parallel_pebbling_transitions());
+      return;
     }
 
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition

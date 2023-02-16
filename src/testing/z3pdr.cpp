@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <dbg.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <iterator>
@@ -48,16 +47,9 @@ namespace pdr::test
     p.set("spacer.push_pob", true); // pushing blocked facts
     p.set("spacer.use_bg_invs", true);
     p.set("xform.slice", false);
-    // p.set("print_answer", true);
-    // p.set("spacer.p3.share_invariants", true); // invariant lemmas
-    // p.set("spacer.p3.share_lemmas", true);     // frame lemmas (clauses?)
+    
     engine.set(p);
-    // std::cout << "Settings" << std::endl
-    //           << engine.get_param_descrs() << std::endl
-    //           << std::endl;
-    // std::cout << "z3::fixedpoint options" << std::endl
-    //           << str::ext::indent(engine.help()) << std::endl
-    //           << std::endl;
+
     return engine;
   }
 
@@ -69,7 +61,6 @@ namespace pdr::test
     using std::endl;
 
     z3::fixedpoint engine = mk_prepare_fixedpoint();
-    // cout << engine.help() << endl;
 
     ts.add_initial(engine);
     ts.add_transitions(engine);
@@ -78,8 +69,7 @@ namespace pdr::test
     expr target               = ts.get_target();
     z3::func_decl target_decl = target.decl();
 
-    cout << pts.to_string() << endl;
-    // Z3_fixedpoint_assert(ctx(), engine, pts.constraint_assertion());
+    MYLOG_INFO(logger, "Transition System:\n{}", pts.to_string());
 
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
@@ -147,6 +137,30 @@ namespace pdr::test
     return trace;
   }
 
+  std::vector<z3::expr> extract_trace_states(z3::fixedpoint& engine)
+  {
+    std::vector<z3::expr> rv;
+    // answer {
+    //  arg(0): 
+    //  arg(1):
+    //  arg(2): destination
+    // }
+    expr answer = engine.get_answer().arg(0).arg(1);
+
+    while (answer.num_args() == 3)
+    {
+      assert(answer.arg(2).get_sort().is_bool());
+      rv.push_back(answer.arg(2));
+
+      answer = answer.arg(1);
+    }
+
+    assert(answer.num_args() == 2);
+    rv.push_back(answer.arg(1));
+    std::reverse(rv.begin(), rv.end());
+    return rv;
+  }
+
   PdrResult::Trace::TraceVec z3PDR::get_trace_states(z3::fixedpoint& engine)
   {
     using tabulate::Table;
@@ -156,13 +170,15 @@ namespace pdr::test
 
     vector<vector<LitStr>> rv;
     const vector<string> header = ts.vars.names();
-    auto answer = engine.get_answer().arg(0).arg(1);
+    auto answer                 = engine.get_answer().arg(0).arg(1);
     MYLOG_DEBUG(logger, "Raw answer:");
-    for (size_t i{0}; i < answer.num_args(); i++){
-      MYLOG_DEBUG(logger, "{} ------------------\n{}", i, answer.arg(i).to_string());
+    for (size_t i{ 0 }; i < answer.num_args(); i++)
+    {
+      MYLOG_DEBUG(logger, "{} ------{}------\n{}", i,
+          answer.arg(i).get_sort().to_string(), answer.arg(i).to_string());
     }
 
-    vector<expr> states = z3ext::fixedpoint::extract_trace_states(engine);
+    vector<expr> states = extract_trace_states(engine);
 
     auto invalid = [](std::string_view s)
     {
