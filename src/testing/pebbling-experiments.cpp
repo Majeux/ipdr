@@ -6,6 +6,8 @@
 #include "pebbling-result.h"
 #include "result.h"
 #include "tactic.h"
+#include "cli-parse.h"
+#include "types-ext.h"
 
 #include "cli-parse.h"
 #include <cassert>
@@ -34,9 +36,12 @@ namespace pdr::pebbling::experiments
   using namespace my::cli;
 
   PebblingExperiment::PebblingExperiment(
-      my::cli::ArgumentList const& a, PebblingModel& m, Logger& l)
-      : expsuper::Experiment(a, l), ts(m)
+      my::cli::ArgumentList const& a, Logger& l)
+      : expsuper::Experiment(a, l)
   {
+    using my::variant::get_cref;
+
+    ts_descr = get_cref<model_t::Pebbling>(args.model).value();
   }
 
   void PebblingExperiment::reset_tables()
@@ -59,9 +64,13 @@ namespace pdr::pebbling::experiments
       cout << format("{}: {}", i, seeds[i]) << endl;
       std::optional<unsigned> optimum;
       // new context with new random seed
-      pdr::Context ctx(ts.ctx, seeds[i]);
-      IPDR opt(args, ctx, log, ts);
+      z3::context z3_ctx;
+      pdr::Context ctx(z3_ctx, seeds[i]);
 
+      dag::Graph G = model_t::make_graph(ts_descr.src);
+      PebblingModel ts(args, z3_ctx, G);
+      
+      IPDR opt(args, ctx, log, ts);
       {
         IpdrPebblingResult result =
             is_control ? opt.control_run(tactic) : opt.run(tactic);
@@ -95,7 +104,7 @@ namespace pdr::pebbling::experiments
     {
       try
       {
-        auto const& pebbling_r       = dynamic_cast<IpdrPebblingResult const&>(*r);
+        auto const& pebbling_r = dynamic_cast<IpdrPebblingResult const&>(*r);
         IpdrPebblingResult::Data_t total = pebbling_r.get_total();
 
         // time is done by Run()
@@ -109,8 +118,7 @@ namespace pdr::pebbling::experiments
 
         if (total.strategy) // get the shortest trace we found
         {
-          if (!min_strat ||
-              total.strategy->length < min_strat->length)
+          if (!min_strat || total.strategy->length < min_strat->length)
             min_strat = total.strategy;
         }
       }

@@ -11,11 +11,9 @@ namespace pdr::test::experiments
   class Z3PebblingExperiment final : public expsuper::Experiment
   {
    public:
-    Z3PebblingExperiment(
-        my::cli::ArgumentList const& a, Z3PebblingModel& m, Logger& l);
+    Z3PebblingExperiment(my::cli::ArgumentList const& a, Logger& l);
 
    private:
-    Z3PebblingModel& ts;
     my::cli::model_t::Pebbling ts_descr;
 
     void reset_tables() override;

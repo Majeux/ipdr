@@ -25,6 +25,7 @@
 
 namespace pdr::peterson::experiments
 {
+  using namespace my::cli;
   using fmt::format;
   using std::cout;
   using std::endl;
@@ -33,11 +34,12 @@ namespace pdr::peterson::experiments
   using std::vector;
 
   PetersonExperiment::PetersonExperiment(
-      my::cli::ArgumentList const& a, PetersonModel& m, Logger& l)
-      : Experiment(a, l), ts(m)
+      my::cli::ArgumentList const& a, Logger& l)
+      : Experiment(a, l)
   {
-    auto peter = my::variant::get_cref<my::cli::model_t::Peterson>(args.model);
-    ts_descr   = peter->get();
+    using my::variant::get_cref;
+
+    ts_descr = get_cref<model_t::Peterson>(args.model)->get();
   }
 
   void PetersonExperiment::reset_tables()
@@ -59,13 +61,16 @@ namespace pdr::peterson::experiments
     {
       cout << format("{}: {}", i, seeds[i]) << endl;
       // new context with new random seed
-      pdr::Context ctx(ts.ctx, seeds[i]);
-      IPDR opt(args, ctx, log, ts);
+      z3::context z3_ctx;
+      pdr::Context ctx(z3_ctx, seeds[i]);
 
+      PetersonModel ts(z3_ctx, ts_descr.start, ts_descr.max);
+
+      IPDR opt(args, ctx, log, ts);
       {
         IpdrPetersonResult result = is_control
-                                  ? opt.control_run(tactic, ts_descr.start)
-                                  : opt.run(tactic, ts_descr.start);
+                                      ? opt.control_run(tactic, ts_descr.start)
+                                      : opt.run(tactic, ts_descr.start);
 
         if (!result.all_holds())
           cout << "! counter found" << endl;

@@ -3,21 +3,28 @@
 #include "z3-pebbling-experiments.h"
 #include "z3-pebbling-model.h"
 #include "z3pdr.h"
+#include "cli-parse.h"
+#include "types-ext.h"
 
+#include <dbg.h>
 #include <fmt/format.h>
 #include <memory>
 #include <vector>
 
 namespace pdr::test::experiments
 {
+  using namespace my::cli;
   using std::shared_ptr;
   using std::unique_ptr;
   using std::vector;
 
   Z3PebblingExperiment::Z3PebblingExperiment(
-      my::cli::ArgumentList const& a, Z3PebblingModel& m, Logger& l)
-      : expsuper::Experiment(a, l), ts(m)
+      my::cli::ArgumentList const& a, Logger& l)
+      : expsuper::Experiment(a, l)
   {
+    using my::variant::get_cref;
+
+    ts_descr = get_cref<model_t::Pebbling>(args.model).value();
   }
 
   void Z3PebblingExperiment::reset_tables()
@@ -44,7 +51,12 @@ namespace pdr::test::experiments
       std::cout << fmt::format("{}: {}", i, seeds[i]) << std::endl;
       std::optional<unsigned> optimum;
       // new context with new random seed
-      pdr::Context ctx(ts.ctx, seeds[i]);
+      z3::context z3_ctx;
+      pdr::Context ctx(z3_ctx, seeds[i]);
+
+      dag::Graph G = model_t::make_graph(ts_descr.src);
+      Z3PebblingModel ts(args, z3_ctx, G);
+      
       z3PebblingIPDR opt(args, ctx, log, ts);
       {
         IpdrPebblingResult result = opt.control_run(tactic);

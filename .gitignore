@@ -46,6 +46,8 @@ build
 
 #z3
 .z3-trace
+z3.log
+spacer-trace.txt
 
 #benchmarks
 benchmark/rls

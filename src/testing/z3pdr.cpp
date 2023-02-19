@@ -46,9 +46,12 @@ namespace pdr::test
     p.set("spacer.random_seed", ctx.seed);
     p.set("spacer.push_pob", true); // pushing blocked facts
     p.set("spacer.use_bg_invs", true);
-    p.set("xform.slice", false);
+    // p.set("spacer.trace_file", "spacer-trace.txt");
     
     engine.set(p);
+
+    z3::set_param("trace", true);
+    
 
     return engine;
   }
@@ -74,6 +77,7 @@ namespace pdr::test
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 
+    
     spdlog::stopwatch timer;
     last_result = ts.reach_target(engine);
     double time = timer.elapsed().count();

@@ -12,11 +12,14 @@ namespace pdr
   using z3::expr;
 
   IModel::IModel(z3::context& c, const std::vector<std::string>& varnames)
-      : ctx(c), vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars),
-        initial(ctx), transition(ctx), constraint(ctx)
+      : ctx(c),
+        vars(ctx, varnames),
+        property(ctx, vars),
+        n_property(ctx, vars),
+        initial(ctx),
+        transition(ctx),
+        constraint(ctx)
   {
-    ctx.set("unsat_core", true);
-    ctx.set("model", true);
   }
 
   const z3::expr_vector& IModel::get_initial() const { return initial; }

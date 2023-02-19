@@ -45,11 +45,9 @@ namespace pdr::peterson::experiments
   class PetersonExperiment : public expsuper::Experiment
   {
    public:
-    PetersonExperiment(
-        my::cli::ArgumentList const& a, PetersonModel& m, Logger& l);
+    PetersonExperiment(my::cli::ArgumentList const& a, Logger& l);
 
    private:
-    PetersonModel& ts;
     my::cli::model_t::Peterson ts_descr;
 
     void reset_tables() override;

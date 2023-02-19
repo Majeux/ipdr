@@ -400,9 +400,9 @@ namespace my::cli
       (s_seed, "Use the given seed for the SAT solver",
         value<unsigned>(), "(uint:SEED)")
       (s_tseytin, "Build the transition relation using the tseytin reform.",
-        value<bool>(tseytin))
+        value<bool>(tseytin)->default_value("true"))
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
-       value<bool>(onlyshow))
+       value<bool>(onlyshow)->default_value("false"))
 
       // (s_mic, "The number of times N that pdr retries dropping a literal.")
 

@@ -1,4 +1,6 @@
-﻿#include "bounded.h"
+﻿#define _TRACE
+
+#include "bounded.h"
 #include "cli-parse.h"
 #include "dag.h"
 #include "experiments.h"
@@ -27,6 +29,7 @@
 #include <cassert>
 #include <cstring>
 #include <cxxopts.hpp>
+#include <dbg.h>
 #include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -56,8 +59,7 @@ ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log);
 void handle_pdr(ArgumentList& args, pdr::Context&& context, pdr::Logger& log);
 void handle_ipdr(ArgumentList& args, pdr::Context&& context, pdr::Logger& log);
-void handle_experiment(
-    ArgumentList& args, pdr::Context&& context, pdr::Logger& log);
+void handle_experiment(ArgumentList& args, pdr::Logger& log);
 //
 // aux
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths);
@@ -76,18 +78,22 @@ int main(int argc, char* argv[])
   args.show_header(std::cerr);
   args.folders.show(std::cerr);
 
-  z3::context ctx;
-  pdr::Context context = std::holds_alternative<bool>(args.r_seed)
-                           ? pdr::Context(ctx, std::get<bool>(args.r_seed))
-                           : pdr::Context(ctx, std::get<unsigned>(args.r_seed));
-
   pdr::Logger logger = pdr::Logger(args.folders.file_in_analysis("log"),
       args.out, args.verbosity,
       pdr::Statistics(args.folders.file_in_analysis("stats")));
 
   if (args.experiment)
-    handle_experiment(args, std::move(context), logger);
-  else if (std::holds_alternative<algo::t_PDR>(args.algorithm))
+  {
+    handle_experiment(args, logger);
+    return 0;
+  }
+
+  z3::context ctx;
+  pdr::Context context = std::holds_alternative<bool>(args.r_seed)
+                           ? pdr::Context(ctx, std::get<bool>(args.r_seed))
+                           : pdr::Context(ctx, std::get<unsigned>(args.r_seed));
+
+  if (std::holds_alternative<algo::t_PDR>(args.algorithm))
     handle_pdr(args, std::move(context), logger);
   else if (std::holds_alternative<algo::t_IPDR>(args.algorithm))
     handle_ipdr(args, std::move(context), logger);
@@ -270,8 +276,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context&& context, pdr::Logger& log)
       algorithm);
 }
 
-void handle_experiment(
-    ArgumentList& args, pdr::Context&& context, pdr::Logger& log)
+void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
   using std::make_unique;
   using std::unique_ptr;
@@ -285,18 +290,21 @@ void handle_experiment(
 
   using GeneralExperimentPtr = unique_ptr<experiments::Experiment>;
 
-  ModelVariant model = construct_model(args, context, log);
+  using my::variant::get_cref;
 
-  GeneralExperimentPtr experiment = std::visit(
-      visitor{
-          [&](Z3PebblingModel& m) -> GeneralExperimentPtr
-          { return make_unique<Z3PebblingExperiment>(args, m, log); },
-          [&](PebblingModel& m) -> GeneralExperimentPtr
-          { return make_unique<PebblingExperiment>(args, m, log); },
-          [&](PetersonModel& m) -> GeneralExperimentPtr
-          { return make_unique<PetersonExperiment>(args, m, log); },
-      },
-      model);
+  GeneralExperimentPtr experiment = [&]() -> GeneralExperimentPtr
+  {
+    if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
+    {
+      if (args.z3pdr)
+      {
+        return make_unique<Z3PebblingExperiment>(args, log);
+      }
+      return make_unique<PebblingExperiment>(args, log);
+    }
+    return make_unique<PetersonExperiment>(args, log);
+  }();
+
   experiment->run();
 }
 

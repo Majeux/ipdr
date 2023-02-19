@@ -57,11 +57,11 @@ namespace pdr::test
   void Z3PebblingModel::add_transitions(z3::fixedpoint& engine)
   {
     engine.register_relation(state);
-    // if (!PAR_T)
-    // {
+    if (!PAR_T)
+    {
       engine.register_relation(step);
       engine.add_rule(reach_rule.expr, reach_rule.name);
-    // }
+    }
 
     for (Rule& r : rules)
       engine.add_rule(r.expr, r.name);
@@ -181,6 +181,12 @@ namespace pdr::test
 
   void Z3PebblingModel::prepare_transitions()
   {
+    if (PAR_T)
+    {
+      rules.push_back(parallel_pebbling_transitions());
+      return;
+    }
+
     // register reachability from current to next state as a rule
     // state.p <= state && step(state, state.p)
     {
@@ -188,12 +194,6 @@ namespace pdr::test
       expr_vector all = z3ext::vec_add(vars(), vars.p());
       expr body       = state(vars()) && step(all);
       reach_rule      = mk_rule(z3::implies(body, head), "->");
-    }
-
-    if (PAR_T)
-    {
-      rules.push_back(parallel_pebbling_transitions());
-      return;
     }
 
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition

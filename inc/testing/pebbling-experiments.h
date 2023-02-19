@@ -19,7 +19,7 @@ namespace pdr::pebbling::experiments
 
   struct PebblingRun final : public ::pdr::experiments::Run
   {
-    using Row_t   = tabulate::Table::Row_t;
+    using Row_t = tabulate::Table::Row_t;
     // 7 rows
 
     std::optional<IpdrPebblingResult::PebblingInvariant> min_inv;
@@ -40,11 +40,9 @@ namespace pdr::pebbling::experiments
   class PebblingExperiment final : public expsuper::Experiment
   {
    public:
-    PebblingExperiment(
-        my::cli::ArgumentList const& a, PebblingModel& m, Logger& l);
+    PebblingExperiment(my::cli::ArgumentList const& a, Logger& l);
 
    private:
-    PebblingModel& ts;
     my::cli::model_t::Pebbling ts_descr;
 
     void reset_tables() override;

@@ -3,6 +3,7 @@
 #include "types-ext.h"
 #include "z3pdr.h"
 
+#include <dbg.h>
 #include <cassert>
 #include <optional>
 
@@ -125,7 +126,7 @@ namespace pdr::test
     std::string from = current ? std::to_string(*current) : "any";
     alg.logger.and_show("naive change from {} -> {} pebbles", from, pebbles);
 
-    ts.constrain(pebbles);
+    ts.constrain(dbg(pebbles));
     alg.ctx.type = Tactic::basic;
     alg.reset();
   }
