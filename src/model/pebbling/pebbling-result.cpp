@@ -30,9 +30,9 @@ namespace pdr::pebbling
   {
     assert(t == Tactic::constrain || t == Tactic::relax);
   }
-  IpdrPebblingResult::IpdrPebblingResult(z3::expr_vector initial,
+  IpdrPebblingResult::IpdrPebblingResult(
       VarVec const& vars, unsigned pebbles_final, Tactic t)
-      : IpdrResult(initial, vars),
+      : IpdrResult(vars.names(), vars.names_p()),
         pebbles_final(pebbles_final),
         tactic(t),
         total{ total_time, {}, {} }
@@ -195,12 +195,8 @@ namespace pdr::pebbling
   std::string IpdrPebblingResult::process_trace(const PdrResult& res) const
   {
     using fmt::format;
-    using std::string;
-    using std::string_view;
     using std::to_string;
     using tabulate::Table;
-    using z3::expr;
-    using z3::expr_vector;
     using TraceState = PdrResult::Trace::TraceState;
 
     if (res.has_invariant())
@@ -211,18 +207,15 @@ namespace pdr::pebbling
 
     // process trace
     std::stringstream ss;
-    vector<string> lits = vars.names(), litsp = vars.names_p();
-    std::sort(lits.begin(), lits.end());
-    std::sort(litsp.begin(), litsp.end());
 
     size_t longest =
-        std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
+        std::max_element(vars.begin(), vars.end(), str::ext::size_lt)->size();
 
     Table t;
     // Write top row
     {
       Table::Row_t trace_header = { "", "marked" };
-      trace_header.insert(trace_header.end(), lits.begin(), lits.end());
+      trace_header.insert(trace_header.end(), vars.begin(), vars.end());
       t.add_row(trace_header);
     }
 
@@ -250,7 +243,6 @@ namespace pdr::pebbling
         {
           if (i == 0)
           {
-            // assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
             index_str = "I";
           }
           else if (i == N - 1)
@@ -260,7 +252,7 @@ namespace pdr::pebbling
         }
 
         Table::Row_t row_marking = make_row(
-            index_str, to_string(pebbled), s, (i < N - 1 ? lits : litsp));
+            index_str, to_string(pebbled), s, (i < N - 1 ? vars : vars_p));
         t.add_row(row_marking);
       }
       ss << format("Strategy for {} pebbles", marked) << std::endl << std::endl;

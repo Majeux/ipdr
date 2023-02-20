@@ -22,6 +22,9 @@
 
 namespace pdr::peterson
 {
+  using std::string;
+  using std::vector;
+
   IpdrPetersonResult::IpdrPetersonResult(const PetersonModel& m, Tactic t)
       : IpdrResult(m), model(m), max_processes(m.max_processes()), tactic(t)
   {
@@ -30,7 +33,8 @@ namespace pdr::peterson
 
   // PetersonModel public members
   //
-  IpdrPetersonResult& IpdrPetersonResult::add(const PdrResult& r, unsigned n_processes) 
+  IpdrPetersonResult& IpdrPetersonResult::add(
+      const PdrResult& r, unsigned n_processes)
   {
     tabulate::Table::Row_t res_row = process_result(r, n_processes);
     assert(res_row.size() == summary_header().size());
@@ -106,13 +110,10 @@ namespace pdr::peterson
     return row;
   }
 
-  std::string IpdrPetersonResult::process_trace(const PdrResult& res) const
+  std::string IpdrPetersonResult::process_trace(PdrResult const& res) const
   {
     using fmt::format;
-    using std::string;
-    using std::string_view;
     using std::to_string;
-    using std::vector;
     using tabulate::Table;
     using z3::expr;
     using z3::expr_vector;
@@ -126,18 +127,15 @@ namespace pdr::peterson
 
     // process trace
     std::stringstream ss;
-    vector<string> lits  = vars.names();
-    vector<string> litsp = vars.names_p();
-    std::sort(lits.begin(), lits.end());
 
     size_t longest =
-        std::max_element(lits.begin(), lits.end(), str::ext::size_lt)->size();
+        std::max_element(vars.begin(), vars.end(), str::ext::size_lt)->size();
 
     Table t, state_t;
     // Write top row
     {
       Table::Row_t trace_header = { "" };
-      trace_header.insert(trace_header.end(), lits.begin(), lits.end());
+      trace_header.insert(trace_header.end(), vars.begin(), vars.end());
       t.add_row(trace_header);
       state_t.add_row({ "", "" });
     }
@@ -163,7 +161,6 @@ namespace pdr::peterson
         {
           if (i == 0)
           {
-            // assert(z3ext::quick_implies(s, model.get_initial())); // s \in I
             index_str = "I";
           }
           else if (i == N - 1)
@@ -172,7 +169,7 @@ namespace pdr::peterson
             index_str = to_string(i);
         }
 
-        t.add_row(make_row(index_str, s, (i < N - 1 ? lits : litsp)));
+        t.add_row(make_row(index_str, s, (i < N - 1 ? vars : vars_p)));
         // also create readable peterson state representation
         {
           expr_vector current(model.ctx), next(model.ctx);

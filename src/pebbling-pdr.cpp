@@ -208,12 +208,16 @@ void handle_pdr(ArgumentList& args, pdr::Context&& context, pdr::Logger& log)
   std::cout << T << endl << endl;
   args.folders.trace_file << T << endl << endl;
 
-  std::string trace = std::visit(
-      visitor{ [&](test::Z3PebblingModel const& m)
-          { return pdr::result::trace_table(res, m.vars, m.get_initial()); },
-          [&](IModel const& m)
-          { return pdr::result::trace_table(res, m.vars, m.get_initial()); } },
-      model);
+  std::string trace =
+      std::visit(visitor{ [&](test::Z3PebblingModel const& m) {
+                           return pdr::result::trace_table(
+                               res, m.vars.names(), m.vars.names_p());
+                         },
+                     [&](IModel const& m) {
+                       return pdr::result::trace_table(
+                           res, m.vars.names(), m.vars.names_p());
+                     } },
+          model);
   std::cout << trace;
   args.folders.trace_file << trace;
 

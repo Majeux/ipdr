@@ -45,7 +45,7 @@ namespace pdr::peterson
     const tabulate::Table::Row_t total_header() const override;
     const tabulate::Table::Row_t process_result(
         const PdrResult& r, unsigned n_processes);
-    std::string process_trace(const PdrResult& res) const override;
+    std::string process_trace(PdrResult const& res) const override;
   }; // class PeterState
 } // namespace pdr::peterson
 

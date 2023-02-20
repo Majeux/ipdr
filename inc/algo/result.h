@@ -100,7 +100,8 @@ namespace pdr
   {
    public:
     IpdrResult(const IModel& m);
-    IpdrResult(z3::expr_vector I, mysat::primed::VarVec const& v);
+    IpdrResult(
+        std::vector<std::string> const& v, std::vector<std::string> const& vp);
     virtual ~IpdrResult();
 
     void reset();
@@ -127,16 +128,17 @@ namespace pdr
     std::string all_traces() const;
 
    protected:
-    // transition system information
-    z3::expr_vector initial_state;
-    mysat::primed::VarVec const& vars;
-
+    // variables in the transition system, in current and next state.
+    std::vector<std::string> vars;
+    std::vector<std::string> vars_p;
     // accumulated time of every result
     double total_time{ 0.0 };
     // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
     // data extracted for the original pdr results
     std::vector<tabulate::Table::Row_t> pdr_summaries;
+    // string representation of traces from each PdrResult
+    std::vector<std::string> traces;
 
     // field names for table headers
     virtual const tabulate::Table::Row_t summary_header() const;
@@ -148,14 +150,15 @@ namespace pdr
     // called by add(PdrResult)
     const tabulate::Table::Row_t process_result(const PdrResult& r);
     // string representation of the trace or invariant
-    virtual std::string process_trace(const PdrResult& res) const;
+    virtual std::string process_trace(PdrResult const& res) const;
   };
 
   namespace result
   {
     std::string trace_table(PdrResult const& res,
-        mysat::primed::VarVec const& vars, z3::expr_vector initial);
-  } // namespace result
+        std::vector<std::string> const& vars,
+        std::vector<std::string> const& vars_p);
+  }
 
   namespace state
   {

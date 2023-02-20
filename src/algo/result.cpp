@@ -183,12 +183,11 @@ namespace pdr
   //
 
   IpdrResult::IpdrResult(IModel const& m)
-      : initial_state(m.get_initial()), vars(m.vars)
+      : IpdrResult(m.vars.names(), m.vars.names_p())
   {
   }
-
-  IpdrResult::IpdrResult(z3::expr_vector I, mysat::primed::VarVec const& v)
-      : initial_state(I), vars(v)
+  IpdrResult::IpdrResult(vector<string> const& v, vector<string> const& vp)
+      : vars(v), vars_p(vp)
   {
   }
 
@@ -198,9 +197,9 @@ namespace pdr
 
   double IpdrResult::get_total_time() const { return total_time; }
 
-  std::vector<double> IpdrResult::g_times() const
+  vector<double> IpdrResult::g_times() const
   {
-    std::vector<double> times;
+    vector<double> times;
     std::transform(original.begin(), original.end(), std::back_inserter(times),
         [](PdrResult const& r) { return r.time; });
     return times;
@@ -218,7 +217,7 @@ namespace pdr
     {
       total.resize(pdr_summaries.at(0).size()); // match no. columns
 
-      std::vector<double> times = g_times();
+      vector<double> times = g_times();
       assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
       total.back() = fmt::format("{}", total_time);
       t.add_row(total);
@@ -244,8 +243,8 @@ namespace pdr
   std::string IpdrResult::all_traces() const
   {
     std::stringstream ss;
-    for (PdrResult const& result : original)
-      ss << process_trace(result) << std::endl;
+    for (std::string_view trace : traces)
+      ss << trace << std::endl;
     return ss.str();
   }
 
@@ -261,6 +260,7 @@ namespace pdr
   const tabulate::Table::Row_t IpdrResult::process_result(PdrResult const& r)
   {
     original.push_back(r);
+    traces.push_back(process_trace(r));
     total_time += r.time;
 
     tabulate::Table::Row_t row;
@@ -276,7 +276,7 @@ namespace pdr
   //
   std::string IpdrResult::process_trace(PdrResult const& res) const
   {
-    return result::trace_table(res, vars, initial_state);
+    return result::trace_table(res, vars, vars_p);
   }
 
   const tabulate::Table::Row_t IpdrResult::summary_header() const
@@ -290,30 +290,22 @@ namespace pdr
   //
   namespace result
   {
-    using mysat::primed::VarVec;
-
-    std::string trace_table(
-        PdrResult const& res, VarVec const& vars, z3::expr_vector initial)
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> const& vars,
+        std::vector<std::string> const& vars_p)
     {
       using fmt::format;
-      using std::string;
       using std::to_string;
       using tabulate::Table;
-      using z3::expr;
-      using z3::expr_vector;
 
       if (res.has_invariant())
         return "Invariant, no trace.";
 
       // process trace
       std::stringstream ss;
-      vector<string> lits  = vars.names();
-      vector<string> litsp = vars.names_p();
-      std::sort(lits.begin(), lits.end());
-      std::sort(litsp.begin(), litsp.end());
 
       size_t longest =
-          std::max_element(lits.begin(), lits.end(), str_size_cmp)->size();
+          std::max_element(vars.begin(), vars.end(), str_size_cmp)->size();
 
       Table t;
       // Write top row
@@ -321,7 +313,7 @@ namespace pdr
         Table::Row_t trace_header = {
           "",
         };
-        trace_header.insert(trace_header.end(), lits.begin(), lits.end());
+        trace_header.insert(trace_header.end(), vars.begin(), vars.end());
         t.add_row(trace_header);
       }
 
@@ -345,7 +337,6 @@ namespace pdr
           {
             if (i == 0)
             {
-              // assert(z3ext::quick_implies(s, initial)); // s \in I
               index_str = "I";
             }
             else if (i == N - 1)
@@ -354,9 +345,9 @@ namespace pdr
               index_str = to_string(i);
           }
 
-#warning z3pdr result uses only list, litsp gives ? in final result
+#warning z3pdr result uses only vars, vars_p gives `?` in final result
           Table::Row_t row_marking =
-              make_row(index_str, s, (i < N - 1 ? lits : litsp));
+              make_row(index_str, s, (i < N - 1 ? vars : vars_p));
           t.add_row(row_marking);
         }
       }

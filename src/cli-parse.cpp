@@ -8,7 +8,6 @@
 
 #include <cassert>
 #include <cxxopts.hpp>
-#include <dbg.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <initializer_list>
@@ -456,7 +455,7 @@ namespace my::cli
       require_one_of({ o_alg }, clresult);
     std::string a = clresult[o_alg].as<std::string>();
 
-    if (dbg(a) == s_pdr)
+    if (a == s_pdr)
       algorithm = algo::t_PDR();
     else if (a == s_ipdr)
     {

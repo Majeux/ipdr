@@ -37,7 +37,7 @@ namespace pdr::pebbling
 
     // construct PebblingResult
     IpdrPebblingResult(const PebblingModel& m, Tactic t);
-    IpdrPebblingResult(z3::expr_vector initial,
+    IpdrPebblingResult(
         mysat::primed::VarVec const& vars, unsigned pebbles_final, Tactic t);
     // convert from general IpdrResult to PebblingResult
     IpdrPebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
@@ -70,7 +70,7 @@ namespace pdr::pebbling
     // expand row with constraint and length, and store the latest in total
     const tabulate::Table::Row_t process_result(
         const PdrResult& r, std::optional<unsigned> constraint);
-    std::string process_trace(const PdrResult& res) const override;
+    std::string process_trace(PdrResult const& res) const override;
   };
 } // namespace pdr::pebbling
 
