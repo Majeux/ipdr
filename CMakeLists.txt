@@ -63,7 +63,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment
   # -fno-omit-frame-pointer -fsanitize-address-track-origins") set(SANITIZE
   # "-fsanitize=memory -fno-omit-frame-pointer -fsanitize-memory-track-origins")
-  set(CMAKE_CXX_FLAGS "-gdwarf-4 -Wall -Wextra -Wno-unknown-pragmas ${OPT} ${PERF}"
+  set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} ${PERF}"
   )# -ferror-limit=0")
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
