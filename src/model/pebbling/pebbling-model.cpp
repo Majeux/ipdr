@@ -24,7 +24,7 @@ namespace pdr::pebbling
 
     // load_pebble_transition_raw2(G);
     if (args.tseytin)
-      load_pebble_transition_tseytin(G);
+      load_pebble_transition_tseytin_custom(G);
     else
       load_pebble_transition(G);
 
@@ -75,7 +75,12 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingModel::load_pebble_transition_tseytin(dag::Graph const& G)
+  void PebblingModel::load_pebble_transition_tseytin_z3(dag::Graph const& G)
+  {
+    // expr raw = load_pebble_transition_raw2(G);
+  }
+
+  void PebblingModel::load_pebble_transition_tseytin_custom(dag::Graph const& G)
   {
     using namespace z3ext::tseytin;
     transition.resize(0);

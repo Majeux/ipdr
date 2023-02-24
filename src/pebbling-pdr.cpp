@@ -29,7 +29,6 @@
 #include <cassert>
 #include <cstring>
 #include <cxxopts.hpp>
-#include <dbg.h>
 #include <exception>
 #include <fmt/core.h>
 #include <fmt/format.h>

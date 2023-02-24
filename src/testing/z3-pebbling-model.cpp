@@ -1,6 +1,7 @@
 #include "z3-pebbling-model.h"
 #include "logger.h"
 #include "pdr-model.h"
+#include "z3-ext.h"
 #include <sstream>
 #include <z3++.h>
 #include <z3_spacer.h>
@@ -148,6 +149,46 @@ namespace pdr::test
         step(args), guard, fmt::format("flip {}", parent.to_string()));
   }
 
+  namespace
+  {
+    // gather all expressions in e, except those in basic
+    void aux_var_rec(expr const& e, std::set<expr, z3ext::expr_less>& visited, expr_vector& aux,
+        std::set<expr, z3ext::expr_less> const& basic)
+    {
+      // already visited or is one the basic variables
+      if (visited.insert(e).second == false || basic.find(e) != basic.end())
+        return;
+
+      if (e.is_const())
+      {
+        aux.push_back(e);
+      }
+      else if (e.is_app())
+      {
+        for (size_t i{ 0 }; i < e.num_args(); i++)
+          aux_var_rec(e.arg(i), visited, aux, basic);
+      }
+      else if (e.is_quantifier())
+      {
+        aux_var_rec(e.body(), visited, aux, basic);
+      }
+    }
+
+    // gather all auxiliary variables in e (introduced by tseitin.
+    // return vars() + vars.p() + aux_vars
+    expr_vector get_all_vars(expr e, expr_vector const& basic)
+    {
+      expr_vector aux(basic);
+      std::set<expr, z3ext::expr_less> visited, basic_set;
+      for (expr const& e : basic)
+        basic_set.insert(e);
+
+      aux_var_rec(e, visited, aux, basic_set);
+
+      return z3ext::vec_add(basic, aux);
+    }
+  } // namespace
+
   Z3PebblingModel::Rule Z3PebblingModel::parallel_pebbling_transitions()
   {
     expr guard = make_constraint();
@@ -168,9 +209,14 @@ namespace pdr::test
 
       T_conj.push_back(z3::implies(flip, stay));
     }
+    expr T    = z3ext::tseytin::to_cnf(z3::mk_and(T_conj));
+    expr horn = z3::implies(state(vars) && T && guard, state(vars.p()));
+    expr_vector all_vars = get_all_vars(T, z3ext::vec_add(vars(), vars.p()));
 
-    return mk_rule(state(vars.p()),
-        state(vars) && z3::mk_and(T_conj) && guard, "T");
+    expr rule = z3::forall(all_vars, horn);
+    // expr rule = z3::forall(z3ext::vec_add(vars(), vars.p()), horn);
+
+    return { rule, ctx.str_symbol("T") };
   }
 
   void Z3PebblingModel::prepare_initial()

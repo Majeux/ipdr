@@ -6,7 +6,6 @@
 #include "cli-parse.h"
 #include "types-ext.h"
 
-#include <dbg.h>
 #include <fmt/format.h>
 #include <memory>
 #include <vector>

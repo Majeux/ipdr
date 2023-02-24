@@ -45,13 +45,10 @@ namespace pdr::test
     p.set("engine", "spacer"); // z3 pdr implementation
     p.set("spacer.random_seed", ctx.seed);
     p.set("spacer.push_pob", true); // pushing blocked facts
-    p.set("spacer.use_bg_invs", true);
     // p.set("spacer.trace_file", "spacer-trace.txt");
     
     engine.set(p);
-
-    z3::set_param("trace", true);
-    
+    // z3::set_param("trace", true);
 
     return engine;
   }

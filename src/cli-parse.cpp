@@ -398,8 +398,8 @@ namespace my::cli
         value<bool>())
       (s_seed, "Use the given seed for the SAT solver",
         value<unsigned>(), "(uint:SEED)")
-      (s_tseytin, "Build the transition relation using the tseytin reform.",
-        value<bool>(tseytin)->default_value("true"))
+      (s_tseytin, "Build the transition relation using z3's tseytin reform.",
+        value<bool>(tseytin)->default_value("false"))
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(onlyshow)->default_value("false"))
 
