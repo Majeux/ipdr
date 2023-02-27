@@ -6,6 +6,9 @@ TabWidth: 2
 IndentWidth: 2
 AccessModifierOffset: -1
 
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# PackConstructorInitializers: PCIS_NextLine
+
 BreakBeforeBraces: Allman
 
 PointerAlignment: Left

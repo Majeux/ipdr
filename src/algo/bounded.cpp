@@ -30,10 +30,7 @@ namespace bounded
       lit_names.emplace_back(s);
     std::sort(lit_names.begin(), lit_names.end());
 
-    const fs::path model_dir = setup_model_path(args);
-    const string filename    = file_name(args);
-    const fs::path run_dir   = setup_path(model_dir / folder_name(args));
-    result_out               = trunc_file(run_dir, filename, "strategy");
+    result_out = args.folders.file_in_run("trace");
   }
 
   void BoundedPebbling::reset()
@@ -134,8 +131,8 @@ namespace bounded
 
   bool BoundedPebbling::find_for(size_t pebbles)
   {
-    using std::endl;
     using fmt::format;
+    using std::endl;
 
     total_time = 0.0;
     sub_times.resize(0);
@@ -201,7 +198,10 @@ namespace bounded
       std::regex postfix(R"(^([[:alnum:]_]+).([[:digit:]]+)$)");
       std::smatch postfix_match;
       std::string lit_str{ m[i]().to_string() };
-      assert(std::regex_match(lit_str, postfix_match, postfix));
+      if(!std::regex_match(lit_str, postfix_match, postfix))
+      {
+        assert(false);
+      }
       assert(postfix_match.size() == 3);
 
       rv.name            = postfix_match[1];

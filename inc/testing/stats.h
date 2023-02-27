@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <optional>
@@ -22,7 +23,7 @@ namespace pdr
 
     unsigned total_count = 0;
     std::vector<unsigned> count;
-    
+
     std::optional<double> total_time = 0.0;
     std::vector<double> time;
 
@@ -33,14 +34,11 @@ namespace pdr
     void add_timed(size_t i, double dt);
     std::optional<double> avg_time(size_t i) const;
 
-    friend std::ostream& operator<<(std::ostream& out, const Statistic& stat);
+    friend std::ostream& operator<<(std::ostream& out, Statistic const& stat);
   };
 
   class Statistics
   {
-   private:
-    std::ofstream file;
-
    public:
     Statistic solver_calls;
     Statistic propagation_it;
@@ -49,77 +47,48 @@ namespace pdr
 
     Statistic ctis;
     Statistic subsumed_cubes;
+    struct
+    {
+      unsigned count{ 0 };
+      unsigned total{ 0 };
+    } copied_cubes;
 
     double elapsed = -1.0;
-    std::map<std::string, unsigned> model;
     std::vector<std::string> solver_dumps;
 
-    Statistics(std::ofstream&& f, const dag::Graph& G)
-        : file(std::move(f)), solver_calls(true), propagation_it(true),
-          propagation_level(true), obligations_handled(true), ctis(true),
-          subsumed_cubes(false)
-    {
-      model.emplace("nodes", G.nodes.size());
-      model.emplace("edges", G.edges.size());
-      model.emplace("outputs", G.output.size());
-    }
+    // Statistics takes ownership of its file stream
+    Statistics(std::ofstream&& f);
 
-    void clear()
-    {
-      solver_calls.clear();
-      propagation_it.clear();
-      propagation_level.clear();
-      obligations_handled.clear();
-      ctis.clear();
-    }
+    // set the statistics header to describe a DAG model for pebbling
+    void is_pebbling(dag::Graph const& G);
+    // set the statistics header to describe a DAG model for pebbling
+    void is_peter(unsigned p, unsigned N);
 
-    std::string str() const
-    {
-      std::stringstream ss;
-      ss << *this << std::endl;
-      return ss.str();
-    }
+    // update the current and maximum processes in the peterson header
+    void update_peter(unsigned p, unsigned N);
+    void clear();
+    std::string str() const;
+    void write();
+    friend std::ostream& operator<<(std::ostream& out, Statistics const& s);
 
     template <typename... Args> void write(std::string_view s, Args&&... a)
     {
       file << fmt::format(s, std::forward<Args>(a)...) << std::endl;
     }
 
-    void write() { file << *this << std::endl; }
+   private:
+    bool finished{ false };
+    std::ofstream file;
+    std::map<std::string, unsigned> model_info;
 
-    friend std::ostream& operator<<(std::ostream& out, const Statistics& s)
+    static inline const std::string PROC_STR = "processes";
+    static inline const std::string N_STR    = "max_processes";
+
+    double compute_copied() const
     {
-      assert(not s.model.empty());
-      out << "Model: " << std::endl << "--------" << std::endl;
-      for (auto name_value : s.model)
-        out << name_value.first << " = " << name_value.second << ", ";
-      out << std::endl;
-      out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
-
-      out << std::endl;
-
-      std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
-      std::string frame_line_avg(
-          "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-      out << "######################" << std::endl
-          << "# Statistics" << std::endl
-          << "######################" << std::endl;
-
-      out << "# Solver" << std::endl
-          << s.solver_calls << std::endl
-          << "# CTIs" << std::endl
-          << s.ctis << std::endl
-          << "# Obligations" << std::endl
-          << s.obligations_handled << std::endl
-          << "# Propagation per iteration" << std::endl
-          << s.propagation_it << std::endl
-          << "# Propagation per level" << std::endl
-          << s.propagation_level << std::endl
-          << "# Subsumed clauses" << std::endl
-          << s.subsumed_cubes << std::endl
-          << "#" << std::endl;
-
-      return out << "######################" << std::endl;
+      if (copied_cubes.total != 0)
+        return 0;
+      return ((double)copied_cubes.count / copied_cubes.total) * 100.0;
     }
   };
 } // namespace pdr

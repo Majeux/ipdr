@@ -1,17 +1,26 @@
 #ifndef PDR_ALG
 #define PDR_ALG
 
-#include "_logging.h"
+#include "cli-parse.h"
+#include "dag.h"
 #include "frames.h"
 #include "pdr-context.h"
 #include "pdr-model.h"
+#include "pebbling-model.h"
+#include "pebbling-result.h"
+#include "peterson-result.h"
+#include "peterson.h"
 #include "result.h"
 #include "stats.h"
+#include "vpdr.h"
 #include "z3-ext.h"
+#include "z3-pebbling-model.h"
+#include "z3pdr.h"
 
 #include <climits>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <queue>
 #include <spdlog/stopwatch.h>
@@ -24,130 +33,155 @@ namespace pdr
 {
   namespace pebbling
   {
-    class Optimizer;
+    class IPDR;
+  }
+  namespace peterson
+  {
+    class IPDR;
   }
 
-  class PDR
+  class PDR : public vPDR
   {
-    friend class pebbling::Optimizer;
+    friend class pebbling::IPDR;
+    friend class peterson::IPDR;
+
+   public:
+    // Inherited from vPDR
+    // vPDR(Context& c, Logger& l)
+    // get_ctx() -> Context const&
+
+    PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m);
+
+    PdrResult run() override;
+    void reset() override;
+
+    Statistics& stats();
+    void show_solver(std::ostream& out) const override;
+    std::vector<std::string> trace_row(z3::expr_vector const& v);
+    int length_shortest_strategy() const;
 
    private:
-    Context& ctx;
+    // inherited from vPDR
+    // Context ctx
+    // Logger& logger
+    IModel& ts;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
-    Logger& logger;
 
-    Frames frames;
+    Frames frames; // sequence of candidates
     std::set<Obligation, std::less<Obligation>> obligations;
-
-    unsigned shortest_strategy;
 
     // if mic fails to reduce a clause c this many times, take c
     const unsigned mic_retries = UINT_MAX;
 
-    void print_model(const z3::model& m);
+    struct HIFresult
+    {
+      int level;
+      std::optional<z3::expr_vector> core;
+    };
+
+    void print_model(z3::model const& m);
     // main algorithm
-    Result _run();
-    Result init();
-    Result iterate();
-    Result block(z3::expr_vector cti, unsigned n);
-    Result iterate_short();
-    Result block_short(z3::expr_vector&& counter, unsigned n);
+    PdrResult init();
+    PdrResult iterate();
+    PdrResult block(z3::expr_vector cti, unsigned n);
+    PdrResult iterate_short();
+    PdrResult block_short(z3::expr_vector&& counter, unsigned n);
     // generalization
     // todo return [n, cti ptr]
-    int hif_(const z3::expr_vector& cube, int min);
-    std::tuple<int, z3::expr_vector> highest_inductive_frame(
-        const z3::expr_vector& cube, int min);
-    z3::expr_vector generalize(const z3::expr_vector& cube, int level);
-    z3::expr_vector MIC(const z3::expr_vector& cube, int level);
+    HIFresult hif_(z3::expr_vector const& cube, int min);
+    HIFresult highest_inductive_frame(z3::expr_vector const& cube, int min);
+    z3::expr_vector generalize(z3::expr_vector const& cube, int level);
+    z3::expr_vector MIC(z3::expr_vector const& cube, int level);
     bool down(std::vector<z3::expr>& cube, int level);
     // results
-    void make_result(Result& result);
+    void make_result(PdrResult& result);
     // to replace return value in run()
     // stores final logs, stats and result and returns its argument
-    Result finish(Result&& rv);
+    PdrResult finish(PdrResult&& rv);
     void store_frame_strings();
-    std::string constraint_str() const;
 
     // logging shorthands
     void log_start() const;
     void log_iteration();
-    void log_cti(const z3::expr_vector& cti, unsigned level);
+    void log_cti(z3::expr_vector const& cti, unsigned level);
     void log_propagation(unsigned level, double time);
     void log_top_obligation(
-        size_t queue_size, unsigned top_level, const z3::expr_vector& top);
-    void log_pred(const z3::expr_vector& p);
+        size_t queue_size, unsigned top_level, z3::expr_vector const& top);
+    void log_pred(z3::expr_vector const& p);
     void log_state_push(unsigned frame);
-    void log_finish(const z3::expr_vector& s);
+    void log_finish(z3::expr_vector const& s);
     void log_obligation_done(std::string_view type, unsigned l, double time);
+  };
 
+  class vIPDR
+  {
    public:
-    PDR(Context& c, Logger& l);
-    PDR(Context& c, Logger& l, std::optional<unsigned> constraint);
-    // prepare PDR for new run. discards old trace
-    void reset();
-    const Context& get_ctx() const;
-    Context& get_ctx();
+    vIPDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
+        : alg(args, c, l, m)
+    {
+    }
+    virtual ~vIPDR() {}
 
-    // execute the PDR algorithm using the model and property in the context
-    // returns true if the property is invariant
-    // returns false if there is a trace to a violation
-    // max_pebbles: {} gives Frames no constraint
-    // any value constrains maximum pebbled literals to the number
-    Result run(Tactic pdr_type);
-    Result run(Tactic pdr_type, std::optional<unsigned> max_pebbles);
+    PDR const& internal_alg() const { return alg; }
 
-    // a run loosening the constraint, assuming a previous run was completed
-    Result decrement_run(unsigned max_pebbles);
-    Result increment_run(unsigned max_pebbles);
-
-    // constrain the given model to allow only 'x' literals marked
-    void reconstrain(unsigned x);
-    // reduces the max pebbles of the model to 1 lower than the previous
-    // strategy length. returns true if the is already proven invariant by this.
-    // returns false if this remains to be verified.
-    bool decrement(bool reuse = false);
-
-    // optimization tactics
-    //
-    // Start at max pebbles and decrement until (at the lowest) final pebbles
-    bool dec_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
-    // start at final pebbles and increment until (at the most) max pebbles
-    bool inc_tactic(std::ofstream& strategy, std::ofstream& solver_dump);
-    bool inc_jump_test(unsigned start, int step, std::ofstream& strategy,
-        std::ofstream& solver_dump);
-
-    Statistics& stats();
-    void show_solver(std::ostream& out) const;
-    std::vector<std::string> trace_row(const z3::expr_vector& v);
-    int length_shortest_strategy() const;
+   protected: // usable by pdr and ipdr implementations
+    PDR alg;
   };
 
   namespace pebbling
   {
-    class Optimizer
+    class IPDR : public vIPDR
     {
-     private:
-      PDR alg;
-
      public:
-      Results latest_results;
-
-      Optimizer(PDR&& a);
-      Optimizer(Context& c, Logger& l);
+      IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+          PebblingModel& m);
 
       // runs the optimizer as dictated by the argument
-      std::optional<unsigned> run(my::cli::ArgumentList args);
+      IpdrPebblingResult run(Tactic tactic, bool control = false);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control
-      std::optional<unsigned> control_run(my::cli::ArgumentList args);
-      std::optional<unsigned> increment(bool control);
-      std::optional<unsigned> decrement(bool control);
-      void inc_jump_test(unsigned start, int step);
+      IpdrPebblingResult control_run(Tactic tactic);
+      IpdrPebblingResult relax(bool control);
+      IpdrPebblingResult constrain(bool control);
+      IpdrPebblingResult relax_jump_test(unsigned start, int step);
 
-      void dump_solver(std::ofstream& out) const;
+     private:
+      PebblingModel& ts; // same instance as the IModel in alg
+      std::optional<unsigned> starting_pebbles;
+
+      void basic_reset(unsigned pebbles);
+      void relax_reset(unsigned pebbles);
+      std::optional<size_t> constrain_reset(unsigned pebbles);
     }; // class Optimizer
   }    // namespace pebbling
+
+  namespace peterson
+  {
+    class IPDR : public vIPDR
+    {
+     public:
+      IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+          PetersonModel& m);
+
+      // runs the optimizer as dictated by the argument
+      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes,
+          bool control = false);
+      // runs the optimizer as dictated by the argument but with forced
+      // experiment_control
+      IpdrPetersonResult control_run(Tactic tactic, unsigned processes);
+      IpdrPetersonResult relax(unsigned processes, bool control);
+      IpdrPetersonResult relax_jump_test(unsigned start, int step);
+
+      // PDR const& internal_alg() const; from vIPDR
+     private:
+      // PDR alg; from vIPDR
+      PetersonModel& ts; // same instance as the IModel in alg
+
+      void basic_reset(unsigned processes);
+      void relax_reset(unsigned processes);
+    }; // class Optimizer
+  }    // namespace peterson
 } // namespace pdr
 #endif // PDR_ALG

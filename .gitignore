@@ -1,3 +1,7 @@
+package.json
+package-lock.json
+node_modules
+
 # Prerequisites
 *.d
 
@@ -42,9 +46,12 @@ build
 
 #z3
 .z3-trace
+z3.log
+spacer-trace.txt
 
 #benchmarks
 benchmark/rls
+benchmark/rls-benchmarks
 !benchmark/rls/_rls-benchmarks.txt
 
 output/*

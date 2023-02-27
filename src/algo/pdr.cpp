@@ -1,6 +1,7 @@
 #include "pdr.h"
 #include "TextTable.h"
-#include "output.h"
+#include "logger.h"
+#include "pdr-model.h"
 #include "result.h"
 #include "solver.h"
 #include "stats.h"
@@ -30,18 +31,17 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  PDR::PDR(Context& c, Logger& l) : ctx(c), logger(l), frames(ctx, logger) {}
-  PDR::PDR(Context& c, Logger& l, optional<unsigned> constraint)
-      : ctx(c), logger(l), frames(ctx, logger, constraint)
+  PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
+      : vPDR(c, l), ts(m), frames(ctx, m, logger)
   {
   }
 
-  const Context& PDR::get_ctx() const { return ctx; }
-  Context& PDR::get_ctx() { return ctx; }
+  void PDR::reset()
+  {
+    frames.reset();
+  }
 
-  void PDR::reset() { shortest_strategy = UINT_MAX; }
-
-  void PDR::print_model(const z3::model& m)
+  void PDR::print_model(z3::model const& m)
   {
     logger.show("model consts \{");
     for (unsigned i = 0; i < m.num_consts(); i++)
@@ -49,145 +49,114 @@ namespace pdr
     logger.show("}");
   }
 
-  Result PDR::_run()
+  PdrResult PDR::run()
   {
     timer.reset();
-    // TODO run type preparation logic here
     log_start();
 
     if (frames.frontier() == 0)
     {
       logger.indent++;
-      Result init_res = init();
+      PdrResult init_res = init();
       logger.indent--;
       if (!init_res)
       {
-        logger.and_whisper("Failed initiation");
+        MYLOG_INFO(logger, "Failed initiation");
         return finish(std::move(init_res));
       }
     }
 
-    logger.and_show("\nStart iteration");
+    // MYLOG_INFO(logger, "\nStart iteration");
     logger.indent++;
-    if (Result it_res = iterate_short())
+    if (PdrResult it_res = iterate_short())
     {
-      logger.and_whisper("Property verified");
+      MYLOG_INFO(logger, "Property verified");
       logger.indent--;
       return finish(std::move(it_res));
     }
     else
     {
-      logger.and_whisper("Failed iteration");
+      MYLOG_INFO(logger, "Failed iteration");
       return finish(std::move(it_res));
     }
   }
 
-  Result PDR::run(Tactic pdr_type)
-  {
-    ctx.type = pdr_type;
-    return _run();
-  }
-
-  Result PDR::run(Tactic pdr_type, optional<unsigned> max_p)
-  {
-    ctx.type = pdr_type;
-    frames.reset(max_p);
-    return _run();
-  }
-
-  Result PDR::decrement_run(unsigned max_p)
-  {
-    ctx.type = Tactic::decrement;
-    if (std::optional<unsigned> inv = frames.decrement_reset(max_p))
-      return Result::found_invariant(frames.max_pebbles, *inv);
-
-    return _run();
-  }
-
-  Result PDR::increment_run(unsigned max_p)
-  {
-    ctx.type = Tactic::increment;
-    frames.increment_reset(max_p);
-    return _run();
-  }
-
-  Result PDR::finish(Result&& rv)
+  PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
-    logger.and_show(format("Total elapsed time {}", final_time));
+    MYLOG_INFO(logger, format("Total elapsed time {}", final_time));
     if (rv)
-      logger.and_show("Invariant found");
+    {
+      MYLOG_INFO(logger, "Invariant found");
+    }
     else
-      logger.and_show("Terminated with trace");
+    {
+      MYLOG_INFO(logger, "Terminated with trace");
+    }
 
     rv.time = final_time;
 
     logger.stats.elapsed = final_time;
-    logger.stats.write(constraint_str());
+    logger.stats.write(ts.constraint_str());
     logger.stats.write();
     logger.stats.clear();
     store_frame_strings();
-    if (!rv)
-      shortest_strategy = std::min(shortest_strategy, rv.trace().marked);
     logger.indent = 0;
-    rv.finalize(ctx);
+
+    MYLOG_DEBUG(logger, "final solver");
+    MYLOG_DEBUG(logger, frames.blocked_str());
 
     return rv;
   }
 
   // returns true if the model survives initiation
-  Result PDR::init()
+  PdrResult PDR::init()
   {
-    logger.and_whisper("Start initiation");
+    MYLOG_INFO(logger, "Start initiation");
     assert(frames.frontier() == 0);
 
-    const ::pebbling::Model& m = ctx.model();
-    expr_vector notP         = m.n_property.currents();
-
-    if (frames.init_solver.check(notP))
+    if (frames.init_solver.check(ts.n_property))
     {
-      logger.whisper("I =/> P");
-      return Result::found_trace(frames.max_pebbles, m.get_initial());
+      MYLOG_INFO(logger, "I =/> P");
+      return PdrResult::found_trace(ts.get_initial());
     }
 
-    expr_vector notP_next = m.n_property.nexts();
-    if (frames.SAT(0, notP_next))
+    if (frames.SAT(0, ts.n_property.p()))
     { // there is a transitions from I to !P
-      logger.show("I & T =/> P'");
+      MYLOG_INFO(logger, "I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
-      return Result::found_trace(frames.max_pebbles, bad_cube);
+      return PdrResult::found_trace(bad_cube);
     }
 
     frames.extend();
 
-    logger.and_whisper("Survived Initiation");
-    return Result::empty_true();
+    MYLOG_INFO(logger, "Survived Initiation");
+    return PdrResult::empty_true();
   }
 
-  Result PDR::iterate()
+  PdrResult PDR::iterate()
   {
     // I => P and I & T ⇒ P' (from init)
-    expr_vector notP_next = ctx.model().n_property.nexts();
-    if (ctx.type != Tactic::decrement)
+    if (ctx.type != Tactic::constrain)
       assert(frames.frontier() == 1);
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
       logger.whisper("Iteration k={}", k);
-      while (std::optional<expr_vector> cti =
-                 frames.get_trans_source(k, notP_next, true))
+      while (optional<z3ext::solver::Witness> cti =
+                 frames.get_trans_source(k, ts.n_property.p(), true))
       {
-        log_cti(*cti, k); // cti is an F_i state that leads to a violation
+        log_cti(cti->curr, k); // cti is an F_i state that leads to a violation
 
-        auto [n, core] = highest_inductive_frame(*cti, k - 1);
+        auto [n, core] = highest_inductive_frame(cti->curr, k - 1);
         // assert(n >= 0);
 
         // !s is inductive relative to F_n
-        expr_vector sub_cube = generalize(core, n);
+        expr_vector sub_cube = generalize(core.value(), n);
         frames.remove_state(sub_cube, n + 1);
 
-        Result res = block(*cti, n);
+        PdrResult res = block(cti->curr, n);
         if (not res)
         {
           logger.and_show("Terminated with trace");
@@ -196,27 +165,27 @@ namespace pdr
 
         logger.show("");
       }
-      logger.tabbed("no more counters at F_{}", k);
+      logger.indented("no more counters at F_{}", k);
 
       sub_timer.reset();
 
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
-      frames.log_solvers(true);
+      frames.log_solver(true);
 
       if (invariant_level)
-        return Result::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(*invariant_level);
     }
   }
 
-  Result PDR::block(expr_vector cti, unsigned n)
+  PdrResult PDR::block(expr_vector cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    logger.tabbed("block");
+    logger.indented("block");
     logger.indent++;
 
-    if (ctx.type != Tactic::increment)
+    if (ctx.type != Tactic::relax)
     {
       logger.tabbed_and_whisper("Cleared obligations.");
       obligations.clear();
@@ -243,11 +212,11 @@ namespace pdr
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> state
-      if (std::optional<expr_vector> pred_cube =
+      if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        std::shared_ptr<State> pred =
-            std::make_shared<State>(*pred_cube, state);
+        std::shared_ptr<PdrState> pred =
+            std::make_shared<PdrState>(*pred_cube, state);
         log_pred(pred->cube);
 
         // state is at least inductive relative to F_n-2
@@ -255,9 +224,9 @@ namespace pdr
         auto [m, core] = highest_inductive_frame(pred->cube, n - 1);
         // n-1 <= m <= level
         if (m < 0) // intersects with I
-          return Result::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(pred);
 
-        expr_vector smaller_pred = generalize(core, m);
+        expr_vector smaller_pred = generalize(core.value(), m);
         frames.remove_state(smaller_pred, m + 1);
 
         if (static_cast<unsigned>(m + 1) <= k)
@@ -278,10 +247,10 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return Result::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core, m);
+        expr_vector smaller_state = generalize(core.value(), m);
         // expr_vector smaller_state = generalize(state->cube, m);
         frames.remove_state(smaller_state, m + 1);
         obligations.erase(obligations.begin());
@@ -314,15 +283,7 @@ namespace pdr
     }
 
     logger.indent--;
-    return Result::empty_true();
-  }
-
-  string PDR::constraint_str() const
-  {
-    if (frames.max_pebbles)
-      return format("cardinality {}", *frames.max_pebbles);
-    else
-      return "no constraint";
+    return PdrResult::empty_true();
   }
 
   void PDR::store_frame_strings()
@@ -331,12 +292,12 @@ namespace pdr
     std::stringstream ss;
 
     ss << SEP3 << endl
-       << "# " << constraint_str() << endl
+       << "# " << ts.constraint_str() << endl
        << "Frames" << endl
        << frames.blocked_str() << endl
        << SEP2 << endl
        << "Solvers" << endl
-       << frames.solvers_str(true) << endl;
+       << frames.solver_str(true) << endl;
 
     logger.stats.solver_dumps.push_back(ss.str());
   }
@@ -346,7 +307,5 @@ namespace pdr
     for (const std::string& s : logger.stats.solver_dumps)
       out << s << std::endl << std::endl;
   }
-
-  int PDR::length_shortest_strategy() const { return shortest_strategy; }
 
 } // namespace pdr

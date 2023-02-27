@@ -26,54 +26,61 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  Result PDR::iterate_short()
+  PdrResult PDR::iterate_short()
   {
+    using z3ext::solver::Witness;
+
     // I => P and I & T ⇒ P' (from init)
-    if (ctx.type != Tactic::decrement) // decr continues from last level
+    if (ctx.type != Tactic::constrain) // decr continues from last level
       assert(frames.frontier() == 1);
 
-    expr_vector notP_next = ctx.model().n_property.nexts();
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
-      logger.whisper("Iteration k={}", k);
-      while (std::optional<expr_vector> cti =
-                 frames.get_trans_source(k, notP_next, true))
+      while (optional<Witness> witness =
+                 frames.get_trans_source(k, ts.n_property.p(), true))
       {
-        log_cti(*cti, k); // cti is an F_i state that leads to a violation
+        log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 
-        Result res = block_short(std::move(*cti), k - 1); // is cti reachable from F_k-1 ?
+        PdrResult res = block_short(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
+        {
+          res.append_final(witness->next);
           return res;
+        }
 
-        logger.show("");
+        MYLOG_DEBUG(logger, "");
       }
-      logger.tabbed("no more counters at F_{}", k);
+      MYLOG_INFO(logger, "no more counters at F_{}", k);
 
       sub_timer.reset();
 
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
+      frames.log_solver(true);
 
       if (invariant_level)
-        return Result::found_invariant(frames.max_pebbles, *invariant_level);
+        return PdrResult::found_invariant(*invariant_level);
     }
   }
 
-  Result PDR::block_short(expr_vector&& cti, unsigned n)
+  PdrResult PDR::block_short(expr_vector&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    logger.tabbed("block");
+    logger.indented("eliminate predecessors");
     logger.indent++;
 
-    if (ctx.type != Tactic::increment)
+#warning is dit nog enigzins ok?
+    if (ctx.type != Tactic::relax)
     {
-      logger.tabbed_and_whisper("Cleared obligations.");
+      MYLOG_DEBUG_SHOW(logger, "Cleared obligations.");
       obligations.clear();
     }
     else
-      logger.tabbed_and_whisper("Reused obligations.");
+    {
+      MYLOG_DEBUG_SHOW(logger, "Reused obligations: {}.", obligations.size());
+    }
 
     unsigned period = 0;
     if (n <= k)
@@ -95,11 +102,11 @@ namespace pdr
       if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        shared_ptr<State> pred = make_shared<State>(*pred_cube, state);
+        shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
         log_pred(pred->cube);
 
         if (n == 0) // intersects with I
-          return Result::found_trace(frames.max_pebbles, pred);
+          return PdrResult::found_trace(pred);
 
         obligations.emplace(n - 1, pred, depth + 1);
 
@@ -116,10 +123,10 @@ namespace pdr
         assert(static_cast<unsigned>(m + 1) > n);
 
         if (m < 0)
-          return Result::found_trace(frames.max_pebbles, state);
+          return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core, m);
+        expr_vector smaller_state = generalize(core.value(), m);
         frames.remove_state(smaller_state, m + 1);
         obligations.erase(obligations.begin());
 
@@ -138,6 +145,6 @@ namespace pdr
     }
 
     logger.indent--;
-    return Result::empty_true();
+    return PdrResult::empty_true();
   }
 } // namespace pdr
