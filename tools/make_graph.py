@@ -1,10 +1,11 @@
+from collections import defaultdict
 import sys
 import os
 import re as regex
 import pprint
-from typing import List, Mapping
+from typing import KeysView, List, Mapping, Tuple
 
-# DEBUG = True
+DEBUG = True
 DEBUG = False
 
 test = r'''\begin{tabular}
@@ -35,7 +36,7 @@ def split_tables(tex: str) -> List[str]:
     return [x.replace('\n', '') for x in regex.findall(pattern, tex)]
 
 
-def split_rows(table: str) -> List[List[str]]:
+def split_rows(table: str) -> List[str]:
     rv = [x for x in table.split("\\\\") if x != '']
     return rv
 
@@ -43,15 +44,36 @@ def split_rows(table: str) -> List[List[str]]:
 Data_t = Mapping[str, Mapping[str, str]]
 
 
-def parse_rows(rows: List[str]) -> Data_t:
-    rv = {"ipdr": {}, "control": {}}
+def parse_rows_single(type: str, table: List[List[str]]) -> Data_t|None:
+    if len(table) == 0:
+        return None
+
+    rows = table[0]
+    rv = { type: {} }
+
+    for row in rows[1:]:
+        cells = row.split('&')
+        assert len(cells) == 2
+
+        name = cells[0].strip()
+        rv[type][name] = cells[1].strip()
+
+    return rv
+
+
+def parse_rows_combined(type: str, table: List[List[str]]) -> Data_t|None:
+    if len(table) == 0:
+        return None
+
+    rows = table[1]
+    rv = {type: {}, "control": {}}
 
     for row in rows[1:]:
         cells = row.split('&')
         assert len(cells) == 4
 
         name = cells[0].strip()
-        rv["ipdr"][name] = cells[1].strip()
+        rv[type][name] = cells[1].strip()
         rv["control"][name] = cells[2].strip()
 
     return rv
@@ -66,14 +88,23 @@ def tabbed(s: str) -> str:
 
 def escape(s: str) -> str:
     assert s is not None
-    return regex.sub("\^", "\\^{}", regex.sub("_", "\\_", s))
+    return regex.sub("\\^", "\\^{}", regex.sub("_", "\\_", s))
+
+
+def add_C_tag(s: str):
+    assert s is not None
+    return regex.sub("(_[0-9]+)$", r"_C\1", s)
 
 
 def get_time_val(s: str) -> str:
     assert s is not None
-    return regex.search("([0-9]+\\.[0-9]+) s", s).group(1)
+    result = regex.search("([0-9]+\\.[0-9]+) s", s)
+    if not result == None:
+        return result.group(1)
+    return "???"
 
-def name_list(names: List[str]) -> str:
+
+def name_list(names: KeysView[str]) -> str:
     rv = ""
     for name in names:
         rv += f"    \\texttt{{{name}}},\n"
@@ -120,11 +151,39 @@ def write_plot(data: Mapping[str, Data_t]) -> str:
 
     return str
 
+
+def bar_data(data: Mapping[str, Data_t]) -> str:
+    data = {escape(key): data[key] for key in data}
+    output = defaultdict(lambda: defaultdict(tuple))
+
+    str = "PGFPLOT DATA\n"
+    for model in data:
+        if data[model] is None:
+            continue
+        for type in data[model]:
+            time = get_time_val(data[model][type]["avg time"])
+            dev = get_time_val(data[model][type]["std dev time"])
+            # output[type].append(f"(\\texttt{{{model}}}, {time}) +- (0, {dev})")
+            output[type][model] = (time, dev)
+
+    for type in output:
+        str += type + "\n"
+        for model in data:
+            if model in output[type]:
+                time, dev = output[type][model]
+                str += f"(\\texttt{{{model}}}, {time}) +- (0, {dev})\n"
+            else:
+                str += "???"
+        str += "\n"
+
+    return str
+
 # main matter
 
 
-def get_data(dir: str, sub: str, run: str) -> Data_t:
-    file_path = os.path.join(dir, sub, f"{sub}{run}", f"{sub}{run}.tex")
+def get_data(dir: str, sub_dir: str, model: str, model_dir: str) -> str:
+    file_path = os.path.join(
+        dir, sub_dir, model, model_dir, f"{model_dir}.tex")
     if DEBUG:
         print(file_path)
     assert os.path.isfile(file_path)
@@ -132,30 +191,44 @@ def get_data(dir: str, sub: str, run: str) -> Data_t:
         raw = file.read()
     return raw
 
+
 if __name__ == "__main__":
-    assert len(sys.argv) >= 3
+    assert len(sys.argv) == 4
 
     folder = sys.argv[1]
-    run = sys.argv[2]
     print(f"folder: {folder}")
     print(f"content: {os.listdir(folder)}")
+
+    runs = sys.argv[2].split(",")
+    print(f"runs: {runs}")
+
+    tools_folder = os.path.dirname(os.path.realpath(__file__))
+    with open(tools_folder + "/model_order.txt", 'r') as model_file:
+        models = [m.rstrip() for m in model_file.readlines()]
+    print(f"models: {models}")
     print()
 
-    groups = [g.split(",") for g in sys.argv[3:]]
-    print(f"groups: {groups}")
-    print()
+    model_data = {}
+    control = False
+    for run in runs:
+        assert run == "pebbling" or run == "z3pdr" or run == "bmc"
+        for model in models:
+            if DEBUG:
+                print(f"model: {model}")
 
-    for G in groups:
-        if DEBUG:
-            print(f"group: {G}")
-        group_data = {}
+            model_folder = f"{model}-{sys.argv[3]}"
 
-        for x in G:
-            file_content = get_data(folder, x, run)
+            if run == "z3pdr":
+                control = True
+
+            if control:
+                model_folder = add_C_tag(model_folder)
+
+            file_content = get_data(folder, run, model, model_folder)
             table_contents = split_tables(file_content)
 
             if DEBUG:
-                print("tables")
+                print(f"table (size {len(table_contents)})")
                 pprint.pprint(table_contents)
                 print()
 
@@ -166,18 +239,20 @@ if __name__ == "__main__":
                 pprint.pprint(table)
                 print()
 
-            data = parse_rows(table[1])
+            if control:
+                data = parse_rows_single(run, table)
+            else:
+                data = parse_rows_combined(run, table)
 
             if DEBUG:
                 print("data")
                 pprint.pprint(data)
                 print()
 
-            group_data[x] = data
+            model_data[model] = data
 
-        plot = write_plot(group_data)
+        plot = bar_data(model_data)
 
         if DEBUG:
             print("plot")
         print(plot)
-        print()

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <fmt/format.h>
 #include <memory>
 #include <optional>
 #include <spdlog/spdlog.h>
@@ -17,7 +18,6 @@
 
 namespace pdr
 {
-  using std::make_unique;
   using std::optional;
   using z3::expr;
   using z3::expr_vector;
@@ -34,25 +34,24 @@ namespace pdr
     init_solver.reset();
     init_solver.add(model.get_initial());
 
-    frames.push_back(make_unique<Frame>(0, log));
+    frames.emplace_back(0);
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
     assert(frontier() == 0);
 
-    MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", true));
-    MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", true));
+    MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", false));
+    MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", false));
   }
 
   void Frames::reset()
   {
     assert(frames.size() == act.size());
 
-    frames.resize(0);
-    while (act.size() > 0)
-      act.pop_back();
+    frames.clear();
+    act.clear();
 
-    frames.push_back(make_unique<Frame>(0, log));
+    frames.emplace_back(0);
     act.push_back(ctx().bool_const("__actI__")); // unused
 
     extend();
@@ -73,7 +72,7 @@ namespace pdr
 
     // repopulate
     for (size_t i{ 1 }; i < frames.size(); i++)
-      delta_solver.block(frames[i]->get_blocked(), act.at(i));
+      delta_solver.block(frames[i].get_blocked(), act.at(i));
 
     // with fewer transitions, new cubes may be propagated
     MYLOG_INFO(log, "Redoing last propagation: {}", frontier() - 1);
@@ -95,7 +94,7 @@ namespace pdr
     extend();                               // reinstate level 1
 
     unsigned count = 0;
-    for (const z3::expr_vector& cube : old)
+    for (z3::expr_vector const& cube : old)
     {
       if (SAT(0, cube))
       {
@@ -138,7 +137,7 @@ namespace pdr
     assert(frames.size() > 0);
     std::string acti = fmt::format("__act{}__", frames.size());
     act.push_back(ctx().bool_const(acti.c_str()));
-    frames.push_back(make_unique<Frame>(frames.size(), log));
+    frames.emplace_back(frames.size());
   }
 
 #warning TODO: refresh solver based on % or no. subsumed ??
@@ -146,7 +145,7 @@ namespace pdr
   {
     delta_solver.reset();
     for (size_t i = 1; i < frames.size(); i++)
-      delta_solver.block(frames[i]->get_blocked(), act.at(i));
+      delta_solver.block(frames[i].get_blocked(), act.at(i));
   }
 
   z3ext::CubeSet Frames::get_blocked_in(size_t i) const
@@ -158,19 +157,19 @@ namespace pdr
     for (; i < frames.size(); i++)
     {
       // TODO non-const getter allows std::move
-      const z3ext::CubeSet& Fi = frames[i]->get_blocked();
+      z3ext::CubeSet const& Fi = frames[i].get_blocked();
       blocked.insert(Fi.begin(), Fi.end());
     }
 
     return blocked;
   }
 
-  bool Frames::remove_state(const z3::expr_vector& cube, size_t level)
+  bool Frames::remove_state(z3::expr_vector const& cube, size_t level)
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
     MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
-        str::ext::join(cube));
+        z3ext::join_ev(cube));
 
     log.indent++;
     bool result = delta_remove_state(cube, level);
@@ -178,25 +177,27 @@ namespace pdr
     return result;
   }
 
-  bool Frames::delta_remove_state(const z3::expr_vector& cube, size_t level)
+  bool Frames::delta_remove_state(z3::expr_vector const& cube, size_t level)
   {
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
-      unsigned n_removed = frames.at(i)->remove_subsumed(cube, i < level);
+      unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
       log.stats.subsumed_cubes.add(level, n_removed);
     }
 
     assert(level > 0 && level < frames.size());
 #warning subsumes is now not automatic
-    if (frames[level]->block(cube))
+    if (frames[level].block(cube))
     {
       delta_solver.block(cube, act.at(level));
       MYLOG_DEBUG(log, "blocked in {}", level);
       return true;
     }
     else
+    {
       MYLOG_DEBUG(log, "was already blocked in {}", level);
+    }
 
     return false;
   }
@@ -213,7 +214,7 @@ namespace pdr
       push_forward_delta(i, repeat);
 
     for (size_t i = 1; i <= k; i++)
-      if (frames.at(i)->empty())
+      if (frames.at(i).empty())
       {
         MYLOG_INFO(log, "F[{}] \\ F[{}] == 0", i, i + 1);
         return i;
@@ -231,8 +232,8 @@ namespace pdr
     auto start = steady_clock::now();
 
     unsigned count         = 0;
-    z3ext::CubeSet blocked = frames.at(level)->get_blocked();
-    for (const z3::expr_vector& cube : blocked)
+    z3ext::CubeSet blocked = frames.at(level).get_blocked();
+    for (z3::expr_vector const& cube : blocked)
     {
       if (!trans_source(level, cube))
       {
@@ -253,14 +254,14 @@ namespace pdr
 
   // queries
   //
-  bool Frames::inductive(const std::vector<z3::expr>& cube, size_t frame)
+  bool Frames::inductive(std::vector<z3::expr> const& cube, size_t frame)
   {
     return inductive(z3ext::convert(cube), frame);
   }
 
   // verifies if !cube is inductive relative to F_[frame]
   // query: Fi & !s & T /=> !s'
-  bool Frames::inductive(const z3::expr_vector& cube, size_t frame)
+  bool Frames::inductive(z3::expr_vector const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
 
@@ -278,7 +279,7 @@ namespace pdr
   }
 
   std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
-      const std::vector<z3::expr>& cube, size_t frame)
+      std::vector<z3::expr> const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "get counter relative inductiveness, frame{}", frame);
 
@@ -289,7 +290,7 @@ namespace pdr
   }
 
   std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
-      const z3::expr_vector& cube, size_t frame)
+      z3::expr_vector const& cube, size_t frame)
   {
     if (!inductive(cube, frame))
       return get_solver(frame).witness_current();
@@ -299,7 +300,7 @@ namespace pdr
 
   // if primed: cube is already in next state, else first convert it
   bool Frames::trans_source(
-      size_t frame, const z3::expr_vector& dest_cube, bool primed)
+      size_t frame, z3::expr_vector const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "check transition source, frame{}", frame);
     if (!primed) // cube is in current, bring to next
@@ -309,7 +310,7 @@ namespace pdr
   }
 
   std::optional<Witness> Frames::get_trans_source(
-      size_t frame, const z3::expr_vector& dest_cube, bool primed)
+      size_t frame, z3::expr_vector const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "get transition source, frame{}", frame);
 
@@ -333,7 +334,7 @@ namespace pdr
 
   // SAT interface
   //
-  bool Frames::SAT(size_t frame, const z3::expr_vector& assumptions)
+  bool Frames::SAT(size_t frame, z3::expr_vector const& assumptions)
   {
     return SAT(frame, z3ext::copy(assumptions));
   }
@@ -371,6 +372,8 @@ namespace pdr
 
   const z3::model Frames::get_model(size_t frame) const
   {
+    (void)frame;
+
     assert(frame > 0);
     assert(frame < frames.size());
 
@@ -413,7 +416,7 @@ namespace pdr
   {
     assert(i > 0);
     assert(i < frames.size());
-    return *frames[i];
+    return frames[i];
   }
 
   //
@@ -428,6 +431,8 @@ namespace pdr
 
   void Frames::log_solver(bool only_clauses) const
   {
+    (void)only_clauses;
+
     MYLOG_DEBUG(log, SEP3);
     log_blocked();
     MYLOG_DEBUG(log, FI_solver.as_str("", only_clauses));
@@ -440,7 +445,7 @@ namespace pdr
     std::string str;
     for (auto& f : frames)
     {
-      str += f->blocked_str();
+      str += f.blocked_str();
       str += '\n';
     }
     return str;

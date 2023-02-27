@@ -5,10 +5,12 @@
 #include "pdr-model.h"
 #include "pebbling-model.h"
 #include "tactic.h"
+#include "z3-ext.h"
 
 #include <cassert>
 #include <fmt/format.h>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <tabulate/row.hpp>
 #include <tabulate/table.hpp>
@@ -37,25 +39,34 @@ namespace pdr
 
     struct Trace
     {
-      std::vector<z3::expr_vector> states;
+      using TraceState = std::vector<z3ext::LitStr>;
+      using TraceVec   = std::vector<TraceState>;
+      TraceVec states;
       unsigned length;
+      unsigned n_marked;
 
       Trace();
+      // Trace(Trace const& t) = default;
       Trace(unsigned l);
       Trace(std::shared_ptr<const PdrState> s);
-
-      unsigned total_pebbled() const;
+      Trace(TraceVec const& trace_states);
+      // Trace& operator=(Trace const&);
     };
 
     double time = 0.0;
     std::variant<Invariant, Trace> output;
 
     // Result builders
+    static PdrResult found_trace(Trace::TraceVec const& s);
     static PdrResult found_trace(std::shared_ptr<PdrState> s);
     static PdrResult found_trace(PdrState&& s);
+    static PdrResult incomplete_trace(unsigned length);
     static PdrResult found_invariant(int level);
     static PdrResult empty_true();
     static PdrResult empty_false();
+
+    // building methods
+    PdrResult& with_duration(double t);
 
     // for testing
     void append_final(const z3::expr_vector& f);
@@ -73,10 +84,13 @@ namespace pdr
     void clean_trace();
     // lists { invariant level, trace length, time }
     ResultRow listing() const;
+    tabulate::Table get_table() const;
 
    private:
+    PdrResult(std::variant<Invariant, Trace> o);
     PdrResult(std::shared_ptr<PdrState> s);
-    PdrResult(int l);
+    PdrResult(Trace::TraceVec const& trace_states);
+    PdrResult(int level);
   };
 
   // collection of >= 1 pdr results that represents a single ipdr run
@@ -86,12 +100,14 @@ namespace pdr
   {
    public:
     IpdrResult(const IModel& m);
+    IpdrResult(
+        std::vector<std::string> const& v, std::vector<std::string> const& vp);
     virtual ~IpdrResult();
 
     void reset();
 
-    // track r in "original" and update the total time and "rows" summary
-    // each result is added to "rows" via the virtual add_to_rows() function
+    // add a result to the aggregate
+    // adds the row form process_result(r) to the pdr_summaries
     IpdrResult& add(const PdrResult& r);
 
     // output the pdr_summaries in a formatted table and append the total time
@@ -105,38 +121,52 @@ namespace pdr
     std::vector<double> g_times() const;
 
     // show a small string that described the end result of the run
-    virtual std::string end_result() const = 0;
+    virtual std::string end_result() const           = 0;
     // represent total for a formatted table
     virtual tabulate::Table::Row_t total_row() const = 0;
     // get all traces using the virtual process_trace() function
     std::string all_traces() const;
 
    protected:
+    // variables in the transition system, in current and next state.
+    std::vector<std::string> vars;
+    std::vector<std::string> vars_p;
+    // accumulated time of every result
     double total_time{ 0.0 };
     // the pdr results that make up an ipdr result
     std::vector<PdrResult> original;
     // data extracted for the original pdr results
     std::vector<tabulate::Table::Row_t> pdr_summaries;
+    // string representation of traces from each PdrResult
+    std::vector<std::string> traces;
 
     // field names for table headers
     virtual const tabulate::Table::Row_t summary_header() const;
     virtual const tabulate::Table::Row_t total_header() const = 0;
 
-    // store data from a result: totals and summaries
-    // generate and return a summary row for "pdr_summaries":
+    // records result in "originals" and adds it to the total_time
+    // returns a row for "pdr_summaries":
     //  { processes, max_proc, invariant level, trace length, time }
-    // called by add(PdrResult), override to process additional data in derived
-    virtual const tabulate::Table::Row_t process_row(const PdrResult& r);
+    // called by add(PdrResult)
+    const tabulate::Table::Row_t process_result(const PdrResult& r);
     // string representation of the trace or invariant
-    virtual std::string process_trace(const PdrResult& res) const;
-
-   private:
-    const pdr::IModel& model;
+    virtual std::string process_trace(PdrResult const& res) const;
   };
 
   namespace result
   {
-    std::string trace_table(PdrResult const& res, IModel const& model);
-  } // namespace result
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> const& vars,
+        std::vector<std::string> const& vars_p);
+  }
+
+  namespace state
+  {
+    size_t n_marked(PdrResult::Trace::TraceState const& s);
+
+    std::vector<std::string> marking(PdrResult::Trace::TraceState const& s,
+        std::vector<std::string> header, unsigned width);
+  } // namespace state
+
 } // namespace pdr
 #endif // PDR_RESULT_H

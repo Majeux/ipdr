@@ -8,12 +8,18 @@
 
 namespace pdr
 {
-  IModel::IModel(const std::vector<std::string>& varnames)
-      : ctx(), vars(ctx, varnames), property(ctx, vars), n_property(ctx, vars),
-        initial(ctx), transition(ctx), constraint(ctx)
+  using std::string;
+  using z3::expr;
+
+  IModel::IModel(z3::context& c, const std::vector<std::string>& varnames)
+      : ctx(c),
+        vars(ctx, varnames),
+        property(ctx, vars),
+        n_property(ctx, vars),
+        initial(ctx),
+        transition(ctx),
+        constraint(ctx)
   {
-    ctx.set("unsat_core", true);
-    ctx.set("model", true);
   }
 
   const z3::expr_vector& IModel::get_initial() const { return initial; }
@@ -37,5 +43,35 @@ namespace pdr
     out << endl << "neg_property: " << endl;
     for (std::string_view s : n_property.names())
       out << s << endl;
+  }
+
+  //  Z3Model
+  //
+  Z3Model::Z3Model(z3::context& c, const std::vector<std::string>& varnames)
+      : ctx(c), vars(ctx, varnames)
+  {
+  }
+
+  Z3Model::~Z3Model() {}
+
+  void Z3Model::show(std::ostream& out) const
+  {
+    out << to_string() << std::endl;
+  }
+
+  Z3Model::Rule Z3Model::mk_rule(expr const& e, string const& n)
+  {
+    return { forall_vars(e), ctx.str_symbol(n.c_str()) };
+  }
+
+  Z3Model::Rule Z3Model::mk_rule(
+      expr const& head, expr const& body, string const& n)
+  {
+    return { forall_vars(z3::implies(body, head)), ctx.str_symbol(n.c_str()) };
+  }
+
+  expr Z3Model::forall_vars(expr const& e) const
+  {
+    return z3::forall(z3ext::vec_add(vars(), vars.p()), e);
   }
 } // namespace pdr

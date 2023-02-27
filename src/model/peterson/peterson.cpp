@@ -245,8 +245,8 @@ namespace pdr::peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(numrep_t n_procs, numrep_t max_procs)
-      : IModel({}), N(max_procs), p(n_procs),
+  PetersonModel::PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs)
+      : IModel(c, {}), N(max_procs), p(n_procs),
         nproc(BitVec::holding(ctx, "nproc", N)), pc(), level(), last()
   {
     using fmt::format;

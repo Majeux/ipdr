@@ -11,26 +11,27 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  IPDR::IPDR(Context& c, PebblingModel& m, my::cli::ArgumentList const& args,
-      Logger& l)
-      : alg(c, m, l), model(m), starting_value()
+  IPDR::IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+      PebblingModel& m)
+      : vIPDR(args, c, l, m), ts(m), starting_pebbles()
   {
+    assert(std::addressof(ts) == std::addressof(alg.ts));
     auto const& peb =
         my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
-    starting_value = peb.max_pebbles;
+    starting_pebbles = peb.max_pebbles;
   }
 
-  PebblingResult IPDR::control_run(Tactic tactic)
+  IpdrPebblingResult IPDR::control_run(Tactic tactic)
   {
     switch (tactic)
     {
       case Tactic::constrain: return constrain(true);
       case Tactic::relax: return relax(true);
       case Tactic::inc_jump_test:
-        relax_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_pebbles.value(), 10);
         break;
       case Tactic::inc_one_test:
-        relax_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_pebbles.value(), 1);
         break;
       default: break;
     }
@@ -38,17 +39,17 @@ namespace pdr::pebbling
         "No optimization pdr tactic has been selected.");
   }
 
-  PebblingResult IPDR::run(Tactic tactic, bool control)
+  IpdrPebblingResult IPDR::run(Tactic tactic, bool control)
   {
     switch (tactic)
     {
       case Tactic::constrain: return constrain(control);
       case Tactic::relax: return relax(control);
       case Tactic::inc_jump_test:
-        relax_jump_test(starting_value.value(), 10);
+        relax_jump_test(starting_pebbles.value(), 10);
         break;
       case Tactic::inc_one_test:
-        relax_jump_test(starting_value.value(), 1);
+        relax_jump_test(starting_pebbles.value(), 1);
         break;
       default: break;
     }
@@ -56,19 +57,21 @@ namespace pdr::pebbling
         "No optimization pdr tactic has been selected.");
   }
 
-  PebblingResult IPDR::relax(bool control)
+  IpdrPebblingResult IPDR::relax(bool control)
   {
-    alg.log.and_whisper("! Optimization run: increment max pebbles.");
+    alg.logger.and_whisper("! Optimization run: increment max pebbles.");
 
-    PebblingResult total(model, Tactic::relax);
-    unsigned N = model.get_f_pebbles(); // need at least this many pebbles
+    IpdrPebblingResult total(ts, Tactic::relax);
+    // need at least this many pebbles
+    unsigned N = starting_pebbles.value_or(ts.get_f_pebbles());
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.get_pebble_constraint());
 
-    for (N = N + 1; invariant && N <= model.n_nodes(); N++)
+    for (N = N + 1; invariant && N <= ts.n_nodes(); N++)
     {
+      assert(N > ts.get_pebble_constraint()); // check for overflows
       if (control)
         basic_reset(N);
       else
@@ -76,36 +79,38 @@ namespace pdr::pebbling
 
       invariant = alg.run();
 
-      total.add(invariant);
+      total.add(invariant, ts.get_pebble_constraint());
     }
 
-    if (N > model.n_nodes()) // last run did not find a trace
+    if (N > ts.n_nodes()) // last run did not find a trace
     {
-      alg.log.and_whisper("! No optimum exists.");
+      alg.logger.and_whisper("! No optimum exists.");
       return total;
     }
     // N is minimal
-    alg.log.and_whisper("! Found optimum: {}.", N);
+    alg.logger.and_whisper("! Found optimum: {}.", N);
     return total;
   }
 
-  PebblingResult IPDR::constrain(bool control)
+  IpdrPebblingResult IPDR::constrain(bool control)
   {
-    alg.log.and_whisper("! Optimization run: decrement max pebbles.");
+    alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
 
-    PebblingResult total(model, Tactic::constrain);
-    unsigned N = model.n_nodes(); // need at least this many pebbles
+    IpdrPebblingResult total(ts, Tactic::constrain);
+    // we can use at most this many pebbles
+    unsigned N = starting_pebbles.value_or(ts.n_nodes());
 
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.get_pebble_constraint());
     if (!invariant)
       N = std::min(N, total.min_pebbles().value_or(N));
 
     // We need to at least pebble the final state,
     // so iterate until a strategy is found or until then
-    for (N = N - 1; !invariant && N >= model.get_f_pebbles(); N--)
+    for (N = N - 1; !invariant && N >= ts.get_f_pebbles(); N--)
     {
+      assert(N < ts.get_pebble_constraint());
       if (control)
       {
         basic_reset(N);
@@ -120,42 +125,42 @@ namespace pdr::pebbling
           invariant = alg.run();
       }
 
-      total.add(invariant);
+      total.add(invariant, ts.get_pebble_constraint());
       if (!invariant)
         N = std::min(N, total.min_pebbles().value_or(N));
     }
 
     if (invariant) // last run did not find a trace
     {
-      alg.log.and_whisper("! No optimum exists.");
+      alg.logger.and_whisper("! No optimum exists.");
       return total;
     }
     // the previous N was optimal
-    alg.log.and_whisper("! Found optimum: {}.", N + 1);
+    alg.logger.and_whisper("! Found optimum: {}.", N + 1);
     return total;
   }
 
-  PebblingResult IPDR::relax_jump_test(unsigned start, int step)
+  IpdrPebblingResult IPDR::relax_jump_test(unsigned start, int step)
   {
     std::vector<pdr::Statistics> statistics;
-    alg.log.and_show("NEW INC JUMP TEST RUN");
-    alg.log.and_show("start {}. step {}", start, step);
+    alg.logger.and_show("NEW INC JUMP TEST RUN");
+    alg.logger.and_show("start {}. step {}", start, step);
 
-    PebblingResult total(model, Tactic::relax);
+    IpdrPebblingResult total(ts, Tactic::relax);
     basic_reset(start);
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant);
+    total.add(invariant, ts.get_pebble_constraint());
 
-    unsigned maxp = model.get_max_pebbles().value();
+    unsigned maxp = ts.get_pebble_constraint().value();
     unsigned newp = maxp + step;
     assert(newp > 0);
     assert(maxp < newp);
-    if (newp <= model.n_nodes())
+    if (newp <= ts.n_nodes())
     {
       relax_reset(newp);
       invariant = alg.run();
 
-      total.add(invariant);
+      total.add(invariant, ts.get_pebble_constraint());
     }
 
     return total;
@@ -165,27 +170,28 @@ namespace pdr::pebbling
   //
   void IPDR::basic_reset(unsigned pebbles)
   {
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
+    assert(std::addressof(ts) == std::addressof(alg.ts));
 
-    std::optional<unsigned> current = model.get_max_pebbles();
+    std::optional<unsigned> current = ts.get_pebble_constraint();
     std::string from = current ? std::to_string(*current) : "any";
-    alg.log.and_show("naive change from {} -> {} pebbles", from, pebbles);
+    alg.logger.and_show("naive change from {} -> {} pebbles", from, pebbles);
 
-    model.constrain(pebbles);
+    ts.constrain(pebbles);
     alg.ctx.type = Tactic::basic;
-    alg.frames.reset();
+    alg.reset();
   }
 
   void IPDR::relax_reset(unsigned pebbles)
   {
     using fmt::format;
 
-    optional<unsigned> old = model.get_max_pebbles();
+    optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles > old.value());
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.log.and_show("increment from {} -> {} pebbles", old.value(), pebbles);
+    assert(std::addressof(ts) == std::addressof(alg.ts));
+    alg.logger.and_show(
+        "increment from {} -> {} pebbles", old.value(), pebbles);
 
-    model.constrain(pebbles);
+    ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::relax;
     alg.frames.reset_to_F1();
@@ -195,16 +201,15 @@ namespace pdr::pebbling
   {
     using fmt::format;
 
-    optional<unsigned> old = model.get_max_pebbles();
+    optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles < old.value());
-    assert(std::addressof(model) == std::addressof(alg.ctx.ts));
-    alg.log.and_show("decrement from {} -> {} pebbles", old.value(), pebbles);
+    assert(std::addressof(ts) == std::addressof(alg.ts));
+    alg.logger.and_show(
+        "decrement from {} -> {} pebbles", old.value(), pebbles);
 
-    model.constrain(pebbles);
+    ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::constrain;
     return alg.frames.reuse();
   }
-
-  PDR const& IPDR::internal_alg() const { return alg; }
 } // namespace pdr::pebbling

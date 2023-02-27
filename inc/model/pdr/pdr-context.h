@@ -7,17 +7,20 @@
 #include <cstdint>
 #include <z3++.h>
 
+#define MIC_RETRIES_DEFAULT 3
+
 namespace pdr
 {
   class Context
   {
    public:
-    IModel& ts;
+    z3::context& z3_ctx;
     uint32_t seed;
     Tactic type;
+    uint32_t mic_retries;
 
-    Context(IModel& c, bool random_seed);
-    Context(IModel& c, unsigned seed);
+    Context(z3::context& c, bool random_seed);
+    Context(z3::context& c, unsigned seed);
 
     operator z3::context&();
     operator const z3::context&() const;

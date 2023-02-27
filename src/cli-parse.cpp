@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 #include <initializer_list>
 #include <lorina/bench.hpp>
 #include <mockturtle/io/bench_reader.hpp>
@@ -231,38 +232,40 @@ namespace my::cli
 
   ArgumentList::ArgumentList(int argc, char* argv[])
   {
-    cxxopts::Options clopt = make_options(argv[0]);
-    try
+    cxxopts::Options clopt        = make_options(argv[0]);
+    // try
+    // {
+    cxxopts::ParseResult clresult = clopt.parse(argc, argv);
+
+    if (clresult.count("help"))
     {
-      cxxopts::ParseResult clresult = clopt.parse(argc, argv);
+      std::cerr << clopt.help() << std::endl;
+      exit(0);
+    }
 
-      if (clresult.count("help"))
-      {
-        std::cerr << clopt.help() << std::endl;
-        exit(0);
-      }
+    parse_verbosity(clresult);
+    parse_alg(clresult);
+    parse_model(clresult);
 
-      parse_verbosity(clresult);
-      parse_alg(clresult);
-
-      if (onlyshow)
-        return;
-
+    if (!onlyshow)
       parse_run(clresult);
-    }
-    catch (std::exception const& e)
-    {
-      std::cerr << e.what() << std::endl
-                << "Error parsing command line arguments" << std::endl
-                << std::endl
-                << clopt.help() << std::endl;
-      throw;
-    }
+    // }
+    // catch (std::exception const& e)
+    // {
+    //   std::cerr << e.what() << std::endl
+    //             << "Error parsing command line arguments" << std::endl
+    //             << std::endl
+    //             << clopt.help() << std::endl;
+    //   throw;
+    // }
 
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
 
-    folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
+    if (z3pdr)
+      folders.model_type_dir = folders.run_type_dir / "z3pdr";
+    else
+      folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
     folders.model_dir = folders.model_type_dir;
     {
@@ -282,7 +285,7 @@ namespace my::cli
       folders.file_base += '-' + algo::filetag(algorithm);
       if (experiment)
       {
-        if (experiment->control)
+        if (experiment->control_only)
           folders.file_base += format("-exp_C_{}", experiment->repetitions);
         else
           folders.file_base += format("-exp_{}", experiment->repetitions);
@@ -308,13 +311,18 @@ namespace my::cli
     {
       out << format(
           "Running an experiment with {} samples. ", experiment->repetitions);
-      if (experiment->control)
+      if (experiment->control_only)
         out << "(a control run)";
       out << endl;
     }
 
-    if (std::holds_alternative<bool>(r_seed))
-      out << "Using randomized seed." << endl;
+    if (auto rand = variant::get_cref<bool>(r_seed))
+    {
+      if (rand)
+        out << "Using randomized seed." << endl;
+      else
+        out << "Using 0-seed." << endl;
+    }
     else
       out << format("Using seed: {}.", std::get<unsigned>(r_seed));
 
@@ -359,6 +367,9 @@ namespace my::cli
       (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes as a transition system.",
        value< unsigned >(), "(uint: N)")
 
+      (s_z3pdr, "Use Z3's fixedpoint engine for pdr (spacer)",
+       value<bool>(z3pdr))
+
       // tactic option
       (sh('e', s_exp), "run an experiment with I iterations.",
         value< unsigned >(), "(uint: I)")
@@ -387,10 +398,10 @@ namespace my::cli
         value<bool>())
       (s_seed, "Use the given seed for the SAT solver",
         value<unsigned>(), "(uint:SEED)")
-      (s_tseytin, "Build the transition relation using the tseytin reform.",
-        value<bool>(tseytin))
+      (s_tseytin, "Build the transition relation using z3's tseytin reform.",
+        value<bool>(tseytin)->default_value("false"))
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
-       value<bool>(onlyshow))
+       value<bool>(onlyshow)->default_value("false"))
 
       // (s_mic, "The number of times N that pdr retries dropping a literal.")
 
@@ -424,8 +435,8 @@ namespace my::cli
     {
       unsigned n = occurences(names, r);
       if (n > 1)
-        throw std::invalid_argument(format(
-            "At most one of `{}` allowed. Have {}", str::ext::join(names), n));
+        throw std::invalid_argument(
+            format("At most one of `{}` allowed. Have {}", names, n));
     }
 
     void require_one_of(
@@ -434,13 +445,14 @@ namespace my::cli
       unsigned n = occurences(names, r);
       if (n != 1)
         throw std::invalid_argument(
-            format("One of `{}` required. Have {}.", str::ext::join(names), n));
+            format("One of `{}` required. Have {}.", names, n));
     }
   } // namespace
 
   void ArgumentList::parse_alg(cxxopts::ParseResult const& clresult)
   {
-    require_one_of({ o_alg }, clresult);
+    if (!experiment)
+      require_one_of({ o_alg }, clresult);
     std::string a = clresult[o_alg].as<std::string>();
 
     if (a == s_pdr)
@@ -477,8 +489,22 @@ namespace my::cli
       assert(false);
     }
 
+    atmost_one_of({ s_rand, s_seed }, clresult);
+
+    if (clresult.count(s_rand))
+      r_seed = clresult[s_rand].as<bool>();
+
+    if (clresult.count(s_seed))
+      r_seed = clresult[s_seed].as<unsigned>();
+  }
+
+  void ArgumentList::parse_model(cxxopts::ParseResult const& clresult)
+  {
     require_one_of({ s_pebbling, s_peter }, clresult);
     atmost_one_of({ s_pebbles, s_procs }, clresult);
+    require_one_of({ o_alg }, clresult);
+
+    std::string a = clresult[o_alg].as<std::string>();
 
     if (clresult.count(s_peter))
     {
@@ -530,8 +556,10 @@ namespace my::cli
       if (clresult.count(s_pdr))
         throw std::invalid_argument("Experiments verify incremental runs only");
 
-      bool control = (clresult.count(s_control) == 1);
+      // the z3 fixedpoint implementation does only naive (control) runs
+      bool control = z3pdr ? true : (clresult.count(s_control) == 1);
       experiment   = { reps, control };
+      experiment.has_value();
     }
   }
 

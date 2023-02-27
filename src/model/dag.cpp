@@ -1,6 +1,8 @@
 #include "dag.h"
 #include "io.h"
 
+#include <fmt/ranges.h>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <ostream>
@@ -14,6 +16,18 @@ namespace dag
   using std::vector;
 
   Graph::Graph() {}
+  Graph::Graph(Graph const& G)
+  {
+    name        = G.name;
+    prefix      = G.prefix;
+    input       = G.input;
+    nodes       = G.nodes;
+    output      = G.output;
+    edges       = G.edges;
+    children    = G.children;
+    input_edges = G.input_edges;
+    empty_vec   = G.empty_vec;
+  }
   Graph::Graph(string const& s) : name(s) {}
   Graph::Graph(string const& name, string const& dotstring)
       : name(name), image(std::make_unique<graphviz::Graph>(dotstring))
@@ -89,10 +103,10 @@ namespace dag
   {
     std::stringstream ss;
     ss << "DAG \{" << endl
-       << "\tinput { " << str::ext::join(input) << " }" << endl
-       << "\toutput { " << str::ext::join(output) << " }" << endl
-       << "\tnodes { " << str::ext::join(nodes) << " }" << endl
-       << "\tedges { " << str::ext::join(edges) << " }" << endl
+       << fmt::format("\tinput {}", input) << endl
+       << fmt::format("\toutput {}", output) << " }" << endl
+       << fmt::format("\tnodes {}", nodes) << " }" << endl
+       << fmt::format("\tedges {}", edges) << " }" << endl
        << "}" << endl;
     return ss.str();
   }

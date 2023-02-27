@@ -16,7 +16,7 @@ find_package(fmt CONFIG REQUIRED)
 find_package(ghc_filesystem CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)
-find_package(Catch2 CONFIG REQUIRED)
+# find_package(Catch2 CONFIG REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB MODEL_SOURCES "src/model/*.cpp")
@@ -69,6 +69,7 @@ endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if(DO_LOG)
   target_compile_definitions(pebbling-pdr PRIVATE LOG)
+  target_compile_definitions(pebbling-pdr PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   message(STATUS "! logging turned on")
 else()
   message(STATUS "! logging turned off")
@@ -101,8 +102,8 @@ target_link_libraries(pebbling-pdr PRIVATE mockturtle)
 target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog
                                            spdlog::spdlog_header_only)
 target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
-target_link_libraries(pebbling-pdr PRIVATE Catch2::Catch2
-                                           Catch2::Catch2WithMain)
+# target_link_libraries(pebbling-pdr PRIVATE Catch2::Catch2
+#                                            Catch2::Catch2WithMain)
 
 # link graphviz on windows. assuming it is the default location
 if(WIN32)

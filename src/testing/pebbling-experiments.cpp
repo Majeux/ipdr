@@ -6,6 +6,8 @@
 #include "pebbling-result.h"
 #include "result.h"
 #include "tactic.h"
+#include "cli-parse.h"
+#include "types-ext.h"
 
 #include "cli-parse.h"
 #include <cassert>
@@ -34,23 +36,26 @@ namespace pdr::pebbling::experiments
   using namespace my::cli;
 
   PebblingExperiment::PebblingExperiment(
-      my::cli::ArgumentList const& a, PebblingModel& m, Logger& l)
-      : expsuper::Experiment(a, l), ts(m)
+      my::cli::ArgumentList const& a, Logger& l)
+      : expsuper::Experiment(a, l)
   {
+    using my::variant::get_cref;
+
+    ts_descr = get_cref<model_t::Pebbling>(args.model).value();
   }
 
   void PebblingExperiment::reset_tables()
   {
     sample_table          = tabulate::Table();
     sample_table.format() = control_table.format();
-    sample_table.add_row(PebblingResult::pebbling_total_header);
+    sample_table.add_row(IpdrPebblingResult::pebbling_total_header);
 
     control_table          = tabulate::Table();
     control_table.format() = sample_table.format();
-    control_table.add_row(PebblingResult::pebbling_total_header);
+    control_table.add_row(IpdrPebblingResult::pebbling_total_header);
   }
 
-  shared_ptr<expsuper::Run> PebblingExperiment::do_reps(bool is_control)
+  shared_ptr<expsuper::Run> PebblingExperiment::do_reps(const bool is_control)
   {
     vector<unique_ptr<IpdrResult>> results;
 
@@ -59,11 +64,15 @@ namespace pdr::pebbling::experiments
       cout << format("{}: {}", i, seeds[i]) << endl;
       std::optional<unsigned> optimum;
       // new context with new random seed
-      pdr::Context ctx(ts, seeds[i]);
-      IPDR opt(ctx, ts, args, log);
+      z3::context z3_ctx;
+      pdr::Context ctx(z3_ctx, seeds[i]);
 
+      dag::Graph G = model_t::make_graph(ts_descr.src);
+      PebblingModel ts(args, z3_ctx, G);
+      
+      IPDR opt(args, ctx, log, ts);
       {
-        PebblingResult result =
+        IpdrPebblingResult result =
             is_control ? opt.control_run(tactic) : opt.run(tactic);
 
         if (!optimum)
@@ -72,7 +81,7 @@ namespace pdr::pebbling::experiments
         assert(optimum == result.min_pebbles()); // all results should be same
 
         results.emplace_back(
-            std::make_unique<PebblingResult>(std::move(result)));
+            std::make_unique<IpdrPebblingResult>(std::move(result)));
       }
 
       if (is_control)
@@ -95,8 +104,8 @@ namespace pdr::pebbling::experiments
     {
       try
       {
-        auto const& pebbling_r       = dynamic_cast<PebblingResult const&>(*r);
-        PebblingResult::Data_t total = pebbling_r.get_total();
+        auto const& pebbling_r = dynamic_cast<IpdrPebblingResult const&>(*r);
+        IpdrPebblingResult::Data_t total = pebbling_r.get_total();
 
         // time is done by Run()
 
@@ -109,8 +118,7 @@ namespace pdr::pebbling::experiments
 
         if (total.strategy) // get the shortest trace we found
         {
-          if (!min_strat ||
-              total.strategy->trace.length < min_strat->trace.length)
+          if (!min_strat || total.strategy->length < min_strat->length)
             min_strat = total.strategy;
         }
       }
@@ -135,12 +143,12 @@ namespace pdr::pebbling::experiments
 
   tabulate::Table::Row_t PebblingRun::pebbled_row() const
   {
-    return { "min strat marked", fmt::to_string(min_strat->pebbled) };
+    return { "min strat marked", fmt::to_string(min_strat->n_marked) };
   }
 
   tabulate::Table::Row_t PebblingRun::length_row() const
   {
-    return { "min strat length", fmt::to_string(min_strat->trace.length) };
+    return { "min strat length", fmt::to_string(min_strat->length) };
   }
 
   tabulate::Table PebblingRun::make_table() const
@@ -240,14 +248,14 @@ namespace pdr::pebbling::experiments
       {
         {
           auto r = pebbled_row();
-          r.push_back(fmt::to_string(pebbling_ctrl.min_strat->pebbled));
+          r.push_back(fmt::to_string(pebbling_ctrl.min_strat->n_marked));
           t.add_row(r);
         }
         {
           auto r = length_row();
-          r.push_back(fmt::to_string(pebbling_ctrl.min_strat->trace.length));
+          r.push_back(fmt::to_string(pebbling_ctrl.min_strat->length));
           double dec = math::percentage_dec(
-              pebbling_ctrl.min_strat->trace.length, min_strat->trace.length);
+              pebbling_ctrl.min_strat->length, min_strat->length);
           r.push_back(perc_str(dec));
           t.add_row(r);
         }

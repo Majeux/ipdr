@@ -105,7 +105,7 @@ namespace pdr::experiments
     // reset the sample and control tables to the header
     virtual void reset_tables() = 0;
 
-    virtual std::shared_ptr<Run> do_reps(bool is_control) = 0;
+    virtual std::shared_ptr<Run> do_reps(const bool is_control) = 0;
   };
 } // namespace pdr::experiments
 

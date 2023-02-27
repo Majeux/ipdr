@@ -1,4 +1,5 @@
 #include "obligation.h"
+#include "result.h"
 #include "z3-ext.h"
 #include <algorithm>
 
@@ -9,13 +10,21 @@ namespace pdr
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+  using TraceState = PdrResult::Trace::TraceState;
 
   // STATE MEMBERS
   //
-  PdrState::PdrState(const expr_vector& e) : cube(e), prev(shared_ptr<PdrState>()) {}
-  PdrState::PdrState(const expr_vector& e, shared_ptr<PdrState> s) : cube(e), prev(s) {}
+  PdrState::PdrState(const expr_vector& e)
+      : cube(e), prev(shared_ptr<PdrState>())
+  {
+  }
+  PdrState::PdrState(const expr_vector& e, shared_ptr<PdrState> s)
+      : cube(e), prev(s)
+  {
+  }
   // move constructors
-  PdrState::PdrState(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<PdrState>())
+  PdrState::PdrState(expr_vector&& e)
+      : cube(std::move(e)), prev(shared_ptr<PdrState>())
   {
   }
   PdrState::PdrState(expr_vector&& e, shared_ptr<PdrState> s)
@@ -38,14 +47,14 @@ namespace pdr
     };
 
     unsigned i = 1;
-    steps.emplace_back(i, z3ext::join_expr_vec(cube), count_pebbled(cube));
+    steps.emplace_back(i, z3ext::join_ev(cube), count_pebbled(cube));
 
     shared_ptr<PdrState> current = prev;
     while (current)
     {
       i++;
       steps.emplace_back(
-          i, z3ext::join_expr_vec(current->cube), count_pebbled(current->cube));
+          i, z3ext::join_ev(current->cube), count_pebbled(current->cube));
       current = current->prev;
     }
     unsigned i_padding = i / 10 + 1;
@@ -60,41 +69,6 @@ namespace pdr
 
     return i_padding;
   }
-
-  unsigned PdrState::no_marked() const { return ::pdr::state::no_marked(cube); }
-
-  // MISC FUNCTIONS
-  //
-  namespace state
-  {
-    unsigned no_marked(const z3::expr_vector& ev)
-    {
-      return std::accumulate(ev.begin(), ev.end(), 0,
-          [](unsigned x, const z3::expr& e) { return x + (!e.is_not()); });
-    }
-
-    // return strings that mark whether every state in header a positive or
-    // negative literal
-    vector<string> marking(
-        const PdrState& s, vector<string> header, unsigned width)
-    {
-      std::is_sorted(header.begin(), header.end());
-
-      vector<string> rv(header.size(), "?");
-      for (const z3::expr& e : s.cube)
-      {
-        string s = z3ext::strip_not(e).to_string();
-        auto it  = std::lower_bound(header.begin(), header.end(), s);
-        if (it != header.end() && *it == s) // it points to s
-        {
-          string fill_X           = fmt::format("{:X^{}}", "", width);
-          rv[it - header.begin()] = e.is_not() ? "" : fill_X;
-        }
-      }
-
-      return rv;
-    }
-  } // namespace state
 
   // OBLIGATION MEMBERS
   //

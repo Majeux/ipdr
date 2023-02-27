@@ -29,13 +29,6 @@ namespace pdr
     unsigned no_marked() const;
   };
 
-  namespace state
-  {
-    unsigned no_marked(const z3::expr_vector& s);
-    std::vector<std::string> marking(
-        const PdrState& s, std::vector<std::string> header, unsigned width);
-  } // namespace state
-
   struct Obligation
   {
     unsigned level;
