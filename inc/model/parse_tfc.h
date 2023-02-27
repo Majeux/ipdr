@@ -21,6 +21,7 @@ namespace parse
     VARS,
     INPUTS,
     OUTPUTS,
+    OUT_LABELS,
     CONSTANTS,
     BEGIN,
     BODY,
@@ -45,8 +46,8 @@ namespace parse
       return n->first + "_" + std::to_string(n->second);
     }
 
-    dag::Graph parse_file(const std::string& filename,
-                          const std::string& graph_name)
+    dag::Graph parse_file(
+        const std::string& filename, const std::string& graph_name)
     {
       assert(filename.substr(filename.find_last_of('.')) == ".tfc");
       dag::Graph G(graph_name);
@@ -59,7 +60,7 @@ namespace parse
       std::string line;
       while (state != TFCState::_END && std::getline(file, line))
       {
-        str::extend::trim(line);
+        str::ext::trim(line);
         if (line.size() == 0 || line[0] == '#')
           continue;
 
@@ -79,10 +80,14 @@ namespace parse
               break;
             case TFCState::OUTPUTS:
               parse_outputs(line);
+              state = TFCState::OUT_LABELS;
+              break;
+            case TFCState::OUT_LABELS:
+              retry = !prefixed(line, ".ol "); // optional
               state = TFCState::CONSTANTS;
               break;
             case TFCState::CONSTANTS:
-              retry = !prefixed(line, ".c ");
+              retry = !prefixed(line, ".c "); // optional
               state = TFCState::BEGIN;
               break;
             case TFCState::BEGIN:
@@ -115,15 +120,15 @@ namespace parse
     // assumes no starting or trailing whitespace
     void parse_line(dag::Graph& G, std::string line)
     {
-      std::vector<std::string> op_operands = str::extend::split(line, ' ');
-      assert(op_operands.size() == 2);
+      std::vector<std::string> op_operands = str::ext::split(line, ' ');
+      assert(op_operands.size() == 2); // split into <prefix> <list>
       std::vector<std::string> operands =
-          str::extend::split(op_operands.back(), ',');
+          str::ext::split(op_operands.back(), ',');
 
       auto [old_t, new_t] = target(G, operands.back());
       operands.pop_back();
       std::transform(operands.begin(), operands.end(), operands.begin(),
-                     [this](const std::string& s) { return operand(s); });
+          [this](const std::string& s) { return operand(s); });
 
       if (old_t != "")
         operands.push_back(old_t);
@@ -153,8 +158,8 @@ namespace parse
       return node(it);
     }
 
-    std::pair<std::string, std::string> target(dag::Graph& G,
-                                               const std::string& name)
+    std::pair<std::string, std::string> target(
+        dag::Graph& G, const std::string& name)
     {
       auto it = vars.find(name);
       if (it == vars.end())
@@ -179,7 +184,7 @@ namespace parse
     {
       assert(line.rfind(".i ", 0) == 0);
       line                           = line.substr(3);
-      std::vector<std::string> names = str::extend::split(line, ',');
+      std::vector<std::string> names = str::ext::split(line, ',');
       for (const std::string& n : names)
       {
         std::string var_init = node(n, 0);
@@ -194,7 +199,7 @@ namespace parse
       assert(line.rfind(".o ", 0) == 0);
 
       line                           = line.substr(3);
-      std::vector<std::string> names = str::extend::split(line, ',');
+      std::vector<std::string> names = str::ext::split(line, ',');
       for (const std::string& n : names)
       {
         outs.insert(n);

@@ -1,171 +1,150 @@
 #include "pdr.h"
-#include "z3-ext.h"
 #include "string-ext.h"
+#include "z3-ext.h"
 
+#include <algorithm>
+#include <cassert>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fstream>
 #include <functional>
 #include <iterator>
-#include <cassert>
-#include <algorithm>
 #include <memory>
 #include <set>
-#include <spdlog/common.h>
-#include <spdlog/spdlog.h>
 #include <sstream>
 #include <string>
-#include <fmt/format.h>
-#include <spdlog/sinks/basic_file_sink.h>
-#include <fstream>
 #include <tuple>
+#include <vector>
 #include <z3++.h>
 
 namespace pdr
 {
-	// bool PDR::iterate_short()
-	// {
-	// 	cout << SEP3 << endl;
-	// 	cout << "Start iteration" << endl;
-	// 	extend_frames(1);
+  using std::make_shared;
+  using std::optional;
+  using std::shared_ptr;
+  using std::string;
+  using z3::expr;
+  using z3::expr_vector;
 
-	// 	// I => P and I & T ⇒ P' (from init)
-	// 	// continue until the frontier (F[i]) becomes a fixpoint
-	// 	for (unsigned k = 1; ; k++)
-	// 	{
-	// 		cout << "iterate frame "<< k << endl;
-	// 		SPDLOG_LOGGER_TRACE(log, "");
-	// 		SPDLOG_LOGGER_TRACE(log, SEP3);
-	// 		SPDLOG_LOGGER_TRACE(log, "{}| frame {}", TAB, k);
-	// 		assert(k == frames.size() - 1);
+  PdrResult PDR::iterate_short()
+  {
+    using z3ext::solver::Witness;
 
-	// 		while (true)
-	// 		{
-	// 			if (frames[k]->SAT(model.not_property.nexts()))
-	// 			{
-	// 					// F_i & T /=> F_i+1' (= P')
-	// 				// strengthen F_i
-	// 				SPDLOG_LOGGER_TRACE(log, "{}| cti found at frame {}", TAB, k);
-	// 				cout << "new cti" << endl;
-	// 				indent++;
-					
-	// 				expr_vector cti_current = frames[k]->sat_cube(
-	// 						[this](const expr& e) { return model.literals.atom_is_current(e); });
+    // I => P and I & T ⇒ P' (from init)
+    if (ctx.type != Tactic::constrain) // decr continues from last level
+      assert(frames.frontier() == 1);
 
-	// 				SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(cti_current));	
-	// 				indent--;
-					
-	// 				if (not block_short(cti_current, k-1, k)) 
-	// 					return false;
-	// 				indent--;
-	// 				SPDLOG_LOGGER_TRACE(log, SEP2);
-	// 				cout << endl;
-	// 			}
-	// 			else // no more counter examples
-	// 				break;
-	// 		}
+    for (size_t k = frames.frontier(); true; k++, frames.extend())
+    {
+      log_iteration();
+      while (optional<Witness> witness =
+                 frames.get_trans_source(k, ts.n_property.p(), true))
+      {
+        log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 
-	// 		SPDLOG_LOGGER_TRACE(log, "{}| propagate frame {} to {}", TAB, k, k+1);
-	// 		indent++;
+        PdrResult res = block_short(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
+        if (not res)
+        {
+          res.append_final(witness->next);
+          return res;
+        }
 
-	// 		assert(frames.size() == k+1);
-	// 		extend_frames(k+1);
-	// 		if (propagate(k))
-	// 			return true;
+        MYLOG_DEBUG(logger, "");
+      }
+      MYLOG_INFO(logger, "no more counters at F_{}", k);
 
-	// 		indent--;
-	// 		cout << "###############" << endl;
-	// 		SPDLOG_LOGGER_TRACE(log, SEP3); 
-	// 		for (const unique_ptr<Frame>& f : frames)
-	// 			SPDLOG_LOGGER_TRACE(log, "{}", (*f).solver_str());
-	// 		SPDLOG_LOGGER_TRACE(log, SEP3);
-	// 	}
-	// }
+      sub_timer.reset();
 
-	// bool PDR::block_short(expr_vector& cti, unsigned n, unsigned level)
-	// {
-	// 	unsigned period = 0;
-	// 	std::set<Obligation, std::less<Obligation>> obligations; 
-	// 	if ((n + 1) <= level)
-	// 		obligations.emplace(n+1, std::move(cti), 0);
+      optional<size_t> invariant_level = frames.propagate();
+      double time                      = sub_timer.elapsed().count();
+      log_propagation(k, time);
+      frames.log_solver(true);
 
-	// 	while (!obligations.empty())
-	// 	{
-	// 		sub_timer.reset();
-	// 		double elapsed; string branch;
+      if (invariant_level)
+        return PdrResult::found_invariant(*invariant_level);
+    }
+  }
 
-	// 		auto [n, state, depth] = *(obligations.begin());
+  PdrResult PDR::block_short(expr_vector&& cti, unsigned n)
+  {
+    unsigned k = frames.frontier();
+    logger.indented("eliminate predecessors");
+    logger.indent++;
 
-	// 		assert(n <= level);
-	// 		SPDLOG_LOGGER_TRACE(log, SEP);
-	// 		SPDLOG_LOGGER_TRACE(log, "{}| obligations pending: {}", TAB, obligations.size());
-	// 		SPDLOG_LOGGER_TRACE(log, "{}| top obligation", TAB);
-	// 		indent++;
-	// 		SPDLOG_LOGGER_TRACE(log, "{}| {}, [{}]", TAB, n, join(state->cube));
-	// 		indent--;
+#warning is dit nog enigzins ok?
+    if (ctx.type != Tactic::relax)
+    {
+      MYLOG_DEBUG_SHOW(logger, "Cleared obligations.");
+      obligations.clear();
+    }
+    else
+    {
+      MYLOG_DEBUG_SHOW(logger, "Reused obligations: {}.", obligations.size());
+    }
 
-	// 		expr state_clause = z3::mk_or(z3ext::negate(state->cube));
+    unsigned period = 0;
+    if (n <= k)
+      obligations.emplace(n, std::move(cti), 0);
 
-	// 		if ( frames[n]->SAT(state_clause, model.literals.p(state->cube)) )
-	// 		{	//predecessor found
-	// 			expr_vector pred_cube = frames[n]->sat_cube(
-	// 						[this](const expr& e) { return model.literals.atom_is_current(e); });
-	// 			shared_ptr<State> pred = std::make_shared<State>(pred_cube, state);
+    // forall (n, state) in obligations: !state->cube is inductive
+    // relative to F[i-1]
+    while (obligations.size() > 0)
+    {
+      sub_timer.reset();
+      double elapsed;
+      string branch;
 
-	// 			SPDLOG_LOGGER_TRACE(log, "{}| predecessor found", TAB);
-	// 			indent++;
-	// 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(pred->cube));
-	// 			indent--;
+      auto [n, state, depth] = *(obligations.begin());
+      assert(n <= k);
+      log_top_obligation(obligations.size(), n, state->cube);
 
-	// 			if (n == 0)
-	// 			{ 
-	// 				bad = pred;
-	// 				return false;
-	// 			}
+      // !state -> state
+      if (optional<expr_vector> pred_cube =
+              frames.counter_to_inductiveness(state->cube, n))
+      {
+        shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
+        log_pred(pred->cube);
 
-	// 			SPDLOG_LOGGER_TRACE(log, "{}| push predecessor to level {}: [{}]", TAB, n-1, join(pred->cube));
-	// 			obligations.emplace(n-1, pred, depth+1);
+        if (n == 0) // intersects with I
+          return PdrResult::found_trace(pred);
 
-	// 			elapsed = sub_timer.elapsed().count();
-	// 			branch = "(pred)  ";
-	// 		}
-	// 		else 
-	// 		{	//finish state
-	// 			SPDLOG_LOGGER_TRACE(log, "{}| finishing state", TAB);
-	// 			indent++;
-	// 			SPDLOG_LOGGER_TRACE(log, "{}| [{}]", TAB, join(state->cube));
-	// 			indent--;
-				
+        obligations.emplace(n - 1, pred, depth + 1);
 
-	// 			expr_vector smaller_state = generalize(frames[n]->unsat_core(), n);
-	// 			expr_vector core(ctx);
-	// 			int m = highest_inductive_frame(state->cube, n+1, level);
-	// 			assert(m > 0);
+        elapsed = sub_timer.elapsed().count();
+        branch  = "(pred)  ";
+      }
+      else
+      {
+        log_finish(state->cube);
+        //! s is now inductive to at least F_n
+        #warning TODO: try generalizing before pushing
+        auto [m, core] = highest_inductive_frame(state->cube, n + 1);
+        // n <= m <= level
+        assert(static_cast<unsigned>(m + 1) > n);
 
-	// 			// expr_vector smaller_state = generalize(state->cube, m);
-	// 			remove_state(smaller_state, m+1);
-	// 			obligations.erase(obligations.begin()); //problem with & structured binding??
+        if (m < 0)
+          return PdrResult::found_trace(state);
 
-	// 			if (static_cast<unsigned>(m+1) <= level)
-	// 			{
-	// 				SPDLOG_LOGGER_TRACE(log, "{}| push state to higher to level {}: [{}]", TAB, m+1, join(state->cube));
-	// 				obligations.emplace(m+1, state, depth);
-	// 			}
+        // !s is inductive to F_m
+        expr_vector smaller_state = generalize(core.value(), m);
+        frames.remove_state(smaller_state, m + 1);
+        obligations.erase(obligations.begin());
 
-	// 			elapsed = sub_timer.elapsed().count();
-	// 			branch = "(finish)";
-	// 		}
-	// 		stats.obligation_done(level, elapsed);
-	// 		SPDLOG_LOGGER_TRACE(log, "Obligation {} elapsed {}", branch, elapsed);
-	// 		cout << format("Obligation {} elapsed {}", branch, elapsed) << endl;
-	// 		elapsed = -1.0;
+        if (static_cast<unsigned>(m + 1) <= k)
+        {
+          // push upwards until inductive relative to F_level
+          log_state_push(m + 1);
+          obligations.emplace(m + 1, state, depth);
+        }
 
-	// 		if (period >= 100)
-	// 		{
-	// 			period = 0;
-	// 			cout << "Stats written" << endl;
-	// 			SPDLOG_LOGGER_DEBUG(log, stats.to_string());
-	// 			log->flush();
-	// 		}
-	// 		else period++;
-	// 	}
-	// 	return true;
-	// }
-}
+        elapsed = sub_timer.elapsed().count();
+        branch  = "(finish)";
+      }
+      log_obligation_done(branch, k, elapsed);
+      elapsed = -1.0;
+    }
+
+    logger.indent--;
+    return PdrResult::empty_true();
+  }
+} // namespace pdr

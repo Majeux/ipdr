@@ -1,107 +1,172 @@
-#ifndef PDR_RES
-#define PDR_RES
+#ifndef PDR_RESULT_H
+#define PDR_RESULT_H
 
-#include "TextTable.h"
 #include "obligation.h"
-#include "output.h"
 #include "pdr-model.h"
+#include "pebbling-model.h"
+#include "tactic.h"
+#include "z3-ext.h"
+
+#include <cassert>
 #include <fmt/format.h>
 #include <memory>
+#include <numeric>
 #include <sstream>
+#include <tabulate/row.hpp>
+#include <tabulate/table.hpp>
+#include <variant>
 #include <vector>
+#include <z3++.h>
+
 namespace pdr
 {
-  struct PDResult
+  // converts to bool: true there is an invariant, false if there is a trace
+  // iterating walks through the linked list starting with trace
+  struct PdrResult
   {
-    std::shared_ptr<State> trace;
-    std::string trace_string;
-    unsigned trace_length;
-    int pebbles_used;
-    int invariant_index;
-    double total_time;
+    using ResultRow = std::array<std::string, 3>;
 
-    PDResult()
-        : trace(nullptr), trace_string(""), trace_length(0), pebbles_used(-1),
-          invariant_index(-1), total_time(0.0)
-    {
-    }
+    inline const static ResultRow fields = { "invariant index", "trace length",
+      "total time" };
 
-    std::vector<std::string> listing() const
+    struct Invariant
     {
-      return {std::to_string(pebbles_used), std::to_string(invariant_index),
-              std::to_string(trace_length), std::to_string(total_time)};
-    }
+      int level; // the F_i that gives the inductive invariant
+
+      Invariant(int l);
+      Invariant(std::optional<unsigned> c, int l);
+    };
+
+    struct Trace
+    {
+      using TraceState = std::vector<z3ext::LitStr>;
+      using TraceVec   = std::vector<TraceState>;
+      TraceVec states;
+      unsigned length;
+      unsigned n_marked;
+
+      Trace();
+      // Trace(Trace const& t) = default;
+      Trace(unsigned l);
+      Trace(std::shared_ptr<const PdrState> s);
+      Trace(TraceVec const& trace_states);
+      // Trace& operator=(Trace const&);
+    };
+
+    double time = 0.0;
+    std::variant<Invariant, Trace> output;
+
+    // Result builders
+    static PdrResult found_trace(Trace::TraceVec const& s);
+    static PdrResult found_trace(std::shared_ptr<PdrState> s);
+    static PdrResult found_trace(PdrState&& s);
+    static PdrResult incomplete_trace(unsigned length);
+    static PdrResult found_invariant(int level);
+    static PdrResult empty_true();
+    static PdrResult empty_false();
+
+    // building methods
+    PdrResult& with_duration(double t);
+
+    // for testing
+    void append_final(const z3::expr_vector& f);
+
+    operator bool() const;
+    bool has_invariant() const;
+    bool has_trace() const;
+
+    // assumes that has_invariant() and has_trace() hold respectively
+    const Invariant& invariant() const;
+    const Trace& trace() const;
+    Invariant& invariant();
+    Trace& trace();
+
+    void clean_trace();
+    // lists { invariant level, trace length, time }
+    ResultRow listing() const;
+    tabulate::Table get_table() const;
+
+   private:
+    PdrResult(std::variant<Invariant, Trace> o);
+    PdrResult(std::shared_ptr<PdrState> s);
+    PdrResult(Trace::TraceVec const& trace_states);
+    PdrResult(int level);
   };
 
-  struct PDResults
+  // collection of >= 1 pdr results that represents a single ipdr run
+  // if decreasing: trace, trace, ..., invariant
+  // if increasing: invariant, invariant, ..., trace
+  class IpdrResult
   {
-    const PDRModel& model;
-    std::vector<PDResult> vec;
+   public:
+    IpdrResult(const IModel& m);
+    IpdrResult(
+        std::vector<std::string> const& v, std::vector<std::string> const& vp);
+    virtual ~IpdrResult();
 
-    PDResults(const PDRModel& m) : model(m), vec(1) {}
+    void reset();
 
-    PDResult& current() { return vec.back(); }
-    void extend() { vec.emplace_back(); }
+    // add a result to the aggregate
+    // adds the row form process_result(r) to the pdr_summaries
+    IpdrResult& add(const PdrResult& r);
 
-    void show(std::ostream& out) const
-    {
-      TextTable t;
-      t.setAlignment(0, TextTable::Alignment::RIGHT);
-      t.setAlignment(1, TextTable::Alignment::RIGHT);
-      t.setAlignment(2, TextTable::Alignment::RIGHT);
-      t.setAlignment(3, TextTable::Alignment::RIGHT);
+    // output the pdr_summaries in a formatted table and append the total time
+    // build using rows from process_row()
+    tabulate::Table summary_table() const;
+    // table with total header and single row
+    // build using row from total_row()
+    tabulate::Table total_table() const;
 
-      out << fmt::format("Pebbling strategies for {}:", model.name) << std::endl
-          << std::endl;
-      out << SEP2 << std::endl;
+    double get_total_time() const;
+    std::vector<double> g_times() const;
 
-      std::vector<std::string> header = {"pebbles", "invariant index",
-                                         "strategy length", "Total time"};
-      t.addRow(header);
-      for (const PDResult& res : vec)
-        t.addRow(res.listing());
+    // show a small string that described the end result of the run
+    virtual std::string end_result() const           = 0;
+    // represent total for a formatted table
+    virtual tabulate::Table::Row_t total_row() const = 0;
+    // get all traces using the virtual process_trace() function
+    std::string all_traces() const;
 
-      out << t << std::endl << std::endl;
+   protected:
+    // variables in the transition system, in current and next state.
+    std::vector<std::string> vars;
+    std::vector<std::string> vars_p;
+    // accumulated time of every result
+    double total_time{ 0.0 };
+    // the pdr results that make up an ipdr result
+    std::vector<PdrResult> original;
+    // data extracted for the original pdr results
+    std::vector<tabulate::Table::Row_t> pdr_summaries;
+    // string representation of traces from each PdrResult
+    std::vector<std::string> traces;
 
-      for (const PDResult& res : vec)
-      {
-        if (res.trace)
-        {
-          out << fmt::format("Strategy for {} pebbles", res.pebbles_used)
-              << std::endl;
-          out << fmt::format("Target: [ {} ]",
-                             z3ext::join_expr_vec(model.n_property.currents()))
-              << std::endl
-              << std::endl;
+    // field names for table headers
+    virtual const tabulate::Table::Row_t summary_header() const;
+    virtual const tabulate::Table::Row_t total_header() const = 0;
 
-          std::string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
-          std::string initial = z3ext::join_expr_vec(model.get_initial());
-          std::string final = z3ext::join_expr_vec(model.n_property.currents());
-
-          TextTable trace_table;
-          trace_table.setAlignment(0, TextTable::Alignment::RIGHT);
-          trace_table.setAlignment(1, TextTable::Alignment::RIGHT);
-          trace_table.setAlignment(2, TextTable::Alignment::RIGHT);
-
-          std::vector<std::string> header = {"step", "state", "No. pebbled"};
-          trace_table.addRow(header);
-          std::vector<std::string> I_row = {"I", initial, "0"};
-          std::vector<std::string> F_row = {
-              "F", final, std::to_string(model.get_max_pebbles())};
-          trace_table.addRow(I_row);
-          res.trace->show(trace_table);
-          trace_table.addRow(F_row);
-          out << "Trace:" << std::endl << trace_table << std::endl;
-        }
-        else
-        {
-          out << fmt::format("No strategy for {} pebbles",
-                             model.get_max_pebbles())
-              << std::endl
-              << std::endl;
-        }
-      }
-    }
+    // records result in "originals" and adds it to the total_time
+    // returns a row for "pdr_summaries":
+    //  { processes, max_proc, invariant level, trace length, time }
+    // called by add(PdrResult)
+    const tabulate::Table::Row_t process_result(const PdrResult& r);
+    // string representation of the trace or invariant
+    virtual std::string process_trace(PdrResult const& res) const;
   };
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> const& vars,
+        std::vector<std::string> const& vars_p);
+  }
+
+  namespace state
+  {
+    size_t n_marked(PdrResult::Trace::TraceState const& s);
+
+    std::vector<std::string> marking(PdrResult::Trace::TraceState const& s,
+        std::vector<std::string> header, unsigned width);
+  } // namespace state
+
 } // namespace pdr
-#endif // PDR_RES
+#endif // PDR_RESULT_H

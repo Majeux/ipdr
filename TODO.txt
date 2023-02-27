@@ -1,11 +1,11 @@
 NOW
-  - add commentary: act_i means i is the highest level at which clause is included
-		to get frame i: activate all i ... k. (for every frame, all clauses with a higher level are included)
-  - double check cleanup
+	- check difference inc 1 and inc more
+	- check difference small inc step at high level
+	- track initial cti and regeneralize
 	- actually useful progress file (skip verbose obligation timing output)
-	- profiling
 
 TODO
+	- sat.core.minimize setting
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
 	- proof/disprove minimal traces (heuristic?)
@@ -13,13 +13,11 @@ TODO
 	- doubles and not deleted clauses in final solver output
 	- remember queue between iterations??
 	- tseitin transition
+	- pebbling paper maybe used older mockturtle
+	- format pebbling strategy
+	- alternative block
+	- pushing subsumed clauses
+	- track lowest changed frame
 	
-	DELTA
-		- terminates later than original (maybe ok)
-		- slower in some cases (factor 2), see g^xxxxx
-			- Maybe because of extra logging overhead?
-
 	EXPERIMENTS
-		- Determine comparisons to pebbling paper
-		- Compare speed of iterations between --optimize and not
-		- Determine speedup for reusing
+		- vary over mic_retries

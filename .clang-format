@@ -6,6 +6,9 @@ TabWidth: 2
 IndentWidth: 2
 AccessModifierOffset: -1
 
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# PackConstructorInitializers: PCIS_NextLine
+
 BreakBeforeBraces: Allman
 
 PointerAlignment: Left
@@ -13,6 +16,7 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments: true
 AlignConsecutiveAssignments: AcrossComments
 AlignEscapedNewlines: Left
+AlignAfterOpenBracket: DontAlign
 
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true

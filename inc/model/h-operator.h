@@ -62,14 +62,14 @@ inline xmg_network build_hoperator(uint64_t bitwidth, uint64_t modulus)
   z = modular_adder(xmg, t3, t4, m);      // z = t3 + t4
   t = modular_subtractor(xmg, t3, t4, m); // t = t3 - t4
 
-  std::for_each(x.begin(), x.end(),
-                [&xmg](auto f) { return xmg.create_po(f); });
-  std::for_each(y.begin(), y.end(),
-                [&xmg](auto f) { return xmg.create_po(f); });
-  std::for_each(z.begin(), z.end(),
-                [&xmg](auto f) { return xmg.create_po(f); });
-  std::for_each(t.begin(), t.end(),
-                [&xmg](auto f) { return xmg.create_po(f); });
+  std::for_each(
+      x.begin(), x.end(), [&xmg](auto f) { return xmg.create_po(f); });
+  std::for_each(
+      y.begin(), y.end(), [&xmg](auto f) { return xmg.create_po(f); });
+  std::for_each(
+      z.begin(), z.end(), [&xmg](auto f) { return xmg.create_po(f); });
+  std::for_each(
+      t.begin(), t.end(), [&xmg](auto f) { return xmg.create_po(f); });
 
   return cleanup_dangling(xmg);
 }

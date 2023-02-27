@@ -1,0 +1,10 @@
+ham3tc
+rd32
+mod5d1
+gf2^3mult_11_47
+4b15g_1
+gf2^4mult_19_83
+5mod5tc
+gf2^5mult_29_129
+ham7tc
+5bitadder
