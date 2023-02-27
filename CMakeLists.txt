@@ -1,4 +1,4 @@
-﻿option(DO_LOG "Produce logs in logs/ folder" OFF)
+option(DO_LOG "Produce logs in logs/ folder" OFF)
 option(DEBUG "turn off O3 and turn on assertions" OFF)
 option(PROFILE "gather information for perf" OFF)
 # UNIT TEST OPTIONS BUILD_TESTINg: Catch2 testing. default ON
@@ -65,6 +65,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # "-fsanitize=memory -fno-omit-frame-pointer -fsanitize-memory-track-origins")
   set(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-unknown-pragmas ${OPT} ${PERF}"
   )# -ferror-limit=0")
+
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if(DO_LOG)
