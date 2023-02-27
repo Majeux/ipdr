@@ -1,12 +1,14 @@
 #include "experiments.h"
-#include "io.h"
-#include "pdr-context.h"
-#include "pdr.h"
+#include "cli-parse.h"
+#include "pebbling-result.h"
+#include "result.h"
 #include "tactic.h"
-#include <algorithm>
-#include <cassert>
-#include <fmt/core.h>
-#include <numeric>
+#include "types-ext.h"
+
+#include <fmt/format.h>
+#include <numeric> // std::accumulate
+#include <tabulate/exporter.hpp>
+#include <tabulate/format.hpp>
 #include <tabulate/latex_exporter.hpp>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
@@ -14,55 +16,29 @@
 
 namespace pdr::experiments
 {
-  using fmt::format;
-  using std::cout;
-  using std::endl;
+  using namespace my::cli;
+  using std::vector;
 
-  Run::Run(const my::cli::ArgumentList& args,
-      const std::vector<ExperimentResults>& results)
-      : model(args.model_name), tactic(args.tactic), avg_time(0.0)
+  namespace math
   {
-    using std::min;
-    using Invariant = Result::Invariant;
-    using Trace     = Result::Trace;
+    std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
 
-    double time_sum = 0.0;
-    std::vector<double> times;
-    for (const ExperimentResults& r : results)
+    double std_dev(const vector<double>& v)
     {
-      auto [t, inv, trace] = r.get_total();
-
-      time_sum += t;
-      times.push_back(t);
-
-      if (inv) // get the lowest invariant level we found
-      {
-        if (max_inv)
-          max_inv = min(*max_inv, *inv,
-              [](Invariant a, Invariant b) { return a.level < b.level; });
-        else
-          max_inv = inv;
-      }
-
-      if (trace) // get the shortest trace we found
-      {
-        if (min_strat)
-          min_strat = min(*min_strat, *trace,
-              [](const Trace& a, const Trace& b)
-              { return a.length < b.length; });
-        else
-          min_strat = trace;
-      }
+      double mean = std::accumulate(v.cbegin(), v.cend(), 0.0) / v.size();
+      return std_dev(v, mean);
     }
-    avg_time = time_sum / results.size();
 
-    double total_variance = std::accumulate(times.begin(), times.end(), 0.0,
-        [this](double a, double t) { return a + std::pow(t - avg_time, 2); });
+    double std_dev(const vector<double>& v, double mean)
+    {
+      double total_variance = std::accumulate(v.begin(), v.end(), 0.0,
+          [mean](double a, double t) { return a + (t - mean) * (t - mean); });
 
-    std_dev_time = std::sqrt(total_variance / results.size());
-  }
+      return std::sqrt(total_variance / v.size());
+    }
+  } // namespace math
 
-  namespace
+  namespace tablef
   {
     tabulate::Format& format_base(tabulate::Format& f)
     {
@@ -82,18 +58,48 @@ namespace pdr::experiments
       format_base(t);
       return t;
     }
+  } // namespace tablef
 
-  } // namespace
-
-  std::string Run::str(output_format fmt) const
+  // RUN PUBLIC MEMBERS
+  //
+  Run::Run(std::string const& m, std::string const& t,
+      std::vector<std::unique_ptr<IpdrResult>>&& r)
+      : results(std::move(r)), model(m), tactic(t)
   {
-    tabulate::Table table = init_table();
+    double time_sum{ 0.0 };
+    vector<double> times;
+    for (auto const& r : results)
+    {
+      time_sum += r->get_total_time();
+      times.push_back(r->get_total_time());
+    }
 
-    for (const Row_t& r : listing())
-      table.add_row(r);
+    assert(times.size() == results.size());
+    avg_time     = time_sum / times.size();
+    std_dev_time = math::std_dev(times, avg_time);
+  }
+
+  tabulate::Table::Row_t Run::tactic_row() const { return { "", tactic }; }
+
+  tabulate::Table::Row_t Run::avg_time_row() const
+  {
+    return { "avg time", math::time_str(avg_time) };
+  }
+
+  tabulate::Table::Row_t Run::std_time_row() const
+  {
+    return { "std dev time", math::time_str(std_dev_time) };
+  }
+
+  std::string Run::str(output_format form) const
+  {
+    using std::endl;
+    // tabulate::Table table = tablef::init_table();
+    tabulate::Table table = make_table();
+    tablef::format_base(table);
 
     std::stringstream ss;
-    switch (fmt)
+    switch (form)
     {
       case output_format::string:
         ss << fmt::format("Experiment: {}", model) << endl << table;
@@ -109,15 +115,14 @@ namespace pdr::experiments
     return ss.str();
   }
 
-  std::string Run::str_compared(const Run& other, output_format fmt) const
+  std::string Run::str_compared(const Run& other, output_format form) const
   {
-    tabulate::Table paired = init_table();
-
-    for (const Row_t& r : combined_listing(other))
-      paired.add_row(r);
+    using std::endl;
+    tabulate::Table paired = make_combined_table(other);
+    tablef::format_base(paired);
 
     std::stringstream ss;
-    switch (fmt)
+    switch (form)
     {
       case output_format::string:
         ss << fmt::format("Experiment: {}", model) << endl << paired;
@@ -132,231 +137,94 @@ namespace pdr::experiments
     return ss.str();
   }
 
-  namespace
+  void Run::dump(tabulate::Exporter& exporter, std::ostream& out) const
   {
-    std::string time_str(double x) { return format("{:.3f} s", x); };
-  } // namespace
+    using std::endl;
 
-  Run::Table_t Run::listing() const
-  {
-
-    Table_t t;
+    for (size_t i{ 0 }; i < results.size(); i++)
     {
-      using fmt::to_string;
-      size_t i = 0;
+      out << fmt::format("### Sample {}", i) << endl;
+      tabulate::Table t{ results[i]->summary_table() };
+      tablef::format_base(t);
+      out << exporter.dump(t) << endl << endl;
 
-      t.at(i++) = { "", tactic::to_string(tactic) };
-      t.at(i++) = { "avg time", time_str(avg_time) };
-      t.at(i++) = { "std dev time", time_str(std_dev_time) };
-
-      if (max_inv)
-      {
-        t.at(i++) = { "max inv constraint",
-          to_string(max_inv->constraint.value()) };
-        t.at(i++) = { "max inv level", to_string(max_inv->level) };
-      }
-
-      if (min_strat)
-      {
-        t.at(i++) = { "min strat marked", to_string(min_strat->marked) };
-        t.at(i++) = { "min strat length", to_string(min_strat->length) };
-      }
+      out << "#### Traces" << endl;
+      out << results[i]->all_traces() << endl;
     }
-    return t;
   }
 
-  namespace
-  {
-    template <typename T> double percentage_dec(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (double)(a - b) / a * 100;
-    }
-
-    template <typename T> double percentage_inc(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (b - a) / a * 100;
-    }
-  } // namespace
-
-  Run::Table_t Run::combined_listing(const Run& other) const
-  {
-    std::string percentage_fmt{ "{:.2f} \\\%" };
-    auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
-
-    Table_t rows = listing();
-    {
-      using fmt::to_string;
-      size_t i = 0;
-      {
-        rows.at(i).push_back("control");
-        rows.at(i).push_back("improvement");
-        i++;
-      }
-
-      {
-        rows.at(i).push_back(time_str(other.avg_time));
-        // double speedup = (other.avg_time - avg_time / other.avg_time) * 100;
-        double speedup = percentage_dec(other.avg_time, avg_time);
-        rows.at(i).push_back(perc_str(speedup));
-        i++;
-      }
-
-      rows.at(i++).push_back(time_str(other.std_dev_time));
-
-      if (other.max_inv)
-      {
-        rows.at(i++).push_back(to_string(other.max_inv->constraint.value()));
-        {
-          rows.at(i).push_back(to_string(other.max_inv->level));
-          double dec = percentage_dec(other.max_inv->level, max_inv->level);
-          rows.at(i).push_back(perc_str(dec));
-          i++;
-        }
-      }
-
-      if (other.min_strat)
-      {
-        rows.at(i++).push_back(to_string(other.min_strat->marked));
-        {
-          rows.at(i).push_back(to_string(other.min_strat->length));
-          double dec =
-              percentage_dec(other.min_strat->length, min_strat->length);
-          rows.at(i).push_back(perc_str(dec));
-          i++;
-        }
-      }
-    }
-
-    return rows;
-  }
-
-  // FUNCTIONS
+  // EXPERIMENT PUBLIC MEMBERS
   //
-  void model_run(::pebbling::Model& model, pdr::Logger& log,
-      const my::cli::ArgumentList& args)
+  Experiment::Experiment(my::cli::ArgumentList const& a, Logger& l)
+      : args(a),
+        model(model_t::get_name(args.model)),
+        type(algo::get_name(args.algorithm)),
+        log(l),
+        N_reps(args.experiment->repetitions),
+        seeds(N_reps)
   {
-    using std::optional;
-    using namespace my::io;
+    if (auto ipdr = my::variant::get_cref<algo::t_IPDR>(args.algorithm))
+      tactic = ipdr->get().type;
 
-    const fs::path model_dir   = setup_model_path(args);
-    const fs::path run_dir     = setup_path(model_dir / folder_name(args));
-    const std::string filename = file_name(args);
-    std::ofstream latex        = trunc_file(run_dir, filename, "tex");
-    std::ofstream raw          = trunc_file(run_dir, "raw-" + filename, "md");
+    sample_table.format()
+        .font_align(tabulate::FontAlign::right)
+        .hide_border_top()
+        .hide_border_bottom();
+    control_table.format() = sample_table.format();
 
-    optional<unsigned> optimum;
-    std::vector<ExperimentResults> results;
-    std::vector<ExperimentResults> control;
+    srand(time(0));
+    std::generate(seeds.begin(), seeds.end(), rand);
+  }
 
-    tabulate::Table::Row_t header{ "runtime", "max constraint with invariant",
-      "level", "min constraint with strategy", "length" };
+  void Experiment::run()
+  {
+    using fmt::format;
+    using std::endl;
 
-    tabulate::Table sample_table;
+    reset_tables();
+
+    std::ofstream latex = args.folders.file_in_run("tex");
+    std::ofstream raw   = args.folders.file_in_run("md");
+    tabulate::MarkdownExporter exporter;
+
+    if (args.experiment->control_only)
     {
-      sample_table.add_row(header);
-      sample_table.format()
-          .font_align(tabulate::FontAlign::right)
-          .hide_border_top()
-          .hide_border_bottom();
+      std::cout << type + " (only) control run." << endl;
+      std::shared_ptr<Run> control_aggregate = do_reps(true);
+      assert(control_aggregate != nullptr);
+      latex << control_aggregate->str(output_format::latex);
+
+      // write raw run data as markdown
+      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+                 tactic::to_string(tactic))
+          << endl;
+
+      raw << "## Control run." << endl;
+      control_aggregate->dump(exporter, raw);
     }
-    tabulate::Table control_table;
+    else
     {
-      control_table.add_row(header);
-      control_table.format() = sample_table.format();
-    }
+      std::cout << type + " run." << endl;
 
-    unsigned N = args.exp_sample.value();
+      std::shared_ptr<Run> aggregate = do_reps(false);
+      latex << aggregate->str(output_format::latex);
 
-    std::vector<unsigned> seeds(N);
-    {
-      srand(time(0));
-      std::generate(seeds.begin(), seeds.end(), rand);
-    }
+      std::cout << "control run." << endl;
+      std::shared_ptr<Run> control_aggregate = do_reps(true);
+      assert(control_aggregate != nullptr);
+      latex << aggregate->str_compared(
+          *control_aggregate, output_format::latex);
 
-    std::string tactic_str = pdr::tactic::to_string(args.tactic);
-    cout << format("{} run. {} samples. {} tactic", model.name, N, tactic_str)
-         << endl;
-    // normal runs
-    cout << "Experiment:" << endl;
-    for (unsigned i = 0; i < N; i++)
-    {
-      std::optional<unsigned> r;
-      // new context with new random seed
-      pdr::Context ctx(model, args.delta, seeds[i]);
-      cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, log);
-
-      if (i == 0)
-        optimum = opt.run(args);
-      else
-      {
-        r = opt.run(args);
-        assert(optimum == r);
-      }
-
-      results.emplace_back(opt.latest_results, args.tactic);
-      // cout << format("## Experiment sample {}", i) << endl;
-      results.back().add_to(sample_table);
-    }
-
-    assert(results.size() == N);
-    Run aggregate(args, results);
-    latex << aggregate.str(output_format::latex);
-
-    // control runs without incremental functionality
-    cout << "Control:" << endl;
-    for (unsigned i = 0; i < N; i++)
-    {
-      std::optional<unsigned> r;
-      // new context with new random seed
-      pdr::Context ctx(model, args.delta, seeds[i]);
-      cout << format("{}: {}", i, seeds[i]) << endl;
-      pdr::pebbling::Optimizer opt(ctx, log);
-
-      if (i == 0)
-        optimum = opt.control_run(args);
-      else
-      {
-        r = opt.control_run(args);
-        assert(optimum == r);
-      }
-
-      control.emplace_back(opt.latest_results, args.tactic);
-      control.back().add_to(control_table);
-    }
-
-    Run control_aggregate(args, control);
-    latex << aggregate.str_compared(control_aggregate, output_format::latex);
-
-    // write raw run data as markdown
-    {
-      tabulate::MarkdownExporter exporter;
-      auto dump = [&exporter, &raw](const ExperimentResults& r, size_t i)
-      {
-        raw << format("### Sample {}", i) << endl;
-        tabulate::Table t{ r.raw_table() };
-        format_base(t);
-        raw << exporter.dump(t) << endl << endl;
-
-        raw << "#### Traces" << endl;
-        r.show_traces(raw);
-      };
-
-      raw << format("# {}. {} samples. {} tactic.", model.name, N, tactic_str)
+      // write raw run data as markdown
+      raw << format("# {}. {} samples. {} tactic.", model, N_reps,
+                 tactic::to_string(tactic))
           << endl;
 
       raw << "## Experiment run." << endl;
-      for (size_t i = 0; i < results.size(); i++)
-        dump(results[i], i);
+      aggregate->dump(exporter, raw);
 
       raw << "## Control run." << endl;
-      for (size_t i = 0; i < results.size(); i++)
-        dump(control[i], i);
+      control_aggregate->dump(exporter, raw);
     }
   }
-
 } // namespace pdr::experiments

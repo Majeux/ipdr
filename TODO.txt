@@ -1,19 +1,10 @@
 NOW
-	- ham7tc: 10 basic is 6 seconds faster than 7->8->9->10
 	- check difference inc 1 and inc more
 	- check difference small inc step at high level
-	- fixing "finding x strategy" message
-	- duplicate cubes in solver (including activation). maybe search goes wrong with act literal
-  - only 1st frame needed? propagation fixes everything
-		- continuing from last k (dec) maybe increases strategy length 
 	- track initial cti and regeneralize
 	- actually useful progress file (skip verbose obligation timing output)
-	- profiling
-	- random seed experiments
-	- replicate pebbling paper
 
 TODO
-	- decrement: continue from last k or copy only first
 	- sat.core.minimize setting
 	- generalization statistic
 	- some indexing/caching optimization from IC3 git
@@ -28,14 +19,5 @@ TODO
 	- pushing subsumed clauses
 	- track lowest changed frame
 	
-	DELTA
-		- terminates later than original (maybe ok)
-		- slower in some cases (factor 2), see g^xxxxx
-			- Maybe because of extra logging overhead?
-
 	EXPERIMENTS
-		- Determine comparisons to pebbling paper
-		- Compare speed of iterations between --optimize and not
-		- Determine speedup for reusing
-		- cleaner format for strategy (on/off)
 		- vary over mic_retries

@@ -1,0 +1,12 @@
+for some simple model
+	pdr::mic/down
+	pdr::hif
+
+for sample frames and with a solver
+	frame::block
+	frame::remove_subsumed
+
+z3ext::subsumes
+z3ext::order_lits
+z3ext::strip_not
+

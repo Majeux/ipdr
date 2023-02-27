@@ -1,4 +1,7 @@
 #include "obligation.h"
+#include "result.h"
+#include "z3-ext.h"
+#include <algorithm>
 
 namespace pdr
 {
@@ -7,41 +10,29 @@ namespace pdr
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+  using TraceState = PdrResult::Trace::TraceState;
 
-  State::State(const expr_vector& e) : cube(e), prev(shared_ptr<State>()) {}
-  State::State(const expr_vector& e, shared_ptr<State> s) : cube(e), prev(s) {}
-  // move constructors
-  State::State(expr_vector&& e) : cube(std::move(e)), prev(shared_ptr<State>())
+  // STATE MEMBERS
+  //
+  PdrState::PdrState(const expr_vector& e)
+      : cube(e), prev(shared_ptr<PdrState>())
   {
   }
-  State::State(expr_vector&& e, shared_ptr<State> s)
+  PdrState::PdrState(const expr_vector& e, shared_ptr<PdrState> s)
+      : cube(e), prev(s)
+  {
+  }
+  // move constructors
+  PdrState::PdrState(expr_vector&& e)
+      : cube(std::move(e)), prev(shared_ptr<PdrState>())
+  {
+  }
+  PdrState::PdrState(expr_vector&& e, shared_ptr<PdrState> s)
       : cube(std::move(e)), prev(s)
   {
   }
 
-  vector<string> State::marking(vector<string> header, unsigned width) const
-  {
-    vector<string> rv(header.size(), "?");
-    for (const expr& e : cube)
-    {
-      string s = e.is_not() ? e.arg(0).to_string() : e.to_string();
-      auto it  = std::lower_bound(header.begin(), header.end(), s);
-      if (it != header.end() && *it == s) // it points to s
-      {
-        string fill_X           = fmt::format("{:X^{}}", "", width);
-        rv[it - header.begin()] = e.is_not() ? "" : fill_X;
-      }
-    }
-
-    return rv;
-  }
-  unsigned State::no_marked() const
-  {
-    return std::accumulate(cube.begin(), cube.end(), 0,
-        [](int x, const expr& e) { return x + (!e.is_not()); });
-  }
-
-  unsigned State::show(TextTable& table) const
+  unsigned PdrState::show(TextTable& table) const
   {
     vector<std::tuple<unsigned, string, unsigned>> steps;
 
@@ -56,14 +47,14 @@ namespace pdr
     };
 
     unsigned i = 1;
-    steps.emplace_back(i, z3ext::join_expr_vec(cube), count_pebbled(cube));
+    steps.emplace_back(i, z3ext::join_ev(cube), count_pebbled(cube));
 
-    shared_ptr<State> current = prev;
+    shared_ptr<PdrState> current = prev;
     while (current)
     {
       i++;
       steps.emplace_back(
-          i, z3ext::join_expr_vec(current->cube), count_pebbled(current->cube));
+          i, z3ext::join_ev(current->cube), count_pebbled(current->cube));
       current = current->prev;
     }
     unsigned i_padding = i / 10 + 1;
@@ -79,12 +70,14 @@ namespace pdr
     return i_padding;
   }
 
+  // OBLIGATION MEMBERS
+  //
   Obligation::Obligation(unsigned k, expr_vector&& cube, unsigned d)
-      : level(k), state(std::make_shared<State>(std::move(cube))), depth(d)
+      : level(k), state(std::make_shared<PdrState>(std::move(cube))), depth(d)
   {
   }
 
-  Obligation::Obligation(unsigned k, const shared_ptr<State>& s, unsigned d)
+  Obligation::Obligation(unsigned k, const shared_ptr<PdrState>& s, unsigned d)
       : level(k), state(s), depth(d)
   {
   }

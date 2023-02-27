@@ -1,23 +1,21 @@
 #ifndef PDR_LOGGER_H
 #define PDR_LOGGER_H
 
-#include "dag.h"
+#include "_logging.h"
 #include "stats.h"
 
-#include "_logging.h"
 #include <fmt/core.h>
 #include <fstream>
 #include <memory>
 #include <ostream>
 #include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/spdlog.h>
 #include <string>
 
 enum OutLvl
 {
-  silent,
-  whisper,
-  verbose
+  silent,  // no output
+  whisper, // output some
+  verbose, // output all
 };
 
 class nullbuffer : public std::streambuf
@@ -51,6 +49,8 @@ namespace pdr
     std::ostream& _out;
     nullstream null;
 
+    inline const static std::string_view tabsep = "{}| ";
+
     std::string tab() const { return std::string(indent, '\t'); }
 
    public:
@@ -59,11 +59,13 @@ namespace pdr
     OutLvl level;
     unsigned indent = 0;
 
-    Logger(const std::string& log_file, const dag::Graph& G, OutLvl l,
-        std::ofstream&& stat_file);
+    std::string tabbed(std::string_view msg) const
+    {
+      return (std::string(2 * indent, ' ') + "| ").append(msg);
+    }
 
-    Logger(const std::string& log_file, const dag::Graph& G,
-        const std::string& pfilename, OutLvl l, std::ofstream&& stat_file);
+    Logger(const std::string& log_file,
+        std::optional<std::string_view> pfilename, OutLvl l, Statistics&& s);
 
     void init(const std::string& log_file);
 
@@ -73,26 +75,35 @@ namespace pdr
     template <typename... Args>
     void operator()(std::string_view message_fmt, Args&&... a)
     {
-      (void)message_fmt;
-      sink{ std::forward<Args>(a)... };
-      SPDLOG_LOGGER_TRACE(spd_logger, message_fmt, std::forward<Args>(a)...);
+      indented(message_fmt, std::forward<Args>(a)...);
     }
 
     template <typename... Args>
-    void log(std::string_view message_fmt, Args&&... a)
+    void untabbed(std::string_view message_fmt, Args&&... a)
     {
-      operator()(message_fmt, std::forward<Args>(a)...);
+      (void)message_fmt;
+      sink{ std::forward<Args>(a)... };
+      SPDLOG_LOGGER_DEBUG(spd_logger, message_fmt, std::forward<Args>(a)...);
     }
 
     // log a message with indent
     template <typename... Args>
-    void tabbed(std::string_view message_fmt, Args&&... a)
+    void indented(std::string_view message_fmt, Args&&... a)
     {
-      std::string fmt = "{}| "; // + message_fmt;
       (void)message_fmt;
       sink{ std::forward<Args>(a)... };
-      SPDLOG_LOGGER_TRACE(
-          spd_logger, fmt.append(message_fmt), tab(), std::forward<Args>(a)...);
+      SPDLOG_LOGGER_DEBUG(spd_logger, std::string{ tabsep }.append(message_fmt),
+          tab(), std::forward<Args>(a)...);
+    }
+
+    template <typename... Args>
+    void tabbed_trace(std::string_view message_fmt, Args&&... a)
+    {
+      (void)message_fmt;
+      sink{ std::forward<Args>(a)... };
+      SPDLOG_LOGGER_TRACE(spd_logger,
+          (std::string{ tabsep }.append(message_fmt)), tab(),
+          std::forward<Args>(a)...);
     }
 
     // NON-LOGGING OUTPUT
@@ -120,7 +131,13 @@ namespace pdr
     void and_show(std::string_view message, Args&&... a)
     {
       show(message, std::forward<Args>(a)...);
-      SPDLOG_LOGGER_TRACE(spd_logger, message, std::forward<Args>(a)...);
+      SPDLOG_LOGGER_DEBUG(spd_logger, message, std::forward<Args>(a)...);
+    }
+
+    template <typename... Args> void warn(std::string_view message, Args&&... a)
+    {
+      show(message, std::forward<Args>(a)...);
+      SPDLOG_LOGGER_WARN(spd_logger, message, std::forward<Args>(a)...);
     }
 
     // output a whisper message and log it
@@ -129,7 +146,7 @@ namespace pdr
         Args&&... a) // TODO rename to operator
     {
       whisper(message, std::forward<Args>(a)...);
-      SPDLOG_LOGGER_TRACE(spd_logger, message, std::forward<Args>(a)...);
+      SPDLOG_LOGGER_DEBUG(spd_logger, message, std::forward<Args>(a)...);
     }
 
     template <typename... Args>
@@ -137,7 +154,7 @@ namespace pdr
         Args&&... a) // TODO rename to operator
     {
       show(message, std::forward<Args>(a)...);
-      tabbed(message, std::forward<Args>(a)...);
+      indented(message, std::forward<Args>(a)...);
     }
 
     // output a whisper message and log it
@@ -146,8 +163,32 @@ namespace pdr
         Args&&... a) // TODO rename to operator
     {
       whisper(message, std::forward<Args>(a)...);
-      tabbed(message, std::forward<Args>(a)...);
+      indented(message, std::forward<Args>(a)...);
     }
   };
 } // namespace pdr
+
+#define SEPWITH 15
+#define SEP1 std::string(SEPWITH, '-')
+#define SEP2 std::string(SEPWITH, '=')
+#define SEP3 std::string(SEPWITH, '#')
+
+#define MYLOG_WARN(logger, format, ...)  \
+  logger.whisper(format, ##__VA_ARGS__); \
+  SPDLOG_LOGGER_WARN(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_INFO(logger, format, ...)  \
+  logger.whisper(format, ##__VA_ARGS__); \
+  SPDLOG_LOGGER_INFO(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_DEBUG(logger, format, ...) \
+  SPDLOG_LOGGER_DEBUG(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
+#define MYLOG_DEBUG_SHOW(logger, format, ...) \
+  logger.show(format, ##__VA_ARGS__);         \
+  MYLOG_DEBUG(logger, format, ##__VA_ARGS__)
+
+#define MYLOG_TRACE(logger, format, ...) \
+  SPDLOG_LOGGER_TRACE(logger.spd_logger, logger.tabbed(format), ##__VA_ARGS__)
+
 #endif // LOGGER_H

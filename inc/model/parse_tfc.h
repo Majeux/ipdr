@@ -60,7 +60,7 @@ namespace parse
       std::string line;
       while (state != TFCState::_END && std::getline(file, line))
       {
-        str::extend::trim(line);
+        str::ext::trim(line);
         if (line.size() == 0 || line[0] == '#')
           continue;
 
@@ -120,10 +120,10 @@ namespace parse
     // assumes no starting or trailing whitespace
     void parse_line(dag::Graph& G, std::string line)
     {
-      std::vector<std::string> op_operands = str::extend::split(line, ' ');
+      std::vector<std::string> op_operands = str::ext::split(line, ' ');
       assert(op_operands.size() == 2); // split into <prefix> <list>
       std::vector<std::string> operands =
-          str::extend::split(op_operands.back(), ',');
+          str::ext::split(op_operands.back(), ',');
 
       auto [old_t, new_t] = target(G, operands.back());
       operands.pop_back();
@@ -184,7 +184,7 @@ namespace parse
     {
       assert(line.rfind(".i ", 0) == 0);
       line                           = line.substr(3);
-      std::vector<std::string> names = str::extend::split(line, ',');
+      std::vector<std::string> names = str::ext::split(line, ',');
       for (const std::string& n : names)
       {
         std::string var_init = node(n, 0);
@@ -199,7 +199,7 @@ namespace parse
       assert(line.rfind(".o ", 0) == 0);
 
       line                           = line.substr(3);
-      std::vector<std::string> names = str::extend::split(line, ',');
+      std::vector<std::string> names = str::ext::split(line, ',');
       for (const std::string& n : names)
       {
         outs.insert(n);

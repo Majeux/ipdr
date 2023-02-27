@@ -5,6 +5,7 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
+Z3="--z3pdr"
 
 if [ $# -eq 0 ]
 then
@@ -22,15 +23,15 @@ do
 	then
 		echo -e "${bold}============\n============\n"
 		echo -e "Running experiment for $filename\n"
-		folderarg="--dir=$BENCHMARKS"
-		modelarg="--tfc=$m"
-		optarg="--optimize=dec"
-		exparg="--experiment=$sample"
+		folder="--dir=$BENCHMARKS"
+		model="--tfc=$m"
+		exp="--experiment=$sample"
+		# exp=""
 
-		command="$EXEC --silent --delta $optarg $exparg $folderarg $modelarg"
+		command="$EXEC --silent --algo=ipdr --pebbling $Z3 $folder $model $exp"
 
 		echo "${bold}$command${normal}"
-		# $command
+		$command
 		echo -e "done\n"
 	else
 		echo "$m is not a valid .tfc file"

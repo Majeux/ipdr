@@ -1,9 +1,14 @@
+#include "io.h"
+#include "cli-parse.h"
+#include "tactic.h"
+
+// #include <filesystem>
+#include <fmt/core.h>
 #include <ghc/filesystem.hpp>
 #include <string>
-
-#include "cli-parse.h"
-#include "io.h"
-#include "tactic.h"
+#include <string_view>
+#include <tabulate/table.hpp>
+#include <type_traits>
 
 namespace my::io
 {
@@ -11,93 +16,97 @@ namespace my::io
   using fmt::format;
   using std::string;
 
-  fs::path base_out()
+  // AUX
+  //
+  fs::path base_out() { return setup(fs::current_path() / "output"); }
+  fs::path in_root(fs::path const& p) { return fs::current_path() / p; }
+
+  fs::path setup(fs::path p)
   {
-    fs::path rv = fs::current_path() / "output";
-    fs::create_directory(rv);
-    return rv;
-  }
-
-  string file_name(const ArgumentList& args)
-  {
-    string file_string =
-        format("{}-{}", args.model_name, to_string(args.tactic));
-
-    if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement))
-      file_string += format("-{}", args.max_pebbles.value());
-    if (args.delta)
-      file_string += "-delta";
-
-    return file_string;
-  }
-
-  string folder_name(const ArgumentList& args)
-  {
-    string folder_string = to_string(args.tactic);
-
-    if (args.exp_sample)
-    {
-      folder_string += "-";
-      if (args.experiment_control)
-        folder_string += "C";
-      folder_string += format("exp{}", *args.exp_sample);
-    }
-
-    if (!(args.tactic == pdr::Tactic::increment ||
-            args.tactic == pdr::Tactic::decrement))
-      folder_string += format("-{}", args.max_pebbles.value());
-    if (args.delta)
-      folder_string += "-delta";
-
-    return folder_string;
-  }
-
-  fs::path setup_model_path(const ArgumentList& args)
-  {
-    fs::path results_folder =
-        base_out() / (args.exp_sample ? "experiments" : "results");
-    fs::create_directory(results_folder);
-    fs::path model_dir = results_folder / args.model_name;
-    fs::create_directory(model_dir);
-
-    return model_dir;
-  }
-
-  fs::path setup_path(fs::path p)
-  {
-    fs::create_directory(p);
+    fs::create_directories(p);
     return p;
   }
 
-  fs::path setup_run_path(const ArgumentList& args)
+  const fs::path file_in(
+      fs::path const& folder, std::string_view name, std::string_view extension)
   {
-    fs::path results_folder = base_out() / "results";
-    fs::create_directory(results_folder);
-    fs::path run_dir = results_folder / args.model_name / folder_name(args);
-    fs::create_directory(run_dir);
-
-    return run_dir;
+    return base_out() / folder / format("{}.{}", name, extension);
   }
 
-  fs::path setup_exp_path(const ArgumentList& args)
+  std::ofstream trunc_file(fs::path const& path)
   {
-    assert(args.exp_sample);
-    fs::path exp_folder = base_out() / "experiments";
-    fs::create_directory(exp_folder);
-    fs::path run_dir = exp_folder / args.model_name / folder_name(args);
-    fs::create_directory(run_dir);
-
-    return run_dir;
-  }
-
-  std::ofstream trunc_file(const fs::path& folder, const std::string& filename,
-      const std::string& ext)
-  {
-    fs::path file = folder / fmt::format("{}.{}", filename, ext);
     std::ofstream stream(
-        file.string(), std::fstream::out | std::fstream::trunc);
+        path.string(), std::fstream::out | std::fstream::trunc);
     assert(stream.is_open());
     return stream;
+  }
+  std::ofstream trunc_file(fs::path const& folder, std::string const& filename,
+      std::string const& ext)
+  {
+    return trunc_file(folder / format("{}.{}", filename, ext));
+  }
+
+  // FOLDERSTRUCTURE
+  //
+  void FolderStructure::show(std::ostream& out) const
+  {
+    tabulate::Table t;
+    t.add_row({ "output directory", run_dir.string() });
+    t.add_row({ "logs", analysis.string() });
+    out << t << std::endl;
+  }
+
+  fs::path FolderStructure::file(
+      std::string_view name, std::string_view extension) const
+  {
+    return format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file(std::string_view extension) const
+  {
+    return format("{}.{}", file_base, extension);
+  }
+
+  // MODEL
+  fs::path FolderStructure::file_in_model(
+      std::string_view name, std::string_view extension) const
+  {
+    return model_dir / format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_model(std::string_view extension) const
+  {
+    return model_dir / format("{}.{}", file_base, extension);
+  }
+
+  // RUN
+  fs::path FolderStructure::file_in_run(
+      std::string_view name, std::string_view extension) const
+  {
+    return run_dir / format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_run(std::string_view extension) const
+  {
+    return run_dir / format("{}.{}", file_base, extension);
+  }
+
+  // ANALYSIS
+  fs::path FolderStructure::file_in_analysis(
+      std::string_view name, std::string_view extension) const
+  {
+    return analysis / format("{}.{}", name, extension);
+  }
+
+  fs::path FolderStructure::file_in_analysis(std::string_view extension) const
+  {
+    return analysis / format("{}.{}", file_base, extension);
+  }
+
+  // BENCH
+  fs::path FolderStructure::src_file(
+      std::string_view name, std::string_view extension) const
+  {
+    return fs::current_path() / bench_src / format("{}.{}", name, extension);
   }
 } // namespace my::io
