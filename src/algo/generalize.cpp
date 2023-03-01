@@ -114,9 +114,9 @@ namespace pdr
     for (unsigned i = 0; i < cube.size();)
     {
       assert(z3ext::lits_ordered(cube));
-      if (attempts > mic_retries)
+      if (attempts > ctx.mic_retries)
       {
-        MYLOG_WARN(logger, "MIC exceeded {} attempts", mic_retries);
+        MYLOG_WARN(logger, "MIC exceeded {} attempts", ctx.mic_retries);
         break;
       }
       vector<expr> new_cube(cube.begin(), cube.begin() + i);
@@ -133,8 +133,9 @@ namespace pdr
         MYLOG_TRACE(logger, "down-reduced cube ({} -> {}): [{}]", cube.size(),
             new_cube.size(), join_expr_vec(new_cube));
         // current literal was dropped, i now points to the next
-        cube     = std::move(new_cube);
-        attempts = 0;
+        cube = std::move(new_cube);
+#warning try difference between tracking attempts per clause or per literal
+        // attempts = 0;
       }
       else
       {

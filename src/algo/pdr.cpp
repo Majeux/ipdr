@@ -26,9 +26,10 @@
 namespace pdr
 {
   using fmt::format;
+  using std::make_shared;
   using std::optional;
+  using std::shared_ptr;
   using std::string;
-  using z3::expr;
   using z3::expr_vector;
 
   PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
@@ -68,7 +69,7 @@ namespace pdr
 
     // MYLOG_INFO(logger, "\nStart iteration");
     logger.indent++;
-    if (PdrResult it_res = iterate_short())
+    if (PdrResult it_res = iterate())
     {
       MYLOG_INFO(logger, "Property verified");
       logger.indent--;
@@ -136,36 +137,30 @@ namespace pdr
 
   PdrResult PDR::iterate()
   {
+    using z3ext::solver::Witness;
+
     // I => P and I & T ⇒ P' (from init)
-    if (ctx.type != Tactic::constrain)
+    if (ctx.type != Tactic::constrain) // decr continues from last level
       assert(frames.frontier() == 1);
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
       log_iteration();
-      logger.whisper("Iteration k={}", k);
-      while (optional<z3ext::solver::Witness> cti =
+      while (optional<Witness> witness =
                  frames.get_trans_source(k, ts.n_property.p(), true))
       {
-        log_cti(cti->curr, k); // cti is an F_i state that leads to a violation
+        log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
 
-        auto [n, core] = highest_inductive_frame(cti->curr, k - 1);
-        // assert(n >= 0);
-
-        // !s is inductive relative to F_n
-        expr_vector sub_cube = generalize(core.value(), n);
-        frames.remove_state(sub_cube, n + 1);
-
-        PdrResult res = block(cti->curr, n);
+        PdrResult res = block(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
         {
-          logger.and_show("Terminated with trace");
+          res.append_final(witness->next);
           return res;
         }
 
-        logger.show("");
+        MYLOG_DEBUG(logger, "");
       }
-      logger.indented("no more counters at F_{}", k);
+      MYLOG_INFO(logger, "no more counters at F_{}", k);
 
       sub_timer.reset();
 
@@ -179,30 +174,31 @@ namespace pdr
     }
   }
 
-  PdrResult PDR::block(expr_vector cti, unsigned n)
+  PdrResult PDR::block(expr_vector&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
-    logger.indented("block");
+    logger.indented("eliminate predecessors");
     logger.indent++;
 
+#warning is dit nog enigzins ok?
     if (ctx.type != Tactic::relax)
     {
-      logger.tabbed_and_whisper("Cleared obligations.");
+      MYLOG_DEBUG_SHOW(logger, "Cleared obligations.");
       obligations.clear();
     }
     else
-      logger.tabbed_and_whisper("Reused obligations.");
+    {
+      MYLOG_DEBUG_SHOW(logger, "Reused obligations: {}.", obligations.size());
+    }
 
     unsigned period = 0;
-    if ((n + 1) <= k)
-      obligations.emplace(n + 1, std::move(cti), 0);
+    if (n <= k)
+      obligations.emplace(n, std::move(cti), 0);
 
     // forall (n, state) in obligations: !state->cube is inductive
     // relative to F[i-1]
     while (obligations.size() > 0)
     {
-      // logger(frames.solvers_str(true));
-      // logger(frames.blocked_str());
       sub_timer.reset();
       double elapsed;
       string branch;
@@ -215,33 +211,21 @@ namespace pdr
       if (optional<expr_vector> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
-        std::shared_ptr<PdrState> pred =
-            std::make_shared<PdrState>(*pred_cube, state);
+        shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
         log_pred(pred->cube);
 
-        // state is at least inductive relative to F_n-2
-        // z3::expr_vector core(ctx());
-        auto [m, core] = highest_inductive_frame(pred->cube, n - 1);
-        // n-1 <= m <= level
-        if (m < 0) // intersects with I
+        if (n == 0) // intersects with I
           return PdrResult::found_trace(pred);
 
-        expr_vector smaller_pred = generalize(core.value(), m);
-        frames.remove_state(smaller_pred, m + 1);
-
-        if (static_cast<unsigned>(m + 1) <= k)
-        {
-          log_state_push(m + 1);
-          obligations.emplace(m + 1, pred, depth + 1);
-        }
+        obligations.emplace(n - 1, pred, depth + 1);
 
         elapsed = sub_timer.elapsed().count();
         branch  = "(pred)  ";
       }
-      else
+      else //! s is now inductive to at least F_n
       {
         log_finish(state->cube);
-        //! s is now inductive to at least F_n
+        
         auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);
@@ -251,7 +235,6 @@ namespace pdr
 
         // !s is inductive to F_m
         expr_vector smaller_state = generalize(core.value(), m);
-        // expr_vector smaller_state = generalize(state->cube, m);
         frames.remove_state(smaller_state, m + 1);
         obligations.erase(obligations.begin());
 
@@ -267,25 +250,11 @@ namespace pdr
       }
       log_obligation_done(branch, k, elapsed);
       elapsed = -1.0;
-
-      // periodically write stats in case of long runs
-      /*
-      if (period >= 100)
-      {
-        period = 0;
-        logger.out() << "Stats written" << std::endl;
-        SPDLOG_LOGGER_DEBUG(logger.spd_logger, logger.stats.to_string());
-        logger.spd_logger->flush();
-      }
-      else
-        period++;
-      */
     }
 
     logger.indent--;
     return PdrResult::empty_true();
   }
-
   void PDR::store_frame_strings()
   {
     using std::endl;

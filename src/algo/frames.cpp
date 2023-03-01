@@ -23,7 +23,7 @@ namespace pdr
   using z3::expr_vector;
   using z3ext::solver::Witness;
 
-  Frames::Frames(Context& c, IModel& m, Logger& l)
+  Frames::Frames(Context c, IModel& m, Logger& l)
       : ctx(c), model(m), log(l), FI_solver(ctx, model, m.get_initial(),
                                       m.get_transition(), m.get_constraint()),
         delta_solver(

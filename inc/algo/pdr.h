@@ -47,7 +47,7 @@ namespace pdr
 
    public:
     // Inherited from vPDR
-    // vPDR(Context& c, Logger& l)
+    // vPDR(Context c, Logger& l)
     // get_ctx() -> Context const&
 
     PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m);
@@ -72,9 +72,6 @@ namespace pdr
     Frames frames; // sequence of candidates
     std::set<Obligation, std::less<Obligation>> obligations;
 
-    // if mic fails to reduce a clause c this many times, take c
-    const unsigned mic_retries = UINT_MAX;
-
     struct HIFresult
     {
       int level;
@@ -85,9 +82,7 @@ namespace pdr
     // main algorithm
     PdrResult init();
     PdrResult iterate();
-    PdrResult block(z3::expr_vector cti, unsigned n);
-    PdrResult iterate_short();
-    PdrResult block_short(z3::expr_vector&& counter, unsigned n);
+    PdrResult block(z3::expr_vector&& cti, unsigned n);
     // generalization
     // todo return [n, cti ptr]
     HIFresult hif_(z3::expr_vector const& cube, int min);
@@ -135,7 +130,7 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+      IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
           PebblingModel& m);
 
       // runs the optimizer as dictated by the argument
@@ -162,7 +157,7 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+      IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
           PetersonModel& m);
 
       // runs the optimizer as dictated by the argument
