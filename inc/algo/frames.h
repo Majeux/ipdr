@@ -23,7 +23,7 @@ namespace pdr
   class Frames
   {
    private:
-    Context& ctx;
+    Context ctx;
     IModel& model;
     Logger& log;
     const bool LOG_SAT_CALLS = false;
@@ -37,9 +37,7 @@ namespace pdr
     // solver containing only the intial state
     z3::solver init_solver; // TODO immutable interface
 
-    Frames(Context& c, IModel& m, Logger& l);
-    // ~Frames() noexcept = default;
-    // Frames(Frames&&) = default;
+    Frames(Context c, IModel& m, Logger& l);
 
     // reset the sequence to F_0, F_1 (frontier 0)
     void reset();

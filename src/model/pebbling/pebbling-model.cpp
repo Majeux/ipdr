@@ -30,19 +30,6 @@ namespace pdr::pebbling
 
     final_pebbles = G.output.size();
     load_property(G);
-
-    // z3::solver s(ctx);
-    // z3::param_descrs p = s.get_param_descrs();
-    // TextTable param_out(' ');
-    // for (unsigned i = 0; i < p.size(); i++)
-    // {
-    //   z3::symbol sym = p.name(i);
-    //   Z3_param_kind kind = p.kind(sym);
-    //   string doc = p.documentation(sym);
-    //   std::vector<std::string> row = {sym.str(), doc};
-    //   param_out.addRow(row);
-    // }
-    //   std::cout << param_out << std::endl;
   }
 
   PebblingModel& PebblingModel::constrained(
@@ -209,7 +196,6 @@ namespace pdr::pebbling
     }
 
     pebble_constraint = new_p;
-    assert(constraint.size() == 2);
   }
 
   unsigned PebblingModel::get_f_pebbles() const { return final_pebbles; }

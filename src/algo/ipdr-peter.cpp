@@ -5,7 +5,7 @@
 
 namespace pdr::peterson
 {
-  IPDR::IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+  IPDR::IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
       PetersonModel& m)
       : vIPDR(args, c, l, m), ts(m)
   {

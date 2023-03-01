@@ -318,7 +318,7 @@ namespace my::cli
 
     if (auto rand = variant::get_cref<bool>(r_seed))
     {
-      if (rand)
+      if (rand.value())
         out << "Using randomized seed." << endl;
       else
         out << "Using 0-seed." << endl;

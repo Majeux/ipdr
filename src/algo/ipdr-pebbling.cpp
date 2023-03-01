@@ -11,7 +11,7 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  IPDR::IPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+  IPDR::IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
       PebblingModel& m)
       : vIPDR(args, c, l, m), ts(m), starting_pebbles()
   {
