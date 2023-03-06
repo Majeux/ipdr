@@ -5,7 +5,7 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
-Z3="--z3pdr"
+Z3=""
 
 if [ $# -eq 0 ]
 then

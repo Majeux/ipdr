@@ -151,7 +151,6 @@ namespace pdr
 
   std::ostream& operator<<(std::ostream& out, Statistics const& s)
   {
-    assert(not s.model_info.empty());
     out << "Model: " << std::endl << "--------" << std::endl;
     for (auto name_value : s.model_info)
       out << name_value.first << " = " << name_value.second << ", ";

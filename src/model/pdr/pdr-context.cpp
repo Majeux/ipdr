@@ -1,41 +1,36 @@
 #include "pdr-context.h"
+#include "tactic.h"
+#include "types-ext.h"
 
 #include <iostream>
 #include <memory>
+#include <variant>
 
 namespace pdr
 {
-  namespace
-  {
-    void prepare(z3::context& ctx)
-    {
-      ctx.set("unsat_core", true);
-      ctx.set("model", true);
-    }
-
-  } // namespace
-
-  Context::Context(z3::context& c, unsigned s)
+  Context::Context(z3::context& c, my::cli::ArgumentList const& args)
       : z3_ctx(c),
-        seed(s),
         type(Tactic::undef),
-        mic_retries(MIC_RETRIES_DEFAULT)
+        mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT))
   {
-    prepare(z3_ctx);
-    std::cout << "z3 random seed: " << seed << std::endl;
-  }
+    using namespace my::variant;
+    z3_ctx.set("unsat_core", true);
+    z3_ctx.set("model", true);
 
-  Context::Context(z3::context& c, bool random_seed)
-      : z3_ctx(c), type(Tactic::undef), mic_retries(MIC_RETRIES_DEFAULT)
-  {
-    prepare(z3_ctx);
-    if (random_seed)
-    {
-      srand(time(0));
-      seed = rand();
-    }
-    else seed = 0u;
-
+    // clang-format off
+    seed = std::visit(visitor{ 
+        [](bool r) -> unsigned
+        {
+          if (r)
+            {
+              srand(time(0));
+              return rand();
+            }
+            return 0u;
+        },
+        [](unsigned s) -> unsigned { return s; } },
+      args.r_seed);
+    // clang-format on
     std::cout << "z3 random seed: " << seed << std::endl;
   }
 

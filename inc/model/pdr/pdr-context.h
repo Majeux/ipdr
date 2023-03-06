@@ -1,13 +1,14 @@
 #ifndef PDRCONTEXT_H
 #define PDRCONTEXT_H
 
+#include "cli-parse.h"
 #include "pdr-model.h"
 #include "tactic.h"
 
 #include <cstdint>
 #include <z3++.h>
 
-#define MIC_RETRIES_DEFAULT 3
+#define MIC_RETRIES_DEFAULT UINT_MAX
 
 namespace pdr
 {
@@ -24,8 +25,7 @@ namespace pdr
     // current clause sufficient
     uint32_t mic_retries;
 
-    Context(z3::context& c, bool random_seed);
-    Context(z3::context& c, unsigned seed);
+    Context(z3::context& c, my::cli::ArgumentList const& args);
 
     operator z3::context&();
     operator const z3::context&() const;

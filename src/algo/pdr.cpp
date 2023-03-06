@@ -37,10 +37,7 @@ namespace pdr
   {
   }
 
-  void PDR::reset()
-  {
-    frames.reset();
-  }
+  void PDR::reset() { frames.reset(); }
 
   void PDR::print_model(z3::model const& m)
   {
@@ -97,12 +94,14 @@ namespace pdr
 
     rv.time = final_time;
 
-    logger.stats.elapsed = final_time;
-    logger.stats.write(ts.constraint_str());
-    logger.stats.write();
-    logger.stats.clear();
-    store_frame_strings();
-    logger.indent = 0;
+    IF_STATS({
+      logger.stats.elapsed = final_time;
+      logger.stats.write(ts.constraint_str());
+      logger.stats.write();
+      logger.stats.clear();
+      store_frame_strings();
+      logger.indent = 0;
+    })
 
     MYLOG_DEBUG(logger, "final solver");
     MYLOG_DEBUG(logger, frames.blocked_str());
@@ -149,9 +148,11 @@ namespace pdr
       while (optional<Witness> witness =
                  frames.get_trans_source(k, ts.n_property.p(), true))
       {
-        log_cti(witness->curr, k); // cti is an F_i state that leads to a violation
+        log_cti(
+            witness->curr, k); // cti is an F_i state that leads to a violation
 
-        PdrResult res = block(std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
+        PdrResult res = block(
+            std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
         if (not res)
         {
           res.append_final(witness->next);
@@ -225,7 +226,7 @@ namespace pdr
       else //! s is now inductive to at least F_n
       {
         log_finish(state->cube);
-        
+
         auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level
         assert(static_cast<unsigned>(m + 1) > n);

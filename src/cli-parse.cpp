@@ -375,8 +375,9 @@ namespace my::cli
         value< unsigned >(), "(uint: I)")
       (sh('c', s_control), "Run only a control experiment (no ipdr).",
         value<bool>())
-      (sh('i', o_inc), format("Specify the constraining ({}) or relaxing ({}) version of ipdr."
-          "Automatically selected for a transition system if empty.", s_constrain, s_relax))
+      (sh('i', o_inc), format("Specify the constraining (\"{}\") or relaxing (\"{}\") version of ipdr."
+          "Automatically selected for a transition system if empty.", s_constrain, s_relax), 
+       value<string>())
 
       (s_pebbles, "Number of pebbles for a single pebbling pdr run.",
        value<unsigned>(), "(uint)")
@@ -403,11 +404,11 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(onlyshow)->default_value("false"))
 
-      // (s_mic, "The number of times N that pdr retries dropping a literal.")
+      (s_mic, "The number of times N that pdr retries dropping a literal.",
+       value<unsigned>()->default_value("3"), "(uint:N)")
 
       ("h,help", "Show usage");
     // clang-format on
-#warning add mic_retries option
     return clopt;
   }
 
@@ -451,9 +452,11 @@ namespace my::cli
 
   void ArgumentList::parse_alg(cxxopts::ParseResult const& clresult)
   {
-    if (!experiment)
-      require_one_of({ o_alg }, clresult);
-    std::string a = clresult[o_alg].as<std::string>();
+    assert(clresult[o_alg].count() || clresult[o_alg].has_default());
+    string a = clresult[o_alg].as<string>();
+
+    assert(clresult[s_mic].count() || clresult[s_mic].has_default());
+    mic_retries = clresult[s_mic].as<unsigned>();
 
     if (a == s_pdr)
       algorithm = algo::t_PDR();
@@ -502,8 +505,8 @@ namespace my::cli
   {
     require_one_of({ s_pebbling, s_peter }, clresult);
     atmost_one_of({ s_pebbles, s_procs }, clresult);
-    require_one_of({ o_alg }, clresult);
 
+    assert(clresult[o_alg].count() || clresult[o_alg].has_default());
     std::string a = clresult[o_alg].as<std::string>();
 
     if (clresult.count(s_peter))
@@ -525,7 +528,7 @@ namespace my::cli
       pebbling.src = parse_graph_src(clresult);
       if (clresult.count(s_pebbles))
         pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
-      else if (a == s_pdr)
+      else if (a == s_pdr && !clresult.count(s_exp))
         throw std::invalid_argument(
             format("pebbling pdr requires a starting number of pebbles: {}",
                 s_pebbles));
@@ -612,8 +615,6 @@ namespace my::cli
     {
       assert(false);
     }
-
-    // bench_folder = my::io::BENCH_FOLDER / clresult[s_dir].as<fs::path>();
 
     return rv;
   }

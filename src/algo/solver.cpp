@@ -106,8 +106,8 @@ namespace pdr
   // TODO optional return
   expr_vector Solver::unsat_core() const
   {
-    if(state != SolverState::core_available)
-      throw InvalidExtraction(state);
+    // if(state != SolverState::core_available)
+    //   throw InvalidExtraction(state);
 
     expr_vector core = internal_solver.unsat_core();
     z3ext::order_lits(core);
