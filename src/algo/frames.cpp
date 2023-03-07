@@ -24,8 +24,11 @@ namespace pdr
   using z3ext::solver::Witness;
 
   Frames::Frames(Context c, IModel& m, Logger& l)
-      : ctx(c), model(m), log(l), FI_solver(ctx, model, m.get_initial(),
-                                      m.get_transition(), m.get_constraint()),
+      : ctx(c),
+        model(m),
+        log(l),
+        FI_solver(ctx, model, m.get_initial(), m.get_transition(),
+            m.get_constraint()),
         delta_solver(
             ctx, model, m.property, m.get_transition(), m.get_constraint()),
         init_solver(ctx)
@@ -108,8 +111,10 @@ namespace pdr
         remove_state(cube, 1);
       }
     }
-    log.stats.copied_cubes.count += count;
-    log.stats.copied_cubes.total += old.size();
+    IF_STATS({
+      log.stats.copied_cubes.count += count;
+      log.stats.copied_cubes.total += old.size();
+    });
     MYLOG_DEBUG(log, "{} cubes carried over, out of {}", count, old.size());
     MYLOG_DEBUG(
         log, "Repopulated solver: \n{}", delta_solver.as_str("", false));
@@ -183,7 +188,7 @@ namespace pdr
     {
       // remove all blocked cubes that are equal or weaker than cube
       unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
-      log.stats.subsumed_cubes.add(level, n_removed);
+      IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
     }
 
     assert(level > 0 && level < frames.size());
@@ -246,7 +251,7 @@ namespace pdr
       MYLOG_TRACE(log, "{} blocked in repeat", count);
 
     std::chrono::duration<double> dt(steady_clock::now() - start);
-    log.stats.propagation_level.add_timed(level, dt.count());
+    IF_STATS(log.stats.propagation_level.add(level, dt.count()));
   }
 
   //
@@ -362,7 +367,7 @@ namespace pdr
 
     bool result = solver.SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
-    log.stats.solver_calls.add_timed(frontier(), diff.count());
+    IF_STATS(log.stats.solver_calls.add(frontier(), diff.count()));
 
     log.indent--;
     MYLOG_TRACE(log, "result = {}", result == z3::sat ? "sat" : "unsat");

@@ -34,7 +34,7 @@ namespace pdr
   void PDR::log_propagation(unsigned level, double time)
   {
     MYLOG_INFO(logger, "Propagation elapsed {}", time);
-    IF_STATS(logger.stats.propagation_it.add_timed(level, time);)
+    IF_STATS(logger.stats.propagation_it.add(level, time);)
   }
 
   void PDR::log_top_obligation(
@@ -81,7 +81,7 @@ namespace pdr
     (void)type;
     (void)l;
     (void)time;
-    IF_STATS(logger.stats.obligations_handled.add_timed(l, time);)
+    IF_STATS(logger.stats.obligations_handled.add(l, time);)
     MYLOG_DEBUG_SHOW(logger, "Obligation {} elapsed {}", type, time);
   }
 } // namespace pdr

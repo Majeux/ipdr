@@ -1,25 +1,18 @@
 #include "stats.h"
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <optional>
+#include <tabulate/table.hpp>
 
 namespace pdr
 {
 #warning TODO: add reduction average (%)
 #warning TODO: add no. exceed MIC attempts (%)
 #warning TODO: average no. MIC attempts
-  Statistic::Statistic(bool t) : timed(t)
-  {
-    if (timed)
-      total_time = 0.0;
-    else
-      total_time = {};
-  }
-
   void Statistic::clear()
   {
     count.clear();
-    time.clear();
     total_count = 0;
-    if (timed)
-      total_time = 0.0;
   }
 
   void Statistic::add(size_t i, size_t amount)
@@ -32,78 +25,103 @@ namespace pdr
     count[i] += amount;
   }
 
-  void Statistic::add_timed(size_t i, double dt)
-  {
-    assert(timed);
-    assert(dt > 0.0);
-    add(i);
-    total_time.value() += dt;
-
-    while (time.size() <= i)
-      time.push_back(0.0);
-    assert(count.size() == time.size());
-
-    time[i] += dt;
-  }
-
-  std::optional<double> Statistic::avg_time(size_t i) const
-  {
-    if (time.size() <= i)
-      return {};
-    if (count[i] == 0)
-      return {};
-    return time[i] / count[i];
-  }
-
   std::ostream& operator<<(std::ostream& out, Statistic const& stat)
   {
     using fmt::arg;
     using fmt::format;
+    using Row_t = tabulate::Table::Row_t;
 
-    if (stat.timed)
-      out << "# - total time:  " << stat.total_time.value() << std::endl;
     out << "# - total count: " << stat.total_count << std::endl;
 
-    if (stat.timed)
+    tabulate::Table t;
     {
-      for (size_t i = 0; i < stat.time.size(); i++)
+      Row_t header = { "level", "count" };
+      t.add_row(header);
+
+      for (size_t i = 0; i < stat.count.size(); i++)
       {
-        auto avg_time = stat.avg_time(i);
-        if (avg_time)
-        {
-          out << format("# - i={level:<3} {name:<10}: {state:<20} | "
-                        "avg: {avg}",
-                     arg("level", i), fmt::arg("name", "time"),
-                     arg("state", stat.time[i]), arg("avg", avg_time.value()))
-              << std::endl;
-        }
-        else
-        {
-          out << format("# - i={level:<3} {name:<10}: {state:<20} | "
-                        "avg: {avg}",
-                     arg("level", i), fmt::arg("name", "time"),
-                     arg("state", stat.time[i]), arg("avg", "--"))
-              << std::endl;
-        }
+        Row_t row;
+        row.push_back(fmt::to_string(i));
+        row.push_back(fmt::to_string(stat.count[i]));
+
+        t.add_row(row);
       }
-      out << "-" << std::endl;
     }
-    for (size_t i = 0; i < stat.count.size(); i++)
-      out << format("# - i={level:<3} {name:<10}: {state:<20}", arg("level", i),
-                 arg("name", "calls"), arg("state", stat.count[i]))
-          << std::endl;
+    out << t << std::endl;
+
+    return out << "###";
+  }
+
+  void TimedStatistic::clear()
+  {
+    Statistic::clear();
+    total_time = 0.0;
+    times.clear();
+  }
+
+  void TimedStatistic::add(size_t i, double dt)
+  {
+    assert(dt > 0.0);
+    assert(times.size() == count.size());
+
+    Statistic::add(i);
+    total_time += dt;
+
+    while (times.size() <= i)
+      times.push_back(0.0);
+    assert(count.size() == times.size());
+
+    times[i] += dt;
+  }
+
+  std::optional<double> TimedStatistic::avg_time(size_t i) const
+  {
+    if (times.size() <= i)
+      return {};
+    if (count[i] == 0)
+      return {};
+    return times[i] / count[i];
+  }
+
+  std::ostream& operator<<(std::ostream& out, TimedStatistic const& stat)
+  {
+    using fmt::arg;
+    using fmt::format;
+    using Row_t = tabulate::Table::Row_t;
+
+    out << "# - total time:  " << stat.total_time << std::endl;
+    out << "# - total count: " << stat.total_count << std::endl;
+
+    tabulate::Table t;
+    {
+      Row_t header = { "level", "count", "time", "avg. time" };
+      t.add_row(header);
+
+      assert(stat.count.size() == stat.times.size());
+
+      for (size_t i = 0; i < stat.times.size(); i++)
+      {
+        Row_t row;
+        row.push_back(fmt::to_string(i));
+        row.push_back(fmt::to_string(stat.count[i]));
+        row.push_back(fmt::to_string(stat.times[i]));
+        if (auto avg_time = stat.avg_time(i))
+          row.push_back(fmt::to_string(avg_time.value()));
+        else
+          row.push_back("-");
+
+        t.add_row(row);
+      }
+    }
+    out << t << std::endl;
+
     return out << "###";
   }
 
   // Statistics members
   //
 
-  Statistics::Statistics(std::ofstream&& outfile)
-      : solver_calls(true), propagation_it(true), propagation_level(true),
-        obligations_handled(true), ctis(true), subsumed_cubes(false),
-        file(std::move(outfile))
-  {
-  }
+  Statistics::Statistics(std::ofstream&& outfile) : file(std::move(outfile)) {}
 
   void Statistics::is_pebbling(dag::Graph const& G)
   {
@@ -135,6 +153,8 @@ namespace pdr
     propagation_it.clear();
     propagation_level.clear();
     obligations_handled.clear();
+    generalization.clear();
+    generalization_reduction.clear();
     ctis.clear();
     subsumed_cubes.clear();
     copied_cubes = { 0, 0 };
@@ -172,6 +192,11 @@ namespace pdr
         << s.ctis << std::endl
         << "# Obligations" << std::endl
         << s.obligations_handled << std::endl
+        << "# Generalization" << std::endl
+        << fmt::format("## Average reduction: {} %",
+               s.generalization_reduction.get() * 100.0)
+        << std::endl
+        << s.generalization << std::endl
         << "# Propagation per iteration" << std::endl
         << s.propagation_it << std::endl
         << "# Propagation per level" << std::endl

@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <fmt/core.h>
+#include <spdlog/stopwatch.h>
 #include <vector>
 #include <z3++.h>
+#include <dbg.h>
 
 #include "logger.h"
 #include "pdr.h"
@@ -50,16 +52,16 @@ namespace pdr
       // clause was inductive up to this iteration
       if (!frames.inductive(cube, i))
       {
-        core = z3::expr_vector(ctx);
-        if (core)
-        {
-          MYLOG_DEBUG(
-              logger, "core @{}: [{}]", i - 1, z3ext::join_ev(core.value()));
-        }
-        else
-        {
-          MYLOG_DEBUG(logger, "no core");
-        }
+        // core = z3::expr_vector(ctx);
+        // if (core)
+        // {
+        //   MYLOG_DEBUG(
+        //       logger, "core @{}: [{}]", i - 1, z3ext::join_ev(core.value()));
+        // }
+        // else
+        // {
+        //   MYLOG_DEBUG(logger, "no core");
+        // }
 
         highest = i - 1; // previous was greatest inductive frame
         break;
@@ -81,8 +83,8 @@ namespace pdr
     // if (result.level >= 0 && result.level >= min &&
     //     result.core) // if unsat result occurs
     // {
-    //   auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e); };
-    //   auto to_current = [this](const expr& e) { return ts.vars(e); };
+    //   auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e);
+    //   }; auto to_current = [this](const expr& e) { return ts.vars(e); };
     //   result.core =
     //       frames.get_solver(result.level).unsat_core(next_lits, to_current);
     //   // if (result.core->size() == 0)
@@ -113,15 +115,26 @@ namespace pdr
   expr_vector PDR::generalize(const expr_vector& state, int level)
   {
     MYLOG_DEBUG(logger, "generalize cube");
-    // MYLOG_DEBUG(logger, "[{}]", join_expr_vec(state, false));
+    MYLOG_TRACE(logger, "[{}]", join_expr_vec(state, false));
+
     logger.indent++;
+    spdlog::stopwatch timer;
+    double s0 = state.size();
+
     expr_vector smaller_cube = MIC(state, level);
+
+    IF_STATS({
+      logger.stats.generalization.add(level, timer.elapsed().count());
+      double reduction = (s0 - smaller_cube.size()) / s0;
+      logger.stats.generalization_reduction.add(reduction);
+    });
     logger.indent--;
 
     MYLOG_DEBUG(
         logger, "generalization: {} -> {}", state.size(), smaller_cube.size());
-    // MYLOG_DEBUG(
-    // logger, "final reduced cube = [{}]", join_expr_vec(smaller_cube, false));
+    MYLOG_TRACE(logger, "final reduced cube = [{}]",
+        join_expr_vec(smaller_cube, false));
+
     return smaller_cube;
   }
 
