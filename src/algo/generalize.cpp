@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <cstddef>
+#include <dbg.h>
 #include <fmt/core.h>
 #include <spdlog/stopwatch.h>
 #include <vector>
 #include <z3++.h>
-#include <dbg.h>
 
 #include "logger.h"
 #include "pdr.h"
@@ -144,15 +144,10 @@ namespace pdr
     // used for sorting
     vector<expr> cube = z3ext::convert(state);
 
-    unsigned attempts = 0;
-    for (unsigned i = 0; i < cube.size();)
+    unsigned attempts{ 0u };
+    for (unsigned i{ 0 }; i < cube.size();)
     {
       assert(z3ext::lits_ordered(cube));
-      if (attempts > ctx.mic_retries)
-      {
-        MYLOG_WARN(logger, "MIC exceeded {} attempts", ctx.mic_retries);
-        break;
-      }
       vector<expr> new_cube(cube.begin(), cube.begin() + i);
       new_cube.reserve(cube.size() - 1);
       new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
@@ -168,17 +163,25 @@ namespace pdr
             new_cube.size(), join_expr_vec(new_cube));
         // current literal was dropped, i now points to the next
         cube = std::move(new_cube);
-#warning try difference between tracking attempts per clause or per literal
-        attempts = 0;
+#warning try difference between tracking attempts per clause or no. times in a row
+        // attempts = 0;
       }
       else
       {
         MYLOG_TRACE(logger, "sub-cube failed");
         i++;
-        attempts++;
       }
       logger.indent--;
+
+      attempts++;
+      if (attempts >= ctx.mic_retries)
+      {
+        IF_STATS(logger.stats.mic_limit++;);
+        MYLOG_WARN(logger, "MIC exceeded {} attempts", ctx.mic_retries);
+        break;
+      }
     }
+    IF_STATS(logger.stats.mic_attempts.add(attempts));
 
     return z3ext::convert(cube);
   }

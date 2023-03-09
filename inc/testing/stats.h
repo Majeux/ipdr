@@ -17,18 +17,18 @@
 
 namespace pdr
 {
-  template <typename T> struct Average
+  struct Average
   {
-    T total      = 0;
-    size_t count = 0;
+    double total{ 0.0 };
+    size_t count{ 0 };
 
-    void add(T value)
+    void add(double value)
     {
       total += value;
       count++;
     }
 
-    T get() const { return total / count; }
+    double get() const { return total / count; }
 
     void clear()
     {
@@ -70,14 +70,16 @@ namespace pdr
     TimedStatistic propagation_level;
     TimedStatistic obligations_handled;
     TimedStatistic generalization;
-    Average<double> generalization_reduction;
+    Average generalization_reduction;
+    Average mic_attempts;
+    unsigned mic_limit{ 0u };
 
     Statistic ctis;
     Statistic subsumed_cubes;
     struct
     {
-      unsigned count{ 0 };
-      unsigned total{ 0 };
+      unsigned count{ 0u };
+      unsigned total{ 0u };
     } copied_cubes;
 
     double elapsed = -1.0;

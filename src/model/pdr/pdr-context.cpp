@@ -6,8 +6,11 @@
 #include <memory>
 #include <variant>
 
+#define MIC_RETRIES_DEFAULT UINT_MAX
+
 namespace pdr
 {
+
   Context::Context(z3::context& c, my::cli::ArgumentList const& args)
       : z3_ctx(c),
         type(Tactic::undef),

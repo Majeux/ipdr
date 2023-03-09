@@ -368,13 +368,13 @@ namespace my::cli
        value< unsigned >(), "(uint: N)")
 
       (s_z3pdr, "Use Z3's fixedpoint engine for pdr (spacer)",
-       value<bool>(z3pdr))
+       value<bool>(z3pdr)->default_value("false"))
 
       // tactic option
       (sh('e', s_exp), "run an experiment with I iterations.",
         value< unsigned >(), "(uint: I)")
       (sh('c', s_control), "Run only a control experiment (no ipdr).",
-        value<bool>())
+        value<bool>()->default_value("false"))
       (sh('i', o_inc), format("Specify the constraining (\"{}\") or relaxing (\"{}\") version of ipdr."
           "Automatically selected for a transition system if empty.", s_constrain, s_relax), 
        value<string>())
@@ -395,8 +395,7 @@ namespace my::cli
         value< vector<unsigned> >(), "(uint:BITS,uint:MOD)")
 
       // context options
-      (sh('r', s_rand), "Use a randomized seed for the SAT solver with time(0)",
-        value<bool>())
+      (sh('r', s_rand), "Use a randomized seed for the SAT solver with time(0)")
       (s_seed, "Use the given seed for the SAT solver",
         value<unsigned>(), "(uint:SEED)")
       (s_tseytin, "Build the transition relation using z3's tseytin reform.",
@@ -404,8 +403,8 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
        value<bool>(onlyshow)->default_value("false"))
 
-      (s_mic, "The number of times N that pdr retries dropping a literal.",
-       value<unsigned>()->default_value("3"), "(uint:N)")
+      (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. Unlimited by default.",
+       value<unsigned>(), "(uint:N)")
 
       ("h,help", "Show usage");
     // clang-format on
@@ -455,8 +454,8 @@ namespace my::cli
     assert(clresult[o_alg].count() || clresult[o_alg].has_default());
     string a = clresult[o_alg].as<string>();
 
-    assert(clresult[s_mic].count() || clresult[s_mic].has_default());
-    mic_retries = clresult[s_mic].as<unsigned>();
+    if (clresult[s_mic].count())
+      mic_retries = clresult[s_mic].as<unsigned>();
 
     if (a == s_pdr)
       algorithm = algo::t_PDR();
@@ -495,7 +494,7 @@ namespace my::cli
     atmost_one_of({ s_rand, s_seed }, clresult);
 
     if (clresult.count(s_rand))
-      r_seed = clresult[s_rand].as<bool>();
+      r_seed = true;
 
     if (clresult.count(s_seed))
       r_seed = clresult[s_seed].as<unsigned>();
@@ -560,7 +559,8 @@ namespace my::cli
         throw std::invalid_argument("Experiments verify incremental runs only");
 
       // the z3 fixedpoint implementation does only naive (control) runs
-      bool control = z3pdr ? true : (clresult.count(s_control) == 1);
+      assert(clresult.count(s_control) || clresult[s_control].has_default());
+      bool control = z3pdr ? true : clresult[s_control].as<bool>();
       experiment   = { reps, control };
       experiment.has_value();
     }

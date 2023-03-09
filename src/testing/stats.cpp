@@ -2,11 +2,11 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <optional>
+#include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
 
 namespace pdr
 {
-#warning TODO: add reduction average (%)
 #warning TODO: add no. exceed MIC attempts (%)
 #warning TODO: average no. MIC attempts
   void Statistic::clear()
@@ -47,7 +47,7 @@ namespace pdr
         t.add_row(row);
       }
     }
-    out << t << std::endl;
+    out << tabulate::MarkdownExporter().dump(t) << std::endl;
 
     return out << "###";
   }
@@ -113,7 +113,7 @@ namespace pdr
         t.add_row(row);
       }
     }
-    out << t << std::endl;
+    out << tabulate::MarkdownExporter().dump(t) << std::endl;
 
     return out << "###";
   }
@@ -186,24 +186,31 @@ namespace pdr
         << "# Statistics" << std::endl
         << "######################" << std::endl;
 
-    out << "# Solver" << std::endl
-        << s.solver_calls << std::endl
-        << "# CTIs" << std::endl
-        << s.ctis << std::endl
-        << "# Obligations" << std::endl
-        << s.obligations_handled << std::endl
-        << "# Generalization" << std::endl
-        << fmt::format("## Average reduction: {} %",
+    out << "# Solver" << std::endl << s.solver_calls << std::endl;
+
+    out << "# CTIs" << std::endl << s.ctis << std::endl;
+
+    out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
+
+    out << "# Generalization" << std::endl
+        << fmt::format("## Mean reduction: {} %",
                s.generalization_reduction.get() * 100.0)
         << std::endl
-        << s.generalization << std::endl
-        << "# Propagation per iteration" << std::endl
-        << s.propagation_it << std::endl
-        << "# Propagation per level" << std::endl
-        << s.propagation_level << std::endl
-        << "# Subsumed cubes" << std::endl
-        << s.subsumed_cubes << std::endl
-        << "#" << std::endl
+        << fmt::format("## Mean no. attempts in MIC: {}", s.mic_attempts.get())
+        << std::endl
+        << fmt::format("## No. limit-violations in MIC: {}", s.mic_limit)
+        << std::endl
+        << s.generalization << std::endl;
+
+    out << "# Propagation per iteration" << std::endl
+        << s.propagation_it << std::endl;
+
+    out << "# Propagation per level" << std::endl
+        << s.propagation_level << std::endl;
+
+    out << "# Subsumed cubes" << std::endl << s.subsumed_cubes << std::endl;
+
+    out << "#" << std::endl
         << "# Copied cubes" << std::endl
         << s.compute_copied() << " %" << std::endl
         << "#" << std::endl;

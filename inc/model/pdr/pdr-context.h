@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <z3++.h>
 
-#define MIC_RETRIES_DEFAULT UINT_MAX
-
 namespace pdr
 {
   // class containing algorithm settings
