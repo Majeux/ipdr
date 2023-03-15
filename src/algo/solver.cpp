@@ -18,10 +18,8 @@ namespace pdr
       expr_vector transition, expr_vector constraint)
       : vars(m.vars), internal_solver(ctx)
   {
-    internal_solver.set("sat.cardinality.solver", true);
-#warning TODO sat.core.minimize
-    internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
+    internal_solver.set("sat.cardinality.solver", true);
     // consecution_solver.set("lookahead_simplify", true);
     remake(base, transition, constraint);
   }

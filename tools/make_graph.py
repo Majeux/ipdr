@@ -263,15 +263,14 @@ def bar_data(data: Mapping[str, Data_t]) -> str:
         for type in data[model]:
             time = get_time_val(data[model][type]["avg time"])
             dev = get_time_val(data[model][type]["std dev time"])
-            # output[type].append(f"(\\texttt{{{model}}}, {time}) +- (0, {dev})")
             output[type][model] = (time, dev)
 
     for type in output:
         str += type + "\n"
-        for model in data:
+        for i, model in enumerate(data):
             if model in output[type]:
                 time, dev = output[type][model]
-                str += f"(\\texttt{{{model}}}, {time}) +- (0, {dev})\n"
+                str += f"({i}, {time}) +- (0, {dev})\t% {model}\n"
             else:
                 str += "???"
         str += "\n"

@@ -18,6 +18,9 @@ namespace pdr
   {
     using namespace my::variant;
     z3_ctx.set("unsat_core", true);
+#warning TODO sat.core.minimize
+    // z3_ctx.set("sat.core.minimize", true);
+    z3_ctx.set("sat.core.minimize_partial", true);
     z3_ctx.set("model", true);
 
     // clang-format off

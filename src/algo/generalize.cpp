@@ -41,8 +41,8 @@ namespace pdr
 
     // F_result & !cube & T & cube' = UNSAT
     // => F_result & !cube & T & core' = UNSAT
-    // auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e); };
-    // auto to_current = [this](const expr& e) { return ts.vars(e); };
+    auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e); };
+    auto to_current = [this](const expr& e) { return ts.vars(e); };
 
     optional<expr_vector> core;
 
@@ -53,20 +53,20 @@ namespace pdr
       if (!frames.inductive(cube, i))
       {
         // core = z3::expr_vector(ctx);
-        // if (core)
-        // {
-        //   MYLOG_DEBUG(
-        //       logger, "core @{}: [{}]", i - 1, z3ext::join_ev(core.value()));
-        // }
-        // else
-        // {
-        //   MYLOG_DEBUG(logger, "no core");
-        // }
+        if (core)
+        {
+          MYLOG_DEBUG(
+              logger, "core @{}: [{}]", i - 1, z3ext::join_ev(core.value()));
+        }
+        else
+        {
+          MYLOG_DEBUG(logger, "no core");
+        }
 
         highest = i - 1; // previous was greatest inductive frame
         break;
       }
-      // core = frames.get_solver(i).unsat_core(next_lits, to_current);
+      core = frames.get_solver(i).unsat_core(next_lits, to_current);
     }
 
     MYLOG_DEBUG(logger, "highest inductive frame is {} / {}", highest,
@@ -77,36 +77,31 @@ namespace pdr
   PDR::HIFresult PDR::highest_inductive_frame(const expr_vector& cube, int min)
   {
     expr_vector rv_core(ctx());
-    // const HIFresult result = hif_(cube, min);
-    HIFresult result = hif_(cube, min);
+    const HIFresult result = hif_(cube, min);
+    // HIFresult result = hif_(cube, min);
 
-    // if (result.level >= 0 && result.level >= min &&
-    //     result.core) // if unsat result occurs
-    // {
-    //   auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e);
-    //   }; auto to_current = [this](const expr& e) { return ts.vars(e); };
-    //   result.core =
-    //       frames.get_solver(result.level).unsat_core(next_lits, to_current);
-    //   // if (result.core->size() == 0)
-    //   // {
-    //   //   MYLOG_WARN(logger, "0 core at level {}", result.level);
-    //   //   frames.log_solver(true);
-    //   // }
-    //   // if I => !core, the subclause survives initiation and is inductive
-    //   if (frames.init_solver.check(*result.core) == z3::sat)
-    //   {
-    //     MYLOG_DEBUG(logger, "unsat core is invalid");
-    //     rv_core = cube; /// I /=> !core, use original
-    //   }
-    //   else
-    //   {
-    //     MYLOG_DEBUG(logger, "unsat core reduction: {} -> {}", cube.size(),
-    //         rv_core.size());
-    //     rv_core = *result.core;
-    //   }
-    // }
-    // else
-    rv_core = cube; // no core produced
+    if (result.level >= 0 && result.level >= min && result.core)
+    { // if unsat result occurs
+      if (result.core->size() == 0)
+      {
+        MYLOG_WARN(logger, "0 core at level {}", result.level);
+        frames.log_solver(true);
+      }
+      // if I => !core, the subclause survives initiation and is inductive
+      if (frames.init_solver.check(*result.core) == z3::sat)
+      {
+        MYLOG_DEBUG(logger, "unsat core is invalid. no reduction.");
+        rv_core = cube; /// I /=> !core, use original
+      }
+      else
+      {
+        MYLOG_DEBUG(logger, "unsat core reduction: {} -> {}", cube.size(),
+            rv_core.size());
+        rv_core = *result.core;
+      }
+    }
+    else
+      rv_core = cube; // no core produced
 
     // MYLOG_DEBUG(logger, "new cube: [{}]", join_expr_vec(rv_core, false));
     return { result.level, rv_core };
@@ -119,7 +114,7 @@ namespace pdr
 
     logger.indent++;
     spdlog::stopwatch timer;
-    double s0 = state.size();
+    IF_STATS(double s0 = state.size());
 
     expr_vector smaller_cube = MIC(state, level);
 
