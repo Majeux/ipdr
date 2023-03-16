@@ -40,6 +40,16 @@ namespace pdr
     std::cout << "z3 random seed: " << seed << std::endl;
   }
 
+  Context::Context(
+      z3::context& c, my::cli::ArgumentList const& args, unsigned s)
+      : z3_ctx(c),
+        seed(s),
+        type(Tactic::undef),
+        mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT))
+  {
+    std::cout << "z3 random seed: " << seed << std::endl;
+  }
+
   Context::operator z3::context&() { return z3_ctx; }
   Context::operator const z3::context&() const { return z3_ctx; }
 

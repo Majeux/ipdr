@@ -24,6 +24,8 @@ namespace pdr
     uint32_t mic_retries;
 
     Context(z3::context& c, my::cli::ArgumentList const& args);
+    // override seed value
+    Context(z3::context& c, my::cli::ArgumentList const& args, unsigned s);
 
     operator z3::context&();
     operator const z3::context&() const;
