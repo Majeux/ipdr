@@ -140,6 +140,7 @@ namespace pdr
       IpdrPebblingResult control_run(Tactic tactic);
       IpdrPebblingResult relax(bool control);
       IpdrPebblingResult constrain(bool control);
+      IpdrPebblingResult binary(bool control);
       IpdrPebblingResult relax_jump_test(unsigned start, int step);
 
      private:

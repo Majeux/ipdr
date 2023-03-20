@@ -28,7 +28,8 @@ namespace pdr::pebbling
         tactic(t),
         total{ total_time, {}, {} }
   {
-    assert(t == Tactic::constrain || t == Tactic::relax);
+    assert(t == Tactic::constrain || t == Tactic::relax ||
+           t == Tactic::binary_search);
   }
   IpdrPebblingResult::IpdrPebblingResult(
       VarVec const& vars, unsigned pebbles_final, Tactic t)
@@ -153,9 +154,9 @@ namespace pdr::pebbling
     tabulate::Table::Row_t row = IpdrResult::process_result(r);
     // expand to { constraint, marked, invariant level, trace length, time }
 
-    if (r.has_invariant()) // only happens multiple times in increasing
+    if (r.has_invariant())
     {
-      // when done multiple time, we are increasing the constraint
+      // subsequent constraints are always increasing (relaxed)
       assert(constraint);
       assert(!total.inv || constraint > total.inv->constraint);
 
@@ -164,28 +165,35 @@ namespace pdr::pebbling
       std::string inv_str = my::optional::to_string(constraint);
       row.insert(row.begin(), inv_str);
 
-      if (tactic == Tactic::constrain)
-      {
-        assert(++n_invariants <= 1);
-      }
+      n_invariants++;
     }
-    else // only happens multiple times in decreasing
+    else
     {
-      // when done multiple time, we are decreasing the constraint,
-      // track the strategy with the lowest number of pebbles
+      // subsequent traces are always decreasing in cardinality (constrainec)
       unsigned pebbled = r.trace().n_marked;
       assert(!total.strategy || pebbled < total.strategy->n_marked);
 
-      PebblingTrace test(r.trace());
+      // tracks the trace with the lowest cardinality
       total.strategy = r.trace();
 
       row.insert(row.begin(), std::to_string(pebbled));
       row.insert(row.begin(), "-");
 
-      if (tactic == Tactic::relax)
-      {
-        assert(++n_traces <= 1);
-      }
+      n_traces++;
+    }
+
+    switch (tactic)
+    {
+      case Tactic::constrain:
+        // constrain continues until it encounters an invariant
+        assert(n_invariants <= 1);
+        break;
+      case Tactic::relax:
+        // relax continues until it encounters a trace
+        assert(n_traces <= 1);
+        break;
+      case Tactic::binary_search: break;
+      default: assert(false);
     }
 
     assert(row.size() == summary_header().size());

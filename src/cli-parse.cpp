@@ -210,8 +210,9 @@ namespace my::cli
 
       string operator()(t_IPDR const& a) const
       {
-        assert(
-            a.type == pdr::Tactic::constrain || a.type == pdr::Tactic::relax);
+        assert(a.type == pdr::Tactic::constrain ||
+               a.type == pdr::Tactic::relax ||
+               a.type == pdr::Tactic::binary_search);
         return format("ipdr_{}", pdr::tactic::to_string(a.type));
       }
 
@@ -375,8 +376,8 @@ namespace my::cli
         value< unsigned >(), "(uint: I)")
       (sh('c', s_control), "Run only a control experiment (no ipdr).",
         value<bool>()->default_value("false"))
-      (sh('i', o_inc), format("Specify the constraining (\"{}\") or relaxing (\"{}\") version of ipdr."
-          "Automatically selected for a transition system if empty.", s_constrain, s_relax), 
+      (sh('i', o_inc), format("Specify the constraining (\"{}\"), relaxing (\"{}\") or binary search (\"{}\") version of ipdr."
+          "Automatically selected for a transition system if empty.", s_constrain, s_relax, s_binary), 
        value<string>())
 
       (s_pebbles, "Number of pebbles for a single pebbling pdr run.",
@@ -462,25 +463,21 @@ namespace my::cli
     else if (a == s_ipdr)
     {
       pdr::Tactic t;
-      if (clresult.count(o_inc))
-      {
-        string tactic_str = clresult[o_inc].as<string>();
 
-        if (tactic_str == s_relax)
-          t = pdr::Tactic::relax;
-        else if (tactic_str == s_constrain)
-          t = pdr::Tactic::constrain;
-        else
-          throw std::invalid_argument(format(
-              "--{} must be either {} or {}.", o_inc, s_constrain, s_relax));
-      }
-
+      // default
       if (clresult.count(s_pebbling))
         t = pdr::Tactic::constrain;
       else if (clresult.count(s_peter))
         t = pdr::Tactic::relax;
       else
         assert(false);
+
+      // override default
+      if (clresult.count(o_inc))
+      {
+        string tactic_str = clresult[o_inc].as<string>();
+        t                 = pdr::tactic::mk_tactic(tactic_str);
+      }
 
       algorithm = algo::t_IPDR(t);
     }

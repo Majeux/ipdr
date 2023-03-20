@@ -11,8 +11,8 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  IPDR::IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
-      PebblingModel& m)
+  IPDR::IPDR(
+      my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
       : vIPDR(args, c, l, m), ts(m), starting_pebbles()
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
@@ -27,6 +27,7 @@ namespace pdr::pebbling
     {
       case Tactic::constrain: return constrain(true);
       case Tactic::relax: return relax(true);
+      case Tactic::binary_search: return binary(true);
       case Tactic::inc_jump_test:
         relax_jump_test(starting_pebbles.value(), 10);
         break;
@@ -35,8 +36,7 @@ namespace pdr::pebbling
         break;
       default: break;
     }
-    throw std::invalid_argument(
-        "No optimization pdr tactic has been selected.");
+    throw std::invalid_argument("No ipdr tactic has been selected.");
   }
 
   IpdrPebblingResult IPDR::run(Tactic tactic, bool control)
@@ -45,6 +45,7 @@ namespace pdr::pebbling
     {
       case Tactic::constrain: return constrain(control);
       case Tactic::relax: return relax(control);
+      case Tactic::binary_search: return binary(true);
       case Tactic::inc_jump_test:
         relax_jump_test(starting_pebbles.value(), 10);
         break;
@@ -53,18 +54,18 @@ namespace pdr::pebbling
         break;
       default: break;
     }
-    throw std::invalid_argument(
-        "No optimization pdr tactic has been selected.");
+    throw std::invalid_argument("No ipdr tactic has been selected.");
   }
 
   IpdrPebblingResult IPDR::relax(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: increment max pebbles.");
+    alg.logger.and_whisper("! IPDR run: increment max pebbles.");
 
     IpdrPebblingResult total(ts, Tactic::relax);
     // need at least this many pebbles
     unsigned N = starting_pebbles.value_or(ts.get_f_pebbles());
 
+    // initial run, no constraining functionality yet
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
     total.add(invariant, ts.get_pebble_constraint());
@@ -83,28 +84,32 @@ namespace pdr::pebbling
     }
 
     if (N > ts.n_nodes()) // last run did not find a trace
-    {
       alg.logger.and_whisper("! No optimum exists.");
-      return total;
-    }
-    // N is minimal
-    alg.logger.and_whisper("! Found optimum: {}.", N);
+    else
+      alg.logger.and_whisper("! Found optimum: {}.", N); // N is minimal
+
     return total;
   }
 
   IpdrPebblingResult IPDR::constrain(bool control)
   {
-    alg.logger.and_whisper("! Optimization run: decrement max pebbles.");
+    alg.logger.and_whisper("! IPDR run: decrement max pebbles.");
 
     IpdrPebblingResult total(ts, Tactic::constrain);
     // we can use at most this many pebbles
     unsigned N = starting_pebbles.value_or(ts.n_nodes());
 
+    // initial run, no constraining functionality yet
     basic_reset(N);
     pdr::PdrResult invariant = alg.run();
     total.add(invariant, ts.get_pebble_constraint());
-    if (!invariant)
-      N = std::min(N, total.min_pebbles().value_or(N));
+
+    // found strategy may already use fewer pebbles than N
+    if (invariant.has_trace())
+    {
+      assert(invariant.trace().n_marked <= N);
+      N = invariant.trace().n_marked;
+    }
 
     // We need to at least pebble the final state,
     // so iterate until a strategy is found or until then
@@ -127,16 +132,85 @@ namespace pdr::pebbling
 
       total.add(invariant, ts.get_pebble_constraint());
       if (!invariant)
-        N = std::min(N, total.min_pebbles().value_or(N));
+      {
+        assert(invariant.trace().n_marked <= N);
+        N = invariant.trace().n_marked;
+      }
     }
 
     if (invariant) // last run did not find a trace
-    {
       alg.logger.and_whisper("! No optimum exists.");
-      return total;
+    else // previous run is optimal trace
+      alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+
+    return total;
+  }
+
+  IpdrPebblingResult IPDR::binary(bool control)
+  {
+    alg.logger.and_whisper("! IPDR run: binary search exploring max pebbles.");
+
+    IpdrPebblingResult total(ts, Tactic::binary_search);
+    // we can use at most this many pebbles
+    unsigned N      = starting_pebbles.value_or(ts.n_nodes());
+    // and at least this many pebbles
+    unsigned bottom = ts.get_f_pebbles();
+
+    // initial run, no constraining functionality yet
+    basic_reset(N);
+    pdr::PdrResult invariant = alg.run();
+    total.add(invariant, ts.get_pebble_constraint());
+
+    // found strategy may already use fewer pebbles than N
+    if (invariant.has_trace())
+    {
+      assert(invariant.trace().n_marked <= N);
+      N = invariant.trace().n_marked;
     }
-    // the previous N was optimal
-    alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+
+    // track previous pebble constraint to determine whether to constrain or
+    // relax
+    unsigned m_prev = N;
+
+    while (bottom < N)
+    {
+      unsigned m = (N + bottom) / 2; // halfway between N and bottom
+
+      optional<size_t> early_inv; // contains level if an invariant is found
+                                  // during incrementation
+      if (control)
+      {
+        basic_reset(m);
+      }
+      else
+      {
+        assert(m != m_prev);
+        if (m < m_prev)
+          early_inv = constrain_reset(m);
+        else if (m > m_prev)
+          relax_reset(m);
+      }
+
+      if (early_inv)
+        invariant = PdrResult::found_invariant(*early_inv);
+      else
+        invariant = alg.run();
+
+      total.add(invariant, ts.get_pebble_constraint());
+
+      if (invariant)
+      {
+        bottom = m + 1;
+      }
+      else // trace found
+      {
+        assert(invariant.trace().n_marked <= m);
+        N = invariant.trace().n_marked - 1;
+      }
+
+      m_prev = m;
+    }
+
     return total;
   }
 

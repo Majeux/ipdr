@@ -1,6 +1,8 @@
+#include "cli-parse.h"
 #include "pdr.h"
 #include "peterson-result.h"
 #include "peterson.h"
+#include "types-ext.h"
 #include <cassert>
 
 namespace pdr::peterson
@@ -9,6 +11,8 @@ namespace pdr::peterson
       PetersonModel& m)
       : vIPDR(args, c, l, m), ts(m)
   {
+    auto ipdr = my::variant::get_cref<my::cli::algo::t_IPDR>(args.algorithm);
+    assert(ipdr->get().type == Tactic::relax);
   }
 
   IpdrPetersonResult IPDR::control_run(Tactic tactic, unsigned processes)

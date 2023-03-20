@@ -152,8 +152,9 @@ namespace my::cli
     inline static const std::string s_control = "control";
 
     inline static const std::string o_inc       = "inc";
-    inline static const std::string s_constrain = "constrain";
-    inline static const std::string s_relax     = "relax";
+    inline static const std::string s_constrain = pdr::tactic::constrain_str;
+    inline static const std::string s_relax     = pdr::tactic::relax_str;
+    inline static const std::string s_binary = pdr::tactic::binary_search_str;
 
     inline static const std::string s_pebbles = "pebbles";
     inline static const std::string s_procs   = "processes";
