@@ -7,8 +7,6 @@
 
 namespace pdr
 {
-#warning TODO: add no. exceed MIC attempts (%)
-#warning TODO: average no. MIC attempts
   void Statistic::clear()
   {
     count.clear();
@@ -149,15 +147,15 @@ namespace pdr
 
   void Statistics::clear()
   {
+    ctis.clear();
     solver_calls.clear();
     propagation_it.clear();
     propagation_level.clear();
     obligations_handled.clear();
     generalization.clear();
     generalization_reduction.clear();
-    ctis.clear();
     subsumed_cubes.clear();
-    copied_cubes = { 0, 0 };
+    relax_copied_cubes_perc = 0.0;
   }
 
   std::string Statistics::str() const
@@ -194,7 +192,7 @@ namespace pdr
 
     out << "# Generalization" << std::endl
         << fmt::format("## Mean reduction: {} %",
-               s.generalization_reduction.get() * 100.0)
+               s.generalization_reduction * 100.0)
         << std::endl
         << fmt::format("## Mean no. attempts in MIC: {}", s.mic_attempts.get())
         << std::endl
@@ -211,8 +209,8 @@ namespace pdr
     out << "# Subsumed cubes" << std::endl << s.subsumed_cubes << std::endl;
 
     out << "#" << std::endl
-        << "# Copied cubes" << std::endl
-        << s.compute_copied() << " %" << std::endl
+        << "# Copied cubes during relax ipdr" << std::endl
+        << s.relax_copied_cubes_perc << " %" << std::endl
         << "#" << std::endl;
 
     return out << "######################" << std::endl;

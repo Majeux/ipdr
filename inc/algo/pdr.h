@@ -134,9 +134,9 @@ namespace pdr
           PebblingModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPebblingResult run(Tactic tactic, bool control = false);
+      IpdrPebblingResult run(Tactic tactic);
       // runs the optimizer as dictated by the argument but with forced
-      // experiment_control
+      // control run (basic_reset only)
       IpdrPebblingResult control_run(Tactic tactic);
       IpdrPebblingResult relax(bool control);
       IpdrPebblingResult constrain(bool control);
@@ -146,6 +146,7 @@ namespace pdr
      private:
       PebblingModel& ts; // same instance as the IModel in alg
       std::optional<unsigned> starting_pebbles;
+      bool control_setting;
 
       void basic_reset(unsigned pebbles);
       void relax_reset(unsigned pebbles);
@@ -162,10 +163,9 @@ namespace pdr
           PetersonModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes,
-          bool control = false);
+      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes);
       // runs the optimizer as dictated by the argument but with forced
-      // experiment_control
+      // experiment_control (basic_reset only)
       IpdrPetersonResult control_run(Tactic tactic, unsigned processes);
       IpdrPetersonResult relax(unsigned processes, bool control);
       IpdrPetersonResult relax_jump_test(unsigned start, int step);
@@ -174,6 +174,7 @@ namespace pdr
      private:
       // PDR alg; from vIPDR
       PetersonModel& ts; // same instance as the IModel in alg
+      bool control_setting;
 
       void basic_reset(unsigned processes);
       void relax_reset(unsigned processes);

@@ -28,6 +28,7 @@ namespace pdr
       count++;
     }
 
+    operator double() const { return get(); }
     double get() const { return total / count; }
 
     void clear()
@@ -65,6 +66,7 @@ namespace pdr
   class Statistics
   {
    public:
+    Statistic ctis;
     TimedStatistic solver_calls;
     TimedStatistic propagation_it;
     TimedStatistic propagation_level;
@@ -73,14 +75,9 @@ namespace pdr
     Average generalization_reduction;
     Average mic_attempts;
     unsigned mic_limit{ 0u };
-
-    Statistic ctis;
     Statistic subsumed_cubes;
-    struct
-    {
-      unsigned count{ 0u };
-      unsigned total{ 0u };
-    } copied_cubes;
+
+    double relax_copied_cubes_perc;
 
     double elapsed = -1.0;
     std::vector<std::string> solver_dumps;
@@ -112,13 +109,6 @@ namespace pdr
 
     static inline const std::string PROC_STR = "processes";
     static inline const std::string N_STR    = "max_processes";
-
-    double compute_copied() const
-    {
-      if (copied_cubes.total != 0)
-        return 0;
-      return ((double)copied_cubes.count / copied_cubes.total) * 100.0;
-    }
   };
 } // namespace pdr
 #endif // STATS_H

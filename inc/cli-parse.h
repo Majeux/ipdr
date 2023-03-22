@@ -119,6 +119,7 @@ namespace my::cli
     std::optional<unsigned> mic_retries;
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
     bool onlyshow; // only read in and produce the model image and description
+    bool control_run;
 
     bool z3pdr;
 

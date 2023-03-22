@@ -7,9 +7,9 @@
 
 namespace pdr::peterson
 {
-  IPDR::IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
-      PetersonModel& m)
-      : vIPDR(args, c, l, m), ts(m)
+  IPDR::IPDR(
+      my::cli::ArgumentList const& args, Context c, Logger& l, PetersonModel& m)
+      : vIPDR(args, c, l, m), ts(m), control_setting(args.control_run)
   {
     auto ipdr = my::variant::get_cref<my::cli::algo::t_IPDR>(args.algorithm);
     assert(ipdr->get().type == Tactic::relax);
@@ -31,8 +31,7 @@ namespace pdr::peterson
         "No optimization pdr tactic has been selected.");
   }
 
-  IpdrPetersonResult IPDR::run(
-      Tactic tactic, std::optional<unsigned> processes, bool control)
+  IpdrPetersonResult IPDR::run(Tactic tactic, std::optional<unsigned> processes)
   {
     unsigned p;
     if (processes)
@@ -46,9 +45,9 @@ namespace pdr::peterson
     switch (tactic)
     {
       case Tactic::constrain:
-        throw std::invalid_argument("Decrement not implemented.");
+        throw std::invalid_argument("Constrain not implemented.");
         break;
-      case Tactic::relax: return relax(p, control);
+      case Tactic::relax: return relax(p, control_setting);
       case Tactic::inc_jump_test: relax_jump_test(p, 10); break;
       case Tactic::inc_one_test: relax_jump_test(p, 1); break;
       default: break;

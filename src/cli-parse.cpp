@@ -282,15 +282,15 @@ namespace my::cli
 
     folders.file_base = model_t::src_name(model);
     {
-      folders.file_base += '-' + model_t::filetag(model);
-      folders.file_base += '-' + algo::filetag(algorithm);
+      std::vector<std::string> tags;
+      tags.push_back(model_t::filetag(model));
+      tags.push_back(algo::filetag(algorithm));
       if (experiment)
-      {
-        if (experiment->control_only)
-          folders.file_base += format("-exp_C_{}", experiment->repetitions);
-        else
-          folders.file_base += format("-exp_{}", experiment->repetitions);
-      }
+        tags.push_back(format("exp_{}", experiment->repetitions));
+      if (control_run)
+        tags.push_back("C");
+      for (std::string_view t : tags)
+        folders.file_base += format("-{}", t);
     }
 
     folders.run_dir  = folders.model_dir / folders.file_base;
@@ -307,6 +307,9 @@ namespace my::cli
     out << format("running {} for {}.", algo::get_name(algorithm),
                model_t::describe(model))
         << std::endl;
+
+    if (control_run)
+      out << "a control run (no ipdr optimization)." << std::endl;
 
     if (experiment)
     {
@@ -374,8 +377,8 @@ namespace my::cli
       // tactic option
       (sh('e', s_exp), "run an experiment with I iterations.",
         value< unsigned >(), "(uint: I)")
-      (sh('c', s_control), "Run only a control experiment (no ipdr).",
-        value<bool>()->default_value("false"))
+      (sh('c', s_control), "Run only a naive ipdr version (no incremental optimization). Perform only naive runs in an experiment.",
+        value<bool>(control_run)->default_value("false"))
       (sh('i', o_inc), format("Specify the constraining (\"{}\"), relaxing (\"{}\") or binary search (\"{}\") version of ipdr."
           "Automatically selected for a transition system if empty.", s_constrain, s_relax, s_binary), 
        value<string>())
@@ -549,17 +552,23 @@ namespace my::cli
             "Bounded model checking is supported for Pebbling only.");
     }
 
+    // the z3 fixedpoint implementation does only naive (control) runs
+    control_run = z3pdr ? true : control_run;
+    if (z3pdr && control_run)
+      std::cerr
+          << fmt::format(
+                 "WARNING: z3pdr is only used as a reference and performs no "
+                 "incremental optimization ({} is set to true)",
+                 s_control)
+          << std::endl;
+
     if (clresult.count(s_exp))
     {
       unsigned reps{ clresult[s_exp].as<unsigned>() };
       if (clresult.count(s_pdr))
         throw std::invalid_argument("Experiments verify incremental runs only");
 
-      // the z3 fixedpoint implementation does only naive (control) runs
-      assert(clresult.count(s_control) || clresult[s_control].has_default());
-      bool control = z3pdr ? true : clresult[s_control].as<bool>();
-      experiment   = { reps, control };
-      experiment.has_value();
+      experiment = { reps, control_run };
     }
   }
 

@@ -228,18 +228,14 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       model));
 
-  // pebbling::IPDR test_a(args, context, log,
-  // std::get<pebbling::PebblingModel>(model)); ResultVariant result =
-  // test_a.run(ipdr.type, false);
-
   ResultVariant result(std::visit(
       visitor{
           [&](test::z3PebblingIPDR& a) -> ResultVariant
           { return a.control_run(ipdr.type); },
           [&](pebbling::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type, false); },
+          { return a.run(ipdr.type); },
           [&](peterson::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type, {}, false); },
+          { return a.run(ipdr.type, {}); },
       },
       algorithm));
 

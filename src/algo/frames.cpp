@@ -112,8 +112,7 @@ namespace pdr
       }
     }
     IF_STATS({
-      log.stats.copied_cubes.count += count;
-      log.stats.copied_cubes.total += old.size();
+      log.stats.relax_copied_cubes_perc = (double) count / old.size() * 100.0;
     });
     MYLOG_DEBUG(log, "{} cubes carried over, out of {}", count, old.size());
     MYLOG_DEBUG(

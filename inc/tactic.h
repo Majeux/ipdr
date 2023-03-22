@@ -18,7 +18,7 @@ namespace pdr
   {
     inline static const std::string constrain_str{"constrain"};
     inline static const std::string relax_str{"relax"};
-    inline static const std::string binary_search_str{"binary-search"};
+    inline static const std::string binary_search_str{"binary_search"};
     inline static const std::string inc_jump_str{"inc-jump-test"};
     inline static const std::string inc_one_str{"inc-one-test"};
 

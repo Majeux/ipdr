@@ -13,7 +13,10 @@ namespace pdr::pebbling
 
   IPDR::IPDR(
       my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
-      : vIPDR(args, c, l, m), ts(m), starting_pebbles()
+      : vIPDR(args, c, l, m),
+        ts(m),
+        starting_pebbles(),
+        control_setting(args.control_run)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
     auto const& peb =
@@ -39,13 +42,13 @@ namespace pdr::pebbling
     throw std::invalid_argument("No ipdr tactic has been selected.");
   }
 
-  IpdrPebblingResult IPDR::run(Tactic tactic, bool control)
+  IpdrPebblingResult IPDR::run(Tactic tactic)
   {
     switch (tactic)
     {
-      case Tactic::constrain: return constrain(control);
-      case Tactic::relax: return relax(control);
-      case Tactic::binary_search: return binary(true);
+      case Tactic::constrain: return constrain(control_setting);
+      case Tactic::relax: return relax(control_setting);
+      case Tactic::binary_search: return binary(control_setting);
       case Tactic::inc_jump_test:
         relax_jump_test(starting_pebbles.value(), 10);
         break;
