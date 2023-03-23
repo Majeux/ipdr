@@ -1,6 +1,6 @@
 #!/bin/bash
 # use: ./run_experiments.sh [sample size] [subfolder]
-# ./pebbling-pdr --delta --dir=./benchmark/rls/tfc/small --tfc=mod5d1 --optimize=dec --experiment=3 -s
+# ./pebbling-pdr --dir=./benchmark/rls/tfc/ --tfc=ham7tc --algo=ipdr --inc=binary_search --pebbling
 bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
@@ -28,7 +28,7 @@ do
 		exp="--experiment=$sample"
 		# exp=""
 
-		command="$EXEC --silent --algo=ipdr --pebbling $Z3 $folder $model $exp"
+		command="$EXEC --silent --algo=ipdr --inc=binary_search --pebbling $Z3 $folder $model $exp"
 
 		echo "${bold}$command${normal}"
 		$command
