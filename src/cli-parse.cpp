@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <cxxopts.hpp>
+#include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <initializer_list>
@@ -18,6 +19,7 @@
 #include <ostream>
 #include <stdexcept>
 #include <variant>
+#include <vector>
 
 #warning display settings for: delta, seed, mic_retries
 namespace my::cli
@@ -26,6 +28,8 @@ namespace my::cli
   using fmt::format;
   using std::optional;
   using std::string;
+  using std::string_view;
+  using std::vector;
 
   // STRUCTS
   //
@@ -240,16 +244,19 @@ namespace my::cli
 
     if (clresult.count("help"))
     {
+      clopt.show_positional_help();
       std::cerr << clopt.help() << std::endl;
       exit(0);
     }
 
-    parse_verbosity(clresult);
+    parse_problem(clresult);
     parse_alg(clresult);
-    parse_model(clresult);
+    parse_mode(clresult);
+    parse_verbosity(clresult);
+    parse_context(clresult);
 
-    if (!onlyshow)
-      parse_run(clresult);
+    // if (!onlyshow)
+    //   parse_mode(clresult);
     // }
     // catch (std::exception const& e)
     // {
@@ -315,7 +322,7 @@ namespace my::cli
     {
       out << format(
           "Running an experiment with {} samples. ", experiment->repetitions);
-      if (experiment->control_only)
+      if (control_run)
         out << "(a control run)";
       out << endl;
     }
@@ -355,38 +362,27 @@ namespace my::cli
     cxxopts::Options clopt(name, "Find a pebbling strategy using a minumum "
                                  "amount of pebbles through PDR");
     // clang-format off
+    clopt.positional_help(format("{} {} {}", o_problem, o_alg, o_mode));
+    clopt.add_options("positional parameter")
+      (o_problem, 
+       format("Solve the Reversible Pebbling Problem "
+         "or verify correctness of the Peterson Protocol:\n{}", problem_group),
+       value<string>())
+      (o_alg, 
+       format("Choose an algorithm to use:\n{}.", algo_group),
+       value<string>())
+      (o_mode, format("Run a single run or perform an experiment of multiple runs:\n{}", mode_group),
+       value<string>());
+
     clopt.add_options()
-      // output options
-      (sh('v', s_verbose), "Output all messages during pdr iterations")
-      (sh('w', s_whisper), "Output only some messages during pdr iterations. (default)")
-      (sh('s', s_silent), "Output no messages during pdr iterations.")
-      ("out-file", "Write to an output file instead of standard output", 
-        value< optional<string> >(out), "(string:FILE.out)")
+      ("h,help", "Show usage")
 
-      (sh('a', o_alg), 
-       format("Run the \"{}\", \"{}\", or \"{}\" model checking algorithm.", s_pdr, s_ipdr, s_bounded),
-       value<string>()->default_value(s_pdr))
-
-      (s_pebbling, "Use the reversible pebble game as a transition system and find a minimal strategy.")
-      (s_peter, "Use the peterson protocol for mutual exclusion with at most N processes as a transition system.",
-       value< unsigned >(), "(uint: N)")
-
+      // 
       (s_z3pdr, "Use Z3's fixedpoint engine for pdr (spacer)",
        value<bool>(z3pdr)->default_value("false"))
-
-      // tactic option
-      (sh('e', s_exp), "run an experiment with I iterations.",
-        value< unsigned >(), "(uint: I)")
-      (sh('c', s_control), "Run only a naive ipdr version (no incremental optimization). Perform only naive runs in an experiment.",
+      (sh('c', s_control), 
+        "Run only a naive ipdr version (no incremental optimization). Or perform only naive runs in an experiment.",
         value<bool>(control_run)->default_value("false"))
-      (sh('i', o_inc), format("Specify the constraining (\"{}\"), relaxing (\"{}\") or binary search (\"{}\") version of ipdr."
-          "Automatically selected for a transition system if empty.", s_constrain, s_relax, s_binary), 
-       value<string>())
-
-      (s_pebbles, "Number of pebbles for a single pebbling pdr run.",
-       value<unsigned>(), "(uint)")
-      (s_procs, "Number of processes for a single peterson pdr run, or the starting value for ipdr.",
-       value<unsigned>(), "(uint)")
 
       // model options
       (s_dir,"Directory (relative to ./) than contains runable benchmarks.",
@@ -405,24 +401,49 @@ namespace my::cli
       (s_tseytin, "Build the transition relation using z3's tseytin reform.",
         value<bool>(tseytin)->default_value("false"))
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
-       value<bool>(onlyshow)->default_value("false"))
+        value<bool>(onlyshow)->default_value("false"))
 
       (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. Unlimited by default.",
-       value<unsigned>(), "(uint:N)")
+       value<unsigned>(), "(uint:N)");
 
-      ("h,help", "Show usage");
+    clopt.add_options("output-level")
+      (sh('v', s_verbose), "Output all messages during pdr iterations")
+      (sh('w', s_whisper), "Output only some messages during pdr iterations. (default)")
+      (sh('s', s_silent), "Output no messages during pdr iterations.")
+      ("out-file", "Write to an output file instead of standard output", 
+        value< optional<string> >(out), "(string:FILE.out)");
+
+    //  problems
+    clopt.add_options(s_pebbling)
+      (s_pebbles, "Number of pebbles for a single pebbling pdr run.",
+       value<unsigned>(), "(uint)");
+
+    clopt.add_options(s_peter)
+      (s_mprocs, "REQUIRED. The maximum number of processes for the Peterson Protocol transition system",
+       value<unsigned>(), "(uint)")
+      (s_procs, "REQUIRED. Number of processes for a single peterson pdr run, or the starting value for ipdr.",
+       value<unsigned>(), "(uint)");
+
+    // algorithms
+    clopt.add_options(s_ipdr)
+      (sh('i', o_inc), 
+       format("Specify the constraining (\"{}\"), relaxing (\"{}\") or binary search (\"{}\") version of ipdr."
+          "Automatically selected for a transition system if empty.", s_constrain, s_relax, s_binary), 
+       value<string>());
+
+    // modes
+    clopt.add_options(s_run);
+
+    clopt.add_options(s_exp)
+      (s_its, "run an experiment with I iterations.",
+        value< unsigned >(), "(uint: I)")
+      (s_seeds, "A list of seeds to be used by an experiment",
+       value<vector<unsigned>>(), "(uint,uint,...)");
     // clang-format on
-    return clopt;
-  }
 
-  void ArgumentList::parse_verbosity(cxxopts::ParseResult const& clresult)
-  {
-    if (clresult.count(s_verbose))
-      verbosity = OutLvl::verbose;
-    else if (clresult.count(s_whisper))
-      verbosity = OutLvl::whisper;
-    else if (clresult.count(s_silent))
-      verbosity = OutLvl::silent;
+    clopt.parse_positional({ o_problem, o_alg, o_mode });
+
+    return clopt;
   }
 
   namespace
@@ -451,29 +472,88 @@ namespace my::cli
         throw std::invalid_argument(
             format("One of `{}` required. Have {}.", names, n));
     }
+
+    void is_one_of(string_view name, vector<string> const& names)
+    {
+      if (std::find(names.cbegin(), names.cend(), name) == names.end())
+        throw std::invalid_argument(
+            format("`{}` must be one of `{}`", name, names));
+    }
+
+    void ignored(
+        std::initializer_list<string> names, cxxopts::ParseResult const& r)
+    {
+      for (string const& name : names)
+      {
+        if (r.count(name))
+          std::cerr << format("WARNING: argument `{}` is ignored "
+                              "for this execution",
+                           name)
+                    << std::endl;
+      }
+    }
   } // namespace
+
+  void ArgumentList::parse_problem(cxxopts::ParseResult const& clresult)
+  {
+    assert(clresult[o_problem].count());
+    std::string problem = clresult[o_problem].as<std::string>();
+    is_one_of(problem, problem_group);
+
+    if (problem == s_peter)
+    {
+      ignored({ s_pebbles }, clresult);
+      require_one_of({ s_mprocs }, clresult);
+      require_one_of({ s_procs }, clresult);
+
+      model_t::Peterson peter;
+
+      peter.max   = clresult[s_peter].as<unsigned>();
+      peter.start = clresult[s_procs].as<unsigned>();
+
+      model = peter;
+    }
+    else
+    {
+      assert(problem == s_pebbling);
+      ignored({ s_mprocs, s_procs }, clresult);
+
+      model_t::Pebbling pebbling;
+      pebbling.src = parse_graph_src(clresult);
+
+      if (clresult.count(s_pebbles))
+        pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
+
+      model = pebbling;
+    }
+  }
 
   void ArgumentList::parse_alg(cxxopts::ParseResult const& clresult)
   {
-    assert(clresult[o_alg].count() || clresult[o_alg].has_default());
-    string a = clresult[o_alg].as<string>();
+    assert(clresult[o_alg].count());
+    string algo = clresult[o_alg].as<string>();
+    is_one_of(algo, algo_group);
 
     if (clresult[s_mic].count())
       mic_retries = clresult[s_mic].as<unsigned>();
 
-    if (a == s_pdr)
+    if (algo == s_pdr)
+    {
+      ignored({ o_inc }, clresult);
       algorithm = algo::t_PDR();
-    else if (a == s_ipdr)
+    }
+    else if (algo == s_ipdr)
     {
       pdr::Tactic t;
 
       // default
-      if (clresult.count(s_pebbling))
+      if (is<model_t::Pebbling>(model))
         t = pdr::Tactic::constrain;
-      else if (clresult.count(s_peter))
-        t = pdr::Tactic::relax;
       else
-        assert(false);
+      {
+        assert(is<model_t::Peterson>(model));
+        t = pdr::Tactic::relax;
+      }
 
       // override default
       if (clresult.count(o_inc))
@@ -484,92 +564,88 @@ namespace my::cli
 
       algorithm = algo::t_IPDR(t);
     }
-    else if (a == s_bounded)
-      algorithm = algo::t_Bounded();
     else
     {
-      assert(false);
+      assert(algo == s_bounded);
+      ignored({ o_inc }, clresult);
+
+      if (!is<model_t::Pebbling>(model))
+        throw std::invalid_argument(
+            "Bounded model checking is supported for Pebbling only.");
+
+      algorithm = algo::t_Bounded();
     }
 
+    // z3pdr is automatically set
+    // the z3 fixedpoint implementation does only naive (control) runs
+    control_run = z3pdr ? true : control_run;
+    if (z3pdr && control_run)
+    {
+      std::cerr
+          << fmt::format(
+                 "WARNING: z3pdr is only used as a reference and performs no "
+                 "incremental optimization (`{}` defaults to true)",
+                 s_control)
+          << std::endl;
+    }
+  }
+
+  void ArgumentList::parse_mode(cxxopts::ParseResult const& clresult)
+  {
+    string mode = clresult[o_mode].as<string>();
+    is_one_of(mode, mode_group);
+
+    if (mode == s_run)
+    {
+      ignored({ s_its, s_seeds }, clresult);
+      if (is<algo::t_PDR>(algorithm) && !experiment)
+        throw std::invalid_argument(format(
+            "pebbling pdr run requires a starting number of pebbles: `{}`",
+            s_pebbles));
+    }
+    else
+    {
+      assert(mode == s_exp);
+      require_one_of({ s_its }, clresult);
+      ignored({ s_procs, s_pebbles }, clresult);
+
+      unsigned reps = clresult[s_its].as<unsigned>();
+      optional<vector<unsigned>> seeds;
+
+      if (clresult.count(s_seeds))
+        seeds = clresult[s_seeds].as<vector<unsigned>>();
+
+      if (clresult.count(s_pdr))
+        throw std::invalid_argument(
+            "Experiments verify incremental (non-pdr) runs only");
+
+      experiment = { reps, seeds };
+    }
+  }
+
+  void ArgumentList::parse_verbosity(cxxopts::ParseResult const& clresult)
+  {
+    if (clresult.count(s_verbose))
+      verbosity = OutLvl::verbose;
+    else if (clresult.count(s_whisper))
+      verbosity = OutLvl::whisper;
+    else if (clresult.count(s_silent))
+      verbosity = OutLvl::silent;
+  }
+
+  void ArgumentList::parse_context(cxxopts::ParseResult const& clresult)
+  {
     atmost_one_of({ s_rand, s_seed }, clresult);
 
     if (clresult.count(s_rand))
       r_seed = true;
-
-    if (clresult.count(s_seed))
+    else if (clresult.count(s_seed))
       r_seed = clresult[s_seed].as<unsigned>();
-  }
 
-  void ArgumentList::parse_model(cxxopts::ParseResult const& clresult)
-  {
-    require_one_of({ s_pebbling, s_peter }, clresult);
-    atmost_one_of({ s_pebbles, s_procs }, clresult);
+    if (clresult.count(s_mic))
+      mic_retries = clresult[s_mic].as<unsigned>();
 
-    assert(clresult[o_alg].count() || clresult[o_alg].has_default());
-    std::string a = clresult[o_alg].as<std::string>();
-
-    if (clresult.count(s_peter))
-    {
-      model_t::Peterson peter;
-
-      if (clresult.count(s_procs))
-        peter.start = clresult[s_procs].as<unsigned>();
-      else
-        throw std::invalid_argument(
-            "peterson requires a number of (starting) processes");
-
-      peter.max = clresult[s_peter].as<unsigned>();
-      model     = peter;
-    }
-    else if (clresult.count(s_pebbling))
-    {
-      model_t::Pebbling pebbling;
-      pebbling.src = parse_graph_src(clresult);
-      if (clresult.count(s_pebbles))
-        pebbling.max_pebbles = clresult[s_pebbles].as<unsigned>();
-      else if (a == s_pdr && !clresult.count(s_exp))
-        throw std::invalid_argument(
-            format("pebbling pdr requires a starting number of pebbles: {}",
-                s_pebbles));
-
-      model = pebbling;
-    }
-  }
-
-  void ArgumentList::parse_run(cxxopts::ParseResult const& clresult)
-  {
-    if (clresult.count(o_inc))
-    {
-      if (clresult.count(s_pdr) || clresult.count(s_bounded))
-        std::cerr << format("WARNING: {} is unused in {} and {}", o_inc, s_pdr,
-                         s_bounded)
-                  << std::endl;
-    }
-    else if (clresult.count(s_bounded))
-    {
-      if (!clresult.count(s_pebbling))
-        throw std::invalid_argument(
-            "Bounded model checking is supported for Pebbling only.");
-    }
-
-    // the z3 fixedpoint implementation does only naive (control) runs
-    control_run = z3pdr ? true : control_run;
-    if (z3pdr && control_run)
-      std::cerr
-          << fmt::format(
-                 "WARNING: z3pdr is only used as a reference and performs no "
-                 "incremental optimization ({} is set to true)",
-                 s_control)
-          << std::endl;
-
-    if (clresult.count(s_exp))
-    {
-      unsigned reps{ clresult[s_exp].as<unsigned>() };
-      if (clresult.count(s_pdr))
-        throw std::invalid_argument("Experiments verify incremental runs only");
-
-      experiment = { reps, control_run };
-    }
+    // s_tseytin and s_show are set automatically
   }
 
   namespace
@@ -611,15 +687,13 @@ namespace my::cli
       name        = strip_extension(name, "tfc");
       rv          = graph_src::tfcFile{ name, folders.src_file(name, "tfc") };
     }
-    else if (clresult.count(s_bench))
+    else
     {
+      assert(clresult.count(s_bench));
+
       string name = clresult[s_bench].as<string>();
       name        = strip_extension(name, "bench");
       rv = graph_src::benchFile{ name, folders.src_file(name, "bench") };
-    }
-    else
-    {
-      assert(false);
     }
 
     return rv;

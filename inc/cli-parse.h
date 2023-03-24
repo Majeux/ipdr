@@ -6,10 +6,12 @@
 #include "logger.h"
 #include "tactic.h"
 
+#include <array>
 #include <cxxopts.hpp>
 #include <fmt/core.h>
 // #include <filesystem>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -96,12 +98,27 @@ namespace my::cli
     std::string get_name(Algo_var const& a);
     std::string filetag(Algo_var const& a);
     Model_var const& get_model(Algo_var const& a);
+
   } // namespace algo
+
+  // type checkers
+  template <typename T> bool is(graph_src::Graph_var const& a)
+  {
+    return std::holds_alternative<T>(a);
+  }
+  template <typename T> bool is(model_t::Model_var const& a)
+  {
+    return std::holds_alternative<T>(a);
+  }
+  template <typename T> bool is(algo::Algo_var const& a)
+  {
+    return std::holds_alternative<T>(a);
+  }
 
   struct Experiment
   {
     unsigned repetitions;
-    bool control_only;
+    std::optional<std::vector<unsigned>> seeds;
   };
 
   class ArgumentList
@@ -132,10 +149,11 @@ namespace my::cli
    private:
     // constructor helpers
     Options make_options(std::string name);
-    void parse_verbosity(ParseResult const& clresult);
+    void parse_problem(ParseResult const& clresult);
     void parse_alg(ParseResult const& clresult);
-    void parse_model(ParseResult const& clresult);
-    void parse_run(ParseResult const& clresult);
+    void parse_mode(ParseResult const& clresult);
+    void parse_verbosity(ParseResult const& clresult);
+    void parse_context(ParseResult const& clresult);
     graph_src::Graph_var parse_graph_src(ParseResult const& clresult);
 
     // cli names
@@ -143,14 +161,25 @@ namespace my::cli
     inline static const std::string s_pdr     = "pdr";
     inline static const std::string s_ipdr    = "ipdr";
     inline static const std::string s_bounded = "bounded";
+    inline static const std::vector<std::string> algo_group{ s_pdr, s_ipdr,
+      s_bounded };
 
+    inline static const std::string o_problem  = "problem";
     inline static const std::string s_pebbling = "pebbling";
     inline static const std::string s_peter    = "peterson";
+    inline static const std::vector<std::string> problem_group{ s_pebbling,
+      s_peter };
 
     inline static const std::string s_z3pdr = "z3pdr";
 
-    inline static const std::string s_exp     = "experiment";
+    inline static const std::string o_mode = "mode";
+    inline static const std::string s_run  = "run";
+    inline static const std::string s_exp  = "experiment";
+    inline static const std::vector<std::string> mode_group{ s_run, s_exp };
+
+    inline static const std::string s_its     = "iterations";
     inline static const std::string s_control = "control";
+    inline static const std::string s_seeds   = "seeds";
 
     inline static const std::string o_inc       = "inc";
     inline static const std::string s_constrain = pdr::tactic::constrain_str;
@@ -158,7 +187,8 @@ namespace my::cli
     inline static const std::string s_binary = pdr::tactic::binary_search_str;
 
     inline static const std::string s_pebbles = "pebbles";
-    inline static const std::string s_procs   = "processes";
+    inline static const std::string s_mprocs  = "max_procs";
+    inline static const std::string s_procs   = "procs";
 
     inline static const std::string s_dir   = "dir";
     inline static const std::string s_bench = "bench";

@@ -181,17 +181,7 @@ namespace pdr
     logger.indented("eliminate predecessors");
     logger.indent++;
 
-#warning is dit nog enigzins ok?
     obligations.clear();
-    // if (ctx.type != Tactic::relax)
-    // {
-    //   MYLOG_DEBUG_SHOW(logger, "Cleared obligations.");
-    //   obligations.clear();
-    // }
-    // else
-    // {
-    //   MYLOG_DEBUG_SHOW(logger, "Reused obligations: {}.", obligations.size());
-    // }
 
     unsigned period = 0;
     if (n <= k)

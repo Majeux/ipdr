@@ -34,8 +34,8 @@ set winminheight=0
 set winheight=1
 set winminwidth=0
 set winwidth=1
-exe 'vert 1resize ' . ((&columns * 120 + 181) / 362)
-exe 'vert 2resize ' . ((&columns * 118 + 181) / 362)
+exe 'vert 1resize ' . ((&columns * 87 + 181) / 362)
+exe 'vert 2resize ' . ((&columns * 151 + 181) / 362)
 exe 'vert 3resize ' . ((&columns * 122 + 181) / 362)
 argglobal
 balt src/cli-parse.cpp
@@ -49,20 +49,20 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 186 - ((41 * winheight(0) + 39) / 79)
+let s:l = 253 - ((51 * winheight(0) + 39) / 79)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 186
-normal! 07|
+keepjumps 253
+normal! 025|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 argglobal
-if bufexists("~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp") | buffer ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp | else | edit ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp | endif
+if bufexists("~/Documents/master/pebbling-pdr/src/cli-parse.cpp") | buffer ~/Documents/master/pebbling-pdr/src/cli-parse.cpp | else | edit ~/Documents/master/pebbling-pdr/src/cli-parse.cpp | endif
 if &buftype ==# 'terminal'
-  silent file ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp
+  silent file ~/Documents/master/pebbling-pdr/src/cli-parse.cpp
 endif
-balt ~/Documents/master/pebbling-pdr/src/pebbling-pdr.cpp
+balt ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -73,20 +73,20 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 250 - ((24 * winheight(0) + 39) / 79)
+let s:l = 411 - ((42 * winheight(0) + 39) / 79)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 250
-normal! 033|
+keepjumps 411
+normal! 019|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 argglobal
-if bufexists("~/Documents/master/pebbling-pdr/src/algo/frames.cpp") | buffer ~/Documents/master/pebbling-pdr/src/algo/frames.cpp | else | edit ~/Documents/master/pebbling-pdr/src/algo/frames.cpp | endif
+if bufexists("~/Documents/master/pebbling-pdr/src/cli-parse.cpp") | buffer ~/Documents/master/pebbling-pdr/src/cli-parse.cpp | else | edit ~/Documents/master/pebbling-pdr/src/cli-parse.cpp | endif
 if &buftype ==# 'terminal'
-  silent file ~/Documents/master/pebbling-pdr/src/algo/frames.cpp
+  silent file ~/Documents/master/pebbling-pdr/src/cli-parse.cpp
 endif
-balt ~/Documents/master/pebbling-pdr/src/algo/solver.cpp
+balt ~/Documents/master/pebbling-pdr/inc/cli-parse.h
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -97,17 +97,17 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 153 - ((78 * winheight(0) + 39) / 79)
+let s:l = 572 - ((61 * winheight(0) + 39) / 79)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 153
-normal! $
+keepjumps 572
+normal! 012|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
-2wincmd w
-exe 'vert 1resize ' . ((&columns * 120 + 181) / 362)
-exe 'vert 2resize ' . ((&columns * 118 + 181) / 362)
+3wincmd w
+exe 'vert 1resize ' . ((&columns * 87 + 181) / 362)
+exe 'vert 2resize ' . ((&columns * 151 + 181) / 362)
 exe 'vert 3resize ' . ((&columns * 122 + 181) / 362)
 tabnext
 edit ~/Documents/master/pebbling-pdr/src/algo/frames.cpp
@@ -132,12 +132,16 @@ normal! 0
 lcd ~/Documents/master/pebbling-pdr
 tabnext 1
 set stal=1
+badd +1 ~/Documents/master/pebbling-pdr/src/algo/pdr.cpp
+badd +139 ~/Documents/master/pebbling-pdr/src/algo/frames.cpp
+badd +569 ~/Documents/master/pebbling-pdr/src/cli-parse.cpp
+badd +271 ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp
+badd +75 ~/Documents/master/pebbling-pdr/src/pebbling-pdr.cpp
+badd +59 ~/Documents/master/pebbling-pdr/src/algo/solver.cpp
 badd +210 ~/Documents/master/pebbling-pdr/src/testing/stats.cpp
-badd +102 ~/Documents/master/pebbling-pdr/src/algo/frames.cpp
 badd +80 ~/Documents/master/pebbling-pdr/inc/testing/stats.h
 badd +141 ~/Documents/master/pebbling-pdr/src/model/pebbling/pebbling-result.cpp
-badd +0 ~/Documents/master/pebbling-pdr/inc/model/pdr/pdr-context.h
-badd +42 ~/Documents/master/pebbling-pdr/src/algo/ipdr-pebbling.cpp
+badd +1 ~/Documents/master/pebbling-pdr/inc/model/pdr/pdr-context.h
 badd +51 ~/Documents/master/pebbling-pdr/src/model/pdr/pdr-model.cpp
 badd +177 ~/Documents/master/pebbling-pdr/inc/algo/pdr.h
 badd +51 ~/Documents/master/pebbling-pdr/src/model/pdr/pdr-context.cpp
@@ -145,12 +149,8 @@ badd +30 ~/Documents/master/pebbling-pdr/inc/tactic.h
 badd +1 ~/Documents/master/pebbling-pdr/inc/model/pebbling/pebbling-result.h
 badd +50 ~/Documents/master/pebbling-pdr/src/algo/generalize.cpp
 badd +41 ~/Documents/master/pebbling-pdr/inc/algo/frames.h
-badd +309 ~/Documents/master/pebbling-pdr/src/cli-parse.cpp
-badd +158 ~/Documents/master/pebbling-pdr/inc/cli-parse.h
-badd +75 ~/Documents/master/pebbling-pdr/src/pebbling-pdr.cpp
+badd +127 ~/Documents/master/pebbling-pdr/inc/cli-parse.h
 badd +12 ~/Documents/master/pebbling-pdr/src/algo/ipdr-peter.cpp
-badd +59 ~/Documents/master/pebbling-pdr/src/algo/solver.cpp
-badd +0 ~/Documents/master/pebbling-pdr/src/algo/pdr.cpp
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf
 endif
@@ -162,6 +162,7 @@ if filereadable(s:sx)
 endif
 let &g:so = s:so_save | let &g:siso = s:siso_save
 set hlsearch
+nohlsearch
 doautoall SessionLoadPost
 unlet SessionLoad
 " vim: set ft=vim :

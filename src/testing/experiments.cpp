@@ -187,7 +187,7 @@ namespace pdr::experiments
     std::ofstream raw   = args.folders.file_in_run("md");
     tabulate::MarkdownExporter exporter;
 
-    if (args.experiment->control_only)
+    if (args.control_run)
     {
       std::cout << type + " (only) control run." << endl;
       std::shared_ptr<Run> control_aggregate = do_reps(true);
