@@ -104,8 +104,8 @@ namespace pdr
   // TODO optional return
   expr_vector Solver::unsat_core() const
   {
-    // if(state != SolverState::core_available)
-    //   throw InvalidExtraction(state);
+    if (state != SolverState::core_available)
+      throw InvalidExtraction(state);
 
     expr_vector core = internal_solver.unsat_core();
     z3ext::order_lits(core);
@@ -115,7 +115,7 @@ namespace pdr
 
   vector<expr> Solver::std_witness_current() const
   {
-    if(state != SolverState::witness_available)
+    if (state != SolverState::witness_available)
       throw InvalidExtraction(state);
 
     z3::model m = internal_solver.get_model();
@@ -153,7 +153,7 @@ namespace pdr
     using z3ext::join_ev;
     using z3ext::lit_less;
 
-    if(state != SolverState::witness_available)
+    if (state != SolverState::witness_available)
       throw InvalidExtraction(state);
 
     assert(z3ext::lits_ordered(ev));
@@ -181,9 +181,10 @@ namespace pdr
           literal = !var;
         else
           throw InvalidExtraction::NonConstant(boolean_value);
-      
-        // search for 
-        if (std::binary_search(ev.begin(), ev.end(), literal, z3ext::cube_orderer))
+
+        // search for
+        if (std::binary_search(
+                ev.begin(), ev.end(), literal, z3ext::cube_orderer))
           std_vec.push_back(literal);
       }
     }

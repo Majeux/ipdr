@@ -1,3 +1,4 @@
+#include "logger.h"
 #include "pdr-model.h"
 #include "pdr.h"
 #include "types-ext.h"
@@ -155,29 +156,31 @@ namespace pdr::pebbling
 
     IpdrPebblingResult total(ts, Tactic::binary_search);
     // we can use at most this many pebbles
-    unsigned N      = starting_pebbles.value_or(ts.n_nodes());
+    unsigned top    = starting_pebbles.value_or(ts.n_nodes());
     // and at least this many pebbles
     unsigned bottom = ts.get_f_pebbles();
 
     // initial run, no constraining functionality yet
-    basic_reset(N);
+    basic_reset(top);
     pdr::PdrResult invariant = alg.run();
     total.add(invariant, ts.get_pebble_constraint());
 
     // found strategy may already use fewer pebbles than N
     if (invariant.has_trace())
     {
-      assert(invariant.trace().n_marked <= N);
-      N = invariant.trace().n_marked;
+      assert(invariant.trace().n_marked <= top);
+      top = invariant.trace().n_marked;
     }
 
     // track previous pebble constraint to determine whether to constrain or
     // relax
-    unsigned m_prev = N;
+    unsigned m_prev = top;
 
-    while (bottom < N)
+    while (bottom <= top)
     {
-      unsigned m = (N + bottom) / 2; // halfway between N and bottom
+      unsigned m = (top + bottom) / 2; // halfway between N and bottom
+      MYLOG_DEBUG(
+          alg.logger, "binary search step: {} --- {} --- {}", bottom, m, top);
 
       optional<size_t> early_inv; // contains level if an invariant is found
                                   // during incrementation
@@ -204,11 +207,16 @@ namespace pdr::pebbling
       if (invariant)
       {
         bottom = m + 1;
+        MYLOG_DEBUG(
+            alg.logger, "invariant found, try higher: bottom <- {}", bottom);
       }
       else // trace found
       {
         assert(invariant.trace().n_marked <= m);
-        N = invariant.trace().n_marked - 1;
+        top = invariant.trace().n_marked - 1;
+        MYLOG_DEBUG(alg.logger,
+            "trace of length {} found, try lower: top <- {}",
+            invariant.trace().n_marked, top);
       }
 
       m_prev = m;

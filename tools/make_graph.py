@@ -6,6 +6,7 @@ import os
 import re as regex
 import argparse
 import pprint
+import string
 from typing import KeysView, List, Mapping
 
 TYPES = ["pebbling", "z3pdr", "bmc"]
@@ -267,7 +268,7 @@ def bar_data(data: Mapping[str, Data_t]) -> str:
 
     for type in output:
         str += type + "\n"
-        for i, model in enumerate(data):
+        for i, model in zip(string.ascii_lowercase, data):
             if model in output[type]:
                 time, dev = output[type][model]
                 str += f"({i}, {time}) +- (0, {dev})\t% {model}\n"
