@@ -61,11 +61,11 @@ namespace z3ext
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_l(const z3::expr_vector& l, const z3::expr_vector& r);
-  bool subsumes_l(const std::vector<z3::expr>& l, const z3::expr_vector& r);
+  bool subsumes_l(const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
-  bool subsumes_le(const std::vector<z3::expr>& l, const z3::expr_vector& r);
+  bool subsumes_le(const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
 
   bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
   bool quick_implies(const z3::expr_vector& l, const z3::expr_vector& r);
@@ -96,11 +96,19 @@ namespace z3ext
     bool operator()(const z3::expr_vector& l, const z3::expr_vector& r) const;
   };
 
+  // vector<expr> comparator
+  struct std_expr_vector_less
+  {
+    bool operator()(
+        const std::vector<z3::expr>& l, const std::vector<z3::expr>& r) const;
+  };
+
   // internal cube order by pdr
   //
   inline expr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
+  std::vector<z3::expr> order_lits_std(z3::expr_vector& cube);
   bool lits_ordered(std::vector<z3::expr> const& cube);
 
   // TEMPLATE FUNCTIONS
@@ -220,43 +228,16 @@ namespace z3ext
     return rv;
   }
 
-  // pass a subset of literals 'ev' to the 'transform: z3::expr -> z3::expr'
-  // function
-  template <typename UnaryPredicate, typename Transform>
-  z3::expr_vector filter_transform(
-      z3::expr_vector const& ev, UnaryPredicate filter, Transform T)
-  {
-    static_assert(
-        std::is_same<
-            typename std::invoke_result<Transform, z3::expr const&>::type,
-            z3::expr>::value,
-        "transform function must be of form T: z3::expr const& -> z3::expr");
-
-    if (ev.size() == 0)
-      return ev;
-
-    std::vector<z3::expr> rv;
-    rv.reserve(ev.size());
-    for (const z3::expr& e : ev)
-    {
-      if (filter(e))
-        rv.push_back(T(e));
-    }
-
-    order_lits(rv);
-
-    return convert(rv);
-  }
-
-  using CubeSet = std::set<z3::expr_vector, expr_vector_less>;
+  using CubeSet = std::set<std::vector<z3::expr>, std_expr_vector_less>;
 
   namespace solver
   {
     struct Witness
     {
-      z3::expr_vector curr;
-      z3::expr_vector next;
+      std::vector<z3::expr> curr;
+      std::vector<z3::expr> next;
 
+      Witness(std::vector<z3::expr> const& c, std::vector<z3::expr> const& n);
       Witness(z3::expr_vector const& c, z3::expr_vector const& n);
     };
     // retrieve the current model in the solver as a cube

@@ -14,20 +14,20 @@ namespace pdr
 
   // STATE MEMBERS
   //
-  PdrState::PdrState(const expr_vector& e)
+  PdrState::PdrState(const vector<expr>& e)
       : cube(e), prev(shared_ptr<PdrState>())
   {
   }
-  PdrState::PdrState(const expr_vector& e, shared_ptr<PdrState> s)
+  PdrState::PdrState(const vector<expr>& e, shared_ptr<PdrState> s)
       : cube(e), prev(s)
   {
   }
   // move constructors
-  PdrState::PdrState(expr_vector&& e)
+  PdrState::PdrState(vector<expr>&& e)
       : cube(std::move(e)), prev(shared_ptr<PdrState>())
   {
   }
-  PdrState::PdrState(expr_vector&& e, shared_ptr<PdrState> s)
+  PdrState::PdrState(vector<expr>&& e, shared_ptr<PdrState> s)
       : cube(std::move(e)), prev(s)
   {
   }
@@ -36,7 +36,7 @@ namespace pdr
   {
     vector<std::tuple<unsigned, string, unsigned>> steps;
 
-    auto count_pebbled = [](const expr_vector& vec)
+    auto count_pebbled = [](const vector<expr>& vec)
     {
       unsigned count = 0;
       for (const expr& e : vec)
@@ -72,7 +72,7 @@ namespace pdr
 
   // OBLIGATION MEMBERS
   //
-  Obligation::Obligation(unsigned k, expr_vector&& cube, unsigned d)
+  Obligation::Obligation(unsigned k, vector<expr>&& cube, unsigned d)
       : level(k), state(std::make_shared<PdrState>(std::move(cube))), depth(d)
   {
   }
@@ -95,6 +95,6 @@ namespace pdr
     if (this->depth > o.depth)
       return false;
 
-    return z3ext::expr_vector_less()(this->state->cube, o.state->cube);
+    return z3ext::std_expr_vector_less()(this->state->cube, o.state->cube);
   }
 } // namespace pdr

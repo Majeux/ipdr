@@ -57,7 +57,7 @@ namespace pdr
 
     Statistics& stats();
     void show_solver(std::ostream& out) const override;
-    std::vector<std::string> trace_row(z3::expr_vector const& v);
+    std::vector<std::string> trace_row(std::vector<z3::expr> const& v);
     int length_shortest_strategy() const;
 
    private:
@@ -75,20 +75,21 @@ namespace pdr
     struct HIFresult
     {
       int level;
-      std::optional<z3::expr_vector> core;
+      std::optional<std::vector<z3::expr>> core;
     };
 
     void print_model(z3::model const& m);
     // main algorithm
     PdrResult init();
     PdrResult iterate();
-    PdrResult block(z3::expr_vector&& cti, unsigned n);
+    PdrResult block(std::vector<z3::expr>&& cti, unsigned n);
     // generalization
     // todo return [n, cti ptr]
-    HIFresult hif_(z3::expr_vector const& cube, int min);
-    HIFresult highest_inductive_frame(z3::expr_vector const& cube, int min);
-    z3::expr_vector generalize(z3::expr_vector const& cube, int level);
-    z3::expr_vector MIC(z3::expr_vector const& cube, int level);
+    HIFresult hif_(std::vector<z3::expr> const& cube, int min);
+    HIFresult highest_inductive_frame(
+        std::vector<z3::expr> const& cube, int min);
+    void generalize(std::vector<z3::expr>& cube, int level);
+    void MIC(std::vector<z3::expr>& cube, int level);
     void MICctg(std::vector<z3::expr>& cube, int level, unsigned depth);
     bool down(std::vector<z3::expr>& cube, int level);
     bool ctgdown(std::vector<z3::expr>& cube, int level, unsigned depth);
@@ -102,13 +103,13 @@ namespace pdr
     // logging shorthands
     void log_start() const;
     void log_iteration();
-    void log_cti(z3::expr_vector const& cti, unsigned level);
+    void log_cti(std::vector<z3::expr> const& cti, unsigned level);
     void log_propagation(unsigned level, double time);
-    void log_top_obligation(
-        size_t queue_size, unsigned top_level, z3::expr_vector const& top);
-    void log_pred(z3::expr_vector const& p);
+    void log_top_obligation(size_t queue_size, unsigned top_level,
+        std::vector<z3::expr> const& top);
+    void log_pred(std::vector<z3::expr> const& p);
     void log_state_push(unsigned frame);
-    void log_finish(z3::expr_vector const& s);
+    void log_finish(std::vector<z3::expr> const& s);
     void log_obligation_done(std::string_view type, unsigned l, double time);
   };
 
@@ -153,9 +154,9 @@ namespace pdr
       void basic_reset(unsigned pebbles);
       // TODO: partial constraint strategy georg
       // If a cube cannot be propagated from a constraint p to p+1
-      // Add "cube \land __le_p__" where "atmost(p) \land atmost(p)' <=> __le_p__"
-      // This cube was already inductive under this lower constraint, so now 
-      // the exact same ctis are not rediscovered
+      // Add "cube \land __le_p__" where "atmost(p) \land atmost(p)' <=>
+      // __le_p__" This cube was already inductive under this lower constraint,
+      // so now the exact same ctis are not rediscovered
       //  note: subsumption still works as normal? a more specific (subcube)
       //  subsumes the larger
       void relax_reset(unsigned pebbles);

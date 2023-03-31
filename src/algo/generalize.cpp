@@ -18,19 +18,8 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  bool ev_str_eq(const z3::expr_vector& ev, const vector<std::string>& str)
-  {
-    if (ev.size() != str.size())
-      return false;
-
-    for (size_t i = 0; i < ev.size(); i++)
-      if (ev[i].to_string() != str[i])
-        return false;
-    return true;
-  }
-
   //! s is inductive up until min-1. !s is included up until min
-  PDR::HIFresult PDR::hif_(const expr_vector& cube, int min)
+  PDR::HIFresult PDR::hif_(vector<expr> const& cube, int min)
   {
     int max = frames.frontier();
     if (min <= 0 && !frames.inductive(cube, 0))
@@ -41,7 +30,7 @@ namespace pdr
 
     // F_result & !cube & T & cube' = UNSAT
     // => F_result & !cube & T & core' = UNSAT
-    optional<expr_vector> raw_core;
+    optional<vector<expr>> raw_core;
 
     int highest = max;
     for (int i = std::max(1, min); i <= max; i++)
@@ -60,22 +49,23 @@ namespace pdr
     return { highest, raw_core };
   }
 
-  PDR::HIFresult PDR::highest_inductive_frame(const expr_vector& cube, int min)
+  PDR::HIFresult PDR::highest_inductive_frame(vector<expr> const& cube, int min)
   {
-    expr_vector rv_core(ctx());
+    vector<expr> rv_core;
     HIFresult result = hif_(cube, min);
 
     if (result.level >= 0 && result.level >= min && result.core)
     { // if unsat result occurs
-      auto next_lits  = [this](const expr& e) { return ts.vars.lit_is_p(e); };
-      auto to_current = [this](const expr& e) { return ts.vars(e); };
-      rv_core = z3ext::filter_transform(*result.core, next_lits, to_current);
+      // extract destination lits and convert to current state literals
+      for (expr const& e : *result.core)
+        if (ts.vars.lit_is_p(e))
+          rv_core.push_back(ts.vars(e));
 
       MYLOG_DEBUG(logger, "core @{}: [{}]", result.level,
           rv_core ? z3ext::join_ev(rv_core) : "none");
 
       // if I => !core, the subclause survives initiation and is inductive
-      if (frames.init_solver.check(rv_core) == z3::sat)
+      if (frames.init_solver.check(rv_core.size(), rv_core.data()) == z3::sat)
       {
         MYLOG_DEBUG(logger, "unsat core is invalid. no reduction.");
         rv_core = cube; /// I /=> !core, use original
@@ -93,7 +83,7 @@ namespace pdr
     return { result.level, rv_core };
   }
 
-  expr_vector PDR::generalize(const expr_vector& state, int level)
+  void PDR::generalize(vector<expr>& state, int level)
   {
     MYLOG_DEBUG(logger, "generalize cube");
     MYLOG_TRACE(logger, "[{}]", join_expr_vec(state, false));
@@ -101,8 +91,9 @@ namespace pdr
     logger.indent++;
     spdlog::stopwatch timer;
     IF_STATS(double s0 = state.size());
+    unsigned pre_size = state.size();
 
-    expr_vector smaller_cube = MIC(state, level);
+    MIC(state, level);
 
     IF_STATS({
       logger.stats.generalization.add(level, timer.elapsed().count());
@@ -112,28 +103,24 @@ namespace pdr
     logger.indent--;
 
     MYLOG_DEBUG(
-        logger, "generalization: {} -> {}", state.size(), smaller_cube.size());
+        logger, "generalization: {} -> {}", pre_size, state.size());
     MYLOG_TRACE(logger, "final reduced cube = [{}]",
         join_expr_vec(smaller_cube, false));
-
-    return smaller_cube;
   }
 
 // #define ctgmic true
 #define ctgmic false
 
-  expr_vector PDR::MIC(const expr_vector& state, int level)
+  void PDR::MIC(vector<expr>& cube, int level)
   {
     if (ctgmic)
     {
-      expr_vector rv = state;
       // MICctg(rv, level, 1);
-      return rv;
+      // return rv;
     }
 
     assert(level <= (int)frames.frontier());
     // used for sorting
-    vector<expr> cube = z3ext::convert(state);
 
     unsigned attempts{ 0u };
     for (unsigned i{ 0 }; i < cube.size();)
@@ -173,8 +160,6 @@ namespace pdr
       }
     }
     IF_STATS(logger.stats.mic_attempts.add(attempts));
-
-    return z3ext::convert(cube);
   }
 
   // @state is sorted

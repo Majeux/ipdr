@@ -49,12 +49,11 @@ namespace z3ext
 
     return !ctx.bool_const(atom.c_str());
   }
-  
+
   std::string LitStr::to_string() const
   {
     return fmt::format("{} -> {}", atom, sign ? "true" : "false");
   }
-
 
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
@@ -192,6 +191,15 @@ namespace z3ext
     cube = convert(std::move(std_vec));
   }
 
+  vector<expr> order_lits_std(z3::expr_vector& cube)
+  {
+    if (cube.size() == 0)
+      return {};
+    vector<expr> std_vec = convert(cube);
+    order_lits(std_vec);
+    return std_vec;
+  }
+
   bool lits_ordered(vector<expr> const& cube)
   {
     return std::is_sorted(cube.cbegin(), cube.cend(), cube_orderer);
@@ -205,7 +213,7 @@ namespace z3ext
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
   }
 
-  bool subsumes_l(vector<expr> const& l, expr_vector const& r)
+  bool subsumes_l(vector<expr> const& l, vector<expr> const& r)
   {
     if (l.size() >= r.size())
       return false;
@@ -221,7 +229,7 @@ namespace z3ext
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
   }
 
-  bool subsumes_le(vector<expr> const& l, expr_vector const& r)
+  bool subsumes_le(vector<expr> const& l, vector<expr> const& r)
   {
     if (l.size() > r.size())
       return false;
@@ -297,6 +305,23 @@ namespace z3ext
     return l.size() < r.size();
   }
 
+  bool std_expr_vector_less::operator()(
+      const vector<expr>& l, const vector<expr>& r) const
+  {
+    auto l_it = l.begin();
+    auto r_it = r.begin();
+
+    for (; l_it != l.end() && r_it != r.end(); l_it++, r_it++)
+    {
+      if ((*l_it).id() < (*r_it).id())
+        return true;
+      if ((*l_it).id() > (*r_it).id())
+        return false;
+    }
+    // all elements equal to a point
+    return l.size() < r.size();
+  }
+
   // END LESS THAN
 
   size_t expr_hash::operator()(expr const& l) const { return l.id(); };
@@ -305,9 +330,18 @@ namespace z3ext
   //
   namespace solver
   {
-    Witness::Witness(z3::expr_vector const& c, z3::expr_vector const& n)
+    Witness::Witness(vector<expr> const& c, vector<expr> const& n)
         : curr(c), next(n)
     {
+    }
+
+    Witness::Witness(z3::expr_vector const& c, z3::expr_vector const& n)
+    {
+      for (expr const& e : c)
+        curr.push_back(e);
+
+      for (expr const& e : n)
+        next.push_back(e);
     }
 
     expr_vector get_witness(z3::solver const& s)

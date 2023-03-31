@@ -52,7 +52,7 @@ namespace pdr
   void Solver::reset(const z3ext::CubeSet& cubes)
   {
     reset();
-    for (const expr_vector& cube : cubes)
+    for (vector<expr> cube : cubes)
       block(cube);
   }
 
@@ -91,7 +91,7 @@ namespace pdr
 
   void Solver::block(const z3ext::CubeSet& cubes, const expr& act)
   {
-    for (const expr_vector& cube : cubes)
+    for (vector<expr> const& cube : cubes)
       block(cube, act);
   }
 
@@ -114,15 +114,14 @@ namespace pdr
   z3::model Solver::get_model() const { return internal_solver.get_model(); }
 
   // TODO optional return
-  expr_vector Solver::unsat_core() const
+  vector<expr> Solver::unsat_core() const
   {
     if (state != SolverState::core_available)
       throw InvalidExtraction(state);
 
     expr_vector core = internal_solver.unsat_core();
-    z3ext::order_lits(core);
+    return z3ext::order_lits_std(core);
 
-    return core;
   }
 
   vector<expr> Solver::std_witness_current() const

@@ -19,6 +19,7 @@
 namespace pdr
 {
   using std::optional;
+  using std::vector;
   using z3::expr;
   using z3::expr_vector;
   using z3ext::solver::Witness;
@@ -97,9 +98,9 @@ namespace pdr
     extend();                               // reinstate level 1
 
     unsigned count = 0;
-    for (z3::expr_vector const& cube : old)
+    for (vector<expr> const& cube : old)
     {
-      if (SAT(0, cube))
+      if (SAT(0, z3ext::convert(cube)))
       {
 #warning todo/future work regeneralize cti from this cube (must be possible or counter)
         // TODO regeneralize cti from this cube (must be possible or counter)
@@ -112,7 +113,7 @@ namespace pdr
       }
     }
     IF_STATS({
-      log.stats.relax_copied_cubes_perc = (double) count / old.size() * 100.0;
+      log.stats.relax_copied_cubes_perc = (double)count / old.size() * 100.0;
     });
     MYLOG_DEBUG(log, "{} cubes carried over, out of {}", count, old.size());
     MYLOG_DEBUG(
@@ -168,19 +169,6 @@ namespace pdr
     return blocked;
   }
 
-  bool Frames::remove_state(z3::expr_vector const& cube, size_t level)
-  {
-    assert(level < frames.size());
-    // level = std::min(level, frames.size() - 1);
-    MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
-        z3ext::join_ev(cube));
-
-    log.indent++;
-    bool result = delta_remove_state(cube, level);
-    log.indent--;
-    return result;
-  }
-
   bool Frames::remove_state(std::vector<expr> const& cube, size_t level)
   {
     assert(level < frames.size());
@@ -194,31 +182,6 @@ namespace pdr
     return result;
   }
 
-  bool Frames::delta_remove_state(z3::expr_vector const& cube, size_t level)
-  {
-    for (unsigned i = 1; i <= level; i++)
-    {
-      // remove all blocked cubes that are equal or weaker than cube
-      unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
-      IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
-    }
-
-    assert(level > 0 && level < frames.size());
-#warning subsumes is now not automatic
-    if (frames[level].block(cube))
-    {
-      delta_solver.block(cube, act.at(level));
-      MYLOG_DEBUG(log, "blocked in {}", level);
-      return true;
-    }
-    else
-    {
-      MYLOG_DEBUG(log, "was already blocked in {}", level);
-    }
-
-    return false;
-  }
-
   bool Frames::delta_remove_state(std::vector<expr> const& cube, size_t level)
   {
     for (unsigned i = 1; i <= level; i++)
@@ -230,7 +193,7 @@ namespace pdr
 
     assert(level > 0 && level < frames.size());
 #warning TODO consider storing vectors of expr instead of expr_vectors
-    if (frames[level].block(z3ext::convert(cube)))
+    if (frames[level].block(cube))
     {
       delta_solver.block(cube, act.at(level));
       MYLOG_DEBUG(log, "blocked in {}", level);
@@ -275,7 +238,7 @@ namespace pdr
 
     unsigned count         = 0;
     z3ext::CubeSet blocked = frames.at(level).get_blocked();
-    for (z3::expr_vector const& cube : blocked)
+    for (std::vector<expr> const& cube : blocked)
     {
       if (!trans_source(level, cube))
       {
@@ -296,6 +259,8 @@ namespace pdr
 
   // queries
   //
+  // verifies if !cube is inductive relative to F_[frame]
+  // query: Fi & !cube & T /=> !cube'
   bool Frames::inductive(std::vector<z3::expr> const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
@@ -310,55 +275,31 @@ namespace pdr
     return true;
   }
 
-  // verifies if !cube is inductive relative to F_[frame]
-  // query: Fi & !cube & T /=> !cube'
-  bool Frames::inductive(z3::expr_vector const& cube, size_t frame)
-  {
-    MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
-
-    z3::expr clause =
-        z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
-    z3::expr_vector assumptions = model.vars.p(cube); // cube in next state
-    assumptions.push_back(clause);
-
-    if (SAT(frame, std::move(assumptions)))
-      return false; // there is a transition from !s to s'
-    return true;
-  }
-
-  std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
+  std::optional<vector<expr>> Frames::counter_to_inductiveness(
       std::vector<z3::expr> const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "get counter relative inductiveness, frame{}", frame);
 
     if (!inductive(cube, frame))
-      return get_solver(frame).witness_current();
-
-    return {};
-  }
-
-  std::optional<z3::expr_vector> Frames::counter_to_inductiveness(
-      z3::expr_vector const& cube, size_t frame)
-  {
-    if (!inductive(cube, frame))
-      return get_solver(frame).witness_current();
+      return get_solver(frame).std_witness_current();
 
     return {};
   }
 
   // if primed: cube is already in next state, else first convert it
   bool Frames::trans_source(
-      size_t frame, z3::expr_vector const& dest_cube, bool primed)
+      size_t frame, vector<expr> const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "check transition source, frame{}", frame);
     if (!primed) // cube is in current, bring to next
       return SAT(frame, model.vars.p(dest_cube));
 
-    return SAT(frame, dest_cube); // there is a transition from Fi to s'
+    return SAT(frame,
+        z3ext::convert(dest_cube)); // there is a transition from Fi to s'
   }
 
   std::optional<Witness> Frames::get_trans_source(
-      size_t frame, z3::expr_vector const& dest_cube, bool primed)
+      size_t frame, vector<expr> const& dest_cube, bool primed)
   {
     MYLOG_TRACE(log, "get transition source, frame{}", frame);
 
@@ -366,13 +307,13 @@ namespace pdr
       if (!SAT(frame, model.vars.p(dest_cube)))
         return {};
 
-    if (!SAT(frame, dest_cube))
+    if (!SAT(frame, z3ext::convert(dest_cube)))
       return {};
 
     // else there exists a source -T-> dest'
-    expr_vector curr = get_solver(frame).witness_current();
-    expr_vector next =
-        get_solver(frame).filter_witness(get_solver(frame).get_model(),
+    vector<expr> curr = get_solver(frame).std_witness_current();
+    vector<expr> next =
+        get_solver(frame).filter_witness_vector(get_solver(frame).get_model(),
             [this](const expr l) { return model.vars.lit_is_p(l); });
     return Witness(curr, next);
   }
@@ -396,7 +337,6 @@ namespace pdr
 
     MYLOG_TRACE(log, "SAT-query: F_0..F_{} & T", frame);
 
-    Solver& solver = get_solver(frame);
     if (frame > 0)
     {
       assert(frames.size() == act.size());
@@ -408,7 +348,7 @@ namespace pdr
     MYLOG_TRACE(
         log, "assumptions: [ {} ]", z3ext::join_expr_vec(assumptions, false));
 
-    bool result = solver.SAT(assumptions);
+    bool result = get_solver(frame).SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
     IF_STATS(log.stats.solver_calls.add(frontier(), diff.count()));
 

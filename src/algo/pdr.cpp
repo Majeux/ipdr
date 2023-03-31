@@ -118,14 +118,14 @@ namespace pdr
     if (frames.init_solver.check(ts.n_property))
     {
       MYLOG_INFO(logger, "I =/> P");
-      return PdrResult::found_trace(ts.get_initial());
+      return PdrResult::found_trace(z3ext::convert(ts.get_initial()));
     }
 
     if (frames.SAT(0, ts.n_property.p()))
     { // there is a transitions from I to !P
       MYLOG_INFO(logger, "I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
-      return PdrResult::found_trace(bad_cube);
+      return PdrResult::found_trace(z3ext::convert(bad_cube));
     }
 
     frames.extend();
@@ -146,7 +146,7 @@ namespace pdr
     {
       log_iteration();
       while (optional<Witness> witness =
-                 frames.get_trans_source(k, ts.n_property.p(), true))
+                 frames.get_trans_source(k, ts.n_property.p_vec(), true))
       {
         // cti is an F_i state that leads to a violation
         log_cti(witness->curr, k);
@@ -155,7 +155,7 @@ namespace pdr
         PdrResult res = block(std::move(witness->curr), k - 1);
         if (not res)
         {
-          res.append_final(witness->next);
+          res.append_final(z3ext::convert(witness->next));
           return res;
         }
 
@@ -175,7 +175,7 @@ namespace pdr
     }
   }
 
-  PdrResult PDR::block(expr_vector&& cti, unsigned n)
+  PdrResult PDR::block(std::vector<z3::expr>&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.indented("eliminate predecessors");
@@ -200,7 +200,7 @@ namespace pdr
       log_top_obligation(obligations.size(), n, state->cube);
 
       // !state -> state
-      if (optional<expr_vector> pred_cube =
+      if (optional<std::vector<z3::expr>> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
         shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
@@ -226,8 +226,8 @@ namespace pdr
           return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core.value(), m);
-        frames.remove_state(smaller_state, m + 1);
+        generalize(core.value(), m);
+        frames.remove_state(core.value(), m + 1);
         obligations.erase(obligations.begin());
 
         if (static_cast<unsigned>(m + 1) <= k)
@@ -247,6 +247,7 @@ namespace pdr
     logger.indent--;
     return PdrResult::empty_true();
   }
+
   void PDR::store_frame_strings()
   {
     using std::endl;

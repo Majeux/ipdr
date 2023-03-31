@@ -63,7 +63,7 @@ namespace pdr
     // assumptions the resulting vector or expr_vector is in sorted order
     // assumes a core is only extracted once
     // ! result is sorted
-    z3::expr_vector unsat_core() const;
+    std::vector<z3::expr> unsat_core() const;
     // template UnaryPredicate: function expr->bool to filter literals from
     // the core template Transform: function expr->expr. each literal is
     // replaced by result before pushing
@@ -152,25 +152,25 @@ namespace pdr
     return v;
   }
 
-  template <typename UnaryPredicate, typename Transform>
-  z3::expr_vector Solver::unsat_core(UnaryPredicate filter, Transform transform)
-  {
-    z3::expr_vector full_core = unsat_core();
+  // template <typename UnaryPredicate, typename Transform>
+  // z3::expr_vector Solver::unsat_core(UnaryPredicate filter, Transform transform)
+  // {
+  //   z3::expr_vector full_core = unsat_core();
 
-    if (full_core.size() == 0)
-      return full_core;
+  //   if (full_core.size() == 0)
+  //     return full_core;
 
-    std::vector<z3::expr> core;
-    core.reserve(full_core.size());
-    for (const z3::expr& e : full_core)
-    {
-      if (filter(e))
-        core.push_back(transform(e));
-    }
+  //   std::vector<z3::expr> core;
+  //   core.reserve(full_core.size());
+  //   for (const z3::expr& e : full_core)
+  //   {
+  //     if (filter(e))
+  //       core.push_back(transform(e));
+  //   }
 
-    z3ext::order_lits(core);
+  //   z3ext::order_lits(core);
 
-    return z3ext::convert(core);
-  }
+  //   return z3ext::convert(core);
+  // }
 } // namespace pdr
 #endif // SOLVER_H

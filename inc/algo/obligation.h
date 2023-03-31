@@ -15,14 +15,14 @@ namespace pdr
   class PdrState
   {
    public:
-    z3::expr_vector cube;
+    std::vector<z3::expr> cube;
     std::shared_ptr<PdrState> prev; // store predecessor for trace
 
-    PdrState(const z3::expr_vector& e);
-    PdrState(const z3::expr_vector& e, std::shared_ptr<PdrState> s);
+    PdrState(const std::vector<z3::expr>& e);
+    PdrState(const std::vector<z3::expr>& e, std::shared_ptr<PdrState> s);
     // move constructors
-    PdrState(z3::expr_vector&& e);
-    PdrState(z3::expr_vector&& e, std::shared_ptr<PdrState> s);
+    PdrState(std::vector<z3::expr>&& e);
+    PdrState(std::vector<z3::expr>&& e, std::shared_ptr<PdrState> s);
 
     unsigned show(TextTable& table) const;
 
@@ -35,7 +35,7 @@ namespace pdr
     std::shared_ptr<PdrState> state;
     unsigned depth;
 
-    Obligation(unsigned k, z3::expr_vector&& cube, unsigned d);
+    Obligation(unsigned k, std::vector<z3::expr>&& cube, unsigned d);
 
     Obligation(unsigned k, const std::shared_ptr<PdrState>& s, unsigned d);
 

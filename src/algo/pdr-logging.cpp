@@ -22,7 +22,7 @@ namespace pdr
     MYLOG_INFO(logger, SEP3);
   }
 
-  void PDR::log_cti(const z3::expr_vector& cti, unsigned level)
+  void PDR::log_cti(const std::vector<z3::expr>& cti, unsigned level)
   {
     (void)cti; // ignore unused warning when logging is off
     MYLOG_DEBUG(logger, SEP2);
@@ -38,7 +38,7 @@ namespace pdr
   }
 
   void PDR::log_top_obligation(
-      size_t queue_size, unsigned top_level, const z3::expr_vector& top)
+      size_t queue_size, unsigned top_level, const std::vector<z3::expr>& top)
   {
     (void)queue_size; // ignore unused warning when logging is off
     (void)top_level;  // ignore unused warning when logging is off
@@ -51,7 +51,7 @@ namespace pdr
     logger.indent--;
   }
 
-  void PDR::log_pred(const z3::expr_vector& p)
+  void PDR::log_pred(const std::vector<z3::expr>& p)
   {
     (void)p; // ignore unused warning when logging is off
     MYLOG_DEBUG(logger, "predecessor:");
@@ -67,7 +67,7 @@ namespace pdr
     MYLOG_DEBUG(logger, "push predecessor to level {}", frame);
   }
 
-  void PDR::log_finish(const z3::expr_vector& s)
+  void PDR::log_finish(const std::vector<z3::expr>& s)
   {
     (void)s; // ignore unused warning when logging is off
     MYLOG_DEBUG(logger, "finishing state");

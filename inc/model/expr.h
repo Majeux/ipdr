@@ -129,6 +129,7 @@ namespace mysat::primed
     operator z3::expr_vector const&() const override;
     z3::expr_vector const& operator()() const override;
     z3::expr_vector const& p() const override;
+    std::vector<z3::expr> p_vec() const;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 

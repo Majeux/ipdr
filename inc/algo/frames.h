@@ -61,9 +61,7 @@ namespace pdr
     // reset solvers and repopulate with current blocked cubes
     void repopulate_solvers();
 
-    bool remove_state(const z3::expr_vector& cube, size_t level);
     bool remove_state(const std::vector<z3::expr>& cube, size_t level);
-    bool delta_remove_state(const z3::expr_vector& cube, size_t level);
     bool delta_remove_state(const std::vector<z3::expr>& cube, size_t level);
     std::optional<size_t> propagate();
     std::optional<size_t> propagate(size_t k);
@@ -71,18 +69,15 @@ namespace pdr
 
     // returns if the clause of the given cube is inductive relative to F_frame
     bool inductive(const std::vector<z3::expr>& cube, size_t frame);
-    bool inductive(const z3::expr_vector& cube, size_t frame);
-    std::optional<z3::expr_vector> counter_to_inductiveness(
+    std::optional<std::vector<z3::expr>> counter_to_inductiveness(
         const std::vector<z3::expr>& cube, size_t frame);
-    std::optional<z3::expr_vector> counter_to_inductiveness(
-        const z3::expr_vector& cube, size_t frame);
 
     // returns if there exists a transition from frame to cube,
     // allows collection of witness from solver(frame) if true.
-    bool trans_source(
-        size_t frame, const z3::expr_vector& dest_cube, bool primed = false);
-    std::optional<z3ext::solver::Witness> get_trans_source(
-        size_t frame, const z3::expr_vector& dest_cube, bool primed = false);
+    bool trans_source(size_t frame, const std::vector<z3::expr>& dest_cube,
+        bool primed = false);
+    std::optional<z3ext::solver::Witness> get_trans_source(size_t frame,
+        const std::vector<z3::expr>& dest_cube, bool primed = false);
 
     // Solver calls (non-modifying)
     //

@@ -223,6 +223,7 @@ namespace mysat::primed
   ExpVec::operator const expr_vector&() const { return current; }
   const expr_vector& ExpVec::operator()() const { return current; }
   const expr_vector& ExpVec::p() const { return next; }
+  std::vector<z3::expr> ExpVec::p_vec() const { return z3ext::convert(next); }
 
   vector<string> ExpVec::names() const { return extract_names(current); }
   vector<string> ExpVec::names_p() const { return extract_names(next); }

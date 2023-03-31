@@ -17,40 +17,21 @@ namespace pdr
 {
   using z3::expr;
   using z3::expr_vector;
+  using std::vector;
 
   Frame::Frame(unsigned i) : level(i) {}
 
-  bool Frame::blocked(const expr_vector& cube)
-  {
-    for (const expr_vector& blocked_cube : blocked_cubes)
-    {
-      if (z3ext::subsumes_l(blocked_cube, cube))
-      {
-        return true; // equal or stronger clause found
-      }
-    }
-    return false;
-  }
-
-  unsigned Frame::remove_subsumed(
-      const expr_vector& cube, bool remove_equal)
-  {
-    unsigned before = blocked_cubes.size();
-
-    auto subsumes = [remove_equal](
-                        const expr_vector& l, const expr_vector& r) {
-      return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
-    };
-
-    for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
-    {
-      if (subsumes(cube, *it))
-        it = blocked_cubes.erase(it);
-      else
-        it++;
-    }
-    return before - blocked_cubes.size();
-  }
+  // bool Frame::blocked(const expr_vector& cube)
+  // {
+  //   for (const expr_vector& blocked_cube : blocked_cubes)
+  //   {
+  //     if (z3ext::subsumes_l(blocked_cube, cube))
+  //     {
+  //       return true; // equal or stronger clause found
+  //     }
+  //   }
+  //   return false;
+  // }
 
   unsigned Frame::remove_subsumed(
       const std::vector<expr>& cube, bool remove_equal)
@@ -58,7 +39,7 @@ namespace pdr
     unsigned before = blocked_cubes.size();
 
     auto subsumes = [remove_equal](
-                        const std::vector<expr>& l, const expr_vector& r) {
+                        const std::vector<expr>& l, const std::vector<expr>& r) {
       return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
     };
 
@@ -77,7 +58,7 @@ namespace pdr
   // cube is sorted by id()
   // block cube unless it, or a stronger version, is already blocked
   // TODO redundant, make void or make useful
-  bool Frame::block(const expr_vector& cube)
+  bool Frame::block(vector<expr> const& cube)
   {
     return blocked_cubes.insert(cube).second;
   }
@@ -107,12 +88,12 @@ namespace pdr
     return true;
   }
 
-  std::vector<expr_vector> Frame::diff(const Frame& f) const
+  std::vector<vector<expr>> Frame::diff(const Frame& f) const
   {
-    std::vector<expr_vector> out;
+    vector<vector<expr>> out;
     std::set_difference(blocked_cubes.begin(), blocked_cubes.end(),
         f.blocked_cubes.begin(), f.blocked_cubes.end(), std::back_inserter(out),
-        z3ext::expr_vector_less());
+        z3ext::std_expr_vector_less());
     return out;
   }
 
@@ -122,7 +103,7 @@ namespace pdr
   std::string Frame::blocked_str() const
   {
     std::string str(fmt::format("blocked cubes level {}\n", level));
-    for (const expr_vector& e : blocked_cubes)
+    for (vector<expr> const& e : blocked_cubes)
       str += fmt::format("- {}\n", z3ext::join_ev(e, " & "));
 
     return str;

@@ -30,14 +30,13 @@ namespace pdr
       public:
         Frame(unsigned i);
 
-        unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
         unsigned remove_subsumed(const std::vector<z3::expr>& cube, bool remove_equal);
-        bool blocked(const z3::expr_vector& cube);
-        bool block(const z3::expr_vector& cube);
+        // bool blocked(const z3::expr_vector& cube);
+        bool block(std::vector<z3::expr> const& cube);
 
         // Frame comparisons
         bool equals(const Frame& f) const;
-        std::vector<z3::expr_vector> diff(const Frame& f) const;
+        std::vector<std::vector<z3::expr>> diff(const Frame& f) const;
 
         // getters
         const z3ext::CubeSet& get_blocked() const;
