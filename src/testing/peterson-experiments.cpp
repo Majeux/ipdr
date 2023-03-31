@@ -62,7 +62,8 @@ namespace pdr::peterson::experiments
       cout << format("{}: {}", i, seeds[i]) << endl;
       // new context with new random seed
       z3::context z3_ctx;
-      pdr::Context ctx(z3_ctx, seeds[i]);
+      pdr::Context ctx(z3_ctx, args);
+      ctx.seed = seeds[i];
 
       PetersonModel ts(z3_ctx, ts_descr.start, ts_descr.max);
 

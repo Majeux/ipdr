@@ -134,19 +134,28 @@ namespace pdr
           PebblingModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPebblingResult run(Tactic tactic, bool control = false);
+      IpdrPebblingResult run(Tactic tactic);
       // runs the optimizer as dictated by the argument but with forced
-      // experiment_control
+      // control run (basic_reset only)
       IpdrPebblingResult control_run(Tactic tactic);
       IpdrPebblingResult relax(bool control);
       IpdrPebblingResult constrain(bool control);
+      IpdrPebblingResult binary(bool control);
       IpdrPebblingResult relax_jump_test(unsigned start, int step);
 
      private:
       PebblingModel& ts; // same instance as the IModel in alg
       std::optional<unsigned> starting_pebbles;
+      bool control_setting;
 
       void basic_reset(unsigned pebbles);
+      // TODO: partial constraint strategy georg
+      // If a cube cannot be propagated from a constraint p to p+1
+      // Add "cube \land __le_p__" where "atmost(p) \land atmost(p)' <=> __le_p__"
+      // This cube was already inductive under this lower constraint, so now 
+      // the exact same ctis are not rediscovered
+      //  note: subsumption still works as normal? a more specific (subcube)
+      //  subsumes the larger
       void relax_reset(unsigned pebbles);
       std::optional<size_t> constrain_reset(unsigned pebbles);
     }; // class Optimizer
@@ -161,10 +170,9 @@ namespace pdr
           PetersonModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes,
-          bool control = false);
+      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes);
       // runs the optimizer as dictated by the argument but with forced
-      // experiment_control
+      // experiment_control (basic_reset only)
       IpdrPetersonResult control_run(Tactic tactic, unsigned processes);
       IpdrPetersonResult relax(unsigned processes, bool control);
       IpdrPetersonResult relax_jump_test(unsigned start, int step);
@@ -173,6 +181,7 @@ namespace pdr
      private:
       // PDR alg; from vIPDR
       PetersonModel& ts; // same instance as the IModel in alg
+      bool control_setting;
 
       void basic_reset(unsigned processes);
       void relax_reset(unsigned processes);

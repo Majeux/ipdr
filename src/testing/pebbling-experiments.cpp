@@ -65,7 +65,7 @@ namespace pdr::pebbling::experiments
       std::optional<unsigned> optimum;
       // new context with new random seed
       z3::context z3_ctx;
-      pdr::Context ctx(z3_ctx, seeds[i]);
+      pdr::Context ctx(z3_ctx, args, seeds[i]);
 
       dag::Graph G = model_t::make_graph(ts_descr.src);
       PebblingModel ts(args, z3_ctx, G);
@@ -151,6 +151,22 @@ namespace pdr::pebbling::experiments
     return { "min strat length", fmt::to_string(min_strat->length) };
   }
 
+  namespace  
+  {
+    size_t n_rows(tabulate::Table& t)
+    {
+      size_t rows{ 0 };
+      auto it = t.begin();
+      while (it != t.end())
+      {
+        rows++;
+        ++it;
+      }
+      
+      return rows;
+    }
+  } // namespace 
+
   tabulate::Table PebblingRun::make_table() const
   {
     tabulate::Table t;
@@ -181,14 +197,8 @@ namespace pdr::pebbling::experiments
         t.add_row({});
       }
     }
-    size_t rows{ 0 };
-    auto it = t.begin();
-    while (it != t.end())
-    {
-      rows++;
-      ++it;
-    }
-    assert(rows == 7); // n_rows == 7
+    assert(n_rows(t) == 7); // n_rows == 7
+
     return t;
   }
 
@@ -266,7 +276,8 @@ namespace pdr::pebbling::experiments
       throw std::invalid_argument(
           "combined_listing expects a PebblingRun const&");
     }
-    assert(t.shape().first == 7); // n_rows == 4
+    assert(n_rows(t) == 7); // n_rows == 7
+
     return t;
   }
 } // namespace pdr::pebbling::experiments

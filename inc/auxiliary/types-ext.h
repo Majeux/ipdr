@@ -10,18 +10,18 @@
 
 namespace my
 {
-  namespace optional 
+  namespace optional
   {
-    template <typename T>
-    std::string to_string(std::optional<T> const& opt)
+    template <typename T> std::string to_string(std::optional<T> const& opt)
     {
       std::stringstream ss;
       ss << "{ ";
-      if (opt) ss << *opt;
+      if (opt)
+        ss << *opt;
       ss << " }";
       return ss.str();
     }
-  }
+  } // namespace optional
   namespace variant
   {
     // gets a reference to an alternative T if the variant holds it, or an empty
@@ -48,6 +48,18 @@ namespace my
         return {};
       return std::cref(*rv);
     }
+
+    // (https://en.cppreference.com/w/cpp/utility/variant/visit)
+    // helper type for std::visitor
+    // allows packaging of lambdas without creating a functor struct:
+    // visitor { lambda1, lambda2, ... }
+    template <class... Ts> struct visitor : Ts...
+    {
+      using Ts::operator()...;
+    };
+    // explicit deduction guide (not needed as of C++20)
+    template <class... Ts> visitor(Ts...) -> visitor<Ts...>;
+
   } // namespace variant
 } // namespace my
 

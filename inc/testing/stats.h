@@ -17,41 +17,67 @@
 
 namespace pdr
 {
+  struct Average
+  {
+    double total{ 0.0 };
+    size_t count{ 0 };
+
+    void add(double value)
+    {
+      total += value;
+      count++;
+    }
+
+    operator double() const { return get(); }
+    double get() const { return total / count; }
+
+    void clear()
+    {
+      total = 0;
+      count = 0;
+    }
+  };
+
   struct Statistic
   {
-    const bool timed;
-
     unsigned total_count = 0;
     std::vector<unsigned> count;
 
-    std::optional<double> total_time = 0.0;
-    std::vector<double> time;
-
-    Statistic(bool t = false);
-
-    void clear();
+    virtual void clear();
     void add(size_t i, size_t amount = 1);
-    void add_timed(size_t i, double dt);
-    std::optional<double> avg_time(size_t i) const;
 
     friend std::ostream& operator<<(std::ostream& out, Statistic const& stat);
+  };
+
+  struct TimedStatistic : private Statistic
+  {
+    double total_time = 0.0;
+    std::vector<double> times;
+
+    void clear() override;
+    void add(size_t i, double dt);
+
+    std::optional<double> avg_time(size_t i) const;
+
+    friend std::ostream& operator<<(
+        std::ostream& out, TimedStatistic const& stat);
   };
 
   class Statistics
   {
    public:
-    Statistic solver_calls;
-    Statistic propagation_it;
-    Statistic propagation_level;
-    Statistic obligations_handled;
-
     Statistic ctis;
+    TimedStatistic solver_calls;
+    TimedStatistic propagation_it;
+    TimedStatistic propagation_level;
+    TimedStatistic obligations_handled;
+    TimedStatistic generalization;
+    Average generalization_reduction;
+    Average mic_attempts;
+    unsigned mic_limit{ 0u };
     Statistic subsumed_cubes;
-    struct
-    {
-      unsigned count{ 0 };
-      unsigned total{ 0 };
-    } copied_cubes;
+
+    double relax_copied_cubes_perc;
 
     double elapsed = -1.0;
     std::vector<std::string> solver_dumps;
@@ -83,13 +109,6 @@ namespace pdr
 
     static inline const std::string PROC_STR = "processes";
     static inline const std::string N_STR    = "max_processes";
-
-    double compute_copied() const
-    {
-      if (copied_cubes.total != 0)
-        return 0;
-      return ((double)copied_cubes.count / copied_cubes.total) * 100.0;
-    }
   };
 } // namespace pdr
 #endif // STATS_H

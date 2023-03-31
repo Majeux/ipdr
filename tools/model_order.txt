@@ -1,5 +1,5 @@
-ham3tc
 rd32
+ham3tc
 mod5d1
 gf2^3mult_11_47
 4b15g_1

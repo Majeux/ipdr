@@ -51,7 +51,8 @@ namespace pdr::test::experiments
       std::optional<unsigned> optimum;
       // new context with new random seed
       z3::context z3_ctx;
-      pdr::Context ctx(z3_ctx, seeds[i]);
+      pdr::Context ctx(z3_ctx, args);
+      ctx.seed = seeds[i];
 
       dag::Graph G = model_t::make_graph(ts_descr.src);
       Z3PebblingModel ts(args, z3_ctx, G);

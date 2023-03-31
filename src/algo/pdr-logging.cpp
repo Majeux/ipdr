@@ -26,7 +26,7 @@ namespace pdr
   {
     (void)cti; // ignore unused warning when logging is off
     MYLOG_DEBUG(logger, SEP2);
-    logger.stats.ctis.add(level);
+    IF_STATS(logger.stats.ctis.add(level);)
     MYLOG_DEBUG(logger, "cti at frame {}", level);
     MYLOG_DEBUG(logger, "[{}]", join_ev(cti));
   }
@@ -34,11 +34,11 @@ namespace pdr
   void PDR::log_propagation(unsigned level, double time)
   {
     MYLOG_INFO(logger, "Propagation elapsed {}", time);
-    logger.stats.propagation_it.add_timed(level, time);
+    IF_STATS(logger.stats.propagation_it.add(level, time);)
   }
 
-  void PDR::log_top_obligation(size_t queue_size, unsigned top_level,
-                               const z3::expr_vector& top)
+  void PDR::log_top_obligation(
+      size_t queue_size, unsigned top_level, const z3::expr_vector& top)
   {
     (void)queue_size; // ignore unused warning when logging is off
     (void)top_level;  // ignore unused warning when logging is off
@@ -78,7 +78,10 @@ namespace pdr
 
   void PDR::log_obligation_done(std::string_view type, unsigned l, double time)
   {
-    logger.stats.obligations_handled.add_timed(l, time);
+    (void)type;
+    (void)l;
+    (void)time;
+    IF_STATS(logger.stats.obligations_handled.add(l, time);)
     MYLOG_DEBUG_SHOW(logger, "Obligation {} elapsed {}", type, time);
   }
 } // namespace pdr

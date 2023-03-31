@@ -151,7 +151,7 @@ namespace pdr
   }
 
   template <typename UnaryPredicate, typename Transform>
-  z3::expr_vector Solver::unsat_core(UnaryPredicate p, Transform t)
+  z3::expr_vector Solver::unsat_core(UnaryPredicate filter, Transform transform)
   {
     z3::expr_vector full_core = unsat_core();
 
@@ -162,8 +162,8 @@ namespace pdr
     core.reserve(full_core.size());
     for (const z3::expr& e : full_core)
     {
-      if (p(e))
-        core.push_back(t(e));
+      if (filter(e))
+        core.push_back(transform(e));
     }
 
     z3ext::order_lits(core);

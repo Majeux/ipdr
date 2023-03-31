@@ -1,4 +1,5 @@
 option(DO_LOG "Produce logs in logs/ folder" OFF)
+option(DO_STATS "Collect statistics vor pdr" OFF)
 option(DEBUG "turn off O3 and turn on assertions" OFF)
 option(PROFILE "gather information for perf" OFF)
 # UNIT TEST OPTIONS BUILD_TESTINg: Catch2 testing. default ON
@@ -75,6 +76,14 @@ if(DO_LOG)
 else()
   message(STATUS "! logging turned off")
 endif(DO_LOG)
+
+if(DO_STATS)
+  target_compile_definitions(pebbling-pdr PRIVATE STATS)
+  target_compile_definitions(pebbling-pdr PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
+  message(STATUS "! logging turned on")
+else()
+  message(STATUS "! logging turned off")
+endif(DO_STATS)
 
 target_include_directories(
   pebbling-pdr

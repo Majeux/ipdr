@@ -18,10 +18,8 @@ namespace pdr
       expr_vector transition, expr_vector constraint)
       : vars(m.vars), internal_solver(ctx)
   {
-    internal_solver.set("sat.cardinality.solver", true);
-#warning TODO sat.core.minimize
-    internal_solver.set("cardinality.solver", true);
     internal_solver.set("sat.random_seed", ctx.seed);
+    internal_solver.set("sat.cardinality.solver", true);
     // consecution_solver.set("lookahead_simplify", true);
     remake(base, transition, constraint);
   }
@@ -106,7 +104,7 @@ namespace pdr
   // TODO optional return
   expr_vector Solver::unsat_core() const
   {
-    if(state != SolverState::core_available)
+    if (state != SolverState::core_available)
       throw InvalidExtraction(state);
 
     expr_vector core = internal_solver.unsat_core();
@@ -117,7 +115,7 @@ namespace pdr
 
   vector<expr> Solver::std_witness_current() const
   {
-    if(state != SolverState::witness_available)
+    if (state != SolverState::witness_available)
       throw InvalidExtraction(state);
 
     z3::model m = internal_solver.get_model();
@@ -155,7 +153,7 @@ namespace pdr
     using z3ext::join_ev;
     using z3ext::lit_less;
 
-    if(state != SolverState::witness_available)
+    if (state != SolverState::witness_available)
       throw InvalidExtraction(state);
 
     assert(z3ext::lits_ordered(ev));
@@ -183,10 +181,13 @@ namespace pdr
           literal = !var;
         else
           throw InvalidExtraction::NonConstant(boolean_value);
-      
-        // search for 
-        if (std::binary_search(ev.begin(), ev.end(), literal, z3ext::cube_orderer))
+
+        // search for
+        if (std::binary_search(
+                ev.begin(), ev.end(), literal, z3ext::cube_orderer))
+        {
           std_vec.push_back(literal);
+        }
       }
     }
 

@@ -1,11 +1,13 @@
 #!/bin/bash
 # use: ./run_experiments.sh [sample size] [subfolder]
-# ./pebbling-pdr --delta --dir=./benchmark/rls/tfc/small --tfc=mod5d1 --optimize=dec --experiment=3 -s
+# ./pebbling-pdr --dir=./benchmark/rls/tfc/ --tfc=ham7tc --algo=ipdr --inc=binary_search --pebbling
 bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
-Z3="--z3pdr"
+MODE="pebbling ipdr experiment"
+INC="--inc=relax"
+Z3=""
 
 if [ $# -eq 0 ]
 then
@@ -25,10 +27,10 @@ do
 		echo -e "Running experiment for $filename\n"
 		folder="--dir=$BENCHMARKS"
 		model="--tfc=$m"
-		exp="--experiment=$sample"
+		its="--iterations=$sample"
 		# exp=""
 
-		command="$EXEC --silent --algo=ipdr --pebbling $Z3 $folder $model $exp"
+		command="$EXEC $MODE $INC --silent --tseytin $Z3 $folder $model $its"
 
 		echo "${bold}$command${normal}"
 		$command

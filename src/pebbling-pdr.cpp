@@ -86,9 +86,7 @@ int main(int argc, char* argv[])
   }
 
   z3::context ctx;
-  pdr::Context context = std::holds_alternative<bool>(args.r_seed)
-                           ? pdr::Context(ctx, std::get<bool>(args.r_seed))
-                           : pdr::Context(ctx, std::get<unsigned>(args.r_seed));
+  pdr::Context context(ctx, args);
 
   if (std::holds_alternative<algo::t_PDR>(args.algorithm))
     handle_pdr(args, std::move(context), logger);
@@ -162,20 +160,10 @@ ModelVariant construct_model(
   return peter;
 }
 
-// (https://en.cppreference.com/w/cpp/utility/variant/visit)
-// helper type for std::visitor
-// allows packaging of lambdas without creating a functor struct:
-// visitor { lambda1, lambda2, ... }
-template <class... Ts> struct visitor : Ts...
-{
-  using Ts::operator()...;
-};
-// explicit deduction guide (not needed as of C++20)
-template <class... Ts> visitor(Ts...) -> visitor<Ts...>;
-
 void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 {
   using namespace pdr;
+  using my::variant::visitor;
   using std::endl;
 
   using PDRVariant = std::variant<PDR, test::z3PDR>;
@@ -216,13 +204,13 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 {
   using namespace pdr;
+  using namespace my::variant;
   using std::endl;
   using IPDRVariant =
       std::variant<test::z3PebblingIPDR, pebbling::IPDR, peterson::IPDR>;
   using ResultVariant =
       std::variant<pebbling::IpdrPebblingResult, peterson::IpdrPetersonResult>;
 
-  using my::variant::get_cref;
   auto const& ipdr = get_cref<algo::t_IPDR>(args.algorithm)->get();
 
   ModelVariant model(construct_model(args, context, log));
@@ -240,18 +228,14 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       model));
 
-  // pebbling::IPDR test_a(args, context, log,
-  // std::get<pebbling::PebblingModel>(model)); ResultVariant result =
-  // test_a.run(ipdr.type, false);
-
   ResultVariant result(std::visit(
       visitor{
           [&](test::z3PebblingIPDR& a) -> ResultVariant
           { return a.control_run(ipdr.type); },
           [&](pebbling::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type, false); },
+          { return a.run(ipdr.type); },
           [&](peterson::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type, {}, false); },
+          { return a.run(ipdr.type, {}); },
       },
       algorithm));
 
@@ -275,27 +259,28 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       algorithm);
 }
 
+#include <dbg.h>
+
 void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
-  using std::make_unique;
-  using std::unique_ptr;
   using namespace pdr;
+  using namespace my::variant;
   using pdr::pebbling::PebblingModel;
   using pdr::pebbling::experiments::PebblingExperiment;
   using pdr::peterson::PetersonModel;
   using pdr::peterson::experiments::PetersonExperiment;
   using pdr::test::Z3PebblingModel;
   using pdr::test::experiments::Z3PebblingExperiment;
+  using std::make_unique;
+  using std::unique_ptr;
 
   using GeneralExperimentPtr = unique_ptr<experiments::Experiment>;
-
-  using my::variant::get_cref;
 
   GeneralExperimentPtr experiment = [&]() -> GeneralExperimentPtr
   {
     if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
     {
-      if (args.z3pdr)
+      if (dbg(args.z3pdr))
       {
         return make_unique<Z3PebblingExperiment>(args, log);
       }
