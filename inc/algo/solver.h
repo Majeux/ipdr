@@ -63,7 +63,7 @@ namespace pdr
     // assumptions the resulting vector or expr_vector is in sorted order
     // assumes a core is only extracted once
     // ! result is sorted
-    std::vector<z3::expr> unsat_core() const;
+    std::vector<z3::expr> raw_unsat_core() const;
     // template UnaryPredicate: function expr->bool to filter literals from
     // the core template Transform: function expr->expr. each literal is
     // replaced by result before pushing

@@ -188,6 +188,7 @@ namespace pdr
     {
       // remove all blocked cubes that are equal or weaker than cube
       unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
+      (void)n_removed;
       IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
     }
 

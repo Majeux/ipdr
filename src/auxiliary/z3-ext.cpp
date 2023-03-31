@@ -191,7 +191,7 @@ namespace z3ext
     cube = convert(std::move(std_vec));
   }
 
-  vector<expr> order_lits_std(z3::expr_vector& cube)
+  vector<expr> order_lits_std(z3::expr_vector const& cube)
   {
     if (cube.size() == 0)
       return {};

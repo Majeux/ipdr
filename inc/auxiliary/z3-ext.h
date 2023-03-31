@@ -108,7 +108,7 @@ namespace z3ext
   inline expr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
-  std::vector<z3::expr> order_lits_std(z3::expr_vector& cube);
+  std::vector<z3::expr> order_lits_std(z3::expr_vector const& cube);
   bool lits_ordered(std::vector<z3::expr> const& cube);
 
   // TEMPLATE FUNCTIONS

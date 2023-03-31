@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <dbg.h>
 #include <fmt/core.h>
+#include <iterator>
 #include <spdlog/stopwatch.h>
 #include <vector>
 #include <z3++.h>
@@ -41,7 +42,7 @@ namespace pdr
         highest = i - 1; // previous was greatest inductive frame
         break;
       }
-      raw_core = frames.get_solver(i).unsat_core();
+      raw_core = frames.get_solver(i).raw_unsat_core();
     }
 
     MYLOG_DEBUG(logger, "highest inductive frame is {} / {}", highest,
@@ -61,8 +62,10 @@ namespace pdr
         if (ts.vars.lit_is_p(e))
           rv_core.push_back(ts.vars(e));
 
-      MYLOG_DEBUG(logger, "core @{}: [{}]", result.level,
-          rv_core ? z3ext::join_ev(rv_core) : "none");
+      z3ext::order_lits(rv_core);
+
+      MYLOG_DEBUG(
+          logger, "core @{}: [{}]", result.level, z3ext::join_ev(rv_core));
 
       // if I => !core, the subclause survives initiation and is inductive
       if (frames.init_solver.check(rv_core.size(), rv_core.data()) == z3::sat)
@@ -77,7 +80,10 @@ namespace pdr
       }
     }
     else
-      rv_core = cube; // no core produced
+    {
+      MYLOG_DEBUG(logger, "no core produced");
+      rv_core = cube;
+    }
 
     MYLOG_TRACE(logger, "new cube: [{}]", join_expr_vec(rv_core, false));
     return { result.level, rv_core };
@@ -97,26 +103,25 @@ namespace pdr
 
     IF_STATS({
       logger.stats.generalization.add(level, timer.elapsed().count());
-      double reduction = (s0 - smaller_cube.size()) / s0;
+      double reduction = (s0 - state.size()) / s0;
       logger.stats.generalization_reduction.add(reduction);
     });
     logger.indent--;
 
-    MYLOG_DEBUG(
-        logger, "generalization: {} -> {}", pre_size, state.size());
+    MYLOG_DEBUG(logger, "generalization: {} -> {}", pre_size, state.size());
     MYLOG_TRACE(logger, "final reduced cube = [{}]",
         join_expr_vec(smaller_cube, false));
   }
 
-// #define ctgmic true
-#define ctgmic false
+#define ctgmic true
+// #define ctgmic false
 
   void PDR::MIC(vector<expr>& cube, int level)
   {
     if (ctgmic)
     {
-      // MICctg(rv, level, 1);
-      // return rv;
+      MICctg(cube, level, 1);
+      return;
     }
 
     assert(level <= (int)frames.frontier());
@@ -273,7 +278,12 @@ namespace pdr
         else
         {
           ctgs = 0;
-          // TODO state = 
+          vector<expr> new_state;
+          assert(z3ext::lits_ordered(state));
+          assert(z3ext::lits_ordered(ctg));
+          std::set_intersection(state.cbegin(), state.cend(), ctg.cbegin(),
+              ctg.cend(), std::back_inserter(new_state), z3ext::cube_orderer);
+          state = new_state;
         }
 
         MYLOG_TRACE(logger, "state is not inductive");

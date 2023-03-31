@@ -114,14 +114,12 @@ namespace pdr
   z3::model Solver::get_model() const { return internal_solver.get_model(); }
 
   // TODO optional return
-  vector<expr> Solver::unsat_core() const
+  vector<expr> Solver::raw_unsat_core() const
   {
     if (state != SolverState::core_available)
       throw InvalidExtraction(state);
 
-    expr_vector core = internal_solver.unsat_core();
-    return z3ext::order_lits_std(core);
-
+    return z3ext::convert(internal_solver.unsat_core());
   }
 
   vector<expr> Solver::std_witness_current() const
