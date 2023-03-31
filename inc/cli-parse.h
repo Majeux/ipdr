@@ -134,6 +134,8 @@ namespace my::cli
     std::optional<Experiment> experiment;
     std::variant<bool, unsigned> r_seed;
     std::optional<unsigned> mic_retries;
+    std::optional<unsigned> ctg_max_depth;
+    std::optional<unsigned> ctg_max_counters;
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
     bool onlyshow; // only read in and produce the model image and description
     bool control_run;
@@ -204,7 +206,9 @@ namespace my::cli
     inline static const std::string s_whisper = "whisper";
     inline static const std::string s_silent  = "silent";
 
-    inline static const std::string s_mic = "mic-attempts";
+    inline static const std::string s_mic      = "mic-attempts";
+    inline static const std::string s_ctgdepth = "ctg-depth";
+    inline static const std::string s_ctgnum   = "max-ctgs";
   };
 } // namespace my::cli
 #endif // CLI_H

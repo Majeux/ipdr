@@ -183,6 +183,14 @@ namespace mysat::primed
     return rv;
   }
 
+  expr_vector VarVec::p(vector<expr> const& ev) const
+  {
+    expr_vector rv(ctx);
+    for (const expr& e : ev)
+      rv.push_back(p(e));
+    return rv;
+  }
+
   bool VarVec::lit_is_current(const z3::expr& e) const
   {
     expr key = strip_not(e);

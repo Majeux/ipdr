@@ -62,7 +62,9 @@ namespace pdr
     void repopulate_solvers();
 
     bool remove_state(const z3::expr_vector& cube, size_t level);
+    bool remove_state(const std::vector<z3::expr>& cube, size_t level);
     bool delta_remove_state(const z3::expr_vector& cube, size_t level);
+    bool delta_remove_state(const std::vector<z3::expr>& cube, size_t level);
     std::optional<size_t> propagate();
     std::optional<size_t> propagate(size_t k);
     void push_forward_delta(size_t level, bool repeat = false);

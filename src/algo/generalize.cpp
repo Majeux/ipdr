@@ -119,8 +119,18 @@ namespace pdr
     return smaller_cube;
   }
 
+// #define ctgmic true
+#define ctgmic false
+
   expr_vector PDR::MIC(const expr_vector& state, int level)
   {
+    if (ctgmic)
+    {
+      expr_vector rv = state;
+      // MICctg(rv, level, 1);
+      return rv;
+    }
+
     assert(level <= (int)frames.frontier());
     // used for sorting
     vector<expr> cube = z3ext::convert(state);
@@ -167,7 +177,7 @@ namespace pdr
     return z3ext::convert(cube);
   }
 
-  // state is sorted
+  // @state is sorted
   bool PDR::down(vector<expr>& state, int level)
   {
 
@@ -184,15 +194,107 @@ namespace pdr
       if (!frames.inductive(state, level))
       {
         MYLOG_TRACE(logger, "state is not inductive");
-        MYLOG_TRACE(logger, "intersect with witness");
         logger.indent++;
         state = frames.get_solver(level).witness_current_intersect(state);
         logger.indent--;
-        MYLOG_TRACE(
-            logger, "new intersected state -> [{}]", z3ext::join_ev(state));
+        MYLOG_TRACE(logger, "intersection witness and state: [{}]",
+            z3ext::join_ev(state));
       }
       else
         return true;
+    }
+    return false;
+  }
+
+  void PDR::MICctg(vector<expr>& cube, int level, unsigned depth)
+  {
+    assert(level <= (int)frames.frontier());
+
+    unsigned attempts{ 0u };
+    for (unsigned i{ 0 }; i < cube.size();)
+    {
+      assert(z3ext::lits_ordered(cube));
+      vector<expr> new_cube(cube.begin(), cube.begin() + i);
+      new_cube.reserve(cube.size() - 1);
+      new_cube.insert(new_cube.end(), cube.begin() + i + 1, cube.end());
+
+      MYLOG_TRACE(
+          logger, "verifying subcube [{}]", join_expr_vec(new_cube, false));
+
+      logger.indent++;
+      if (ctgdown(new_cube, level, depth))
+      {
+        MYLOG_TRACE(logger, "sub-cube survived");
+        MYLOG_TRACE(logger, "down-reduced cube ({} -> {}): [{}]", cube.size(),
+            new_cube.size(), join_expr_vec(new_cube));
+        // current literal was dropped, i now points to the next
+        cube = std::move(new_cube);
+      }
+      else
+      {
+        MYLOG_TRACE(logger, "sub-cube failed");
+        i++;
+      }
+      logger.indent--;
+
+      attempts++;
+      if (attempts >= ctx.mic_retries)
+      {
+        IF_STATS(logger.stats.mic_limit++;);
+        MYLOG_WARN(logger, "MIC exceeded {} attempts", ctx.mic_retries);
+        break;
+      }
+    }
+    IF_STATS(logger.stats.mic_attempts.add(attempts));
+  }
+
+  // @state is sorted
+  bool PDR::ctgdown(vector<expr>& state, int level, unsigned depth)
+  {
+    unsigned ctgs = 0;
+
+    while (true)
+    {
+      assert(z3ext::lits_ordered(state));
+      expr* const raw_state = state.data();
+      if (frames.init_solver.check(state.size(), raw_state) == z3::sat)
+      {
+        MYLOG_TRACE(logger, "state includes I");
+        return false;
+      }
+
+      if (frames.inductive(state, level))
+        return true;
+      else
+      {
+        if (depth > ctx.ctg_max_depth)
+          return false;
+
+        vector<expr> ctg = frames.get_solver(level).std_witness_current();
+
+        if (ctgs < ctx.ctg_max_counters && level > 0 &&
+            frames.init_solver.check(ctg.size(), ctg.data()) &&
+            frames.inductive(ctg, level - 1))
+        {
+          ctgs++;
+          assert(level >= 0);
+          size_t i;
+          for (i = level; i < frames.frontier(); i++)
+            if (!frames.inductive(ctg, i))
+              break;
+          MICctg(ctg, i - 1, depth + 1);
+          frames.remove_state(ctg, i);
+        }
+        else
+        {
+          ctgs = 0;
+          // TODO state = 
+        }
+
+        MYLOG_TRACE(logger, "state is not inductive");
+        MYLOG_TRACE(logger, "intersection witness and state: [{}]",
+            z3ext::join_ev(state));
+      }
     }
     return false;
   }

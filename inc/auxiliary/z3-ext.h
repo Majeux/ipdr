@@ -61,9 +61,11 @@ namespace z3ext
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_l(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool subsumes_l(const std::vector<z3::expr>& l, const z3::expr_vector& r);
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool subsumes_le(const std::vector<z3::expr>& l, const z3::expr_vector& r);
 
   bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
   bool quick_implies(const z3::expr_vector& l, const z3::expr_vector& r);

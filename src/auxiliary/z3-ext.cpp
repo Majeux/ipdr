@@ -205,7 +205,23 @@ namespace z3ext
     return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
   }
 
+  bool subsumes_l(vector<expr> const& l, expr_vector const& r)
+  {
+    if (l.size() >= r.size())
+      return false;
+
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+  }
+
   bool subsumes_le(expr_vector const& l, expr_vector const& r)
+  {
+    if (l.size() > r.size())
+      return false;
+
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+  }
+
+  bool subsumes_le(vector<expr> const& l, expr_vector const& r)
   {
     if (l.size() > r.size())
       return false;

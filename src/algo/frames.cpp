@@ -181,6 +181,19 @@ namespace pdr
     return result;
   }
 
+  bool Frames::remove_state(std::vector<expr> const& cube, size_t level)
+  {
+    assert(level < frames.size());
+    // level = std::min(level, frames.size() - 1);
+    MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
+        z3ext::join_ev(cube));
+
+    log.indent++;
+    bool result = delta_remove_state(cube, level);
+    log.indent--;
+    return result;
+  }
+
   bool Frames::delta_remove_state(z3::expr_vector const& cube, size_t level)
   {
     for (unsigned i = 1; i <= level; i++)
@@ -193,6 +206,31 @@ namespace pdr
     assert(level > 0 && level < frames.size());
 #warning subsumes is now not automatic
     if (frames[level].block(cube))
+    {
+      delta_solver.block(cube, act.at(level));
+      MYLOG_DEBUG(log, "blocked in {}", level);
+      return true;
+    }
+    else
+    {
+      MYLOG_DEBUG(log, "was already blocked in {}", level);
+    }
+
+    return false;
+  }
+
+  bool Frames::delta_remove_state(std::vector<expr> const& cube, size_t level)
+  {
+    for (unsigned i = 1; i <= level; i++)
+    {
+      // remove all blocked cubes that are equal or weaker than cube
+      unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
+      IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
+    }
+
+    assert(level > 0 && level < frames.size());
+#warning TODO consider storing vectors of expr instead of expr_vectors
+    if (frames[level].block(z3ext::convert(cube)))
     {
       delta_solver.block(cube, act.at(level));
       MYLOG_DEBUG(log, "blocked in {}", level);
@@ -260,11 +298,20 @@ namespace pdr
   //
   bool Frames::inductive(std::vector<z3::expr> const& cube, size_t frame)
   {
-    return inductive(z3ext::convert(cube), frame);
+    MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
+
+    z3::expr clause =
+        z3::mk_or(z3ext::negate(cube)); // negate cube via demorgan
+    z3::expr_vector assumptions = model.vars.p(cube); // cube in next state
+    assumptions.push_back(clause);
+
+    if (SAT(frame, std::move(assumptions)))
+      return false; // there is a transition from !s to s'
+    return true;
   }
 
   // verifies if !cube is inductive relative to F_[frame]
-  // query: Fi & !s & T /=> !s'
+  // query: Fi & !cube & T /=> !cube'
   bool Frames::inductive(z3::expr_vector const& cube, size_t frame)
   {
     MYLOG_TRACE(log, "check relative inductiveness, frame{}", frame);
@@ -275,10 +322,7 @@ namespace pdr
     assumptions.push_back(clause);
 
     if (SAT(frame, std::move(assumptions)))
-    { // there is a transition from !s to s'
-      return false;
-    }
-
+      return false; // there is a transition from !s to s'
     return true;
   }
 

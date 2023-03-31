@@ -104,6 +104,7 @@ namespace mysat::primed
     // convert expressions to and form current and next
     z3::expr_vector operator()(z3::expr_vector const& ev) const;
     z3::expr_vector p(z3::expr_vector const& ev) const;
+    z3::expr_vector p(std::vector<z3::expr> const& ev) const;
 
     bool lit_is_current(z3::expr const& e) const;
     bool lit_is_p(z3::expr const& e) const;

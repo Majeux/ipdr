@@ -31,6 +31,7 @@ namespace pdr
         Frame(unsigned i);
 
         unsigned remove_subsumed(const z3::expr_vector& cube, bool remove_equal);
+        unsigned remove_subsumed(const std::vector<z3::expr>& cube, bool remove_equal);
         bool blocked(const z3::expr_vector& cube);
         bool block(const z3::expr_vector& cube);
 

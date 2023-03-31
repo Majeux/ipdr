@@ -89,7 +89,9 @@ namespace pdr
     HIFresult highest_inductive_frame(z3::expr_vector const& cube, int min);
     z3::expr_vector generalize(z3::expr_vector const& cube, int level);
     z3::expr_vector MIC(z3::expr_vector const& cube, int level);
+    void MICctg(std::vector<z3::expr>& cube, int level, unsigned depth);
     bool down(std::vector<z3::expr>& cube, int level);
+    bool ctgdown(std::vector<z3::expr>& cube, int level, unsigned depth);
     // results
     void make_result(PdrResult& result);
     // to replace return value in run()

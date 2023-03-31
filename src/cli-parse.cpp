@@ -404,6 +404,10 @@ namespace my::cli
         value<bool>(onlyshow)->default_value("false"))
 
       (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. Unlimited by default.",
+       value<unsigned>(), "(uint:N)")
+      (s_ctgdepth, "Limit on the depth of CTGdown recursion. 1 by default.",
+       value<unsigned>(), "(uint:N)")
+      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. 5 by default.",
        value<unsigned>(), "(uint:N)");
 
     clopt.add_options("output-level")
@@ -536,6 +540,12 @@ namespace my::cli
 
     if (clresult[s_mic].count())
       mic_retries = clresult[s_mic].as<unsigned>();
+
+    if (clresult[s_ctgdepth].count())
+      ctg_max_depth = clresult[s_ctgdepth].as<unsigned>();
+
+    if (clresult[s_ctgnum].count())
+      ctg_max_counters = clresult[s_ctgnum].as<unsigned>();
 
     if (algo == s_pdr)
     {

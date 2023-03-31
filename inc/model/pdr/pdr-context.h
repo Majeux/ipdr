@@ -22,6 +22,8 @@ namespace pdr
     // in PDR::MIC if mic fails to reduce a clause this many times, consider the
     // current clause sufficient
     uint32_t mic_retries;
+    uint32_t ctg_max_depth;
+    uint32_t ctg_max_counters;
 
     Context(z3::context& c, my::cli::ArgumentList const& args);
     // override seed value

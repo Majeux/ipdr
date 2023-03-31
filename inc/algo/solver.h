@@ -22,6 +22,54 @@ namespace pdr
 
   class Solver
   {
+   public:
+    Solver(Context& ctx, const IModel& m, z3::expr_vector base,
+        z3::expr_vector t, z3::expr_vector con);
+
+    void remake(z3::expr_vector base, z3::expr_vector transition,
+        z3::expr_vector constraint);
+    void reset();
+    void reset(const z3ext::CubeSet& cubes);
+    // sets a new ccnf constraint, removes all blocked cubes
+    void reconstrain_clear(z3::expr_vector constraint);
+    // adds a cube's clause to the solver
+    void block(const z3::expr_vector& cube);
+    void block(const z3::expr_vector& cube, const z3::expr& act);
+    void block(const std::vector<z3::expr>& cube);
+    void block(const std::vector<z3::expr>& cube, const z3::expr& act);
+    void block(const z3ext::CubeSet& cubes, const z3::expr& act);
+
+    bool SAT(const z3::expr_vector& assumptions);
+    z3::model get_model() const;
+    z3::model witness_raw() const;
+    z3::expr_vector witness_current() const;
+    std::vector<z3::expr> std_witness_current() const;
+    std::vector<z3::expr> witness_current_intersect(
+        const std::vector<z3::expr>& vec) const;
+
+    std::string as_str(const std::string& header, bool clauses_only) const;
+
+    // function to extract a cube representing a satisfying assignment to
+    // the last SAT call to the solver. the resulting vector or expr_vector
+    // is in sorted order template UnaryPredicate: function expr->bool to
+    // filter atoms. accepts 1 expr, returns bool
+    template <typename UnaryPredicate>
+    static z3::expr_vector filter_witness(const z3::model& m, UnaryPredicate p);
+    template <typename UnaryPredicate>
+    static std::vector<z3::expr> filter_witness_vector(
+        const z3::model& m, UnaryPredicate p);
+
+    // function extract the unsat_core from the solver, a subset of the
+    // assumptions the resulting vector or expr_vector is in sorted order
+    // assumes a core is only extracted once
+    // ! result is sorted
+    z3::expr_vector unsat_core() const;
+    // template UnaryPredicate: function expr->bool to filter literals from
+    // the core template Transform: function expr->expr. each literal is
+    // replaced by result before pushing
+    template <typename UnaryPredicate, typename Transform>
+    z3::expr_vector unsat_core(UnaryPredicate p, Transform t);
+
    private:
     class InvalidExtraction : public std::exception
     {
@@ -66,52 +114,6 @@ namespace pdr
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
 
-    std::vector<z3::expr> std_witness_current() const;
-
-   public:
-    Solver(Context& ctx, const IModel& m, z3::expr_vector base,
-        z3::expr_vector t, z3::expr_vector con);
-
-    void remake(z3::expr_vector base, z3::expr_vector transition,
-        z3::expr_vector constraint);
-    void reset();
-    void reset(const z3ext::CubeSet& cubes);
-    // sets a new ccnf constraint, removes all blocked cubes
-    void reconstrain_clear(z3::expr_vector constraint);
-    // adds a cube's clause to the solver
-    void block(const z3::expr_vector& cube);
-    void block(const z3::expr_vector& cube, const z3::expr& act);
-    void block(const z3ext::CubeSet& cubes, const z3::expr& act);
-
-    bool SAT(const z3::expr_vector& assumptions);
-    z3::model get_model() const;
-    z3::model witness_raw() const;
-    z3::expr_vector witness_current() const;
-    std::vector<z3::expr> witness_current_intersect(
-        const std::vector<z3::expr>& vec) const;
-
-    std::string as_str(const std::string& header, bool clauses_only) const;
-
-    // function to extract a cube representing a satisfying assignment to
-    // the last SAT call to the solver. the resulting vector or expr_vector
-    // is in sorted order template UnaryPredicate: function expr->bool to
-    // filter atoms. accepts 1 expr, returns bool
-    template <typename UnaryPredicate>
-    static z3::expr_vector filter_witness(const z3::model& m, UnaryPredicate p);
-    template <typename UnaryPredicate>
-    static std::vector<z3::expr> filter_witness_vector(
-        const z3::model& m, UnaryPredicate p);
-
-    // function extract the unsat_core from the solver, a subset of the
-    // assumptions the resulting vector or expr_vector is in sorted order
-    // assumes a core is only extracted once
-    // ! result is sorted
-    z3::expr_vector unsat_core() const;
-    // template UnaryPredicate: function expr->bool to filter literals from
-    // the core template Transform: function expr->expr. each literal is
-    // replaced by result before pushing
-    template <typename UnaryPredicate, typename Transform>
-    z3::expr_vector unsat_core(UnaryPredicate p, Transform t);
   };
 
   template <typename UnaryPredicate>

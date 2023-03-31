@@ -7,6 +7,8 @@
 #include <variant>
 
 #define MIC_RETRIES_DEFAULT UINT_MAX
+#define CTG_MAX_DEPTH_DEFAULT 1
+#define CTG_MAX_COUNTERS_DEFAULT 5
 
 namespace pdr
 {
@@ -14,11 +16,13 @@ namespace pdr
   Context::Context(z3::context& c, my::cli::ArgumentList const& args)
       : z3_ctx(c),
         type(Tactic::undef),
-        mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT))
+        mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT)),
+        ctg_max_depth(args.ctg_max_depth.value_or(CTG_MAX_DEPTH_DEFAULT)),
+        ctg_max_counters(
+            args.ctg_max_counters.value_or(CTG_MAX_COUNTERS_DEFAULT))
   {
     using namespace my::variant;
     z3_ctx.set("unsat_core", true);
-#warning TODO sat.core.minimize
     z3_ctx.set("sat.core.minimize", true);
     // z3_ctx.set("sat.core.minimize_partial", true);
     z3_ctx.set("model", true);
