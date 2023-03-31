@@ -185,7 +185,9 @@ namespace pdr
         // search for
         if (std::binary_search(
                 ev.begin(), ev.end(), literal, z3ext::cube_orderer))
+        {
           std_vec.push_back(literal);
+        }
       }
     }
 

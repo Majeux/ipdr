@@ -297,6 +297,17 @@ namespace pdr::peterson
     using z3ext::tseytin::to_cnf_vec;
     assert(processes <= N);
 
+    {
+      int d = processes - p;
+      
+      if (d > 0)
+        diff = Diff_t::relaxed;
+      else if (d < 0)
+        diff = Diff_t::constrained;
+      else // d == 0
+        diff = Diff_t::none;
+    }
+
     p = processes;
     transition.resize(0);
     constraint.resize(0);

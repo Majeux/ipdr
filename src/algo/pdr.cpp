@@ -148,11 +148,11 @@ namespace pdr
       while (optional<Witness> witness =
                  frames.get_trans_source(k, ts.n_property.p(), true))
       {
-        log_cti(
-            witness->curr, k); // cti is an F_i state that leads to a violation
+        // cti is an F_i state that leads to a violation
+        log_cti(witness->curr, k);
 
-        PdrResult res = block(
-            std::move(witness->curr), k - 1); // is cti reachable from F_k-1 ?
+        // is cti reachable from F_k-1 ?
+        PdrResult res = block(std::move(witness->curr), k - 1);
         if (not res)
         {
           res.append_final(witness->next);

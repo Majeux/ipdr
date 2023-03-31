@@ -56,7 +56,7 @@ namespace pdr::pebbling
     // cnf formula: expanded the original implication into conjunction of clauses
     void load_pebble_transition(const dag::Graph& G);
     void load_pebble_transition_tseytin_custom(const dag::Graph& G);
-    void load_pebble_transition_tseytin_z3(const dag::Graph& G);
+    void load_pebble_transition_z3tseytin(const dag::Graph& G);
     // non-cnf formula: one implication for each child
     void load_pebble_transition_raw1(const dag::Graph& G);
     // non-cnf formula: one implication per parent

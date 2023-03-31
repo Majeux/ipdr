@@ -6,6 +6,7 @@
 
 #include "cli-parse.h"
 #include "pebbling-model.h"
+#include "z3-ext.h"
 
 namespace pdr::pebbling
 {
@@ -22,9 +23,8 @@ namespace pdr::pebbling
     for (expr const& e : vars())
       initial.push_back(!e);
 
-    // load_pebble_transition_raw2(G);
     if (args.tseytin)
-      load_pebble_transition_tseytin_custom(G);
+      load_pebble_transition_z3tseytin(G);
     else
       load_pebble_transition(G);
 
@@ -43,6 +43,8 @@ namespace pdr::pebbling
 
   void PebblingModel::load_pebble_transition(dag::Graph const& G)
   {
+    transition.resize(0);
+
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
       string name = vars(i).to_string();
@@ -62,9 +64,10 @@ namespace pdr::pebbling
     }
   }
 
-  void PebblingModel::load_pebble_transition_tseytin_z3(dag::Graph const& G)
+  void PebblingModel::load_pebble_transition_z3tseytin(dag::Graph const& G)
   {
-    // expr raw = load_pebble_transition_raw2(G);
+    load_pebble_transition_raw2(G);
+    transition = z3ext::tseytin::to_cnf_vec(z3::mk_and(transition));
   }
 
   void PebblingModel::load_pebble_transition_tseytin_custom(dag::Graph const& G)
@@ -105,6 +108,8 @@ namespace pdr::pebbling
 
   void PebblingModel::load_pebble_transition_raw1(dag::Graph const& G)
   {
+    transition.resize(0);
+
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
       string name      = vars(i).to_string();
@@ -124,6 +129,8 @@ namespace pdr::pebbling
 
   void PebblingModel::load_pebble_transition_raw2(dag::Graph const& G)
   {
+    transition.resize(0);
+
     for (size_t i = 0; i < vars().size(); i++) // every node has a transition
     {
       string name      = vars(i).to_string();

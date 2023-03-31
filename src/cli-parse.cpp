@@ -508,7 +508,7 @@ namespace my::cli
 
       model_t::Peterson peter;
 
-      peter.max   = clresult[s_peter].as<unsigned>();
+      peter.max   = clresult[s_mprocs].as<unsigned>();
       peter.start = clresult[s_procs].as<unsigned>();
 
       model = peter;
