@@ -213,6 +213,7 @@ namespace pdr
   {
     assert(k <= frontier());
     MYLOG_INFO(log, "propagate levels {} - {}", 1, k);
+    log_solver(true);
     log.indent++;
     bool repeat = (k < frontier());
 
@@ -228,6 +229,7 @@ namespace pdr
 
     repopulate_solvers();
     log.indent--;
+    log_solver(true);
 
     return {};
   }
@@ -346,8 +348,7 @@ namespace pdr
     }
 
     log.indent++;
-    MYLOG_TRACE(
-        log, "assumptions: [ {} ]", z3ext::join_expr_vec(assumptions, false));
+    MYLOG_TRACE(log, "assumptions: [ {} ]", z3ext::join_ev(assumptions, false));
 
     bool result = get_solver(frame).SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
