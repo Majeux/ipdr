@@ -31,7 +31,8 @@ namespace pdr
 
   double Solver::frac_subsumed() const
   {
-    return (double) n_subsumed / n_assertions();
+    assert(n_clauses == n_assertions());
+    return (double) n_subsumed / n_clauses;
   }
 
   void Solver::remake(

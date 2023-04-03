@@ -51,7 +51,11 @@ namespace pdr
   void Frames::refresh_solver_if_clogged()
   {
     if (delta_solver.frac_subsumed() >= ctx.subsumed_cutoff)
+    {
+      MYLOG_INFO(log, "{} \% subsumed clauses (>= {} \%) in solver. resetting",
+          delta_solver.frac_subsumed() * 100.0, ctx.subsumed_cutoff * 100.0);
       repopulate_solvers();
+    }
   }
 
   void Frames::reset()
@@ -151,12 +155,16 @@ namespace pdr
     frames.emplace_back(frames.size());
   }
 
-#warning TODO: refresh solver based on % or no. subsumed ??
   void Frames::repopulate_solvers()
   {
+    MYLOG_DEBUG(log, "Repopulating solver:");
+    log_solver(true);
     delta_solver.reset();
     for (size_t i = 1; i < frames.size(); i++)
       delta_solver.block(frames[i].get_blocked(), act.at(i));
+
+    MYLOG_DEBUG(log, "Solver after repopulation:");
+    log_solver(true);
   }
 
   z3ext::CubeSet Frames::get_blocked_in(size_t i) const
@@ -235,7 +243,6 @@ namespace pdr
 
     repopulate_solvers();
     log.indent--;
-    log_solver(true);
 
     return {};
   }
@@ -341,7 +348,7 @@ namespace pdr
   // and should be considered unusable afterwards
   bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions)
   {
-    refresh_solver_if_clogged();
+    // refresh_solver_if_clogged();
 
     using std::chrono::steady_clock;
     auto start = steady_clock::now();

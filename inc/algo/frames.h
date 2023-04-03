@@ -27,6 +27,7 @@ namespace pdr
     IModel& model;
     Logger& log;
     const bool LOG_SAT_CALLS = false;
+    bool do_repopulate = true;
 
     std::vector<Frame> frames;
     Solver FI_solver;

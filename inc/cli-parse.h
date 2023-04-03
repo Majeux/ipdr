@@ -134,7 +134,7 @@ namespace my::cli
     std::optional<Experiment> experiment;
     std::variant<bool, unsigned> r_seed;
     std::optional<unsigned> mic_retries;
-    std::optional<unsigned> subsumed_cutoff;
+    std::optional<double> subsumed_cutoff;
     std::optional<unsigned> ctg_max_depth;
     std::optional<unsigned> ctg_max_counters;
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding

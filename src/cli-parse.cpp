@@ -409,7 +409,7 @@ namespace my::cli
        value<unsigned>(), "(uint:N)")
       (s_ctgdepth, "Limit on the depth of CTGdown recursion. (Default = 1)",
        value<unsigned>(), "(uint:N)")
-      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. (Default = 5)",
+      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. (Default = 3)",
        value<unsigned>(), "(uint:N)");
 
     clopt.add_options("output-level")
