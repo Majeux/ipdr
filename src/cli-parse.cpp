@@ -403,11 +403,13 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
         value<bool>(onlyshow)->default_value("false"))
 
-      (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. Unlimited by default.",
+      (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. (Default = UINT_MAX)",
        value<unsigned>(), "(uint:N)")
-      (s_ctgdepth, "Limit on the depth of CTGdown recursion. 1 by default.",
+      (s_subsumed, "Once this fraction of clauses in the sat-solver are subsumed by subclauses, refresh the solver and discard them. (Default = 0.5)",
        value<unsigned>(), "(uint:N)")
-      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. 5 by default.",
+      (s_ctgdepth, "Limit on the depth of CTGdown recursion. (Default = 1)",
+       value<unsigned>(), "(uint:N)")
+      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. (Default = 5)",
        value<unsigned>(), "(uint:N)");
 
     clopt.add_options("output-level")
@@ -540,6 +542,9 @@ namespace my::cli
 
     if (clresult[s_mic].count())
       mic_retries = clresult[s_mic].as<unsigned>();
+
+    if (clresult[s_subsumed].count())
+      subsumed_cutoff = clresult[s_subsumed].as<unsigned>();
 
     if (clresult[s_ctgdepth].count())
       ctg_max_depth = clresult[s_ctgdepth].as<unsigned>();

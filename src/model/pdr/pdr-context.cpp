@@ -9,6 +9,7 @@
 #define MIC_RETRIES_DEFAULT UINT_MAX
 #define CTG_MAX_DEPTH_DEFAULT 1
 #define CTG_MAX_COUNTERS_DEFAULT 5
+#define SUBSUMED_CUT_DEFEAULT 0.5
 
 namespace pdr
 {
@@ -17,6 +18,7 @@ namespace pdr
       : z3_ctx(c),
         type(Tactic::undef),
         mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT)),
+        subsumed_cutoff(args.subsumed_cutoff.value_or(SUBSUMED_CUT_DEFEAULT)),
         ctg_max_depth(args.ctg_max_depth.value_or(CTG_MAX_DEPTH_DEFAULT)),
         ctg_max_counters(
             args.ctg_max_counters.value_or(CTG_MAX_COUNTERS_DEFAULT))

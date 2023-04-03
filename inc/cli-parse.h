@@ -134,6 +134,7 @@ namespace my::cli
     std::optional<Experiment> experiment;
     std::variant<bool, unsigned> r_seed;
     std::optional<unsigned> mic_retries;
+    std::optional<unsigned> subsumed_cutoff;
     std::optional<unsigned> ctg_max_depth;
     std::optional<unsigned> ctg_max_counters;
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
@@ -207,6 +208,7 @@ namespace my::cli
     inline static const std::string s_silent  = "silent";
 
     inline static const std::string s_mic      = "mic-attempts";
+    inline static const std::string s_subsumed = "cut-subsumed";
     inline static const std::string s_ctgdepth = "ctg-depth";
     inline static const std::string s_ctgnum   = "max-ctgs";
   };

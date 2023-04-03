@@ -24,6 +24,16 @@ namespace pdr
     remake(base, transition, constraint);
   }
 
+  unsigned Solver::n_assertions() const
+  {
+    return internal_solver.assertions().size() - clauses_start;
+  }
+
+  double Solver::frac_subsumed() const
+  {
+    return (double) n_subsumed / n_assertions();
+  }
+
   void Solver::remake(
       expr_vector base, expr_vector transition, expr_vector constraint)
   {
@@ -37,14 +47,16 @@ namespace pdr
     internal_solver.push();
 
     clauses_start = base.size() + transition.size() + constraint.size();
+    n_subsumed = 0;
+    n_clauses = 0;
   }
 
   void Solver::reset()
   {
     internal_solver.pop();  // remove all blocked states
     internal_solver.push(); // remake backtracking point
-    // internal_solver.reset();
-    // init();
+    n_subsumed = 0;
+    n_clauses = 0;
   }
 
   // reset and automatically repopulate by blocking cubes
@@ -63,30 +75,38 @@ namespace pdr
     internal_solver.add(constraint);
     internal_solver.push(); // remake stateless backtracking point
     clauses_start = internal_solver.assertions().size();
+    n_subsumed = 0;
+    n_clauses = 0;
+  }
+
+  void Solver::add_clause(expr const& e)
+  {
+    n_clauses++;
+    internal_solver.add(e);
   }
 
   void Solver::block(const expr_vector& cube)
   {
     expr clause = z3::mk_or(z3ext::negate(cube));
-    internal_solver.add(clause);
+    add_clause(clause);
   }
 
   void Solver::block(const expr_vector& cube, const expr& act)
   {
     expr clause = z3::mk_or(z3ext::negate(cube));
-    internal_solver.add(clause | !act);
+    add_clause(clause | !act);
   }
 
   void Solver::block(const std::vector<expr>& cube)
   {
     expr clause = z3::mk_or(z3ext::negate(cube));
-    internal_solver.add(clause);
+    add_clause(clause);
   }
 
   void Solver::block(const std::vector<expr>& cube, const expr& act)
   {
     expr clause = z3::mk_or(z3ext::negate(cube));
-    internal_solver.add(clause | !act);
+    add_clause(clause | !act);
   }
 
   void Solver::block(const z3ext::CubeSet& cubes, const expr& act)

@@ -23,8 +23,19 @@ namespace pdr
   class Solver
   {
    public:
+    // number of clauses in the internal_solver that are subsumed by smaller
+    // clauses (and are thus redundant)
+    unsigned n_subsumed{ 0 };
+    unsigned n_clauses{ 0 };
+
     Solver(Context& ctx, const IModel& m, z3::expr_vector base,
         z3::expr_vector t, z3::expr_vector con);
+
+    // return the number of assertions added after the base, transition and
+    // constraint
+    unsigned n_assertions() const;
+    // return the fraction of assertions in the solver that are subsumed
+    double frac_subsumed() const;
 
     void remake(z3::expr_vector base, z3::expr_vector transition,
         z3::expr_vector constraint);
@@ -71,6 +82,10 @@ namespace pdr
     z3::expr_vector unsat_core(UnaryPredicate p, Transform t);
 
    private:
+    // wrapper to add an expression to the internal solver
+    void add_clause(const z3::expr& e);
+
+   private:
     class InvalidExtraction : public std::exception
     {
      private:
@@ -113,7 +128,6 @@ namespace pdr
     SolverState state{ SolverState::fresh };
     unsigned clauses_start; // point where base_assertions ends and other
                             // assertions begin
-
   };
 
   template <typename UnaryPredicate>
@@ -153,7 +167,8 @@ namespace pdr
   }
 
   // template <typename UnaryPredicate, typename Transform>
-  // z3::expr_vector Solver::unsat_core(UnaryPredicate filter, Transform transform)
+  // z3::expr_vector Solver::unsat_core(UnaryPredicate filter, Transform
+  // transform)
   // {
   //   z3::expr_vector full_core = unsat_core();
 

@@ -22,7 +22,14 @@ namespace pdr
     // in PDR::MIC if mic fails to reduce a clause this many times, consider the
     // current clause sufficient
     uint32_t mic_retries;
+    // Frames refreshes its solver, removing subsumed cubes, once this fraction
+    // of asserted clauses are subsumed
+    double subsumed_cutoff;
+
+    // the depth of counterexamples-to-generalization that are considered
     uint32_t ctg_max_depth;
+    // the maximum number of counterexamples-to-generalization that are considered
+    // per cube (resets if the cube is joined with a ctg)
     uint32_t ctg_max_counters;
 
     Context(z3::context& c, my::cli::ArgumentList const& args);

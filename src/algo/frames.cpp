@@ -48,6 +48,12 @@ namespace pdr
     MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", false));
   }
 
+  void Frames::refresh_solver_if_clogged()
+  {
+    if (delta_solver.frac_subsumed() >= ctx.subsumed_cutoff)
+      repopulate_solvers();
+  }
+
   void Frames::reset()
   {
     assert(frames.size() == act.size());
@@ -188,7 +194,7 @@ namespace pdr
     {
       // remove all blocked cubes that are equal or weaker than cube
       unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
-      (void)n_removed;
+      delta_solver.n_subsumed += n_removed;
       IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
     }
 
@@ -335,6 +341,8 @@ namespace pdr
   // and should be considered unusable afterwards
   bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions)
   {
+    refresh_solver_if_clogged();
+
     using std::chrono::steady_clock;
     auto start = steady_clock::now();
 

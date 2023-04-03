@@ -33,6 +33,8 @@ namespace pdr
     Solver delta_solver;
     std::vector<z3::expr> act; // activation variables for each frame
 
+    void refresh_solver_if_clogged();
+
    public:
     // solver containing only the intial state
     z3::solver init_solver; // TODO immutable interface
