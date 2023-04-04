@@ -28,6 +28,45 @@ namespace z3ext
     std::string to_string() const;
   };
 
+  struct ConstrainedCube
+  {
+    // assumes at least one lit
+    std::vector<z3::expr> lits;
+    std::optional<z3::expr> constraint;
+
+    // implicit conversion to vector<expr>
+    operator std::vector<z3::expr>() const
+    {
+      std::vector<z3::expr> rv = lits;
+      if (constraint)
+        rv.push_back(*constraint);
+      return rv;
+    }
+
+    // implicit conversion to expr_vector
+    operator z3::expr_vector() const
+    {
+      z3::expr_vector rv(lits.at(0).ctx());
+      for (z3::expr const& e : lits)
+        rv.push_back(e);
+      if (constraint)
+        rv.push_back(*constraint);
+      return rv;
+    }
+
+    // implicit conversion to an expr (cube)
+    operator z3::expr() const
+    {
+      z3::expr rv = lits.at(0);
+      for (size_t i{1}; i < lits.size(); i++)
+        rv = rv && lits[i];
+      if (constraint)
+        rv = rv && *constraint;
+      return rv;
+    }
+  };
+
+
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
   // get the variable of a literal
