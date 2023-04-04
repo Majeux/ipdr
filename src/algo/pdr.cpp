@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fstream>
@@ -49,8 +50,8 @@ namespace pdr
 
   PdrResult PDR::run()
   {
-    timer.reset();
     log_start();
+    timer.reset();
 
     if (frames.frontier() == 0)
     {
@@ -82,16 +83,7 @@ namespace pdr
   PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
-    MYLOG_INFO(logger, format("Total elapsed time {}", final_time));
-    if (rv)
-    {
-      MYLOG_INFO(logger, "Invariant found");
-    }
-    else
-    {
-      MYLOG_INFO(logger, "Terminated with trace");
-    }
-
+    log_pdr_finish(rv, final_time);
     rv.time = final_time;
 
     IF_STATS({
@@ -215,7 +207,7 @@ namespace pdr
       }
       else //! s is now inductive to at least F_n
       {
-        log_finish(state->cube);
+        log_finish_state(state->cube);
 
         auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level

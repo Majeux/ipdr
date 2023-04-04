@@ -109,8 +109,9 @@ namespace pdr
         std::vector<z3::expr> const& top);
     void log_pred(std::vector<z3::expr> const& p);
     void log_state_push(unsigned frame);
-    void log_finish(std::vector<z3::expr> const& s);
+    void log_finish_state(std::vector<z3::expr> const& s);
     void log_obligation_done(std::string_view type, unsigned l, double time);
+    void log_pdr_finish(PdrResult const& r, double final_time);
   };
 
   class vIPDR

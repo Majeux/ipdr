@@ -1,14 +1,28 @@
 #include "logger.h"
 #include "pdr.h"
+#include "result.h"
+
+#include <chrono>
+#include <ctime>
+#include <fmt/format.h>
 
 // LOGGING AND STAT COLLECTION SHORTHANDS
 //
 namespace pdr
 {
+  using fmt::format;
   using z3ext::join_ev;
+
+  std::string time_now()
+  {
+    using std::chrono::system_clock;
+    auto t = system_clock::to_time_t(system_clock::now());
+    return std::ctime(&t);
+  }
 
   void PDR::log_start() const
   {
+    std::cerr << format("Start PDR at    {}", time_now()) << std::endl;
     MYLOG_INFO(logger, "");
     MYLOG_INFO(logger, "PDR start ({}):", ts.constraint_str());
     MYLOG_INFO(logger, "");
@@ -25,6 +39,7 @@ namespace pdr
   void PDR::log_cti(const std::vector<z3::expr>& cti, unsigned level)
   {
     (void)cti; // ignore unused warning when logging is off
+    (void)level;
     MYLOG_DEBUG(logger, SEP2);
     IF_STATS(logger.stats.ctis.add(level);)
     MYLOG_DEBUG(logger, "cti at frame {}", level);
@@ -33,6 +48,8 @@ namespace pdr
 
   void PDR::log_propagation(unsigned level, double time)
   {
+    (void)level;
+    (void)time;
     MYLOG_INFO(logger, "Propagation elapsed {}", time);
     IF_STATS(logger.stats.propagation_it.add(level, time);)
   }
@@ -67,7 +84,7 @@ namespace pdr
     MYLOG_DEBUG(logger, "push predecessor to level {}", frame);
   }
 
-  void PDR::log_finish(const std::vector<z3::expr>& s)
+  void PDR::log_finish_state(const std::vector<z3::expr>& s)
   {
     (void)s; // ignore unused warning when logging is off
     MYLOG_DEBUG(logger, "finishing state");
@@ -83,5 +100,20 @@ namespace pdr
     (void)time;
     IF_STATS(logger.stats.obligations_handled.add(l, time);)
     MYLOG_DEBUG_SHOW(logger, "Obligation {} elapsed {}", type, time);
+  }
+
+  void PDR::log_pdr_finish(PdrResult const& r, double final_time)
+  {
+    std::cerr << format("PDR finished at {}", time_now()) << "--------"
+              << std::endl;
+    MYLOG_INFO(logger, format("Total elapsed time {}", final_time));
+    if (r)
+    {
+      MYLOG_INFO(logger, "Invariant found");
+    }
+    else
+    {
+      MYLOG_INFO(logger, "Terminated with trace");
+    }
   }
 } // namespace pdr
