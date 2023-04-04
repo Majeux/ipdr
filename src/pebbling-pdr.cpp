@@ -259,8 +259,6 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       algorithm);
 }
 
-#include <dbg.h>
-
 void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
   using namespace pdr;
@@ -280,7 +278,7 @@ void handle_experiment(ArgumentList& args, pdr::Logger& log)
   {
     if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
     {
-      if (dbg(args.z3pdr))
+      if (args.z3pdr)
       {
         return make_unique<Z3PebblingExperiment>(args, log);
       }

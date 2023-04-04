@@ -95,6 +95,7 @@ namespace pdr
     return propagate(frontier() - 1);
   }
 
+#warning subsumption removes all but the most generic clauses,  but these should be learned at higher levels
   void Frames::reset_to_F1()
   {
     assert(frames.size() > 0);
@@ -201,24 +202,24 @@ namespace pdr
     for (unsigned i = 1; i <= level; i++)
     {
       // remove all blocked cubes that are equal or weaker than cube
+      // in the last level, we can leave an equal cube in
       unsigned n_removed = frames.at(i).remove_subsumed(cube, i < level);
       delta_solver.n_subsumed += n_removed;
+      MYLOG_DEBUG(
+          log, "cube subsumes {} cubes in level {}. removed.", n_removed, i);
       IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
     }
 
     assert(level > 0 && level < frames.size());
-#warning TODO consider storing vectors of expr instead of expr_vectors
+
     if (frames[level].block(cube))
     {
       delta_solver.block(cube, act.at(level));
       MYLOG_DEBUG(log, "blocked in {}", level);
       return true;
     }
-    else
-    {
-      MYLOG_DEBUG(log, "was already blocked in {}", level);
-    }
 
+    MYLOG_DEBUG(log, "was already blocked in {}", level);
     return false;
   }
 
