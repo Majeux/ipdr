@@ -31,7 +31,7 @@ namespace pdr
 
     struct Invariant
     {
-      int level; // the F_i that gives the inductive invariant
+      int level{-1}; // the F_i that gives the inductive invariant
 
       Invariant(int l);
       Invariant(std::optional<unsigned> c, int l);

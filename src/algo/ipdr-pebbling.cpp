@@ -1,6 +1,7 @@
 #include "logger.h"
 #include "pdr-model.h"
 #include "pdr.h"
+#include "result.h"
 #include "types-ext.h"
 
 #include <cassert>
@@ -142,10 +143,18 @@ namespace pdr::pebbling
       }
     }
 
-    if (invariant) // last run did not find a trace
-      alg.logger.and_whisper("! No optimum exists.");
-    else // previous run is optimal trace
-      alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+    if (N < ts.get_f_pebbles() && !invariant)
+    {
+      alg.logger.and_whisper("Last trace has minimum possible cardinality.");
+      total.add(PdrResult::empty_true(), ts.get_f_pebbles());
+    }
+    else
+    {
+      if (invariant) // last run did not find a trace
+        alg.logger.and_whisper("! No optimum exists.");
+      else // previous run is optimal trace
+        alg.logger.and_whisper("! Found optimum: {}.", N + 1);
+    }
 
     return total;
   }

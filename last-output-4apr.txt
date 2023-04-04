@@ -1,0 +1,286 @@
+majeux@pop-os:~/Documents/master/pebbling-pdr$ ./rls_experiments.sh 1 < small_rls.txt 
+searching in: ./benchmark/rls/tfc/
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=ham3tc --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/ham3tc/ham3tc-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/ham3tc/ham3tc-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 1953252162
+z3 random seed: 1953252162
+control run.
+0: 1953252162
+z3 random seed: 1953252162
+pebbling-pdr: /home/majeux/Documents/master/pebbling-pdr/src/testing/pebbling-experiments.cpp:279: virtual tabulate::Table pdr::pebbling::experiments::PebblingRun::make_combined_table(const pdr::experiments::Run &) const: Assertion `n_rows(t) == 7' failed.
+./rls_experiments.sh: line 41: 260355 Aborted                 (core dumped) $command
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=rd32 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/rd32/rd32-pebbling-ipdr_constrain-exp_1          |
++------------------+------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/rd32/rd32-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 575353728
+z3 random seed: 575353728
+control run.
+0: 575353728
+z3 random seed: 575353728
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=mod5d1 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/mod5d1/mod5d1-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/mod5d1/mod5d1-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 575353728
+z3 random seed: 575353728
+control run.
+0: 575353728
+z3 random seed: 575353728
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=gf2^3mult_11_47 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^3mult_11_47/gf2^3mult_11_47-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^3mult_11_47/gf2^3mult_11_47-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 123242270
+z3 random seed: 123242270
+control run.
+0: 123242270
+z3 random seed: 123242270
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=4b15g_1 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/4b15g_1/4b15g_1-pebbling-ipdr_constrain-exp_1          |
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/4b15g_1/4b15g_1-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 1222580104
+z3 random seed: 1222580104
+control run.
+0: 1222580104
+z3 random seed: 1222580104
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=gf2^4mult_19_83 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^4mult_19_83/gf2^4mult_19_83-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^4mult_19_83/gf2^4mult_19_83-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 726179985
+z3 random seed: 726179985
+control run.
+0: 726179985
+z3 random seed: 726179985
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=5mod5tc --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/5mod5tc/5mod5tc-pebbling-ipdr_constrain-exp_1          |
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/5mod5tc/5mod5tc-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 216635544
+z3 random seed: 216635544
+control run.
+0: 216635544
+z3 random seed: 216635544
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=gf2^5mult_29_129 --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^5mult_29_129/gf2^5mult_29_129-pebbling-ipdr_constrain-exp_1          |
++------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/gf2^5mult_29_129/gf2^5mult_29_129-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+------------------------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 1263622367
+z3 random seed: 1263622367
+control run.
+0: 1263622367
+z3 random seed: 1263622367
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=ham7tc --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/ham7tc/ham7tc-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/ham7tc/ham7tc-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 1723467206
+z3 random seed: 1723467206
+control run.
+0: 1723467206
+z3 random seed: 1723467206
+done
+
+============
+============
+
+Running experiment for 
+
+./pebbling-pdr pebbling ipdr experiment --inc=constrain --silent --ctg-depth=1 --max-ctgs=3  --dir=./benchmark/rls/tfc --tfc=5bitadder --iterations=1
+1
+running ipdr for pebbling algorithm..
+Running an experiment with 1 samples. 
+Using 0-seed.
+
++------------------+----------------------------------------------------------------------------------------------------------------------------------------+
+| output directory | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/5bitadder/5bitadder-pebbling-ipdr_constrain-exp_1          |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------+
+| logs             | /home/majeux/Documents/master/pebbling-pdr/output/experiments/ipdr/pebbling/5bitadder/5bitadder-pebbling-ipdr_constrain-exp_1/analysis |
++------------------+----------------------------------------------------------------------------------------------------------------------------------------+
+[..src/pebbling-pdr.cpp:283 (operator())] args.z3pdr = false (bool)
+ipdr run.
+0: 191599393
+z3 random seed: 191599393
+control run.
+0: 191599393
+z3 random seed: 191599393
+done
+
+majeux@pop-os:~/Documents/master/pebbling-pdr$ ./tools/make_graph.py --dir=output/experiments/ipdr --format=pebbling-ipdr_constrain-exp_1 --types=pebbling --allmodels
+folder:			 output/experiments/ipdr
+content:		 ['z3pdr-experiments.zip', 'z3pdr', 'pebbling']
+available models:	 ['rd32', 'ham3tc', 'mod5d1', 'gf2^3mult_11_47', '4b15g_1', 'gf2^4mult_19_83', '5mod5tc', 'gf2^5mult_29_129', 'ham7tc', '5bitadder']
+selected models:	 ['rd32', 'ham3tc', 'mod5d1', 'gf2^3mult_11_47', '4b15g_1', 'gf2^4mult_19_83', '5mod5tc', 'gf2^5mult_29_129', 'ham7tc', '5bitadder']
+selected algorithm:	 ['pebbling']
+
+PGFPLOT DATA
+pebbling
+(a, 0.008) +- (0, 0.000)	% rd32
+???(c, 1.031) +- (0, 0.000)	% mod5d1
+(d, 2.139) +- (0, 0.000)	% gf2\^{}3mult\_11\_47
+(e, 8.876) +- (0, 0.000)	% 4b15g\_1
+(f, 96.565) +- (0, 0.000)	% gf2\^{}4mult\_19\_83
+(g, 1137.446) +- (0, 0.000)	% 5mod5tc
+(h, 1317.527) +- (0, 0.000)	% gf2\^{}5mult\_29\_129
+(i, 103.541) +- (0, 0.000)	% ham7tc
+(j, 912.033) +- (0, 0.000)	% 5bitadder
+
+control
+(a, 0.007) +- (0, 0.000)	% rd32
+???(c, 1.881) +- (0, 0.000)	% mod5d1
+(d, 2.829) +- (0, 0.000)	% gf2\^{}3mult\_11\_47
+(e, 31.955) +- (0, 0.000)	% 4b15g\_1
+(f, 53.644) +- (0, 0.000)	% gf2\^{}4mult\_19\_83
+(g, 1786.842) +- (0, 0.000)	% 5mod5tc
+(h, 788.317) +- (0, 0.000)	% gf2\^{}5mult\_29\_129
+(i, 697.444) +- (0, 0.000)	% ham7tc
+(j, 1762.749) +- (0, 0.000)	% 5bitadder
+
+
+

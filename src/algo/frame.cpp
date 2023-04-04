@@ -15,9 +15,9 @@
 
 namespace pdr
 {
+  using std::vector;
   using z3::expr;
   using z3::expr_vector;
-  using std::vector;
 
   Frame::Frame(unsigned i) : level(i) {}
 
@@ -33,13 +33,12 @@ namespace pdr
   //   return false;
   // }
 
-  unsigned Frame::remove_subsumed(
-      const std::vector<expr>& cube, bool remove_equal)
+  unsigned Frame::remove_subsumed(const vector<expr>& cube, bool remove_equal)
   {
     unsigned before = blocked_cubes.size();
 
-    auto subsumes = [remove_equal](
-                        const std::vector<expr>& l, const std::vector<expr>& r) {
+    auto subsumes = [remove_equal](const vector<expr>& l, const vector<expr>& r)
+    {
       return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
     };
 

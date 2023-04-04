@@ -6,7 +6,7 @@ normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
 MODE="pebbling ipdr experiment"
-INC="--inc=relax"
+INC="--inc=constrain"
 Z3=""
 
 if [ $# -eq 0 ]
@@ -30,7 +30,7 @@ do
 		its="--iterations=$sample"
 		# exp=""
 
-		command="$EXEC $MODE $INC --silent --tseytin $Z3 $folder $model $its"
+		command="$EXEC $MODE $INC --silent --ctg-depth=1 --max-ctgs=3 $Z3 $folder $model $its"
 
 		echo "${bold}$command${normal}"
 		$command
