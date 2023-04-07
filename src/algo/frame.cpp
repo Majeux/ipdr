@@ -21,6 +21,11 @@ namespace pdr
 
   Frame::Frame(unsigned i) : level(i) {}
 
+  void Frame::clear()
+  {
+    blocked_cubes.clear();
+  }
+
   // bool Frame::blocked(const expr_vector& cube)
   // {
   //   for (const expr_vector& blocked_cube : blocked_cubes)
@@ -96,12 +101,12 @@ namespace pdr
     return out;
   }
 
-  const z3ext::CubeSet& Frame::get_blocked() const { return blocked_cubes; }
+  const z3ext::CubeSet& Frame::get() const { return blocked_cubes; }
   bool Frame::empty() const { return blocked_cubes.size() == 0; }
 
   std::string Frame::blocked_str() const
   {
-    std::string str(fmt::format("blocked cubes level {}\n", level));
+    std::string str(fmt::format("blocked cubes in frame {}\n", level));
     for (vector<expr> const& e : blocked_cubes)
       str += fmt::format("- {}\n", z3ext::join_ev(e, " & "));
 

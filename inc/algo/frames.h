@@ -36,20 +36,32 @@ namespace pdr
     // reset the sequence to F_0, F_1 (frontier 0)
     void reset();
 
-    // increase the max_pebbles constraint to 'x'
-    // carry over all learned cubes to F_1 in a new sequence (if valid)
-    void reset_to_F1();
-
-    // reduce the max_pebbles constraint to 'x'
-    // redo propagation for the previous level
-    // return an invariant level if propagation finds one
-    std::optional<size_t> reuse();
-
     // pops frames until the given index is the frontier
     void clear_until(size_t until_index);
 
     // reset solvers and repopulate with current blocked cubes
     void repopulate_solvers();
+
+    // incremental pdr functions
+    //
+    // carry over all learned cubes to F_1 in a new sequence (if valid)
+    // used after a constraint has been relaxed since a previous model
+    void copy_to_F1();
+
+    // carry over all learned cubes to a new sequence F_1..F_k (if valid)
+    // used after a constraint has been relaxed since a previous model
+    void copy_to_Fk();
+
+    // redo propagation for the previous level
+    // return an invariant level if propagation finds one
+    // used after a constraint has been tightened
+    std::optional<size_t> reuse();
+
+    // Raw solver queries
+    //
+    // returns if there exists a satisfying assignment
+    bool SAT(size_t frame, const z3::expr_vector& assumptions);
+    bool SAT(size_t frame, z3::expr_vector&& assumptions);
 
     // state removal functions
     //
@@ -87,7 +99,7 @@ namespace pdr
     z3ext::CubeSet get_blocked_in(size_t i) const;
 
     // logging and output
-    // 
+    //
     void log_blocked() const;
     void log_solver(bool clauses_only) const;
     std::string blocked_str() const;
@@ -98,22 +110,19 @@ namespace pdr
     IModel& model;
     Logger& log;
     const bool LOG_SAT_CALLS = false;
-    bool do_repopulate = true;
 
     std::vector<Frame> frames;
+    // default frontier = |frames| - 2 (second-to-last frame)
+    // override allowing more frames to exist (for relaxing pdr)
+    std::optional<unsigned> detached_frontier;
+
     Solver FI_solver;
     Solver delta_solver;
     std::vector<z3::expr> act; // activation variables for each frame
 
+    void init_frames();
+    void new_frame();
     void refresh_solver_if_clogged();
-
-    // Raw solver queries
-    //
-    // returns if there exists a satisfying assignment
-    bool SAT(size_t frame, const z3::expr_vector& assumptions);
-    bool SAT(size_t frame, z3::expr_vector&& assumptions);
-
-
   };
 
 } // namespace pdr

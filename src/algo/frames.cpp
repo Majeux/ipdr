@@ -8,10 +8,12 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <memory>
 #include <optional>
 #include <spdlog/spdlog.h>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <z3++.h>
@@ -38,11 +40,7 @@ namespace pdr
     init_solver.reset();
     init_solver.add(model.get_initial());
 
-    frames.emplace_back(0);
-    act.push_back(ctx().bool_const("__actI__")); // unused
-
-    extend();
-    assert(frontier() == 0);
+    init_frames();
 
     MYLOG_DEBUG(log, "FI_solver after init {}", FI_solver.as_str("", false));
     MYLOG_DEBUG(log, "solver after init {}", delta_solver.as_str("", false));
@@ -53,9 +51,14 @@ namespace pdr
   void Frames::extend()
   {
     assert(frames.size() > 0);
-    std::string acti = fmt::format("__act{}__", frames.size());
-    act.push_back(ctx().bool_const(acti.c_str()));
-    frames.emplace_back(frames.size());
+
+    // ensure that there always exists at least an F[k+1]
+    // if not detached or if detached_frontier <= |frames| - 2
+    if (frontier() <= frames.size() - 2)
+      new_frame();
+
+    if (detached_frontier)
+      detached_frontier.value()++;
   }
 
   void Frames::reset()
@@ -64,12 +67,9 @@ namespace pdr
 
     frames.clear();
     act.clear();
+    detached_frontier = {};
 
-    frames.emplace_back(0);
-    act.push_back(ctx().bool_const("__actI__")); // unused
-
-    extend();
-    assert(frontier() == 0);
+    init_frames();
 
     FI_solver.remake(
         model.get_initial(), model.get_transition(), model.get_constraint());
@@ -77,18 +77,45 @@ namespace pdr
         model.property, model.get_transition(), model.get_constraint());
   }
 
+  void Frames::clear_until(size_t frontier_index)
+  {
+    assert(frames.size() == act.size());
+
+    // pop until given index is the highest
+    while (frontier() > frontier_index)
+    {
+      frames.pop_back();
+      act.pop_back();
+    }
+  }
+
+  void Frames::repopulate_solvers()
+  {
+    MYLOG_DEBUG(log, "Repopulating solver:");
+    log_solver(true);
+    delta_solver.reset();
+    for (size_t i = 1; i < frames.size(); i++)
+      delta_solver.block(frames[i].get(), act.at(i));
+
+    MYLOG_DEBUG(log, "Solver after repopulation:");
+    log_solver(true);
+  }
+
+  // incremental pdr functions
+  //
 #warning subsumption removes all but the most generic clauses,  but these should be learned at higher levels
-  void Frames::reset_to_F1()
+  void Frames::copy_to_F1()
   {
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
-    MYLOG_INFO(log, "Reset frames to F1");
+    MYLOG_INFO(log, "Copy frames to new sequence: {{ F_1 }}");
 
     // reconstrain solver and reset it to "no blocked"
     delta_solver.reconstrain_clear(model.get_constraint());
     z3ext::CubeSet old = get_blocked_in(1); // store all cubes in F_1
     clear_until(0);                         // reset sequence to { F_0 }
-    extend();                               // reinstate level 1
+    detached_frontier = {};
+    extend(); // reinstate level 1
 
     unsigned count = 0;
     for (vector<expr> const& cube : old)
@@ -115,6 +142,52 @@ namespace pdr
     model.diff = IModel::Diff_t::none;
   }
 
+  void Frames::copy_to_Fk()
+  {
+    assert(frames.size() > 0);
+    assert(model.diff == IModel::Diff_t::relaxed);
+    MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >", frames.size()-1);
+
+    // reconstrain solver and reset it to "no blocked"
+    delta_solver.reconstrain_clear(model.get_constraint());
+    z3ext::CubeSet old = get_blocked_in(1); // all previously learned cubes
+
+    vector<unsigned> copied(frames.size(), 0);
+    // repopulate every level
+    for (size_t i{ 0 }; i < frames.size() - 1; i++)
+    {
+      MYLOG_DEBUG(log, "Copying to frame {}", i+1);
+      frames[i + 1].clear();
+      // with all cubes that are still inductive
+      for (auto cube_it = old.begin(); cube_it != old.end();)
+      {
+        if (!trans_source(i, *cube_it))
+        {
+          if (remove_state(*cube_it, i + 1))
+          {
+            // tracking copy state:
+            // see if copied to previous level
+            // see if copied at all
+          }
+          cube_it++;
+        }
+        else
+        {
+          MYLOG_DEBUG(
+              log, "copied up to level {}: [{}]", i, z3ext::join_ev(*cube_it));
+
+          cube_it = old.erase(cube_it); // cannot be inductive to higher levels
+        }
+      }
+    }
+    MYLOG_DEBUG(
+        log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
+
+    detached_frontier = 1;
+
+    model.diff = IModel::Diff_t::none;
+  }
+
   optional<size_t> Frames::reuse()
   {
     assert(frames.size() > 0);
@@ -124,37 +197,13 @@ namespace pdr
 
     // repopulate
     for (size_t i{ 1 }; i < frames.size(); i++)
-      delta_solver.block(frames[i].get_blocked(), act.at(i));
+      delta_solver.block(frames[i].get(), act.at(i));
 
     // with fewer transitions, new cubes may be propagated
     MYLOG_INFO(log, "Redoing last propagation: {}", frontier() - 1);
 
     model.diff = IModel::Diff_t::none;
     return propagate(frontier() - 1);
-  }
-
-  void Frames::clear_until(size_t frontier_index)
-  {
-    assert(frames.size() == act.size());
-
-    // pop until given index is the highest
-    while (frontier() > frontier_index)
-    {
-      frames.pop_back();
-      act.pop_back();
-    }
-  }
-
-  void Frames::repopulate_solvers()
-  {
-    MYLOG_DEBUG(log, "Repopulating solver:");
-    log_solver(true);
-    delta_solver.reset();
-    for (size_t i = 1; i < frames.size(); i++)
-      delta_solver.block(frames[i].get_blocked(), act.at(i));
-
-    MYLOG_DEBUG(log, "Solver after repopulation:");
-    log_solver(true);
   }
 
   // state removal functions
@@ -203,12 +252,14 @@ namespace pdr
   {
     assert(k <= frontier());
     MYLOG_INFO(log, "propagate levels {} - {}", 1, k);
-    log_solver(true);
+    MYLOG_DEBUG(log, blocked_str());
     log.indent++;
     bool repeat = (k < frontier());
 
     for (size_t i = 1; i <= k; i++)
       push_forward_delta(i, repeat);
+
+    MYLOG_DEBUG(log, "after propagation {}", blocked_str());
 
     for (size_t i = 1; i <= k; i++)
       if (frames.at(i).empty())
@@ -229,7 +280,7 @@ namespace pdr
     auto start = steady_clock::now();
 
     unsigned count         = 0;
-    z3ext::CubeSet blocked = frames.at(level).get_blocked();
+    z3ext::CubeSet blocked = frames.at(level).get();
     for (std::vector<expr> const& cube : blocked)
     {
       if (!trans_source(level, cube))
@@ -244,6 +295,44 @@ namespace pdr
 
     std::chrono::duration<double> dt(steady_clock::now() - start);
     IF_STATS(log.stats.propagation_level.add(level, dt.count()));
+  }
+
+  // Raw SAT interface
+  //
+  bool Frames::SAT(size_t frame, z3::expr_vector const& assumptions)
+  {
+    return SAT(frame, z3ext::copy(assumptions));
+  }
+
+  // the expr_vector assumptions are modified by acts,
+  // and should be considered unusable afterwards
+  bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions)
+  {
+    // refresh_solver_if_clogged();
+
+    using std::chrono::steady_clock;
+    auto start = steady_clock::now();
+
+    MYLOG_TRACE(log, "SAT-query: F_0..F_{} & T", frame);
+
+    if (frame > 0)
+    {
+      assert(frames.size() == act.size());
+      for (unsigned i = frame; i < act.size(); i++)
+        assumptions.push_back(act[i]);
+    }
+
+    log.indent++;
+    MYLOG_TRACE(log, "assumptions: [ {} ]", z3ext::join_ev(assumptions, false));
+
+    bool result = get_solver(frame).SAT(assumptions);
+    std::chrono::duration<double> diff(steady_clock::now() - start);
+    IF_STATS(log.stats.solver_calls.add(frontier(), diff.count()));
+
+    log.indent--;
+    MYLOG_TRACE(log, "result = {}", result == z3::sat ? "sat" : "unsat");
+
+    return result;
   }
 
   // queries
@@ -282,8 +371,8 @@ namespace pdr
     if (!primed) // cube is in current, bring to next
       return SAT(frame, model.vars.p(dest_cube));
 
-    return SAT(frame,
-        z3ext::convert(dest_cube)); // there is a transition from Fi to s'
+    // there is a transition from Fi to s'
+    return SAT(frame, z3ext::convert(dest_cube));
   }
 
   std::optional<Witness> Frames::get_trans_source(
@@ -306,19 +395,19 @@ namespace pdr
     return Witness(curr, next);
   }
 
-  //
-  // end queries
-
-  //
-  // end SAT interface
-
   // getters
   //
-  // the index 'k' to the second to last frame
+  // the maximum k for which F_1...F_k describes reachable states in i steps
+  // k = |frames|-2 (second-to-last) frame in regular pdr
+  // if there is a detached_frontier, it may be of a lesser index
   size_t Frames::frontier() const
   {
-    assert(frames.size() > 1); // 0 is the minimal frontier (series F_0, F_1)
-    return frames.size() - 2;
+    // 0 is the minimal frontier (series F_0, F_1)
+    assert(frames.size() > 1);
+    // detached frame does not exceed frames
+    assert(detached_frontier.value_or(0) <= frames.size() - 2);
+
+    return detached_frontier.value_or(frames.size() - 2);
   }
 
   // const z3::model Frames::get_model(size_t frame) const
@@ -368,7 +457,7 @@ namespace pdr
     for (; i < frames.size(); i++)
     {
       // TODO non-const getter allows std::move
-      z3ext::CubeSet const& Fi = frames[i].get_blocked();
+      z3ext::CubeSet const& Fi = frames[i].get();
       blocked.insert(Fi.begin(), Fi.end());
     }
 
@@ -376,7 +465,7 @@ namespace pdr
   }
 
   // logging and output
-  // 
+  //
   void Frames::log_blocked() const
   {
     MYLOG_DEBUG(log, SEP3);
@@ -389,7 +478,6 @@ namespace pdr
     (void)only_clauses;
 
     MYLOG_DEBUG(log, SEP3);
-    log_blocked();
     MYLOG_DEBUG(log, FI_solver.as_str("", only_clauses));
     MYLOG_DEBUG(log, delta_solver.as_str("", only_clauses));
     MYLOG_DEBUG(log, SEP3);
@@ -397,7 +485,7 @@ namespace pdr
 
   std::string Frames::blocked_str() const
   {
-    std::string str;
+    std::string str = "Frames:\n";
     for (auto& f : frames)
     {
       str += f.blocked_str();
@@ -405,6 +493,7 @@ namespace pdr
     }
     return str;
   }
+
   std::string Frames::solver_str(bool only_clauses) const
   {
     return delta_solver.as_str("", only_clauses);
@@ -412,6 +501,24 @@ namespace pdr
 
   //  PRIVATE MEMBERS
   //
+  void Frames::init_frames()
+  {
+    assert(frames.empty());
+
+    frames.emplace_back(0);
+    act.push_back(ctx().bool_const("__actI__")); // unused
+
+    new_frame();
+    assert(frontier() == 0);
+  }
+
+  void Frames::new_frame()
+  {
+    std::string acti = fmt::format("__act{}__", frames.size());
+    act.push_back(ctx().bool_const(acti.c_str()));
+    frames.emplace_back(frames.size());
+  }
+
   void Frames::refresh_solver_if_clogged()
   {
     if (delta_solver.frac_subsumed() >= ctx.subsumed_cutoff)
@@ -421,43 +528,4 @@ namespace pdr
       repopulate_solvers();
     }
   }
-
-  // Raw SAT interface
-  //
-  bool Frames::SAT(size_t frame, z3::expr_vector const& assumptions)
-  {
-    return SAT(frame, z3ext::copy(assumptions));
-  }
-
-  // the expr_vector assumptions are modified by acts,
-  // and should be considered unusable afterwards
-  bool Frames::SAT(size_t frame, z3::expr_vector&& assumptions)
-  {
-    // refresh_solver_if_clogged();
-
-    using std::chrono::steady_clock;
-    auto start = steady_clock::now();
-
-    MYLOG_TRACE(log, "SAT-query: F_0..F_{} & T", frame);
-
-    if (frame > 0)
-    {
-      assert(frames.size() == act.size());
-      for (unsigned i = frame; i < act.size(); i++)
-        assumptions.push_back(act[i]);
-    }
-
-    log.indent++;
-    MYLOG_TRACE(log, "assumptions: [ {} ]", z3ext::join_ev(assumptions, false));
-
-    bool result = get_solver(frame).SAT(assumptions);
-    std::chrono::duration<double> diff(steady_clock::now() - start);
-    IF_STATS(log.stats.solver_calls.add(frontier(), diff.count()));
-
-    log.indent--;
-    MYLOG_TRACE(log, "result = {}", result == z3::sat ? "sat" : "unsat");
-
-    return result;
-  }
-
 } // namespace pdr

@@ -118,7 +118,7 @@ namespace pdr::peterson
     ts.constrain(processes);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.reset_to_F1();
+    alg.frames.copy_to_F1();
   }
 
   IpdrPetersonResult IPDR::relax_jump_test(unsigned start, int step)

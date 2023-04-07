@@ -30,6 +30,8 @@ namespace pdr
       public:
         Frame(unsigned i);
 
+        void clear();
+
         unsigned remove_subsumed(const std::vector<z3::expr>& cube, bool remove_equal);
         // bool blocked(const z3::expr_vector& cube);
         bool block(std::vector<z3::expr> const& cube);
@@ -39,7 +41,7 @@ namespace pdr
         std::vector<std::vector<z3::expr>> diff(const Frame& f) const;
 
         // getters
-        const z3ext::CubeSet& get_blocked() const;
+        const z3ext::CubeSet& get() const;
         bool empty() const;
 
         // string representations

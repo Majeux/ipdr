@@ -236,9 +236,12 @@ namespace pdr
     auto it                   = asserts.begin();
     if (clauses_only) // skip base, transition and constraint
     {
+      ss << "added clauses:" << std::endl;
       for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)
         it++;
     }
+    else
+      ss << "solver assertions:" << std::endl;
 
     for (; it != asserts.end(); it++)
       ss << fmt::format("- {}", (*it).to_string()) << std::endl;
