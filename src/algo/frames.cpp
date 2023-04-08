@@ -146,7 +146,8 @@ namespace pdr
   {
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
-    MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >", frames.size()-1);
+    MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
+        frames.size() - 1);
 
     // reconstrain solver and reset it to "no blocked"
     delta_solver.reconstrain_clear(model.get_constraint());
@@ -156,7 +157,7 @@ namespace pdr
     // repopulate every level
     for (size_t i{ 0 }; i < frames.size() - 1; i++)
     {
-      MYLOG_DEBUG(log, "Copying to frame {}", i+1);
+      MYLOG_DEBUG(log, "Copying to frame {}", i + 1);
       frames[i + 1].clear();
       // with all cubes that are still inductive
       for (auto cube_it = old.begin(); cube_it != old.end();)
@@ -180,8 +181,7 @@ namespace pdr
         }
       }
     }
-    MYLOG_DEBUG(
-        log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
+    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
 
     detached_frontier = 1;
 
@@ -393,6 +393,17 @@ namespace pdr
         get_solver(frame).filter_witness_vector(get_solver(frame).get_model(),
             [this](const expr l) { return model.vars.lit_is_p(l); });
     return Witness(curr, next);
+  }
+
+  optional<size_t> Frames::already_blocked(vector<expr> const& cube, size_t level) const
+  {
+    // searching cubes at level = search frames in F[level]...
+    for (; level < frames.size(); level++)
+    {
+      if (frames[level].is_subsumed(cube))
+        return level;
+    }
+    return {};
   }
 
   // getters

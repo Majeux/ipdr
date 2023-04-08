@@ -179,7 +179,7 @@ namespace pdr
       obligations.emplace(n, std::move(cti), 0);
 
     // forall (n, state) in obligations: !state->cube is inductive
-    // relative to F[i-1]
+    // relative to F[n-1]
     while (obligations.size() > 0)
     {
       sub_timer.reset();
@@ -189,6 +189,14 @@ namespace pdr
       auto [n, state, depth] = *(obligations.begin());
       assert(n <= k);
       log_top_obligation(obligations.size(), n, state->cube);
+
+      if(optional<size_t> i = frames.already_blocked(state->cube, n+1))
+      {
+        MYLOG_DEBUG(logger, "obligation already blocked at level {}", *i);
+        MYLOG_DEBUG(logger, "skipped");
+        obligations.erase(obligations.begin());
+        continue;
+      }
 
       // !state -> state
       if (optional<std::vector<z3::expr>> pred_cube =

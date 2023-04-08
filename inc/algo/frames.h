@@ -88,6 +88,11 @@ namespace pdr
     std::optional<z3ext::solver::Witness> get_trans_source(size_t frame,
         const std::vector<z3::expr>& dest_cube, bool primed = false);
 
+    // returns true if the given cube or a stronger cube is already blocked
+    // at level
+    std::optional<size_t> already_blocked(
+        std::vector<z3::expr> const& cube, size_t level) const;
+
     // getters
     //
     size_t frontier() const;

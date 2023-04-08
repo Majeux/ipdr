@@ -32,8 +32,10 @@ namespace pdr
 
         void clear();
 
+        // remove any weaker cubes in the frame
         unsigned remove_subsumed(const std::vector<z3::expr>& cube, bool remove_equal);
-        // bool blocked(const z3::expr_vector& cube);
+        // check if a stronger cube has already been blocked
+        bool is_subsumed(std::vector<z3::expr> const& cube) const;
         bool block(std::vector<z3::expr> const& cube);
 
         // Frame comparisons

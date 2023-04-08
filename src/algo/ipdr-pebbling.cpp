@@ -288,7 +288,7 @@ namespace pdr::pebbling
     ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.copy_to_F1();
+    alg.frames.copy_to_Fk();
   }
 
   std::optional<size_t> IPDR::constrain_reset(unsigned pebbles)

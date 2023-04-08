@@ -26,17 +26,17 @@ namespace pdr
     blocked_cubes.clear();
   }
 
-  // bool Frame::blocked(const expr_vector& cube)
-  // {
-  //   for (const expr_vector& blocked_cube : blocked_cubes)
-  //   {
-  //     if (z3ext::subsumes_l(blocked_cube, cube))
-  //     {
-  //       return true; // equal or stronger clause found
-  //     }
-  //   }
-  //   return false;
-  // }
+  bool Frame::is_subsumed(vector<expr> const& new_cube) const
+  {
+    for (vector<expr> const& blocked_cube : blocked_cubes)
+    {
+      if (z3ext::subsumes_le(blocked_cube, new_cube))
+      {
+        return true; // equal or stronger clause found
+      }
+    }
+    return false;
+  }
 
   unsigned Frame::remove_subsumed(const vector<expr>& cube, bool remove_equal)
   {
