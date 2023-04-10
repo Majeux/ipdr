@@ -6,7 +6,7 @@ normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
 MODE="pebbling ipdr experiment"
-INC="--inc=relax"
+INC="--inc=constrain"
 Z3=""
 
 if [ $# -eq 0 ]

@@ -397,6 +397,9 @@ namespace pdr
 
   optional<size_t> Frames::already_blocked(vector<expr> const& cube, size_t level) const
   {
+    if (!ctx.skip_blocked)
+      return {};
+
     // searching cubes at level = search frames in F[level]...
     for (; level < frames.size(); level++)
     {

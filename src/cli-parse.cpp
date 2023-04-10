@@ -403,6 +403,8 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
         value<bool>(onlyshow)->default_value("false"))
 
+      (s_skip_blocked, "Skip cubes for which a stronger cube is already blocked. (Default = true)",
+       value<bool>(), "(Bool)")
       (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. (Default = UINT_MAX)",
        value<unsigned>(), "(uint:N)")
       (s_subsumed, "Once this fraction of clauses in the sat-solver are subsumed by subclauses, refresh the solver and discard them. (Default = 0.5)",
@@ -540,18 +542,6 @@ namespace my::cli
     string algo = clresult[o_alg].as<string>();
     is_one_of(algo, algo_group);
 
-    if (clresult[s_mic].count())
-      mic_retries = clresult[s_mic].as<unsigned>();
-
-    if (clresult[s_subsumed].count())
-      subsumed_cutoff = clresult[s_subsumed].as<unsigned>();
-
-    if (clresult[s_ctgdepth].count())
-      ctg_max_depth = clresult[s_ctgdepth].as<unsigned>();
-
-    if (clresult[s_ctgnum].count())
-      ctg_max_counters = clresult[s_ctgnum].as<unsigned>();
-
     if (algo == s_pdr)
     {
       ignored({ o_inc }, clresult);
@@ -657,8 +647,20 @@ namespace my::cli
     else if (clresult.count(s_seed))
       r_seed = clresult[s_seed].as<unsigned>();
 
+    if (clresult.count(s_skip_blocked))
+      skip_blocked = clresult[s_skip_blocked].as<bool>();
+
     if (clresult.count(s_mic))
       mic_retries = clresult[s_mic].as<unsigned>();
+
+    if (clresult.count(s_subsumed))
+      subsumed_cutoff = clresult[s_subsumed].as<unsigned>();
+
+    if (clresult.count(s_ctgdepth))
+      ctg_max_depth = clresult[s_ctgdepth].as<unsigned>();
+
+    if (clresult.count(s_ctgnum))
+      ctg_max_counters = clresult[s_ctgnum].as<unsigned>();
 
     // s_tseytin and s_show are set automatically
   }

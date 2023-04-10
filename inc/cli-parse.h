@@ -133,6 +133,7 @@ namespace my::cli
 
     std::optional<Experiment> experiment;
     std::variant<bool, unsigned> r_seed;
+    std::optional<bool> skip_blocked;
     std::optional<unsigned> mic_retries;
     std::optional<double> subsumed_cutoff;
     std::optional<unsigned> ctg_max_depth;
@@ -207,10 +208,11 @@ namespace my::cli
     inline static const std::string s_whisper = "whisper";
     inline static const std::string s_silent  = "silent";
 
-    inline static const std::string s_mic      = "mic-attempts";
-    inline static const std::string s_subsumed = "cut-subsumed";
-    inline static const std::string s_ctgdepth = "ctg-depth";
-    inline static const std::string s_ctgnum   = "max-ctgs";
+    inline static const std::string s_skip_blocked = "skip-blocked";
+    inline static const std::string s_mic          = "mic-attempts";
+    inline static const std::string s_subsumed     = "cut-subsumed";
+    inline static const std::string s_ctgdepth     = "ctg-depth";
+    inline static const std::string s_ctgnum       = "max-ctgs";
   };
 } // namespace my::cli
 #endif // CLI_H

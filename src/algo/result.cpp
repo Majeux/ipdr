@@ -210,15 +210,23 @@ namespace pdr
     tabulate::Table t;
     t.add_row(summary_header());
 
-    for (auto const& row : pdr_summaries)
+    for (auto row : pdr_summaries)
+    {
+      if (row.size() == t.row(0).size() - 1)
+        row.push_back(""); // append no inc_time
+      else 
+      {
+        assert(row.size() == t.row(0).size());
+      }
       t.add_row(row);
+    }
 
     tabulate::Table::Row_t total;
     {
       total.resize(pdr_summaries.at(0).size()); // match no. columns
 
       vector<double> times = g_times();
-      assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
+      // assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
       total.back() = fmt::format("{}", total_time);
       t.add_row(total);
     }
@@ -257,6 +265,13 @@ namespace pdr
     return *this;
   }
 
+  void IpdrResult::append_inc(double time)
+  {
+    total_time += time;
+    inc_times.push_back(time);
+    pdr_summaries.back().push_back(std::to_string(time));
+  }
+
   const tabulate::Table::Row_t IpdrResult::process_result(PdrResult const& r)
   {
     original.push_back(r);
@@ -283,6 +298,7 @@ namespace pdr
   {
     tabulate::Table::Row_t rv;
     rv.assign(PdrResult::fields.cbegin(), PdrResult::fields.cend());
+    rv.push_back("incremental time");
     return rv;
   }
 

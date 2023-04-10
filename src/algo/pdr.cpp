@@ -190,7 +190,9 @@ namespace pdr
       assert(n <= k);
       log_top_obligation(obligations.size(), n, state->cube);
 
-      if(optional<size_t> i = frames.already_blocked(state->cube, n+1))
+      // skip obligations for which a stronger cube is already blocked in some
+      // frame i
+      if (optional<size_t> i = frames.already_blocked(state->cube, n + 1))
       {
         MYLOG_DEBUG(logger, "obligation already blocked at level {}", *i);
         MYLOG_DEBUG(logger, "skipped");

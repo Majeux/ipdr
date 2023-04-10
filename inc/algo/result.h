@@ -27,7 +27,7 @@ namespace pdr
     using ResultRow = std::array<std::string, 3>;
 
     inline const static ResultRow fields = { "invariant index", "trace length",
-      "total time" };
+      "time" };
 
     struct Invariant
     {
@@ -109,6 +109,8 @@ namespace pdr
     // add a result to the aggregate
     // adds the row form process_result(r) to the pdr_summaries
     IpdrResult& add(const PdrResult& r);
+    // add the time spend during reconstraining and incremental propagation
+    void append_inc(double time);
 
     // output the pdr_summaries in a formatted table and append the total time
     // build using rows from process_row()
@@ -139,6 +141,8 @@ namespace pdr
     std::vector<tabulate::Table::Row_t> pdr_summaries;
     // string representation of traces from each PdrResult
     std::vector<std::string> traces;
+    // the time spend preparing the next incremental run and propagating clauses
+    std::vector<double> inc_times;
 
     // field names for table headers
     virtual const tabulate::Table::Row_t summary_header() const;

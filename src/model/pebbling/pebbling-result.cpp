@@ -66,7 +66,7 @@ namespace pdr::pebbling
       const PdrResult& r, std::optional<unsigned int> constraint)
   {
     tabulate::Table::Row_t res_row = process_result(r, constraint);
-    assert(res_row.size() == summary_header().size());
+    assert(res_row.size() == summary_header().size()-1);
     pdr_summaries.push_back(res_row);
 
     return *this;
@@ -139,7 +139,11 @@ namespace pdr::pebbling
   //
   const tabulate::Table::Row_t IpdrPebblingResult::summary_header() const
   {
-    return pebbling_summary_header;
+    auto rv = IpdrResult::summary_header();
+    rv.insert(rv.begin(), "pebbled");
+    rv.insert(rv.begin(), "constraint");
+    return rv;
+    // return pebbling_summary_header;
   }
 
   const tabulate::Table::Row_t IpdrPebblingResult::total_header() const
@@ -196,7 +200,7 @@ namespace pdr::pebbling
       default: assert(false);
     }
 
-    assert(row.size() == summary_header().size());
+    assert(row.size() == summary_header().size()-1); // inc time to be added
     return row;
   }
 

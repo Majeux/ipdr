@@ -19,6 +19,15 @@ namespace pdr
     z3::context& z3_ctx;
     uint32_t seed;
     Tactic type;
+
+    // After a cube is blocked, weaker or equal cubes may still be enqueued as
+    // obligations. 
+    // If true (default): these are skipped to save on the number of
+    // obligations considered. 
+    // If false: reconsider these weaker cubes to
+    // potentially generalize them into a stronger cube
+    bool skip_blocked;
+    
     // in PDR::MIC if mic fails to reduce a clause this many times, consider the
     // current clause sufficient
     uint32_t mic_retries;
@@ -28,8 +37,8 @@ namespace pdr
 
     // the depth of counterexamples-to-generalization that are considered
     uint32_t ctg_max_depth;
-    // the maximum number of counterexamples-to-generalization that are considered
-    // per cube (resets if the cube is joined with a ctg)
+    // the maximum number of counterexamples-to-generalization that are
+    // considered per cube (resets if the cube is joined with a ctg)
     uint32_t ctg_max_counters;
 
     Context(z3::context& c, my::cli::ArgumentList const& args);

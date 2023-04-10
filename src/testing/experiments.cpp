@@ -5,6 +5,7 @@
 #include "tactic.h"
 #include "types-ext.h"
 
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <numeric> // std::accumulate
 #include <tabulate/exporter.hpp>
@@ -173,7 +174,10 @@ namespace pdr::experiments
     control_table.format() = sample_table.format();
 
     srand(time(0));
-    std::generate(seeds.begin(), seeds.end(), rand);
+    if (args.experiment->seeds)
+      seeds = args.experiment->seeds.value();
+    else
+      std::generate(seeds.begin(), seeds.end(), rand);
   }
 
   void Experiment::run()
@@ -197,7 +201,8 @@ namespace pdr::experiments
       // write raw run data as markdown
       raw << format("# {}. {} samples. {} tactic.", model, N_reps,
                  tactic::to_string(tactic))
-          << endl;
+          << endl
+          << format("seeds used: {}", fmt::join(seeds, ", ")) << endl;
 
       raw << "## Control run." << endl;
       control_aggregate->dump(exporter, raw);
@@ -218,7 +223,8 @@ namespace pdr::experiments
       // write raw run data as markdown
       raw << format("# {}. {} samples. {} tactic.", model, N_reps,
                  tactic::to_string(tactic))
-          << endl;
+          << endl
+          << format("seeds used: {}", fmt::join(seeds, ", ")) << endl;
 
       raw << "## Experiment run." << endl;
       aggregate->dump(exporter, raw);

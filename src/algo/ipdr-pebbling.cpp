@@ -6,6 +6,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <spdlog/stopwatch.h>
 #include <stdexcept>
 #include <string>
 
@@ -78,10 +79,14 @@ namespace pdr::pebbling
     for (N = N + 1; invariant && N <= ts.n_nodes(); N++)
     {
       assert(N > ts.get_pebble_constraint()); // check for overflows
+
+      spdlog::stopwatch timer;
       if (control)
         basic_reset(N);
       else
         relax_reset(N);
+
+      total.append_inc(timer.elapsed().count());
 
       invariant = alg.run();
 
@@ -121,6 +126,8 @@ namespace pdr::pebbling
     for (N = N - 1; !invariant && N >= ts.get_f_pebbles(); N--)
     {
       assert(N < ts.get_pebble_constraint());
+
+      spdlog::stopwatch timer;
       if (control)
       {
         basic_reset(N);
@@ -134,6 +141,7 @@ namespace pdr::pebbling
         else
           invariant = alg.run();
       }
+      total.append_inc(timer.elapsed().count()); // adds to previous result
 
       total.add(invariant, ts.get_pebble_constraint());
       if (!invariant)
@@ -193,9 +201,11 @@ namespace pdr::pebbling
 
       optional<size_t> early_inv; // contains level if an invariant is found
                                   // during incrementation
+      spdlog::stopwatch timer;
       if (control)
       {
         basic_reset(m);
+        total.append_inc(timer.elapsed().count());
       }
       else
       {
@@ -205,6 +215,7 @@ namespace pdr::pebbling
         else if (m > m_prev)
           relax_reset(m);
       }
+      total.append_inc(timer.elapsed().count());
 
       if (early_inv)
         invariant = PdrResult::found_invariant(*early_inv);

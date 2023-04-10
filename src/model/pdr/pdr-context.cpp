@@ -6,6 +6,7 @@
 #include <memory>
 #include <variant>
 
+#define SKIP_BLOCKED_DEFAULT true
 #define MIC_RETRIES_DEFAULT UINT_MAX
 #define CTG_MAX_DEPTH_DEFAULT 1
 #define CTG_MAX_COUNTERS_DEFAULT 3
@@ -17,6 +18,7 @@ namespace pdr
   Context::Context(z3::context& c, my::cli::ArgumentList const& args)
       : z3_ctx(c),
         type(Tactic::undef),
+        skip_blocked(args.skip_blocked.value_or(SKIP_BLOCKED_DEFAULT)),
         mic_retries(args.mic_retries.value_or(MIC_RETRIES_DEFAULT)),
         subsumed_cutoff(args.subsumed_cutoff.value_or(SUBSUMED_CUT_DEFEAULT)),
         ctg_max_depth(args.ctg_max_depth.value_or(CTG_MAX_DEPTH_DEFAULT)),
@@ -25,8 +27,8 @@ namespace pdr
   {
     using namespace my::variant;
     z3_ctx.set("unsat_core", true);
-    z3_ctx.set("sat.core.minimize", true);
-    // z3_ctx.set("sat.core.minimize_partial", true);
+    // z3_ctx.set("sat.core.minimize", true);
+    z3_ctx.set("sat.core.minimize_partial", true);
     z3_ctx.set("model", true);
 
     // clang-format off

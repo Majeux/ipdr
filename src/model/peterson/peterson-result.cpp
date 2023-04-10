@@ -37,7 +37,7 @@ namespace pdr::peterson
       const PdrResult& r, unsigned n_processes)
   {
     tabulate::Table::Row_t res_row = process_result(r, n_processes);
-    assert(res_row.size() == summary_header().size());
+    assert(res_row.size() == summary_header().size()-1);
     pdr_summaries.push_back(res_row);
 
     return *this;
@@ -82,6 +82,10 @@ namespace pdr::peterson
   // processes | max_processes | invariant | trace | time
   const tabulate::Table::Row_t IpdrPetersonResult::summary_header() const
   {
+    auto rv = IpdrResult::summary_header();
+    rv.insert(rv.begin(), "max_processes");
+    rv.insert(rv.begin(), "processes");
+    return rv;
     return peterson_summary_header;
   }
 
@@ -106,6 +110,8 @@ namespace pdr::peterson
 
     row.insert(row.begin(), std::to_string(max_processes));
     row.insert(row.begin(), std::to_string(n_processes));
+
+    assert(row.size() == summary_header().size()-1); // inc time to be added
 
     return row;
   }
