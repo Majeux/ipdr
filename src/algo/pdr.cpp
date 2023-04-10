@@ -192,12 +192,19 @@ namespace pdr
 
       // skip obligations for which a stronger cube is already blocked in some
       // frame i
-      if (optional<size_t> i = frames.already_blocked(state->cube, n + 1))
+      if (ctx.skip_blocked)
       {
-        MYLOG_DEBUG(logger, "obligation already blocked at level {}", *i);
-        MYLOG_DEBUG(logger, "skipped");
-        obligations.erase(obligations.begin());
-        continue;
+        if (optional<size_t> i = frames.already_blocked(state->cube, n + 1))
+        {
+          MYLOG_DEBUG(logger, "obligation already blocked at level {}", *i);
+          MYLOG_DEBUG(logger, "skipped");
+          obligations.erase(obligations.begin());
+          continue;
+        }
+        else
+        {
+          MYLOG_DEBUG(logger, "obligation not yet blocked, continue");
+        }
       }
 
       // !state -> state

@@ -17,17 +17,20 @@ namespace pdr
   {
    public:
     z3::context& z3_ctx;
+    bool min_core;
+    bool part_min_core;
+
     uint32_t seed;
     Tactic type;
 
     // After a cube is blocked, weaker or equal cubes may still be enqueued as
-    // obligations. 
+    // obligations.
     // If true (default): these are skipped to save on the number of
-    // obligations considered. 
+    // obligations considered.
     // If false: reconsider these weaker cubes to
     // potentially generalize them into a stronger cube
     bool skip_blocked;
-    
+
     // in PDR::MIC if mic fails to reduce a clause this many times, consider the
     // current clause sufficient
     uint32_t mic_retries;
@@ -49,6 +52,11 @@ namespace pdr
     operator const z3::context&() const;
 
     z3::context& operator()();
+
+    std::string settings_str() const;
+
+   private:
+    void init_settings(my::cli::ArgumentList const& args);
   }; // class PDRcontext
 } // namespace pdr
 #endif // PDRCONTEXT_H

@@ -21,7 +21,8 @@
 #include <variant>
 #include <vector>
 
-#warning display settings for: delta, seed, mic_retries
+#include <dbg.h>
+
 namespace my::cli
 {
   using namespace pdr::tactic;
@@ -648,7 +649,7 @@ namespace my::cli
       r_seed = clresult[s_seed].as<unsigned>();
 
     if (clresult.count(s_skip_blocked))
-      skip_blocked = clresult[s_skip_blocked].as<bool>();
+      skip_blocked = dbg(clresult[s_skip_blocked].as<bool>());
 
     if (clresult.count(s_mic))
       mic_retries = clresult[s_mic].as<unsigned>();

@@ -395,17 +395,21 @@ namespace pdr
     return Witness(curr, next);
   }
 
+
   optional<size_t> Frames::already_blocked(vector<expr> const& cube, size_t level) const
   {
-    if (!ctx.skip_blocked)
-      return {};
-
+    MYLOG_DEBUG(log, "find [{}] or weaker cube in frames", z3ext::join_ev(cube));
     // searching cubes at level = search frames in F[level]...
-    for (; level < frames.size(); level++)
+    for (size_t i = level; i < frames.size(); i++)
     {
-      if (frames[level].is_subsumed(cube))
+      if (frames[i].is_subsumed(cube))
+      {
+        MYLOG_DEBUG(log, "found at level {}", i);
         return level;
+      }
     }
+
+    MYLOG_DEBUG(log, "none in F_{}...", level);
     return {};
   }
 
