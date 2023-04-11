@@ -85,7 +85,6 @@ namespace pdr::pebbling
         basic_reset(N);
       else
         relax_reset(N);
-
       total.append_inc(timer.elapsed().count());
 
       invariant = alg.run();
@@ -132,6 +131,7 @@ namespace pdr::pebbling
       {
         basic_reset(N);
         invariant = alg.run();
+        total.append_inc(timer.elapsed().count()); // adds to previous result
       }
       else
       {
@@ -140,8 +140,8 @@ namespace pdr::pebbling
           invariant = PdrResult::found_invariant(*inv_frame);
         else
           invariant = alg.run();
+        total.append_inc(timer.elapsed().count()); // adds to previous result
       }
-      total.append_inc(timer.elapsed().count()); // adds to previous result
 
       total.add(invariant, ts.get_pebble_constraint());
       if (!invariant)

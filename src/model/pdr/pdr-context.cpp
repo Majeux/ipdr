@@ -21,7 +21,7 @@ namespace pdr
   void Context::init_settings(my::cli::ArgumentList const& args)
   {
     min_core         = false;
-    part_min_core    = true;
+    part_min_core    = false;
     type             = Tactic::undef;
     skip_blocked     = args.skip_blocked.value_or(SKIP_BLOCKED_DEFAULT);
     mic_retries      = args.mic_retries.value_or(MIC_RETRIES_DEFAULT);

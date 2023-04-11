@@ -69,10 +69,12 @@ namespace pdr::peterson
 
     for (p = p + 1; invariant && p <= N; p++)
     {
+      spdlog::stopwatch timer;
       if (control)
         basic_reset(p);
       else
         relax_reset(p);
+      total.append_inc(timer.elapsed().count()); // adds to previous result
 
       invariant = alg.run();
 
