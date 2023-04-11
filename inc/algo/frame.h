@@ -43,7 +43,7 @@ namespace pdr
         std::vector<std::vector<z3::expr>> diff(const Frame& f) const;
 
         // getters
-        const z3ext::CubeSet& get() const;
+        z3ext::CubeSet const& get() const;
         bool empty() const;
 
         // string representations

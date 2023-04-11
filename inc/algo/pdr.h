@@ -161,6 +161,7 @@ namespace pdr
       //  note: subsumption still works as normal? a more specific (subcube)
       //  subsumes the larger
       void relax_reset(unsigned pebbles);
+      void relax_reset_constrained(unsigned pebbles);
       std::optional<size_t> constrain_reset(unsigned pebbles);
     }; // class Optimizer
   }    // namespace pebbling

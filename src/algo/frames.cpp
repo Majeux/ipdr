@@ -103,7 +103,6 @@ namespace pdr
 
   // incremental pdr functions
   //
-#warning subsumption removes all but the most generic clauses,  but these should be learned at higher levels
   void Frames::copy_to_F1()
   {
     assert(frames.size() > 0);
@@ -179,6 +178,44 @@ namespace pdr
 
           cube_it = old.erase(cube_it); // cannot be inductive to higher levels
         }
+      }
+    }
+    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
+
+    detached_frontier = 1;
+
+    model.diff = IModel::Diff_t::none;
+  }
+
+  void Frames::copy_to_Fk_keep(size_t step, expr const& old_constraint)
+  {
+    assert(frames.size() > 0);
+    assert(model.diff == IModel::Diff_t::relaxed);
+    MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
+        frames.size() - 1);
+
+    // new step is marked as larger than the previous
+    assert(!constraints.empty() && std::prev(constraints.end())->first < step);
+    constraints.emplace(step, old_constraint);
+    // reconstrain solver and reset it
+    delta_solver.reconstrain_clear(model.get_constraint());
+
+    vector<z3ext::CubeSet> old_frames;
+    for (Frame& f : frames)
+    {
+      old_frames.push_back(f.get());
+      f.clear();
+    }
+
+    vector<unsigned> copied(frames.size(), 0);
+    // every cube is valid under the old constraint
+    MYLOG_DEBUG(log, "Copying frames under constraint: [{}]", old_constraint);
+    for (size_t i{ 1 }; i < old_frames.size(); i++)
+    {
+      for (vector<expr> cube : old_frames[i])
+      {
+        cube.push_back(old_constraint);
+        remove_state(cube, i);
       }
     }
     MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));

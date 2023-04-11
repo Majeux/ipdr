@@ -30,7 +30,6 @@ namespace pdr
 
     // sequence manipulation functions
     //
-    // initialize a new frame to the base
     void extend();
 
     // reset the sequence to F_0, F_1 (frontier 0)
@@ -44,13 +43,19 @@ namespace pdr
 
     // incremental pdr functions
     //
+    // after relaxing:
     // carry over all learned cubes to F_1 in a new sequence (if valid)
     // used after a constraint has been relaxed since a previous model
     void copy_to_F1();
-
+    // after relaxing:
     // carry over all learned cubes to a new sequence F_1..F_k (if valid)
     // used after a constraint has been relaxed since a previous model
     void copy_to_Fk();
+    // after relaxing:
+    // carry over all learned cubes to a new sequence F_1..F_k
+    // if a cube is no longer valid under the new system: add a constraint 
+    // specifying it for the old system
+    void copy_to_Fk_keep(size_t step, z3::expr const& old_constraint);
 
     // redo propagation for the previous level
     // return an invariant level if propagation finds one
@@ -124,6 +129,11 @@ namespace pdr
     Solver FI_solver;
     Solver delta_solver;
     std::vector<z3::expr> act; // activation variables for each frame
+     // activation literals for incremental relaxing constraints
+     // these are defined in the solver: c[i] <=> constraint(i)
+     // such that: c[0] < c[1] < c[2] ... etc
+     // there is a constraint for each relaxing step (step |-> constraint)
+    std::map<size_t, z3::expr> constraints;
 
     void init_frames();
     void new_frame();
