@@ -187,16 +187,24 @@ namespace pdr
     model.diff = IModel::Diff_t::none;
   }
 
-  void Frames::copy_to_Fk_keep(size_t step, expr const& old_constraint)
+  void Frames::copy_to_Fk_keep(size_t old_step, expr const& old_constraint)
   {
+    using namespace z3ext::constrained_cube;
+    // TODO: add constraint <=> constraint expression to solver
+
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
     MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
         frames.size() - 1);
 
+    optional<size_t> prev_step =
+        constraints.empty()
+            ? std::nullopt // for the first registered step
+            : optional<size_t>(std::prev(constraints.end())->first);
+
     // new step is marked as larger than the previous
-    assert(!constraints.empty() && std::prev(constraints.end())->first < step);
-    constraints.emplace(step, old_constraint);
+    assert(prev_step < old_step); // empty prev_step is implicitly smaller
+    constraints.emplace(old_step, old_constraint);
     // reconstrain solver and reset it
     delta_solver.reconstrain_clear(model.get_constraint());
 
@@ -212,13 +220,14 @@ namespace pdr
     MYLOG_DEBUG(log, "Copying frames under constraint: [{}]", old_constraint);
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
-      for (vector<expr> cube : old_frames[i])
-      {
-        cube.push_back(old_constraint);
-        remove_state(cube, i);
-      }
+      for (vector<expr> const& cube : old_frames[i])
+        frames[i].block(mk_constrained_cube(cube, old_step)); // at least true
     }
-    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
+
+    // TODO:
+    // try to reblock all states from old_frames
+    // these are stronger than the constrained cubes that were just blocked, 
+    // and can potentially subsume them
 
     detached_frontier = 1;
 
@@ -432,10 +441,11 @@ namespace pdr
     return Witness(curr, next);
   }
 
-
-  optional<size_t> Frames::already_blocked(vector<expr> const& cube, size_t level) const
+  optional<size_t> Frames::already_blocked(
+      vector<expr> const& cube, size_t level) const
   {
-    MYLOG_DEBUG(log, "find [{}] or weaker cube in frames", z3ext::join_ev(cube));
+    MYLOG_DEBUG(
+        log, "find [{}] or weaker cube in frames", z3ext::join_ev(cube));
     // searching cubes at level = search frames in F[level]...
     for (size_t i = level; i < frames.size(); i++)
     {

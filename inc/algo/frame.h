@@ -21,9 +21,9 @@ namespace pdr
     class Frame
     {
       private:
+        // the arguments of the clause are sorted by mic, use id to search
         z3ext::CubeSet blocked_cubes;
         const unsigned level;
-        // the arguments of the clause are sorted by mic, use id to search
 
         void init_solver();
 

@@ -3,25 +3,31 @@
 #include <algorithm>
 #include <fmt/core.h>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <z3++.h>
 
 namespace z3ext
 {
+  using fmt::format;
+  using std::optional;
   using std::string;
+  using std::string_view;
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
 
-  // atoms and lits
+  // LitStr Members
   //
-  LitStr::LitStr(std::string_view a, bool s) : atom(a), sign(s) {}
+  LitStr::LitStr(string_view a, bool s) : atom(a), sign(s) {}
   LitStr::LitStr(expr const& l)
   {
     const auto invalid = std::invalid_argument(
-        fmt::format("\"{}\" is not boolean literal", l.to_string()));
+        format("\"{}\" is not boolean literal", l.to_string()));
 
     if (!l.is_bool())
       throw invalid;
@@ -55,6 +61,121 @@ namespace z3ext
     return fmt::format("{} -> {}", atom, sign ? "true" : "false");
   }
 
+  // ConstrainedCube Members
+  //
+  namespace constrained_cube
+  {
+    string constraint_str(size_t size)
+    {
+      return format("__constraint{}__", size);
+    }
+
+    optional<size_t> constraint_size(string_view str)
+    {
+      if (str.substr(0, prefix.length()) != prefix)
+        return {};
+
+      if (str.substr(str.length() - suffix.length(), suffix.length()) != suffix)
+        return {};
+
+      string_view order = str.substr(
+          prefix.length(), str.length() - suffix.length() - prefix.length());
+
+      return std::stoul(string(order));
+    }
+
+    optional<size_t> constraint_size(expr const& e)
+    {
+      return constraint_size(e.to_string());
+    }
+
+    bool stronger_constraint(expr const& a, expr const& b)
+    {
+      optional<size_t> a_con = constraint_size(a);
+      optional<size_t> b_con = constraint_size(b);
+
+      if (!a_con) // no constraint is always stronger or equal to any or none
+        return true;
+      // a_con
+      if (!b_con) // idem: b is stronger
+        return false;
+      // a_con && b_con
+      return *a_con >= *b_con; // predefined: higher size is stronger
+    }
+
+    std::vector<z3::expr> mk_constrained_cube(
+        std::vector<z3::expr> const& lits, size_t size)
+    {
+      vector<expr> rv(lits);
+      return mk_constrained_cube(std::move(rv), size);
+    }
+
+    std::vector<z3::expr> mk_constrained_cube(vector<expr>&& lits, size_t size)
+    {
+      assert(std::is_sorted(lits.cbegin(), lits.cend(), cexpr_less()));
+      assert(std::all_of(lits.cbegin(), std::prev(lits.cend()), // lits[0..-1]
+          [](expr const& e) { return !constraint_size(e); }));  // no constraint
+
+      z3::context& ctx = lits.at(0).ctx();
+      expr constraint  = ctx.bool_const(constraint_str(size).c_str());
+
+      if (auto current_constraint = constraint_size(lits.back().to_string()))
+      {
+        if (size >= *current_constraint) // new constraint subsumes old
+          lits.back() = constraint;      // replace old
+        return lits;
+      }
+
+      lits.push_back(constraint);
+      return std::move(lits);
+    }
+
+    bool subsumes_le(vector<expr> const& a, vector<expr> const& b)
+    {
+      // preliminary
+      optional<size_t> a_con = constraint_size(a.back());
+      optional<size_t> b_con = constraint_size(b.back());
+
+      auto a_last = a_con ? std::prev(a.cend()) : a.cend(); // strip constraint
+      auto b_last = b_con ? std::prev(b.cend()) : b.cend();
+
+      auto cube_size = [](vector<expr> const& ev, bool constrained)
+      { return ev.size() - constrained; };
+
+      auto alits_subsume_blits = [&]() -> bool
+      {
+        // cube a is larger, so cannot subsume b
+        if (cube_size(a, a_con.has_value()) > cube_size(b, b_con.has_value()))
+          return false;
+
+        return std::includes(
+            b.cbegin(), b_last, a.cbegin(), a_last, cube_orderer);
+      };
+
+      // main body
+      if (!a_con) // no constraint is always stronger or equal
+        return alits_subsume_blits(); // return if a's literals are stronger
+
+      if (b_con && *a_con >= *b_con)  // a has a stronger constraint
+        return alits_subsume_blits(); // return if a's literals are stronger
+
+      // b_con is stronger than a_con, or b is unconstrained
+      return false; // so b is stronger even if cubes subsumes
+    }
+
+    bool cexpr_less::operator()(expr const& a, expr const& b) const
+    {
+      optional<size_t> a_con = constraint_size(a);
+      optional<size_t> b_con = constraint_size(b);
+
+      if (a_con.has_value() == b_con.has_value())
+        return a.id() < b.id();
+      return !a_con && b_con; // any literal is earlier than a constraint
+    }
+  } // namespace constrained_cube
+
+  // atoms and lits
+  //
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
   bool is_lit(expr const& e)
@@ -210,7 +331,7 @@ namespace z3ext
     if (l.size() >= r.size())
       return false;
 
-    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), cube_orderer);
   }
 
   bool subsumes_l(vector<expr> const& l, vector<expr> const& r)
@@ -218,7 +339,7 @@ namespace z3ext
     if (l.size() >= r.size())
       return false;
 
-    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), cube_orderer);
   }
 
   bool subsumes_le(expr_vector const& l, expr_vector const& r)
@@ -226,7 +347,7 @@ namespace z3ext
     if (l.size() > r.size())
       return false;
 
-    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), cube_orderer);
   }
 
   bool subsumes_le(vector<expr> const& l, vector<expr> const& r)
@@ -234,7 +355,7 @@ namespace z3ext
     if (l.size() > r.size())
       return false;
 
-    return std::includes(r.begin(), r.end(), l.begin(), l.end(), expr_less());
+    return std::includes(r.begin(), r.end(), l.begin(), l.end(), cube_orderer);
   }
 
   bool eq(expr_vector const& l, expr_vector const& r)

@@ -307,8 +307,8 @@ namespace pdr::pebbling
   {
     using fmt::format;
 
-    optional<unsigned> old = ts.get_pebble_constraint();
-    assert(pebbles > old.value());
+    unsigned old = ts.get_pebble_constraint().value();
+    assert(pebbles > old);
     assert(std::addressof(ts) == std::addressof(alg.ts));
     alg.logger.and_show(
         "increment from {} -> {} pebbles", old, pebbles);
@@ -318,7 +318,7 @@ namespace pdr::pebbling
     ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.copy_to_Fk_keep(old.value_or(UINT_MAX), old_constraint[0]);
+    alg.frames.copy_to_Fk_keep(old, old_constraint[0]);
   }
 
   std::optional<size_t> IPDR::constrain_reset(unsigned pebbles)

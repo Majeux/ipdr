@@ -51,11 +51,13 @@ namespace pdr
     // carry over all learned cubes to a new sequence F_1..F_k (if valid)
     // used after a constraint has been relaxed since a previous model
     void copy_to_Fk();
-    // after relaxing:
-    // carry over all learned cubes to a new sequence F_1..F_k
+    // after relaxing.
+    // carry over all learned cubes to a new sequence F_1..F_k.
     // if a cube is no longer valid under the new system: add a constraint 
-    // specifying it for the old system
-    void copy_to_Fk_keep(size_t step, z3::expr const& old_constraint);
+    // specifying it for the old system.
+    // @param old_step: the given size of the constraint from the previous run
+    // @param old_constraint: the expression for the constraint from the previous run
+    void copy_to_Fk_keep(size_t old_step, z3::expr const& old_constraint);
 
     // redo propagation for the previous level
     // return an invariant level if propagation finds one

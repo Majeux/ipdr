@@ -28,49 +28,51 @@ namespace z3ext
     std::string to_string() const;
   };
 
-  struct ConstrainedCube
+  // handling cubes of the form: < c1, c2, ..., c3, constraint_lit >
+  namespace constrained_cube
   {
-    // assumes at least one lit
-    std::vector<z3::expr> lits;
-    std::optional<z3::expr> constraint;
+    inline static const std::string prefix = "__constraint";
+    inline static const std::string suffix = "__";
 
-    // implicit conversion to vector<expr>
-    operator std::vector<z3::expr>() const
+    std::string constraint_str(size_t size);
+    std::optional<size_t> constraint_size(std::string_view str);
+    std::optional<size_t> constraint_size(z3::expr const& e);
+    // true if a is stronger than be
+    // @pre: a and b in form < c1, c2, ..., cn, constraint >
+    bool stronger_constraint(z3::expr const& a, z3::expr const& b);
+
+    // copy construction.
+    // @pre: lits in form < c1, c2, ..., cn, constraint >.
+    // @post: rv in form < c1, c2, ..., cn, constraint >.
+    std::vector<z3::expr> mk_constrained_cube(
+        std::vector<z3::expr> const& lits, size_t size);
+    // move construction.
+    // @pre: lits in form < c1, c2, ..., cn, constraint >.
+    // @post: rv in form < c1, c2, ..., cn, constraint >.
+    std::vector<z3::expr> mk_constrained_cube(
+        std::vector<z3::expr>&& lits, size_t size);
+
+    // true if a is stronger than b.
+    // @pre: a and b in form < c1, c2, ..., cn, constraint >
+    bool subsumes_le(
+        std::vector<z3::expr> const& a, std::vector<z3::expr> const& b);
+
+    // compares constrained cubes
+    // cubes in form < c1, c2, ..., cn, constraint >
+    struct cexpr_less
     {
-      std::vector<z3::expr> rv = lits;
-      if (constraint)
-        rv.push_back(*constraint);
-      return rv;
-    }
+      bool operator()(
+          z3::expr const& a, z3::expr const& b) const;
+    };
 
-    // implicit conversion to expr_vector
-    operator z3::expr_vector() const
-    {
-      z3::expr_vector rv(lits.at(0).ctx());
-      for (z3::expr const& e : lits)
-        rv.push_back(e);
-      if (constraint)
-        rv.push_back(*constraint);
-      return rv;
-    }
+    // vectors can be sorted as normal by id
 
-    // implicit conversion to an expr (cube)
-    operator z3::expr() const
-    {
-      z3::expr rv = lits.at(0);
-      for (size_t i{1}; i < lits.size(); i++)
-        rv = rv && lits[i];
-      if (constraint)
-        rv = rv && *constraint;
-      return rv;
-    }
-  };
-
+  }; // namespace constrained_cube
 
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
-  // get the variable of a literal
-  // throws if e is not a literal
+  // get the variable of a literal.
+  // @pre: e is a literal
   z3::expr strip_not(z3::expr const& e);
 
   // allocates new vector
@@ -100,11 +102,13 @@ namespace z3ext
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_l(const z3::expr_vector& l, const z3::expr_vector& r);
-  bool subsumes_l(const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
+  bool subsumes_l(
+      const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
-  bool subsumes_le(const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
+  bool subsumes_le(
+      const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
 
   bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
   bool quick_implies(const z3::expr_vector& l, const z3::expr_vector& r);
@@ -144,7 +148,10 @@ namespace z3ext
 
   // internal cube order by pdr
   //
-  inline expr_less cube_orderer;
+  // the default less-than comparison used to order cubes
+  // inline expr_less cube_orderer;
+  // for extra-constrained cubes (relaxing)
+  inline constrained_cube::cexpr_less cube_orderer; 
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
   std::vector<z3::expr> order_lits_std(z3::expr_vector const& cube);
@@ -267,6 +274,7 @@ namespace z3ext
     return rv;
   }
 
+  // using CubeSet = std::set<ConstrainedCube, ccube_less>;
   using CubeSet = std::set<std::vector<z3::expr>, std_expr_vector_less>;
 
   namespace solver
