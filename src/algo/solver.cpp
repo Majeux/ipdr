@@ -13,7 +13,6 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-#warning still duplicates in solver in dump
   Solver::Solver(Context& ctx, const IModel& m, expr_vector base,
       expr_vector transition, expr_vector constraint)
       : vars(m.vars), internal_solver(ctx)

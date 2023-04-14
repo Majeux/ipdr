@@ -11,6 +11,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
@@ -150,9 +151,15 @@ namespace pdr
 
     // reconstrain solver and reset it to "no blocked"
     delta_solver.reconstrain_clear(model.get_constraint());
+
+    // aggregate level at which each cube was learned
+    size_t learned_lvls = 0u;
+    size_t copied_lvls  = 0u;
+    for (size_t i{ 1 }; i < frames.size(); i++)
+      learned_lvls += i * frames[i].get().size();
+
     z3ext::CubeSet old = get_blocked_in(1); // all previously learned cubes
 
-    vector<unsigned> copied(frames.size(), 0);
     // repopulate every level
     for (size_t i{ 0 }; i < frames.size() - 1; i++)
     {
@@ -163,23 +170,23 @@ namespace pdr
       {
         if (!trans_source(i, *cube_it))
         {
-          if (remove_state(*cube_it, i + 1))
-          {
-            // tracking copy state:
-            // see if copied to previous level
-            // see if copied at all
-          }
+          remove_state(*cube_it, i + 1);
           cube_it++;
         }
         else
         {
           MYLOG_DEBUG(
               log, "copied up to level {}: [{}]", i, z3ext::join_ev(*cube_it));
-
+          copied_lvls += i;
           cube_it = old.erase(cube_it); // cannot be inductive to higher levels
         }
       }
     }
+    IF_STATS({
+      log.stats.relax_copied_cubes_perc =
+          (double)copied_lvls / learned_lvls * 100.0;
+    });
+    repopulate_solvers();
     MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
 
     detached_frontier = 1;
@@ -189,25 +196,27 @@ namespace pdr
 
   void Frames::copy_to_Fk_keep(size_t old_step, expr const& old_constraint)
   {
-    using namespace z3ext::constrained_cube;
-    // TODO: add constraint <=> constraint expression to solver
-
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
+    // new step is marked as larger than the previous
+    assert(constraints.empty() || constraints.rbegin()->first < old_step);
+
+    using namespace z3ext::constrained_cube;
+
     MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
         frames.size() - 1);
 
-    optional<size_t> prev_step =
-        constraints.empty()
-            ? std::nullopt // for the first registered step
-            : optional<size_t>(std::prev(constraints.end())->first);
-
-    // new step is marked as larger than the previous
-    assert(prev_step < old_step); // empty prev_step is implicitly smaller
     constraints.emplace(old_step, old_constraint);
-    // reconstrain solver and reset it
-    delta_solver.reconstrain_clear(model.get_constraint());
+    expr_vector base = z3ext::vec_add(model.property(), old_constraints());
+    delta_solver.remake(base, model.get_transition(), model.get_constraint());
 
+    // aggregate level at which each cube was learned
+    size_t learned_lvls = 0u;
+    size_t copied_lvls  = 0u;
+    for (size_t i{ 1 }; i < frames.size(); i++)
+      learned_lvls += i * frames[i].get().size();
+
+    z3ext::CubeSet old = get_blocked_in(1); // all previously learned cubes
     vector<z3ext::CubeSet> old_frames;
     for (Frame& f : frames)
     {
@@ -215,23 +224,49 @@ namespace pdr
       f.clear();
     }
 
-    vector<unsigned> copied(frames.size(), 0);
-    // every cube is valid under the old constraint
+    // every cube is valid under the old constraint, as proven by previous pdr
+    // TODO: add constraint <=> constraint_expression to solver
     MYLOG_DEBUG(log, "Copying frames under constraint: [{}]", old_constraint);
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
       for (vector<expr> const& cube : old_frames[i])
-        frames[i].block(mk_constrained_cube(cube, old_step)); // at least true
+        remove_state(mk_constrained_cube(cube, old_step), i); // at least true
     }
 
     // TODO:
     // try to reblock all states from old_frames
-    // these are stronger than the constrained cubes that were just blocked, 
+    // these are stronger than the constrained cubes that were just blocked,
     // and can potentially subsume them
+    for (size_t i{ 0 }; i < frames.size() - 1; i++)
+    {
+      MYLOG_DEBUG(log, "Copying to frame {}", i + 1);
+      frames[i + 1].clear();
+      // with all cubes that are still inductive
+      for (auto cube_it = old.begin(); cube_it != old.end();)
+      {
+        if (!trans_source(i, *cube_it))
+        {
+          remove_state(*cube_it, i + 1);
+          cube_it++;
+        }
+        else
+        {
+          MYLOG_DEBUG(
+              log, "copied up to level {}: [{}]", i, z3ext::join_ev(*cube_it));
+          copied_lvls += i;
+          cube_it = old.erase(cube_it); // cannot be inductive to higher levels
+        }
+      }
+    }
+    IF_STATS({
+      log.stats.relax_copied_cubes_perc =
+          (double)copied_lvls / learned_lvls * 100.0;
+    });
+    repopulate_solvers();
+    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
 
     detached_frontier = 1;
-
-    model.diff = IModel::Diff_t::none;
+    model.diff        = IModel::Diff_t::none;
   }
 
   optional<size_t> Frames::reuse()
@@ -592,5 +627,21 @@ namespace pdr
           delta_solver.frac_subsumed() * 100.0, ctx.subsumed_cutoff * 100.0);
       repopulate_solvers();
     }
+  }
+
+  expr_vector Frames::old_constraints() const {
+    using namespace z3ext::constrained_cube;
+
+    expr_vector rv(ctx.z3_ctx);
+
+    for (auto& [i, e] : constraints)
+    {
+      expr lit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
+      // lit <=> e
+      rv.push_back(!lit || e); // lit => e
+      rv.push_back(lit || !e); // e => lit
+    } 
+
+    return rv;
   }
 } // namespace pdr

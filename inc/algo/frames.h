@@ -53,10 +53,11 @@ namespace pdr
     void copy_to_Fk();
     // after relaxing.
     // carry over all learned cubes to a new sequence F_1..F_k.
-    // if a cube is no longer valid under the new system: add a constraint 
+    // if a cube is no longer valid under the new system: add a constraint
     // specifying it for the old system.
     // @param old_step: the given size of the constraint from the previous run
-    // @param old_constraint: the expression for the constraint from the previous run
+    // @param old_constraint: the expression for the constraint from the
+    // previous run
     void copy_to_Fk_keep(size_t old_step, z3::expr const& old_constraint);
 
     // redo propagation for the previous level
@@ -72,8 +73,8 @@ namespace pdr
 
     // state removal functions
     //
+    //
     bool remove_state(const std::vector<z3::expr>& cube, size_t level);
-    bool delta_remove_state(const std::vector<z3::expr>& cube, size_t level);
     std::optional<size_t> propagate();
     std::optional<size_t> propagate(size_t k);
     void push_forward_delta(size_t level, bool repeat = false);
@@ -130,16 +131,32 @@ namespace pdr
 
     Solver FI_solver;
     Solver delta_solver;
-    std::vector<z3::expr> act; // activation variables for each frame
-     // activation literals for incremental relaxing constraints
-     // these are defined in the solver: c[i] <=> constraint(i)
-     // such that: c[0] < c[1] < c[2] ... etc
-     // there is a constraint for each relaxing step (step |-> constraint)
+    // activation variables for each frame. if present in a query, the clauses
+    // from the corresponding frame are loaded
+    std::vector<z3::expr> act;
+    // activation literals for incremental relaxing.
+    // Defined in the solver as: c[i] <=> constraint(i),
+    // there is a constraint for each pdr-run after which a relaxing step was
+    // made.
+    // each constraint is user-defined such that: 
+    // constraint[i] => constraint[j] if i < j
     std::map<size_t, z3::expr> constraints;
 
     void init_frames();
     void new_frame();
     void refresh_solver_if_clogged();
+    // define each of the "constraints" in a logic formula:
+    // expr(__constraint{i}__) <=> constraint[i]
+    z3::expr_vector old_constraints() const;
+
+    // performs state removal for the delta-encoding. called by remove_state().
+    //
+    // @pre: "cube" is unreachable within "level" steps of the system
+    // @post: "cube" is marked as unreachble in "frames[level]" in the
+    // delta-encoding and "cube" has been blocked at "level" in the
+    // "delta_solver".
+    // @return: true if "cube" was newly removed, false if it was already.
+    bool delta_remove_state(const std::vector<z3::expr>& cube, size_t level);
   };
 
 } // namespace pdr
