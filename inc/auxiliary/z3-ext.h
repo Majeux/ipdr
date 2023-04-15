@@ -3,6 +3,7 @@
 
 #include "string-ext.h"
 #include <algorithm>
+#include <cstring>
 #include <fmt/core.h>
 #include <optional>
 #include <random>
@@ -31,8 +32,23 @@ namespace z3ext
   // handling cubes of the form: < c1, c2, ..., c3, constraint_lit >
   namespace constrained_cube
   {
-    inline static const std::string prefix = "__constraint";
-    inline static const std::string suffix = "__";
+    namespace
+    {
+      int constexpr length(const char* str)
+      {
+        return *str ? 1 + length(str + 1) : 0;
+      }
+    } // namespace
+
+    // compile time definitions
+    static constexpr const char* tag_chars   = "__c__";
+    constexpr static const size_t tag_length = length(tag_chars);
+    // used definitions
+    inline static const std::string tag(tag_chars); // usage: __c{}__
+    // all except last two characters are prefix
+    inline static const std::string prefix = tag.substr(0, tag.length() - 2);
+    // last two are suffix
+    inline static const std::string suffix = tag.substr(tag.length() - 2, 2);
 
     std::string constraint_str(size_t size);
     std::optional<size_t> constraint_size(std::string_view str);
@@ -61,8 +77,7 @@ namespace z3ext
     // cubes in form < c1, c2, ..., cn, constraint >
     struct cexpr_less
     {
-      bool operator()(
-          z3::expr const& a, z3::expr const& b) const;
+      bool operator()(z3::expr const& a, z3::expr const& b) const;
     };
 
     // vectors can be sorted as normal by id
@@ -151,7 +166,7 @@ namespace z3ext
   // the default less-than comparison used to order cubes
   // inline expr_less cube_orderer;
   // for extra-constrained cubes (relaxing)
-  inline constrained_cube::cexpr_less cube_orderer; 
+  inline constrained_cube::cexpr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
   std::vector<z3::expr> order_lits_std(z3::expr_vector const& cube);

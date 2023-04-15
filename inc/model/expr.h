@@ -15,6 +15,34 @@ namespace mysat::primed
     primed
   };
 
+  // constant names with the prefix "__" are reserved for internal variables
+  bool is_reserved_lit(std::string_view name);
+  bool is_reserved_lit(z3::expr const& e);
+  void validate_lit_name(std::string_view name);
+
+  class ReservedLiteral : public std::exception
+  {
+   private:
+    std::string message;
+
+    void explain(std::string_view msg)
+    {
+      message = fmt::format(
+          "ReservedLiteral: {} contains the prefix \"__\", which is reserved "
+          "for implementation variables (such as activation literals)",
+          msg);
+    }
+
+   public:
+    ReservedLiteral(z3::expr const& lit) : message()
+    {
+      explain(lit.to_string());
+    }
+    ReservedLiteral(std::string_view name) : message() { explain(name); }
+
+    const char* what() const noexcept override { return message.c_str(); }
+  };
+
   // this class can return an expression that ensures its value does not change
   // in the next state
   class IStays
@@ -69,8 +97,12 @@ namespace mysat::primed
     Lit(z3::context& c, std::string const& name);
 
     operator z3::expr const&() const override;
+    // return the unprimed representation of the literal
     z3::expr const& operator()() const override;
+    // return the primed representation of the literal
     z3::expr const& p() const override;
+    // SMT expression stating that Lit is the same in the current state as the
+    // next
     z3::expr unchanged() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
@@ -92,21 +124,35 @@ namespace mysat::primed
         std::vector<std::string> const& nextnames);
 
     operator z3::expr_vector const&() const override;
+    // return all unprimed versions of the literals in VarVec
     z3::expr_vector const& operator()() const override;
+    // return all primed versions of the literals in VarVec
     z3::expr_vector const& p() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
+    // return the unprimed representation of the ith variable in VarVec
     z3::expr operator()(size_t i) const;
+    // return the primed representation of the ith variable in VarVec
     z3::expr p(size_t i) const;
+    // return the unprimed representation of "e" if "e" is a primed variable in
+    // VarVec. if "e" is a reserved literal, "e" is returned. else this function
+    // throws
     z3::expr operator()(z3::expr const& e) const;
+    // return the primed representation of "e" if "e" is an unprimed variable in
+    // VarVec. if "e" is a reserved literal, "e" is returned. else this function
+    // throws
     z3::expr p(z3::expr const& e) const;
     // convert expressions to and form current and next
     z3::expr_vector operator()(z3::expr_vector const& ev) const;
     z3::expr_vector p(z3::expr_vector const& ev) const;
     z3::expr_vector p(std::vector<z3::expr> const& ev) const;
 
+    // returns true if "e" is an unprimed variable from VarVec or if it a
+    // reserved literal
     bool lit_is_current(z3::expr const& e) const;
+    // returns true if "e" is a primed variable from VarVec or if it a reserved
+    // literal
     bool lit_is_p(z3::expr const& e) const;
 
    private:

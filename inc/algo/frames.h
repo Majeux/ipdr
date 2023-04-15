@@ -58,7 +58,7 @@ namespace pdr
     // @param old_step: the given size of the constraint from the previous run
     // @param old_constraint: the expression for the constraint from the
     // previous run
-    void copy_to_Fk_keep(size_t old_step, z3::expr const& old_constraint);
+    void copy_to_Fk_keep(size_t old_step, z3::expr_vector const& old_constraint);
 
     // redo propagation for the previous level
     // return an invariant level if propagation finds one
@@ -138,9 +138,9 @@ namespace pdr
     // Defined in the solver as: c[i] <=> constraint(i),
     // there is a constraint for each pdr-run after which a relaxing step was
     // made.
-    // each constraint is user-defined such that: 
+    // each constraint is user-defined such that:
     // constraint[i] => constraint[j] if i < j
-    std::map<size_t, z3::expr> constraints;
+    std::map<size_t, z3::expr_vector> constraints;
 
     void init_frames();
     void new_frame();

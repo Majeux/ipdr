@@ -31,7 +31,7 @@ namespace pdr
   double Solver::frac_subsumed() const
   {
     assert(n_clauses == n_assertions());
-    return (double) n_subsumed / n_clauses;
+    return (double)n_subsumed / n_clauses;
   }
 
   void Solver::remake(
@@ -46,9 +46,10 @@ namespace pdr
     internal_solver.add(constraint);
     internal_solver.push();
 
-    clauses_start = base.size() + transition.size() + constraint.size();
-    n_subsumed = 0;
-    n_clauses = 0;
+    transition_start = base.size();
+    clauses_start    = base.size() + transition.size() + constraint.size();
+    n_subsumed       = 0;
+    n_clauses        = 0;
   }
 
   void Solver::reset()
@@ -56,7 +57,7 @@ namespace pdr
     internal_solver.pop();  // remove all blocked states
     internal_solver.push(); // remake backtracking point
     n_subsumed = 0;
-    n_clauses = 0;
+    n_clauses  = 0;
   }
 
   // reset and automatically repopulate by blocking cubes
@@ -75,8 +76,8 @@ namespace pdr
     internal_solver.add(constraint);
     internal_solver.push(); // remake stateless backtracking point
     clauses_start = internal_solver.assertions().size();
-    n_subsumed = 0;
-    n_clauses = 0;
+    n_subsumed    = 0;
+    n_clauses     = 0;
   }
 
   void Solver::add_clause(expr const& e)
@@ -228,16 +229,24 @@ namespace pdr
   {
     std::stringstream ss;
     ss << header << std::endl;
-    ss << "z3::statistics" << std::endl;
-    ss << internal_solver.statistics() << std::endl;
+    // ss << "z3::statistics" << std::endl;
+    // ss << internal_solver.statistics() << std::endl;
 
     const expr_vector asserts = internal_solver.assertions();
     auto it                   = asserts.begin();
+    unsigned i                = 0;
+
+    ss << "base:" << std::endl;
+    for (; i < transition_start && it != asserts.end(); i++, it++)
+      ss << fmt::format("- {}", (*it).to_string()) << std::endl;
+
     if (clauses_only) // skip base, transition and constraint
     {
       ss << "added clauses:" << std::endl;
-      for (unsigned i = 0; i < clauses_start && it != asserts.end(); i++)
-        it++;
+      for (; i < clauses_start && it != asserts.end(); i++, it++)
+      {
+        // skip transition and constraint
+      }
     }
     else
       ss << "solver assertions:" << std::endl;

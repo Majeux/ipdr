@@ -1,4 +1,5 @@
 #include "z3-ext.h"
+#include "expr.h"
 
 #include <algorithm>
 #include <fmt/core.h>
@@ -67,11 +68,15 @@ namespace z3ext
   {
     string constraint_str(size_t size)
     {
-      return format("__constraint{}__", size);
+      return format("{}{}{}", prefix, size, suffix);
     }
 
     optional<size_t> constraint_size(string_view str)
     {
+      // str must at least consist of tag and 1 character 
+      if (str.size() <= tag_length || mysat::primed::is_reserved_lit(str))
+        return {};
+
       if (str.substr(0, prefix.length()) != prefix)
         return {};
 

@@ -2,18 +2,34 @@
 #include "z3-ext.h"
 #include <cassert>
 #include <cstdlib>
+#include <fmt/core.h>
 #include <optional>
 #include <regex>
 #include <stdexcept>
 
 namespace mysat::primed
 {
+  using fmt::format;
+  using std::invalid_argument;
   using std::string;
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
   using z3::mk_and;
   using z3ext::strip_not;
+
+  bool is_reserved_lit(std::string_view name)
+  {
+    return name.size() >= 2 && name[0] == '_' && name[1] == '_';
+  }
+
+  bool is_reserved_lit(expr const& e) { return is_reserved_lit(e.to_string()); }
+
+  void validate_lit_name(std::string_view name)
+  {
+    if (is_reserved_lit(name))
+      throw ReservedLiteral(name);
+  }
 
   namespace
   {
@@ -31,6 +47,7 @@ namespace mysat::primed
   //
   Lit::Lit(z3::context& c, const string& n) : IPrimed<expr>(c, n)
   {
+    validate_lit_name(n);
     current = ctx.bool_const(name.c_str());
     next    = ctx.bool_const(next_name.c_str());
   }
@@ -82,6 +99,12 @@ namespace mysat::primed
 
   // VarVec
   // public
+  invalid_argument invalid_lit(expr const& l)
+  {
+    return invalid_argument(
+        format("{} is not a literal in the VarVec", l.to_string()));
+  }
+
   VarVec::VarVec(z3::context& c, const vector<string>& names)
       : IPrimed<expr_vector>(c, "varvec")
   {
@@ -92,6 +115,7 @@ namespace mysat::primed
   {
     for (const string& n : names)
     {
+      validate_lit_name(n);
       const expr new_curr = ctx.bool_const(n.c_str());
       const expr new_next = ctx.bool_const(prime(n).c_str());
 
@@ -110,6 +134,7 @@ namespace mysat::primed
 
     for (size_t i{ 0 }; i < currnames.size(); i++)
     {
+      validate_lit_name(currnames[i]);
       const string& n_curr = currnames[i];
       const string& n_next = nextnames[i];
 
@@ -145,26 +170,39 @@ namespace mysat::primed
   {
     if (e.is_not())
     {
-      assert(e.arg(0).is_const());
-      size_t i = to_current.at(e.arg(0).id());
-      return !current[i];
+      expr var = e.arg(0);
+      assert(var.is_const());
+      if (is_reserved_lit(var))
+        return e;
+      auto index = to_current.find(var.id());
+      if (index == to_current.end())
+        throw invalid_lit(var);
+      return !current[index->second];
     }
     assert(e.is_const());
-    size_t i = to_current.at(e.id());
-    return current[i];
+    auto index = to_current.find(e.id());
+    if (index == to_current.end())
+      return e;
+    else
+      return current[index->second];
   }
 
   expr VarVec::p(const expr& e) const
   {
     if (e.is_not())
     {
-      assert(e.arg(0).is_const());
-      size_t i = to_next.at(e.arg(0).id());
-      return !next[i];
+      expr var = e.arg(0);
+      assert(var.is_const());
+      auto index = to_next.find(var.id());
+      if (index == to_next.end())
+        return e;
+      return !next[index->second];
     }
     assert(e.is_const());
-    size_t i = to_next.at(e.id());
-    return next[i];
+    auto index = to_next.find(e.id());
+    if (index == to_next.end())
+      return e;
+    return next[index->second];
   }
 
   expr_vector VarVec::operator()(const expr_vector& ev) const
@@ -191,9 +229,12 @@ namespace mysat::primed
     return rv;
   }
 
+#warning current/next literal checks does not work with constraint lits?
   bool VarVec::lit_is_current(const z3::expr& e) const
   {
     expr key = strip_not(e);
+    if (is_reserved_lit(key))
+      return true;
     return to_next.find(key.id()) != to_next.end();
   }
 
@@ -203,6 +244,8 @@ namespace mysat::primed
     try
     {
       expr key = strip_not(e);
+      if (is_reserved_lit(key))
+        return true;
       rv       = to_current.find(key.id()) != to_current.end();
     }
     catch (const std::invalid_argument& e)
@@ -265,6 +308,7 @@ namespace mysat::primed
   BitVec::BitVec(z3::context& c, const string& n, size_t Nbits)
       : IPrimed<expr_vector>(c, n), size(Nbits)
   {
+    validate_lit_name(n);
     for (size_t i = 0; i < size; i++)
     {
       current.push_back(ctx.bool_const(index_str(name, i).c_str()));

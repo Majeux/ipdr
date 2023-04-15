@@ -126,8 +126,10 @@ namespace pdr
     const mysat::primed::VarVec& vars;
     z3::solver internal_solver;
     SolverState state{ SolverState::fresh };
-    unsigned clauses_start; // point where base_assertions ends and other
-                            // assertions begin
+    // point where base ends transition assertions begin
+    unsigned transition_start;
+    // point where base_assertions ends and other assertions begin
+    unsigned clauses_start;
   };
 
   template <typename UnaryPredicate>

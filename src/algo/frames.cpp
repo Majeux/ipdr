@@ -25,6 +25,7 @@ namespace pdr
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+  using z3ext::join_ev;
   using z3ext::solver::Witness;
 
   Frames::Frames(Context c, IModel& m, Logger& l)
@@ -92,14 +93,14 @@ namespace pdr
 
   void Frames::repopulate_solvers()
   {
-    MYLOG_DEBUG(log, "Repopulating solver:");
-    log_solver(true);
+    size_t n_pre = delta_solver.n_clauses;
+
     delta_solver.reset();
     for (size_t i = 1; i < frames.size(); i++)
       delta_solver.block(frames[i].get(), act.at(i));
 
-    MYLOG_DEBUG(log, "Solver after repopulation:");
-    log_solver(true);
+    MYLOG_DEBUG(log, "Repopulated solver: reduced from {} to {} clauses.",
+        n_pre, delta_solver.n_clauses);
   }
 
   // incremental pdr functions
@@ -136,8 +137,7 @@ namespace pdr
       log.stats.relax_copied_cubes_perc = (double)count / old.size() * 100.0;
     });
     MYLOG_DEBUG(log, "{} cubes carried over, out of {}", count, old.size());
-    MYLOG_DEBUG(
-        log, "Repopulated solver: \n{}", delta_solver.as_str("", false));
+    MYLOG_DEBUG(log, delta_solver.as_str("Repopulated solver:", false));
 
     model.diff = IModel::Diff_t::none;
   }
@@ -175,8 +175,7 @@ namespace pdr
         }
         else
         {
-          MYLOG_DEBUG(
-              log, "copied up to level {}: [{}]", i, z3ext::join_ev(*cube_it));
+          MYLOG_DEBUG(log, "copied up to level {}: [{}]", i, join_ev(*cube_it));
           copied_lvls += i;
           cube_it = old.erase(cube_it); // cannot be inductive to higher levels
         }
@@ -187,14 +186,14 @@ namespace pdr
           (double)copied_lvls / learned_lvls * 100.0;
     });
     repopulate_solvers();
-    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
 
     detached_frontier = 1;
 
     model.diff = IModel::Diff_t::none;
   }
 
-  void Frames::copy_to_Fk_keep(size_t old_step, expr const& old_constraint)
+  void Frames::copy_to_Fk_keep(
+      size_t old_step, expr_vector const& old_constraint)
   {
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
@@ -211,8 +210,7 @@ namespace pdr
     delta_solver.remake(base, model.get_transition(), model.get_constraint());
 
     // aggregate level at which each cube was learned
-    size_t learned_lvls = 0u;
-    size_t copied_lvls  = 0u;
+    size_t learned_lvls = 0u, copied_lvls = 0u;
     for (size_t i{ 1 }; i < frames.size(); i++)
       learned_lvls += i * frames[i].get().size();
 
@@ -226,21 +224,21 @@ namespace pdr
 
     // every cube is valid under the old constraint, as proven by previous pdr
     // TODO: add constraint <=> constraint_expression to solver
-    MYLOG_DEBUG(log, "Copying frames under constraint: [{}]", old_constraint);
+    MYLOG_DEBUG(log, "Copying frames under constraint: [{}]",
+        old_constraint[0].to_string());
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
       for (vector<expr> const& cube : old_frames[i])
         remove_state(mk_constrained_cube(cube, old_step), i); // at least true
     }
+    MYLOG_DEBUG(log, blocked_str());
 
-    // TODO:
     // try to reblock all states from old_frames
     // these are stronger than the constrained cubes that were just blocked,
     // and can potentially subsume them
     for (size_t i{ 0 }; i < frames.size() - 1; i++)
     {
       MYLOG_DEBUG(log, "Copying to frame {}", i + 1);
-      frames[i + 1].clear();
       // with all cubes that are still inductive
       for (auto cube_it = old.begin(); cube_it != old.end();)
       {
@@ -251,8 +249,7 @@ namespace pdr
         }
         else
         {
-          MYLOG_DEBUG(
-              log, "copied up to level {}: [{}]", i, z3ext::join_ev(*cube_it));
+          MYLOG_DEBUG(log, "copied up to level {}: [{}]", i, join_ev(*cube_it));
           copied_lvls += i;
           cube_it = old.erase(cube_it); // cannot be inductive to higher levels
         }
@@ -263,7 +260,7 @@ namespace pdr
           (double)copied_lvls / learned_lvls * 100.0;
     });
     repopulate_solvers();
-    MYLOG_DEBUG(log, "Repopulated solver: \n{}", delta_solver.as_str("", true));
+    MYLOG_DEBUG(log, blocked_str());
 
     detached_frontier = 1;
     model.diff        = IModel::Diff_t::none;
@@ -293,8 +290,8 @@ namespace pdr
   {
     assert(level < frames.size());
     // level = std::min(level, frames.size() - 1);
-    MYLOG_DEBUG(log, "removing cube from level [1..{}]: [{}]", level,
-        z3ext::join_ev(cube));
+    MYLOG_DEBUG(
+        log, "removing cube from level [1..{}]: [{}]", level, join_ev(cube));
 
     log.indent++;
     bool result = delta_remove_state(cube, level);
@@ -404,7 +401,7 @@ namespace pdr
     }
 
     log.indent++;
-    MYLOG_TRACE(log, "assumptions: [ {} ]", z3ext::join_ev(assumptions, false));
+    MYLOG_TRACE(log, "assumptions: [ {} ]", join_ev(assumptions, false));
 
     bool result = get_solver(frame).SAT(assumptions);
     std::chrono::duration<double> diff(steady_clock::now() - start);
@@ -479,8 +476,7 @@ namespace pdr
   optional<size_t> Frames::already_blocked(
       vector<expr> const& cube, size_t level) const
   {
-    MYLOG_DEBUG(
-        log, "find [{}] or weaker cube in frames", z3ext::join_ev(cube));
+    MYLOG_DEBUG(log, "find [{}] or weaker cube in frames", join_ev(cube));
     // searching cubes at level = search frames in F[level]...
     for (size_t i = level; i < frames.size(); i++)
     {
@@ -606,7 +602,7 @@ namespace pdr
     assert(frames.empty());
 
     frames.emplace_back(0);
-    act.push_back(ctx().bool_const("__actI__")); // unused
+    act.push_back(ctx().bool_const("_actI__")); // unused
 
     new_frame();
     assert(frontier() == 0);
@@ -614,7 +610,7 @@ namespace pdr
 
   void Frames::new_frame()
   {
-    std::string acti = fmt::format("__act{}__", frames.size());
+    std::string acti = fmt::format("_act{}__", frames.size());
     act.push_back(ctx().bool_const(acti.c_str()));
     frames.emplace_back(frames.size());
   }
@@ -629,18 +625,22 @@ namespace pdr
     }
   }
 
-  expr_vector Frames::old_constraints() const {
+  expr_vector Frames::old_constraints() const
+  {
     using namespace z3ext::constrained_cube;
 
     expr_vector rv(ctx.z3_ctx);
 
     for (auto& [i, e] : constraints)
     {
+      assert(e.size() == 2);
       expr lit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
-      // lit <=> e
-      rv.push_back(!lit || e); // lit => e
-      rv.push_back(lit || !e); // e => lit
-    } 
+      // lit <=> e and lit <=> e.p
+      rv.push_back(!lit || e[0]); // lit => e
+      // rv.push_back(lit || !e[0]); // e => lit
+      rv.push_back(!lit || e[1]); // idem for next state vars
+      // rv.push_back(lit || !e[1]);
+    }
 
     return rv;
   }

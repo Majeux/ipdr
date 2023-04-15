@@ -25,8 +25,6 @@ namespace pdr
         z3ext::CubeSet blocked_cubes;
         const unsigned level;
 
-        void init_solver();
-
       public:
         Frame(unsigned i);
 
