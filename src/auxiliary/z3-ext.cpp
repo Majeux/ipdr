@@ -126,6 +126,7 @@ namespace z3ext
 
       if (auto current_constraint = constraint_size(lits.back().to_string()))
       {
+        std::cout << "yes" << std::endl;
         if (size >= *current_constraint) // new constraint subsumes old
           lits.back() = constraint;      // replace old
         return lits;
@@ -173,9 +174,12 @@ namespace z3ext
       optional<size_t> a_con = constraint_size(a);
       optional<size_t> b_con = constraint_size(b);
 
-      if (a_con.has_value() == b_con.has_value())
+      if (a_con && b_con)
+        return *a_con < b_con;
+      else if (!a_con && !b_con)
         return a.id() < b.id();
-      return !a_con && b_con; // any literal is earlier than a constraint
+      else
+        return !a_con && b_con; // any literal is earlier than a constraint
     }
   } // namespace constrained_cube
 

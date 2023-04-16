@@ -476,7 +476,7 @@ namespace pdr
   optional<size_t> Frames::already_blocked(
       vector<expr> const& cube, size_t level) const
   {
-    MYLOG_DEBUG(log, "find [{}] or weaker cube in frames", join_ev(cube));
+    MYLOG_DEBUG(log, "find weaker cube in frames", join_ev(cube));
     // searching cubes at level = search frames in F[level]...
     for (size_t i = level; i < frames.size(); i++)
     {

@@ -164,9 +164,9 @@ namespace z3ext
   // internal cube order by pdr
   //
   // the default less-than comparison used to order cubes
-  // inline expr_less cube_orderer;
+  inline expr_less cube_orderer;
   // for extra-constrained cubes (relaxing)
-  inline constrained_cube::cexpr_less cube_orderer;
+  // inline constrained_cube::cexpr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
   std::vector<z3::expr> order_lits_std(z3::expr_vector const& cube);

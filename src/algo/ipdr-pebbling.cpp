@@ -85,8 +85,10 @@ namespace pdr::pebbling
       if (control)
         basic_reset(N);
       else
-        relax_reset_constrained(N);
-      // relax_reset(N);
+      {
+        // relax_reset_constrained(N);
+        relax_reset(N);
+      }
       total.append_inc(timer.elapsed().count());
 
       invariant = alg.run();
