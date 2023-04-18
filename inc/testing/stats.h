@@ -49,10 +49,12 @@ namespace pdr
     friend std::ostream& operator<<(std::ostream& out, Statistic const& stat);
   };
 
-  struct TimedStatistic : private Statistic
+  struct TimedStatistic : public Statistic
   {
     double total_time = 0.0;
     std::vector<double> times;
+    // unsigned total_count = 0; (from Statistic)
+    // std::vector<unsigned> count; (from Statistic)
 
     void clear() override;
     void add(size_t i, double dt);
@@ -94,6 +96,7 @@ namespace pdr
     void update_peter(unsigned p, unsigned N);
     void clear();
     std::string str() const;
+    std::string graph_data() const;
     void write();
     friend std::ostream& operator<<(std::ostream& out, Statistics const& s);
 
@@ -109,6 +112,30 @@ namespace pdr
 
     static inline const std::string PROC_STR = "processes";
     static inline const std::string N_STR    = "max_processes";
+  };
+
+  // aggregated data over a certain number of experiments
+  struct GraphData
+  {
+    std::vector<unsigned> counts;
+    std::vector<double> times;
+    std::vector<std::string> level_graphs;
+
+    void append(Statistic const& s);
+    void append(TimedStatistic const& s);
+  };
+
+  class Graphs
+  {
+   public:
+    void add_datapoint(size_t label, Statistics const& stat);
+    std::string counts_str() const;
+    std::string relax_str() const;
+
+   private:
+    std::map<size_t, GraphData> cti_data; // parsed Statistics data
+    std::map<size_t, GraphData> obl_data; 
+    std::map<size_t, GraphData> sat_data; 
   };
 } // namespace pdr
 #endif // STATS_H

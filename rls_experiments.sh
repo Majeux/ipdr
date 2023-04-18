@@ -3,10 +3,10 @@
 # ./pebbling-pdr --dir=./benchmark/rls/tfc/ --tfc=ham7tc --algo=ipdr --inc=binary_search --pebbling
 bold=$(tput bold)
 normal=$(tput sgr0)
-EXEC="./pebbling-pdr"
+EXEC="./pebbling-pdrfcopy"
 BENCHMARKS="./benchmark/rls/tfc"
 MODE="pebbling ipdr experiment"
-INC="--inc=constrain"
+INC="--inc=relax"
 Z3=""
 
 if [ $# -eq 0 ]

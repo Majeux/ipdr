@@ -26,7 +26,6 @@
 
 namespace pdr
 {
-  using fmt::format;
   using std::make_shared;
   using std::optional;
   using std::shared_ptr;
@@ -174,7 +173,6 @@ namespace pdr
 
     obligations.clear();
 
-    unsigned period = 0;
     if (n <= k)
       obligations.emplace(n, std::move(cti), 0);
 

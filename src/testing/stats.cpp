@@ -1,12 +1,20 @@
 #include "stats.h"
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <numeric>
 #include <optional>
+#include <sstream>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
 
 namespace pdr
 {
+  using fmt::format;
+  using std::endl;
+  using std::string;
+  using std::string_view;
+  using std::vector;
+
   void Statistic::clear()
   {
     count.clear();
@@ -29,7 +37,7 @@ namespace pdr
     using fmt::format;
     using Row_t = tabulate::Table::Row_t;
 
-    out << "# - total count: " << stat.total_count << std::endl;
+    out << "# - total count: " << stat.total_count << endl;
 
     tabulate::Table t;
     {
@@ -45,7 +53,7 @@ namespace pdr
         t.add_row(row);
       }
     }
-    out << tabulate::MarkdownExporter().dump(t) << std::endl;
+    out << tabulate::MarkdownExporter().dump(t) << endl;
 
     return out << "###";
   }
@@ -87,8 +95,8 @@ namespace pdr
     using fmt::format;
     using Row_t = tabulate::Table::Row_t;
 
-    out << "# - total time:  " << stat.total_time << std::endl;
-    out << "# - total count: " << stat.total_count << std::endl;
+    out << "# - total time:  " << stat.total_time << endl;
+    out << "# - total count: " << stat.total_count << endl;
 
     tabulate::Table t;
     {
@@ -111,7 +119,7 @@ namespace pdr
         t.add_row(row);
       }
     }
-    out << tabulate::MarkdownExporter().dump(t) << std::endl;
+    out << tabulate::MarkdownExporter().dump(t) << endl;
 
     return out << "###";
   }
@@ -158,61 +166,117 @@ namespace pdr
     relax_copied_cubes_perc = 0.0;
   }
 
-  std::string Statistics::str() const
+  string Statistics::str() const
   {
     std::stringstream ss;
-    ss << *this << std::endl;
+    ss << *this << endl;
     return ss.str();
   }
 
-  void Statistics::write() { file << *this << std::endl; }
+  void Statistics::write() { file << *this << endl; }
 
   std::ostream& operator<<(std::ostream& out, Statistics const& s)
   {
-    out << "Model: " << std::endl << "--------" << std::endl;
+    out << "Model: " << endl << "--------" << endl;
     for (auto name_value : s.model_info)
       out << name_value.first << " = " << name_value.second << ", ";
-    out << std::endl;
-    out << "Total elapsed time: " << s.elapsed << std::endl << std::endl;
+    out << endl;
+    out << "Total elapsed time: " << s.elapsed << endl << endl;
 
-    out << std::endl;
+    out << endl;
 
-    std::string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
-    std::string frame_line_avg(
+    string frame_line("# - iter {level:<3} {name:<10}: {state:<20}");
+    string frame_line_avg(
         "# - iter {level:<3} {name:<10}: {state:<20} | avg: {avg}");
-    out << "######################" << std::endl
-        << "# Statistics" << std::endl
-        << "######################" << std::endl;
+    out << "######################" << endl
+        << "# Statistics" << endl
+        << "######################" << endl;
 
-    out << "# Solver" << std::endl << s.solver_calls << std::endl;
+    out << "# Solver" << endl << s.solver_calls << endl;
 
-    out << "# CTIs" << std::endl << s.ctis << std::endl;
+    out << "# CTIs" << endl << s.ctis << endl;
 
-    out << "# Obligations" << std::endl << s.obligations_handled << std::endl;
+    out << "# Obligations" << endl << s.obligations_handled << endl;
 
-    out << "# Generalization" << std::endl
-        << fmt::format("## Mean reduction: {} %",
-               s.generalization_reduction * 100.0)
-        << std::endl
+    out << "# Generalization" << endl
+        << fmt::format(
+               "## Mean reduction: {} %", s.generalization_reduction * 100.0)
+        << endl
         << fmt::format("## Mean no. attempts in MIC: {}", s.mic_attempts.get())
-        << std::endl
+        << endl
         << fmt::format("## No. limit-violations in MIC: {}", s.mic_limit)
-        << std::endl
-        << s.generalization << std::endl;
+        << endl
+        << s.generalization << endl;
 
-    out << "# Propagation per iteration" << std::endl
-        << s.propagation_it << std::endl;
+    out << "# Propagation per iteration" << endl << s.propagation_it << endl;
 
-    out << "# Propagation per level" << std::endl
-        << s.propagation_level << std::endl;
+    out << "# Propagation per level" << endl << s.propagation_level << endl;
 
-    out << "# Subsumed cubes" << std::endl << s.subsumed_cubes << std::endl;
+    out << "# Subsumed cubes" << endl << s.subsumed_cubes << endl;
 
-    out << "#" << std::endl
-        << "# Copied cubes during relax ipdr" << std::endl
-        << s.relax_copied_cubes_perc << " %" << std::endl
-        << "#" << std::endl;
+    out << "#" << endl
+        << "# Copied cubes during relax ipdr" << endl
+        << s.relax_copied_cubes_perc << " %" << endl
+        << "#" << endl;
 
-    return out << "######################" << std::endl;
+    return out << "######################" << endl;
+  }
+
+  // GraphData MEMBERS
+  //
+  void GraphData::append(const Statistic &s)
+  {
+      counts.push_back(s.total_count);
+
+      {
+        string count_graph;
+        for (size_t i{ 0 }; i < s.count.size(); i++)
+          count_graph += format("({}, {})\n", i, s.count[i]);
+
+        level_graphs.push_back(std::move(count_graph));
+      }
+  }
+
+  void GraphData::append(const TimedStatistic &s)
+  {
+      counts.push_back(s.total_count);
+      times.push_back(s.total_time);
+
+      {
+        assert(s.count.size() == s.times.size());
+        string count_graph{"### counts"};
+        string time_graph{"### times"};
+
+        for (size_t i{ 0 }; i < s.count.size(); i++)
+        {
+          count_graph += format("({}, {})\n", i, s.count[i]);
+          time_graph += format("({}, {})\n", i, s.times[i]);
+        }
+
+        level_graphs.push_back(count_graph + time_graph);
+      }
+  }
+
+  // Graphs MEMBERS
+  //
+  void Graphs::add_datapoint(size_t label, Statistics const& stat)
+  {
+    {
+      GraphData& cti_entry = cti_data.try_emplace(label).first->second;
+      cti_entry.append(stat.ctis);
+    }
+    {
+      GraphData& obl_entry = obl_data.try_emplace(label).first->second;
+      obl_entry.append(stat.obligations_handled);
+    }
+    {
+      GraphData& sat_entry = sat_data.try_emplace(label).first->second;
+      sat_entry.append(stat.solver_calls);
+    }
+  }
+
+  string Graphs::counts_str() const
+  {
+
   }
 } // namespace pdr

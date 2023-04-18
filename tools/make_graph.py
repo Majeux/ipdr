@@ -49,6 +49,7 @@ if args.allmodels:
     args.models = MODELS
 else:
     args.models = sorted(args.models, key=MODELS.index)
+args.dir = os.path.expanduser(args.dir)
 
 
 def main():
@@ -286,7 +287,6 @@ def get_data(sub_dir: str, model: str, model_dir: str) -> str:
         args.dir, sub_dir, model, model_dir, f"{model_dir}.tex")
     if args.debug:
         print(file_path)
-    assert os.path.isfile(file_path)
     with open(file_path, 'r') as file:
         raw = file.read()
     return raw
