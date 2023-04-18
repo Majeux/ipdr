@@ -128,14 +128,19 @@ namespace pdr
   class Graphs
   {
    public:
+    Graphs();
     void add_datapoint(size_t label, Statistics const& stat);
-    std::string counts_str() const;
-    std::string relax_str() const;
+    std::string get() const;
+    std::string get_individual() const;
 
    private:
     std::map<size_t, GraphData> cti_data; // parsed Statistics data
-    std::map<size_t, GraphData> obl_data; 
-    std::map<size_t, GraphData> sat_data; 
+    std::map<size_t, GraphData> obl_data;
+    std::map<size_t, GraphData> sat_data;
+
+    std::vector<std::string> shared_options;
+    std::vector<std::string> bar_options;
+    std::vector<std::string> line_options;
   };
 } // namespace pdr
 #endif // STATS_H

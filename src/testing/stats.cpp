@@ -6,6 +6,7 @@
 #include <sstream>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
+#include "math.h"
 
 namespace pdr
 {
@@ -224,41 +225,79 @@ namespace pdr
 
   // GraphData MEMBERS
   //
-  void GraphData::append(const Statistic &s)
+  void GraphData::append(const Statistic& s)
   {
-      counts.push_back(s.total_count);
+    counts.push_back(s.total_count);
 
-      {
-        string count_graph;
-        for (size_t i{ 0 }; i < s.count.size(); i++)
-          count_graph += format("({}, {})\n", i, s.count[i]);
+    {
+      string count_graph;
+      for (size_t i{ 0 }; i < s.count.size(); i++)
+        count_graph += format("({}, {})\n", i, s.count[i]);
 
-        level_graphs.push_back(std::move(count_graph));
-      }
+      level_graphs.push_back(std::move(count_graph));
+    }
   }
 
-  void GraphData::append(const TimedStatistic &s)
+  void GraphData::append(const TimedStatistic& s)
   {
-      counts.push_back(s.total_count);
-      times.push_back(s.total_time);
+    counts.push_back(s.total_count);
+    times.push_back(s.total_time);
 
+    {
+      assert(s.count.size() == s.times.size());
+      string count_graph{ "### counts" };
+      string time_graph{ "### times" };
+
+      for (size_t i{ 0 }; i < s.count.size(); i++)
       {
-        assert(s.count.size() == s.times.size());
-        string count_graph{"### counts"};
-        string time_graph{"### times"};
-
-        for (size_t i{ 0 }; i < s.count.size(); i++)
-        {
-          count_graph += format("({}, {})\n", i, s.count[i]);
-          time_graph += format("({}, {})\n", i, s.times[i]);
-        }
-
-        level_graphs.push_back(count_graph + time_graph);
+        count_graph += format("({}, {})\n", i, s.count[i]);
+        time_graph += format("({}, {})\n", i, s.times[i]);
       }
+
+      level_graphs.push_back(count_graph + time_graph);
+    }
+  }
+
+  template <typename NumericT>
+  string pgf_line(size_t label, vector<NumericT> const& values)
+  {
+    static_assert(
+        std::is_arithmetic<NumericT>::value, "NumericT is not a numeric type.");
+
+    double avg = my::math::mean(values);
+    double std_dev = my::math::std_dev(values, avg);
+
+    return format("({},{}) +- (0, {})\n", label, avg, std_dev);
   }
 
   // Graphs MEMBERS
   //
+  Graphs::Graphs() 
+  {
+    shared_options = {
+      "ymode=log",
+      "xtick=data",
+      "xtick style={draw=none}",
+      "xtick=data", 
+      "xtick style={draw=none}",
+      "minor tick num=1",
+      "anchor=north,legend columns=-1}",
+      "width=\textwidth",
+      "enlarge x limits=0.1",
+      "enlarge y limits={upper=0}",
+    };
+    bar_options = {
+      "ybar",
+      "ylabel={Count}",
+      "bar width=7pt",
+      "legend style={at={(0.1,0.98)}, anchor=north,legend columns=-1}",
+    };
+    line_options = {
+      "axis y line*=right",
+      "ylabel={Time (s)}",
+      "legend style={at={(0.9,0.98)}, anchor=north,legend columns=-1}",
+    };
+  }
   void Graphs::add_datapoint(size_t label, Statistics const& stat)
   {
     {
@@ -275,8 +314,27 @@ namespace pdr
     }
   }
 
-  string Graphs::counts_str() const
+  string Graphs::get() const
   {
+    // add "symbolic x coords={0,1,2,...}" to options
+    string count_bars = R"raw(\addplot+[
+        bars/.cd,
+        y dir=both,
+        y explicit
+    ] coordinates {
+    )raw";
+    string time_lines = R"raw(\addplot+[
+        bars/.cd,
+        axis lines*=right,
+        y explicit
+    ] coordinates {
+    )raw";
 
+
+    for (auto& [i, data] : cti_data)
+    {
+      count_bars += pgf_line(i, data.counts);
+      count_bars += pgf_line(i, data.times);
+    }
   }
 } // namespace pdr

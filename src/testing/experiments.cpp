@@ -4,10 +4,10 @@
 #include "result.h"
 #include "tactic.h"
 #include "types-ext.h"
+#include "math.h"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <numeric> // std::accumulate
 #include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/latex_exporter.hpp>
@@ -18,26 +18,10 @@
 namespace pdr::experiments
 {
   using namespace my::cli;
+  using namespace my::math;
   using std::vector;
 
-  namespace math
-  {
-    std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
-
-    double std_dev(const vector<double>& v)
-    {
-      double mean = std::accumulate(v.cbegin(), v.cend(), 0.0) / v.size();
-      return std_dev(v, mean);
-    }
-
-    double std_dev(const vector<double>& v, double mean)
-    {
-      double total_variance = std::accumulate(v.begin(), v.end(), 0.0,
-          [mean](double a, double t) { return a + (t - mean) * (t - mean); });
-
-      return std::sqrt(total_variance / v.size());
-    }
-  } // namespace math
+  std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
 
   namespace tablef
   {
@@ -77,19 +61,19 @@ namespace pdr::experiments
 
     assert(times.size() == results.size());
     avg_time     = time_sum / times.size();
-    std_dev_time = math::std_dev(times, avg_time);
+    std_dev_time = std_dev(times, avg_time);
   }
 
   tabulate::Table::Row_t Run::tactic_row() const { return { "", tactic }; }
 
   tabulate::Table::Row_t Run::avg_time_row() const
   {
-    return { "avg time", math::time_str(avg_time) };
+    return { "avg time", time_str(avg_time) };
   }
 
   tabulate::Table::Row_t Run::std_time_row() const
   {
-    return { "std dev time", math::time_str(std_dev_time) };
+    return { "std dev time", time_str(std_dev_time) };
   }
 
   std::string Run::str(output_format form) const
