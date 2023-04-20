@@ -89,6 +89,7 @@ namespace pdr
       logger.stats.elapsed = final_time;
       logger.stats.write(ts.constraint_str());
       logger.stats.write();
+      logger.graph.add_datapoint(ts.constraint_num(), logger.stats);
       logger.stats.clear();
       store_frame_strings();
       logger.indent = 0;

@@ -13,6 +13,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace pdr
@@ -128,19 +129,61 @@ namespace pdr
   class Graphs
   {
    public:
-    Graphs();
+     void reset();
     void add_datapoint(size_t label, Statistics const& stat);
-    std::string get() const;
+    std::string get_cti() const;
+    std::string get_obligation() const;
+    std::string get_sat() const;
     std::string get_individual() const;
+    // get relaxed percentage + frame breakdown
 
    private:
-    std::map<size_t, GraphData> cti_data; // parsed Statistics data
-    std::map<size_t, GraphData> obl_data;
-    std::map<size_t, GraphData> sat_data;
+    std::map<unsigned, GraphData> cti_data; // parsed Statistics data
+    std::map<unsigned, GraphData> obl_data;
+    std::map<unsigned, GraphData> sat_data;
 
-    std::vector<std::string> shared_options;
-    std::vector<std::string> bar_options;
-    std::vector<std::string> line_options;
+    std::string get(std::map<unsigned, GraphData> const& data) const;
+
+    static std::string barplot(std::string_view name);
+    static std::string lineplot(std::string_view name);
+
+    // barplot with error bars
+    // static constexpr const char* barplot =
+    //     "\\addplot+ [error bars/.cd, y dir=both, y explicit] "
+    //     "table [x=x, y=y, y error=err] {bar.dat};";
+
+    // line plot (-x-) with filled in error range
+    // static constexpr const char* lineplot =
+    //     "\\addplot+[mark=x, color=red, mark size=4pt, x=x, y=y] "
+    //     "table {line.dat};\n"
+    //     "\\addplot [name path=upper,draw=none]\n"
+    //     "    table[x=x,y expr=\\thisrow{y}+\\thisrow{err}] {line.dat};\n"
+    //     "\\addplot [name path=lower,draw=none] \n"
+    //     "    table[x=x,y expr=\\thisrow{y}-\\thisrow{err}] {line.dat};\n"
+    //     "\\addplot [fill=gray!50] fill between[of=upper and lower];";
+
+    static constexpr std::initializer_list<const char*> shared_options{
+      // "ymode=log",
+      // "ymin=0.01",
+      "xtick=data",
+      "xtick style={draw=none}",
+      "minor tick num=1",
+      "width=\\textwidth",
+      "enlarge x limits=0.1",
+      "enlarge y limits={upper=0}",
+    };
+    static constexpr std::initializer_list<const char*> bar_options{
+      "ybar",
+      "ylabel={Count}",
+      "bar width=7pt",
+      "legend style={at={(0.1,0.98)}, anchor=north,legend columns=-1}",
+    };
+    static constexpr std::initializer_list<const char*> line_options{
+      "axis y line*=right",
+      "ylabel={Time (s)}",
+      "legend style={at={(0.9,0.98)}, anchor=north,legend columns=-1}",
+    };
+
   };
 } // namespace pdr
 #endif // STATS_H

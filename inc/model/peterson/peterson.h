@@ -28,6 +28,7 @@ namespace pdr::peterson
     PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
+    unsigned constraint_num() const override;
     unsigned n_processes() const;
     unsigned max_processes() const;
 

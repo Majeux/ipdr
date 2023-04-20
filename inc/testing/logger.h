@@ -56,6 +56,7 @@ namespace pdr
    public:
     std::shared_ptr<spdlog::logger> spd_logger;
     Statistics stats;
+    Graphs graph;
     OutLvl level;
     unsigned indent = 0;
 

@@ -34,7 +34,11 @@ namespace pdr
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_constraint() const;
+    // brief string to describe the meaning of the present constraint
     virtual const std::string constraint_str() const = 0;
+    // number representative of the constraint. a larger number is a looser
+    // constraint
+    virtual unsigned constraint_num() const = 0;
     // return the number of pebbles in the final state
     void show(std::ostream& out) const;
 

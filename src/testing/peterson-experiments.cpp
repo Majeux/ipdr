@@ -8,11 +8,11 @@
 #include "peterson.h"
 #include "result.h"
 #include "types-ext.h"
+#include "math.h"
 
 #include <cassert>
 #include <fmt/format.h>
 #include <memory>
-#include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
 #include <stdexcept>
@@ -138,7 +138,8 @@ namespace pdr::peterson::experiments
 
   tabulate::Table PeterRun::make_combined_table(const Run& control) const
   {
-    using namespace expsuper::math;
+    using namespace my::math;
+    using pdr::experiments::time_str;
     using fmt::to_string;
 
     std::string percentage_fmt{ "{:.2f} \\\%" };

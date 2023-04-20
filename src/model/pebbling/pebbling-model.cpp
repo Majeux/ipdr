@@ -1,4 +1,5 @@
 #include <TextTable.h>
+#include <climits>
 #include <numeric>
 #include <optional>
 #include <z3++.h>
@@ -223,4 +224,8 @@ namespace pdr::pebbling
     return "no constraint";
   }
 
+  unsigned PebblingModel::constraint_num() const
+  {
+    return pebble_constraint.value_or(UINT_MAX);
+  }
 } // namespace pdr::pebbling

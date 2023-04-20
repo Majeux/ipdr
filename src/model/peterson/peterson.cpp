@@ -289,6 +289,11 @@ namespace pdr::peterson
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
+  unsigned PetersonModel::constraint_num() const
+  {
+    return p;
+  }
+
   unsigned PetersonModel::n_processes() const { return p; }
   unsigned PetersonModel::max_processes() const { return N; }
 

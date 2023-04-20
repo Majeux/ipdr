@@ -5,15 +5,16 @@
 #include "pdr.h"
 #include "pebbling-result.h"
 #include "result.h"
+#include "stats.h"
 #include "tactic.h"
 #include "cli-parse.h"
 #include "types-ext.h"
+#include "math.h"
 
 #include "cli-parse.h"
 #include <cassert>
 #include <fmt/format.h>
 #include <iterator>
-#include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
 #include <string>
@@ -204,7 +205,7 @@ namespace pdr::pebbling::experiments
 
   tabulate::Table PebblingRun::make_combined_table(const Run& control) const
   {
-    using namespace expsuper::math;
+    using namespace my::math;
     using fmt::to_string;
 
     std::string percentage_fmt{ "{:.2f} \\\%" };
@@ -248,7 +249,7 @@ namespace pdr::pebbling::experiments
           r.push_back(
               fmt::to_string(pebbling_ctrl.min_inv->constraint.value()));
           double dec =
-              math::percentage_dec(pebbling_ctrl.min_inv->constraint.value(),
+              percentage_dec(pebbling_ctrl.min_inv->constraint.value(),
                   min_inv->constraint.value());
           r.push_back(perc_str(dec));
           t.add_row(r);
@@ -264,7 +265,7 @@ namespace pdr::pebbling::experiments
         {
           auto r = length_row();
           r.push_back(fmt::to_string(pebbling_ctrl.min_strat->length));
-          double dec = math::percentage_dec(
+          double dec = percentage_dec(
               pebbling_ctrl.min_strat->length, min_strat->length);
           r.push_back(perc_str(dec));
           t.add_row(r);

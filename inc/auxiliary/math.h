@@ -36,6 +36,8 @@ namespace my::math
   template <typename NumericT>
   double mean(vector<NumericT> const& values)
   {
+    if (values.size() == 0)
+      return 0.0;
     return std::accumulate(values.cbegin(), values.cend(), 0) / values.size();
   }
 
@@ -45,6 +47,9 @@ namespace my::math
   {
     static_assert(
         std::is_arithmetic<NumericT>::value, "NumericT is not a numeric type.");
+
+    if (values.size() == 0)
+      return 0.0;
 
     double total_variance = std::accumulate(values.cbegin(), values.cend(), 0.0,
         [mean](NumericT a, NumericT t) { return a + (t - mean) * (t - mean); });

@@ -1,10 +1,10 @@
 #include "experiments.h"
 #include "cli-parse.h"
+#include "math.h"
 #include "pebbling-result.h"
 #include "result.h"
 #include "tactic.h"
 #include "types-ext.h"
-#include "math.h"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -169,6 +169,7 @@ namespace pdr::experiments
     using fmt::format;
     using std::endl;
 
+    log.graph.reset();
     reset_tables();
 
     std::ofstream latex = args.folders.file_in_run("tex");
@@ -216,5 +217,12 @@ namespace pdr::experiments
       raw << "## Control run." << endl;
       control_aggregate->dump(exporter, raw);
     }
+
+    std::cout << "CTI graph" << endl
+              << log.graph.get_cti() << endl
+              << "Obligation graph" << endl
+              << log.graph.get_obligation() << endl
+              << "Sat-call graph" << endl
+              << log.graph.get_sat() << endl;
   }
 } // namespace pdr::experiments

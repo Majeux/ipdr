@@ -1,12 +1,15 @@
 #include "stats.h"
+#include "math.h"
+#include <cstddef>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <initializer_list>
 #include <numeric>
 #include <optional>
 #include <sstream>
+#include <string_view>
 #include <tabulate/markdown_exporter.hpp>
 #include <tabulate/table.hpp>
-#include "math.h"
 
 namespace pdr
 {
@@ -258,46 +261,15 @@ namespace pdr
     }
   }
 
-  template <typename NumericT>
-  string pgf_line(size_t label, vector<NumericT> const& values)
-  {
-    static_assert(
-        std::is_arithmetic<NumericT>::value, "NumericT is not a numeric type.");
-
-    double avg = my::math::mean(values);
-    double std_dev = my::math::std_dev(values, avg);
-
-    return format("({},{}) +- (0, {})\n", label, avg, std_dev);
-  }
-
   // Graphs MEMBERS
   //
-  Graphs::Graphs() 
+  void Graphs::reset()
   {
-    shared_options = {
-      "ymode=log",
-      "xtick=data",
-      "xtick style={draw=none}",
-      "xtick=data", 
-      "xtick style={draw=none}",
-      "minor tick num=1",
-      "anchor=north,legend columns=-1}",
-      "width=\textwidth",
-      "enlarge x limits=0.1",
-      "enlarge y limits={upper=0}",
-    };
-    bar_options = {
-      "ybar",
-      "ylabel={Count}",
-      "bar width=7pt",
-      "legend style={at={(0.1,0.98)}, anchor=north,legend columns=-1}",
-    };
-    line_options = {
-      "axis y line*=right",
-      "ylabel={Time (s)}",
-      "legend style={at={(0.9,0.98)}, anchor=north,legend columns=-1}",
-    };
+    cti_data.clear();
+    obl_data.clear();
+    cti_data.clear();
   }
+
   void Graphs::add_datapoint(size_t label, Statistics const& stat)
   {
     {
@@ -314,27 +286,101 @@ namespace pdr
     }
   }
 
-  string Graphs::get() const
+  string Graphs::get_cti() const { return get(cti_data); }
+
+  string Graphs::get_obligation() const { return get(obl_data); }
+
+  string Graphs::get_sat() const { return get(sat_data); }
+
+  namespace // pgfplot build functions
   {
-    // add "symbolic x coords={0,1,2,...}" to options
-    string count_bars = R"raw(\addplot+[
-        bars/.cd,
-        y dir=both,
-        y explicit
-    ] coordinates {
-    )raw";
-    string time_lines = R"raw(\addplot+[
-        bars/.cd,
-        axis lines*=right,
-        y explicit
-    ] coordinates {
-    )raw";
-
-
-    for (auto& [i, data] : cti_data)
+    string tikzpicture(std::string_view content)
     {
-      count_bars += pgf_line(i, data.counts);
-      count_bars += pgf_line(i, data.times);
+      std::stringstream ss;
+      ss << "\\begin{tikzpicture}" << endl
+         << content << endl
+         << "\\end{tikzpicture}" << endl;
+      return ss.str();
     }
+
+    string axis(vector<std::initializer_list<const char*>> opt_groups,
+        string_view name, string_view content)
+    {
+      std::stringstream ss;
+
+      ss << "\\begin{axis}" << endl << "[" << endl;
+      for (std::initializer_list<const char*> opts : opt_groups)
+        for (string_view option : opts)
+          ss << option << "," << endl;
+      ss << "]" << endl;
+
+      ss << format("\\legend{{{}}}", name) << endl
+         << content << endl
+         << "\\end{axis}" << endl;
+
+      return ss.str();
+    }
+
+    string filecontents(string_view filename, string_view data)
+    {
+      std::stringstream ss;
+      ss << format("\\begin{{filecontents}}{{{}}}", filename) << endl
+         << "x y err" << endl
+         << endl
+         << data << endl
+         << "\\end{filecontents}" << endl;
+
+      return ss.str();
+    }
+
+    template <typename NumericT>
+    string pgf_line(size_t label, vector<NumericT> const& values)
+    {
+      static_assert(std::is_arithmetic<NumericT>::value,
+          "NumericT is not a numeric type.");
+
+      double avg     = my::math::mean(values);
+      double std_dev = my::math::std_dev(values, avg);
+
+      return format("{} {} {}\n", label, avg, std_dev);
+    }
+
+  } // namespace
+
+  string Graphs::barplot(string_view name)
+  {
+    return format("\\addplot+ [error bars/.cd, y dir=both, y explicit] "
+                  "table [x=x, y=y, y error=err] {{{}}};",
+        name);
+  }
+
+  string Graphs::lineplot(string_view name)
+  {
+    return format(
+        "\\addplot+[mark=x, color=red, mark size=4pt, x=x, y=y] "
+        "table {{{}}};\n"
+        "\\addplot [name path=upper,draw=none]\n"
+        "    table[x=x,y expr=\\thisrow{{y}}+\\thisrow{{err}}] {{{}}};\n"
+        "\\addplot [name path=lower,draw=none] \n"
+        "    table[x=x,y expr=\\thisrow{{y}}-\\thisrow{{err}}] {{{}}};\n"
+        "\\addplot [fill=gray!50] fill between[of=upper and lower];",
+        name, name, name);
+  }
+
+  string Graphs::get(std::map<unsigned, GraphData> const& data) const
+  {
+    string count_data, line_data;
+
+    for (auto& [i, d] : data)
+    {
+      count_data += pgf_line(i, d.counts);
+      line_data += pgf_line(i, d.times);
+    }
+
+    return tikzpicture(
+        axis({ shared_options, bar_options }, "bar",
+            filecontents("bar.dat", count_data) + barplot("bar.dat")) +
+        axis({ shared_options, line_options }, "line",
+            filecontents("line.dat", line_data) + lineplot("line.dat")));
   }
 } // namespace pdr

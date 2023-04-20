@@ -43,6 +43,9 @@ namespace pdr::pebbling
     std::optional<unsigned> get_pebble_constraint() const;
     // return string representation of the constraint
     const std::string constraint_str() const override;
+    // number representative of the constraint. a larger number is a looser
+    // constraint
+    unsigned constraint_num() const override;
 
    private:
     // z3::expr_vector initial;
