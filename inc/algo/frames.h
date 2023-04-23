@@ -103,6 +103,9 @@ namespace pdr
 
     // getters
     //
+    // the maximum k for which F_1...F_k describes reachable states in i steps
+    // k = |frames|-2 (second-to-last) frame in regular pdr
+    // if there is a detached_frontier, it may be of a lesser index
     size_t frontier() const;
     // const z3::model get_model(size_t frame) const;
     Solver& get_solver(size_t frame);

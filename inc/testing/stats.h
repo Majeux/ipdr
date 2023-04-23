@@ -81,6 +81,8 @@ namespace pdr
     Statistic subsumed_cubes;
 
     double relax_copied_cubes_perc;
+    std::vector<size_t> pre_relax_F;
+    std::vector<size_t> post_relax_F;
 
     double elapsed = -1.0;
     std::vector<std::string> solver_dumps;
@@ -123,67 +125,64 @@ namespace pdr
     std::vector<std::string> level_graphs;
 
     void append(Statistic const& s);
+    void append(Statistic const& s, double time);
     void append(TimedStatistic const& s);
+  };
+
+  // snapshots of F pre- and post-relaxing for each experiment
+  // and the copy rate between pre- and post-relaxing
+  struct FrelaxData
+  {
+    std::vector<std::vector<size_t>> pre;  // repetition -> level -> n_cubes
+    std::vector<std::vector<size_t>> post; // repetition -> level -> n_cubes
+    std::vector<double> copyrate;          // percentage of copied levels
+
+    // store relevant data from Satistics
+    // return the number of frames in this data
+    size_t append(Statistics const& stats);
   };
 
   class Graphs
   {
    public:
-     void reset();
-    void add_datapoint(size_t label, Statistics const& stat);
+    void reset(std::string_view name);
+    void add_datapoint(size_t label, Statistics const& stats);
     std::string get_cti() const;
     std::string get_obligation() const;
     std::string get_sat() const;
+    std::string get_relax() const;
     std::string get_individual() const;
     // get relaxed percentage + frame breakdown
 
    private:
+    std::string ts_name;
     std::map<unsigned, GraphData> cti_data; // parsed Statistics data
     std::map<unsigned, GraphData> obl_data;
     std::map<unsigned, GraphData> sat_data;
+    std::map<unsigned, FrelaxData> relax_data;
+    size_t no_frames{ 0 };
 
-    std::string get(std::map<unsigned, GraphData> const& data) const;
+    std::string get(
+        std::string_view name, std::map<unsigned, GraphData> const& data) const;
+    std::string get(std::string_view name,
+        std::map<unsigned, FrelaxData> const& data) const;
 
     static std::string barplot(std::string_view name);
     static std::string lineplot(std::string_view name);
+    std::string relaxplot(std::string_view name) const;
+    std::string relaxcontent(
+        std::string_view filename, std::string_view data) const;
+    std::string frames_data_line(
+        size_t label, std::vector<std::vector<size_t>> const& data) const;
 
-    // barplot with error bars
-    // static constexpr const char* barplot =
-    //     "\\addplot+ [error bars/.cd, y dir=both, y explicit] "
-    //     "table [x=x, y=y, y error=err] {bar.dat};";
-
-    // line plot (-x-) with filled in error range
-    // static constexpr const char* lineplot =
-    //     "\\addplot+[mark=x, color=red, mark size=4pt, x=x, y=y] "
-    //     "table {line.dat};\n"
-    //     "\\addplot [name path=upper,draw=none]\n"
-    //     "    table[x=x,y expr=\\thisrow{y}+\\thisrow{err}] {line.dat};\n"
-    //     "\\addplot [name path=lower,draw=none] \n"
-    //     "    table[x=x,y expr=\\thisrow{y}-\\thisrow{err}] {line.dat};\n"
-    //     "\\addplot [fill=gray!50] fill between[of=upper and lower];";
-
-    static constexpr std::initializer_list<const char*> shared_options{
-      // "ymode=log",
-      // "ymin=0.01",
-      "xtick=data",
-      "xtick style={draw=none}",
-      "minor tick num=1",
-      "width=\\textwidth",
-      "enlarge x limits=0.1",
-      "enlarge y limits={upper=0}",
-    };
-    static constexpr std::initializer_list<const char*> bar_options{
-      "ybar",
-      "ylabel={Count}",
-      "bar width=7pt",
-      "legend style={at={(0.1,0.98)}, anchor=north,legend columns=-1}",
-    };
-    static constexpr std::initializer_list<const char*> line_options{
-      "axis y line*=right",
-      "ylabel={Time (s)}",
-      "legend style={at={(0.9,0.98)}, anchor=north,legend columns=-1}",
-    };
-
+    std::vector<std::string> shared_options(
+        std::optional<std::string_view> yname = " ") const;
+    std::vector<std::string> bar_options(
+        std::optional<std::string_view> yname = " ") const;
+    std::vector<std::string> thinbar_options(
+        std::optional<std::string_view> yname = " ") const;
+    std::vector<std::string> line_options(
+        std::optional<std::string_view> yname = " ") const;
   };
 } // namespace pdr
 #endif // STATS_H

@@ -54,9 +54,9 @@ namespace pdr
   {
     assert(frames.size() > 0);
 
-    // ensure that there always exists at least an F[k+1]
-    // if not detached or if detached_frontier <= |frames| - 2
-    if (frontier() <= frames.size() - 2)
+    // frontier may be detached
+    // extend only if frontier() < |frames|-2
+    if (frontier() == frames.size() - 2)
       new_frame();
 
     if (detached_frontier)
@@ -226,8 +226,13 @@ namespace pdr
     // TODO: add constraint <=> constraint_expression to solver
     MYLOG_DEBUG(log, "Copying frames under constraint: [{}]",
         old_constraint[0].to_string());
+    IF_STATS({
+      log.stats.pre_relax_F.resize(old_frames.size());
+      log.stats.post_relax_F.resize(old_frames.size());
+    });
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
+      IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
       for (vector<expr> const& cube : old_frames[i])
         remove_state(mk_constrained_cube(cube, old_step), i); // at least true
     }
@@ -250,6 +255,7 @@ namespace pdr
         else
         {
           MYLOG_DEBUG(log, "copied up to level {}: [{}]", i, join_ev(*cube_it));
+          IF_STATS(log.stats.post_relax_F.at(i)++;);
           copied_lvls += i;
           cube_it = old.erase(cube_it); // cannot be inductive to higher levels
         }
@@ -257,7 +263,7 @@ namespace pdr
     }
     IF_STATS({
       log.stats.relax_copied_cubes_perc =
-          (double)copied_lvls / learned_lvls * 100.0;
+          learned_lvls > 0 ? (double)copied_lvls / learned_lvls * 100.0 : 0.0;
     });
     repopulate_solvers();
     MYLOG_DEBUG(log, blocked_str());
@@ -493,9 +499,6 @@ namespace pdr
 
   // getters
   //
-  // the maximum k for which F_1...F_k describes reachable states in i steps
-  // k = |frames|-2 (second-to-last) frame in regular pdr
-  // if there is a detached_frontier, it may be of a lesser index
   size_t Frames::frontier() const
   {
     // 0 is the minimal frontier (series F_0, F_1)
