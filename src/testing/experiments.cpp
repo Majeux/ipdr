@@ -3,6 +3,7 @@
 #include "math.h"
 #include "pebbling-result.h"
 #include "result.h"
+#include "stats.h"
 #include "tactic.h"
 #include "types-ext.h"
 
@@ -201,10 +202,8 @@ namespace pdr::experiments
       std::shared_ptr<Run> aggregate = do_reps(false);
       latex << aggregate->str(output_format::latex);
 
-      graph << log.graph.get_cti() << endl
-                << log.graph.get_obligation() << endl
-                << log.graph.get_sat() << endl
-                << log.graph.get_relax() << endl;
+      Graphs run_graph = log.graph;
+      log.graph.reset(model_t::get_name(args.model));
 
       std::cout << "control run." << endl;
       std::shared_ptr<Run> control_aggregate = do_reps(true);
@@ -223,6 +222,13 @@ namespace pdr::experiments
 
       raw << "## Control run." << endl;
       control_aggregate->dump(exporter, raw);
+
+      graph << Graphs::combine(run_graph, log.graph) << endl;
+      // graph << log.graph.get_cti() << endl
+      //           << log.graph.get_obligation() << endl
+      //           << log.graph.get_sat() << endl
+      //           << log.graph.get_relax() << endl;
+
     }
   }
 } // namespace pdr::experiments

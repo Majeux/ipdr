@@ -328,12 +328,36 @@ namespace pdr
 
   string Graphs::get_sat() const
   {
-    return "\% Sat-call graph\n" + get("SAT", sat_data);
+    return "\% SAT-call graph\n" + get("SAT", sat_data);
   }
 
   string Graphs::get_relax() const
   {
     return "\% Frames after relaxing\n" + get("relax-frames", relax_data);
+  }
+
+  string Graphs::combine(const Graphs& a, const Graphs& b)
+  {
+    std::stringstream ss;
+
+    ss << "\% CTI graph\n"
+       << a.get_combined("cti", a.cti_data,
+              b.get_bargraph("naive cti-count", b.cti_data, "red"),
+              b.get_linegraph("naive cti-time", b.cti_data, "red"))
+       << endl
+       << "\% Obligation graph\n"
+       << a.get_combined("obligation", a.obl_data,
+              b.get_bargraph("naive obligation-count", b.obl_data, "red"),
+              b.get_linegraph("naive obligation-time", b.obl_data, "red"))
+       << endl
+       << "\% SAT-call graph\n"
+       << a.get_combined("sat", a.sat_data,
+              b.get_bargraph("naive sat-count", b.sat_data, "red"),
+              b.get_linegraph("naive sat-time", b.sat_data, "red"))
+       << endl
+       << a.get_relax() << endl;
+
+    return ss.str();
   }
 
   namespace // pgfplot build functions
@@ -366,8 +390,14 @@ namespace pdr
       return ss.str();
     }
 
-    string axis(vector<std::vector<std::string>> const& opt_groups,
-        string_view name, string_view content)
+    string caption(string_view name)
+    {
+      return format(
+          "\%\\caption{{Statistics for {} experiment.}}\n", escape(name));
+    }
+
+    string axis(vector<vector<string>> const& opt_groups, string_view name,
+        string_view content)
     {
       std::stringstream ss;
 
@@ -412,9 +442,12 @@ namespace pdr
       string_view name, std::map<unsigned, FrelaxData> const& data) const
   {
     string predata, postdata, ratedata;
-    string prename  = format("{}-{}-pre", ts_name, name);
-    string postname = format("{}-{}-post", ts_name, name);
-    string ratename = format("{}-{}-perc", ts_name, name);
+    string prename   = format("{}-pre", name);
+    string prefname  = format("{} {}-pre", ts_name, name);
+    string postname  = format("{}-post", name);
+    string postfname = format("{} {}-post", ts_name, name);
+    string ratename  = format("{}-perc", name);
+    string ratefname = format("{} {}-perc", ts_name, name);
 
     for (auto& [i, d] : data)
     {
@@ -427,43 +460,88 @@ namespace pdr
                axis({ shared_options("Frames per Constraint"),
                         thinbar_options("No. cubes") },
                    prename,
-                   relaxcontent(prename, predata) + relaxplot(prename)) +
+                   relaxcontent(prefname, predata) + relaxplot(prefname)) +
                axis({ shared_options(), line_options("Copyrate (\\%)") },
                    ratename,
-                   filecontents(ratename, ratedata) + lineplot(ratename))) +
+                   filecontents(ratefname, ratedata) + lineplot(ratefname))) +
            tikzpicture(
                axis({ shared_options("Frames per Constraint"),
                         thinbar_options("No. cubes") },
                    postname,
-                   relaxcontent(postname, postdata) + relaxplot(postname)) +
+                   relaxcontent(postfname, postdata) + relaxplot(postfname)) +
                axis({ shared_options(), line_options("Copyrate (\\%)") },
                    ratename,
-                   filecontents(ratename, ratedata) + lineplot(ratename)));
+                   filecontents(ratefname, ratedata) + lineplot(ratefname)) +
+               caption(ts_name));
   }
 
   string Graphs::get(
       string_view name, std::map<unsigned, GraphData> const& data) const
   {
-    string count_data, line_data;
-    string barname  = format("{}-{}-count", ts_name, name);
-    string linename = format("{}-{}-time", ts_name, name);
+    string barname  = format("{}-count", name);
+    string linename = format("{}-time", name);
 
-    for (auto& [i, d] : data)
-    {
-      count_data += pgf_line(i, d.counts);
-      line_data += pgf_line(i, d.times);
-    }
+    string countgraph = get_bargraph(barname, data);
+    string rategraph  = get_linegraph(linename, data);
 
     return tikzpicture(
         axis({ shared_options("Constraints"), bar_options("Count") }, barname,
-            filecontents(barname, count_data) + barplot(barname)) +
+            countgraph) +
         axis({ shared_options(), line_options("Time (s)") }, linename,
-            filecontents(linename, line_data) + lineplot(linename)));
+            rategraph) +
+        caption(ts_name));
   }
 
-  vector<string> Graphs::shared_options(optional<string_view> xname) const
+  string Graphs::get_combined(string_view name,
+      std::map<unsigned, GraphData> const& data, string_view bar2,
+      string_view line2) const
   {
-    vector<string> rv = {
+    string barname  = format("{}-count", name);
+    string linename = format("{}-time", name);
+
+    string barname2  = format("naive {}-count", name);
+    string linename2 = format("naive {}-time", name);
+
+    string countgraph = get_bargraph(barname, data);
+    countgraph += bar2;
+    string rategraph = get_linegraph(linename, data);
+    rategraph += line2;
+
+    return tikzpicture(
+        axis({ shared_options("Constraints"), bar_options("Count") },
+            format("{}, {}", barname, barname2), countgraph) +
+        axis({ shared_options(), line_options("Time (s)") },
+            format("{}, {}", linename, linename2), rategraph) +
+        caption(ts_name));
+  }
+
+  string Graphs::get_bargraph(string_view name,
+      std::map<unsigned, GraphData> const& data, string_view colour) const
+  {
+    string fname = format("{} {}", ts_name, name);
+    string count_data;
+
+    for (auto& [i, d] : data)
+      count_data += pgf_line(i, d.counts);
+
+    return filecontents(fname, count_data) + barplot(fname, colour);
+  }
+
+  string Graphs::get_linegraph(string_view name,
+      std::map<unsigned, GraphData> const& data, string_view colour) const
+  {
+    string fname = format("{} {}", ts_name, name);
+    string line_data;
+
+    for (auto& [i, d] : data)
+      line_data += pgf_line(i, d.times);
+
+    return filecontents(fname, line_data) + lineplot(fname, colour) + "\n";
+  }
+
+  vector<string> Graphs::shared_options() const
+  {
+    return {
       // "ymode=log",
       // "ymin=0.01",
       "xtick=data",
@@ -473,75 +551,83 @@ namespace pdr
       "enlarge x limits=0.1",
       "enlarge y limits={upper=0}",
     };
+  }
 
-    if (xname)
-      rv.push_back(format("xlabel={{{}}}", *xname));
-
+  vector<string> Graphs::shared_options(string_view xname) const
+  {
+    vector<string> rv = shared_options();
+    rv.push_back(format("xlabel={{{}}}", xname));
     return rv;
   }
 
-  std::vector<string> Graphs::bar_options(optional<string_view> yname) const
+  vector<string> Graphs::bar_options() const
   {
-    vector<string> rv = {
+    return {
       "ybar",
       "axis y line*=left",
       "bar width=7pt",
-      "legend style={at={(0.35,0.95)}, anchor=east,legend columns=-1}",
+      "legend style={at={(0.5,1.06)}, anchor=north,legend columns=-1}",
     };
+  }
 
-    if (yname)
-      rv.push_back(format("ylabel={{{}}}", *yname));
-
+  vector<string> Graphs::bar_options(string_view yname) const
+  {
+    vector<string> rv = bar_options();
+    rv.push_back(format("ylabel={{{}}}", yname));
     return rv;
   }
 
-  std::vector<string> Graphs::thinbar_options(optional<string_view> yname) const
+  vector<string> Graphs::thinbar_options() const
   {
-    vector<string> rv = {
+    return {
       "ybar=1pt",
       "axis y line*=left",
       "bar width=0pt",
-      "legend style={at={(0.35,0.95)}, anchor=east,legend columns=-1}",
+      "legend style={at={(0.5,1.06)}, anchor=north,legend columns=-1}",
     };
-
-    if (yname)
-      rv.push_back(format("ylabel={{{}}}", *yname));
-
+  }
+  vector<string> Graphs::thinbar_options(string_view yname) const
+  {
+    vector<string> rv = thinbar_options();
+    rv.push_back(format("ylabel={{{}}}", yname));
     return rv;
   }
 
-  std::vector<string> Graphs::line_options(optional<string_view> yname) const
+  vector<string> Graphs::line_options() const
   {
-    vector<string> rv = {
+    return {
       "axis y line*=right",
-      "legend style={at={(0.35,0.88)}, anchor=east,legend columns=-1}",
+      "legend style={at={(0.5,1.0)}, anchor=north,legend columns=-1}",
       "xticklabels={,,}", // labels already displayed by bargraph
     };
+  }
 
-    if (yname)
-      rv.push_back(format("ylabel={{{}}}", *yname));
-
+  vector<string> Graphs::line_options(string_view yname) const
+  {
+    vector<string> rv = line_options();
+    rv.push_back(format("ylabel={{{}}}", yname));
     return rv;
   }
 
-  string Graphs::barplot(string_view name)
+  string Graphs::barplot(string_view name, string_view colour)
   {
-    return format("\\addplot+ [error bars/.cd, y dir=both, y explicit]\n"
-                  "    table [x=x, y=y, y error=err] {{{}.dat}};",
-        name);
+    return format("\\addplot+ [style={{solid,fill={}!30}}, error bars/.cd, y "
+                  "dir=both, y explicit]\n"
+                  "    table [x=x, y=y, y error=err] {{{}.dat}};\n",
+        colour, name);
   }
 
-  string Graphs::lineplot(string_view name)
+  string Graphs::lineplot(string_view name, string_view colour)
   {
     return format(
-        "\\addplot+[mark=x, color=red, mark size=4pt, x=x, y=y] "
+        "\\addplot+[{},mark=x, mark size=4pt, x=x, y=y] "
         "table {{{}.dat}};\n"
         "\\addplot [name path=upper,draw=none]\n"
         "    table[x=x,y expr=\\thisrow{{y}}+\\thisrow{{err}}] {{{}.dat}};\n"
         "\\addplot [name path=lower,draw=none] \n"
         "    table[x=x,y expr=\\thisrow{{y}}-\\thisrow{{err}}] {{{}.dat}};\n"
-        "\\addplot [fill=gray!50] fill between[of=upper and lower];",
-        name, name, name);
+        "\\addplot [fill={}!20] fill between[of=upper and lower];",
+        colour, name, name, name, colour);
   }
 
   string Graphs::relaxplot(string_view name) const
@@ -550,9 +636,6 @@ namespace pdr
 
     for (size_t i{ 1 }; i < no_frames; i++)
     {
-      // ss << format("\\addplot [error bars/.cd, y dir=both, y explicit]\n"
-      //              "    table [x=x, y=f{}, y error=f{}err] {{{}.dat}};",
-      //           i, i, name)
       ss << format("\\addplot [draw=black, fill=black]\n"
                    "    table [x=x, y=f{}, y error=f{}err] {{{}.dat}};",
                 i, i, name)

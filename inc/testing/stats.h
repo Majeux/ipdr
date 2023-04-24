@@ -153,6 +153,8 @@ namespace pdr
     std::string get_relax() const;
     std::string get_individual() const;
     // get relaxed percentage + frame breakdown
+    //
+    static std::string combine(Graphs const& a, Graphs const& b);
 
    private:
     std::string ts_name;
@@ -164,25 +166,38 @@ namespace pdr
 
     std::string get(
         std::string_view name, std::map<unsigned, GraphData> const& data) const;
+    std::string get_combined(std::string_view name,
+        std::map<unsigned, GraphData> const& data, std::string_view bar2,
+        std::string_view line2) const;
     std::string get(std::string_view name,
         std::map<unsigned, FrelaxData> const& data) const;
 
-    static std::string barplot(std::string_view name);
-    static std::string lineplot(std::string_view name);
+    std::string get_bargraph(std::string_view name,
+        std::map<unsigned, GraphData> const& data,
+        std::string_view colour = "blue") const;
+    std::string get_linegraph(std::string_view name,
+        std::map<unsigned, GraphData> const& data,
+        std::string_view colour = "blue") const;
+
+    static std::string barplot(
+        std::string_view name, std::string_view colour = "blue");
+    static std::string lineplot(
+        std::string_view name, std::string_view colour = "blue");
     std::string relaxplot(std::string_view name) const;
+
     std::string relaxcontent(
         std::string_view filename, std::string_view data) const;
     std::string frames_data_line(
         size_t label, std::vector<std::vector<size_t>> const& data) const;
 
-    std::vector<std::string> shared_options(
-        std::optional<std::string_view> yname = " ") const;
-    std::vector<std::string> bar_options(
-        std::optional<std::string_view> yname = " ") const;
-    std::vector<std::string> thinbar_options(
-        std::optional<std::string_view> yname = " ") const;
-    std::vector<std::string> line_options(
-        std::optional<std::string_view> yname = " ") const;
+    std::vector<std::string> shared_options() const;
+    std::vector<std::string> shared_options(std::string_view yname) const;
+    std::vector<std::string> bar_options() const;
+    std::vector<std::string> bar_options(std::string_view yname) const;
+    std::vector<std::string> thinbar_options() const;
+    std::vector<std::string> thinbar_options(std::string_view yname) const;
+    std::vector<std::string> line_options() const;
+    std::vector<std::string> line_options(std::string_view yname) const;
   };
 } // namespace pdr
 #endif // STATS_H

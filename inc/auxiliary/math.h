@@ -38,7 +38,7 @@ namespace my::math
   {
     if (values.size() == 0)
       return 0.0;
-    return std::accumulate(values.cbegin(), values.cend(), 0) / values.size();
+    return std::accumulate(values.cbegin(), values.cend(), 0.0) / values.size();
   }
 
   // compute standard deviation when the mean average is known
