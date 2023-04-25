@@ -3,7 +3,7 @@
 # ./pebbling-pdr --dir=./benchmark/rls/tfc/ --tfc=ham7tc --algo=ipdr --inc=binary_search --pebbling
 bold=$(tput bold)
 normal=$(tput sgr0)
-EXEC="./pebbling-pdrfcopy"
+EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
 MODE="pebbling ipdr experiment"
 INC="--inc=relax"
