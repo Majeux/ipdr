@@ -6,6 +6,7 @@
 #include <optional>
 #include <regex>
 #include <stdexcept>
+#include <z3++.h>
 
 namespace mysat::primed
 {
@@ -246,7 +247,7 @@ namespace mysat::primed
       expr key = strip_not(e);
       if (is_reserved_lit(key))
         return true;
-      rv       = to_current.find(key.id()) != to_current.end();
+      rv = to_current.find(key.id()) != to_current.end();
     }
     catch (const std::invalid_argument& e)
     {
@@ -303,16 +304,22 @@ namespace mysat::primed
     {
       return fmt::format("{}__{}", n, i);
     }
+
+    string carry_str(std::string_view n, size_t i)
+    {
+      return fmt::format("{}__carry{}", n, i);
+    }
   } // namespace
 
   BitVec::BitVec(z3::context& c, const string& n, size_t Nbits)
-      : IPrimed<expr_vector>(c, n), size(Nbits)
+      : IPrimed<expr_vector>(c, n), size(Nbits), carry_out(c)
   {
     validate_lit_name(n);
     for (size_t i = 0; i < size; i++)
     {
       current.push_back(ctx.bool_const(index_str(name, i).c_str()));
       next.push_back(ctx.bool_const(index_str(next_name, i).c_str()));
+      carry_out.push_back(ctx.bool_const(carry_str(name, i).c_str()));
     }
   }
 
@@ -368,16 +375,98 @@ namespace mysat::primed
     return n.to_ulong();
   }
 
+  namespace
+  {
+    // equality for literals
+    expr eq_cnf(expr const& a, expr const& b) { return (!a || b) && (a || !b); }
+    expr neq_cnf(expr const& a, expr const& b)
+    {
+      return (!a || !b) && (a || b);
+    }
+  } // namespace
+
   expr BitVec::equals(numrep_t n) const { return mk_and(uint(n)); }
   expr BitVec::p_equals(numrep_t n) const { return mk_and(uint_p(n)); }
+  expr BitVec::p_equals(expr_vector const& other) const
+  {
+    if (size != other.size())
+      throw std::invalid_argument("Compared BitVecs must be of equal size");
+
+    expr_vector rv(ctx);
+    for (size_t i{ 0 }; i < size; i++)
+      rv.push_back(eq_cnf(next[i], other[i]));
+
+    return z3::mk_and(rv);
+  }
+
+  expr BitVec::equals(expr_vector const& other) const
+  {
+    if (size != other.size())
+      throw std::invalid_argument("Compared BitVecs must be of equal size");
+
+    expr_vector rv(ctx);
+    for (size_t i{ 0 }; i < size; i++)
+      rv.push_back(eq_cnf(current[i], other[i]));
+
+    return z3::mk_and(rv);
+  }
+
+  expr BitVec::nequals(expr_vector const& other) const
+  {
+    if (size != other.size())
+      throw std::invalid_argument("Compared BitVecs must be of equal size");
+
+    expr_vector rv(ctx);
+    for (size_t i{ 0 }; i < size; i++)
+      rv.push_back(neq_cnf(current[i], other[i]));
+
+    return z3::mk_and(rv);
+  }
+
+  expr BitVec::p_nequals(expr_vector const& other) const
+  {
+    if (size != other.size())
+      throw std::invalid_argument("Compared BitVecs must be of equal size");
+
+    expr_vector rv(ctx);
+    for (size_t i{ 0 }; i < size; i++)
+      rv.push_back(neq_cnf(next[i], other[i]));
+
+    return z3::mk_and(rv);
+  }
 
   expr BitVec::unchanged() const
   {
     expr_vector conj(ctx);
-    for (size_t i = 0; i < size; i++)
-      conj.push_back(current[i] == next[i]);
+    for (size_t i = 0; i < size; i++) // forall i: c[i] == n[i]
+      conj.push_back(eq_cnf(current[i], next[i]));
 
     return mk_and(conj);
+  }
+
+  z3::expr BitVec::incremented() const
+  {
+    // ripple-carry adder with constant operant 0001
+    expr_vector out(ctx);
+
+    // half-adder A+1 [carry 0]:
+    // next[0] == !current[0], carry_out[0] == current[0]
+    out.push_back(neq_cnf(next[0], current[0]));
+    out.push_back(eq_cnf(carry_out[0], current[0]));
+    // full-adder A+0 [carry]:
+    for (size_t i{ 1 }; i < size; i++)
+    {
+      out.push_back( // n == (a xor c)
+          (!current[i] || !carry_out[i - 1] || !next[i]) &&
+          (!current[i] || carry_out[i - 1] || next[i]) &&
+          (current[i] || !carry_out[i - 1] || next[i]) &&
+          (current[i] || carry_out[i - 1] || !next[i]));
+      out.push_back( // carry_out' == (current and carry_out)
+          (!current[i] || !carry_out[i - 1] || carry_out[i]) &&
+          (current[i] || !next[i]) && (carry_out[i - 1] || !carry_out[i]));
+    }
+
+    return z3::mk_and(out);
   }
 
   // private

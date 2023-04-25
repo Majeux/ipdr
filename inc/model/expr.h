@@ -196,8 +196,10 @@ namespace mysat::primed
   {
    public:
     using numrep_t                   = unsigned;
+    // maximum number of bits any BitVec can be
     static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
 
+    // number of bits
     const size_t size;
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
@@ -217,6 +219,8 @@ namespace mysat::primed
 
     // all bits equal in current and next
     z3::expr unchanged() const override;
+    // value of next = value of current + 1
+    z3::expr incremented() const;
 
     // access individual literals
     z3::expr operator()(size_t i) const;
@@ -236,6 +240,11 @@ namespace mysat::primed
     // * CNF
     z3::expr equals(numrep_t n) const;
     z3::expr p_equals(numrep_t n) const;
+    // Bitvec v BitVec comparison of current states
+    z3::expr equals(z3::expr_vector const& other) const;
+    z3::expr p_equals(z3::expr_vector const& other) const;
+    z3::expr nequals(z3::expr_vector const& other) const;
+    z3::expr p_nequals(z3::expr_vector const& other) const;
 
     //  N-bit less comparison
     //  returns a formula in cnf
@@ -250,6 +259,8 @@ namespace mysat::primed
     }
 
    private:
+    z3::expr_vector carry_out;
+
     z3::expr_vector unint_to_lits(numrep_t n, bool primed) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"

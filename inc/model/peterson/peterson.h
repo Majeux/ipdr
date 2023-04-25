@@ -34,6 +34,7 @@ namespace pdr::peterson
 
     // Configure IModel
     void constrain(numrep_t processes);
+    void constrain_switches(numrep_t n);
 
     // Convert a cube (typically a witness from a SAT call) to a state
     PetersonState extract_state(const z3::expr_vector& witness,
@@ -46,7 +47,9 @@ namespace pdr::peterson
     const numrep_t N;
     // no. processes that can fire
     numrep_t p;
-    BitVec nproc;
+    BitVec proc; // currently active process
+    BitVec proc_last; // last active process
+    BitVec n_switches; // no. context switches performed
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
     const static numrep_t pc_num = 5;

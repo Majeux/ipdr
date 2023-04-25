@@ -245,15 +245,22 @@ namespace pdr::peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs)
-      : IModel(c, {}), N(max_procs), p(n_procs),
-        nproc(BitVec::holding(ctx, "nproc", N)), pc(), level(), last()
+  PetersonModel::PetersonModel(
+      z3::context& c, numrep_t n_procs, numrep_t max_procs)
+      : IModel(c, {}),
+        N(max_procs),
+        p(n_procs),
+        proc(BitVec::holding(c, "proc", n_procs)),
+        n_switches(c, "n_switches", 4),
+        pc(),
+        level(),
+        last()
   {
     using fmt::format;
     Vars allvars = create_vars();
     vars.add(allvars.curr, allvars.next);
 
-    for(auto n : vars.p())
+    for (auto n : vars.p())
       std::cout << n.to_string() << std::endl;
 
     assert(N < INT_MAX);
@@ -289,13 +296,30 @@ namespace pdr::peterson
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
-  unsigned PetersonModel::constraint_num() const
-  {
-    return p;
-  }
+  unsigned PetersonModel::constraint_num() const { return p; }
 
   unsigned PetersonModel::n_processes() const { return p; }
   unsigned PetersonModel::max_processes() const { return N; }
+
+  expr if_then_else(const expr& i, const expr& t, const expr& e)
+  {
+    return (!i || t) && (i || e); // i => t || !i => e
+  }
+
+  void PetersonModel::constrain_switches(numrep_t n)
+  {
+    // proc_last' <- proc
+    expr store_pid = proc_last.p_equals(proc);
+    // if proc_last == proc then n_switches' <- n_switches
+    // else n_switches' <- n_switches + 1
+    expr do_switch = (proc_last.nequals(proc) || n_switches.unchanged()) &&
+                     (proc_last.equals(proc) || n_switches.incremented());
+
+    expr switch_bound = n_switches.less(n);
+
+    // guard each process's actions with
+    expr guard = proc.equals(1);
+  }
 
   void PetersonModel::constrain(numrep_t processes)
   {
@@ -304,7 +328,7 @@ namespace pdr::peterson
 
     {
       int d = processes - p;
-      
+
       if (d > 0)
         diff = Diff_t::relaxed;
       else if (d < 0)
@@ -394,11 +418,6 @@ namespace pdr::peterson
     stays(conj, last);
 
     return z3::mk_and(conj);
-  }
-
-  expr if_then_else(const expr& i, const expr& t, const expr& e)
-  {
-    return implies(i, t) && implies(!i, e);
   }
 
   expr PetersonModel::T_boundcheck(numrep_t i)
