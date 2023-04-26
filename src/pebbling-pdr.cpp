@@ -2,6 +2,7 @@
 #include "cli-parse.h"
 #include "dag.h"
 #include "experiments.h"
+#include "expr.h"
 #include "h-operator.h"
 #include "io.h"
 #include "logger.h"
@@ -62,7 +63,6 @@ void handle_experiment(ArgumentList& args, pdr::Logger& log);
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths);
 std::ostream& operator<<(std::ostream& o, std::exception const& e);
 
-#warning dont cares (?) in trace for non-tseytin. dont always make sense? mainly in high constraints
 int main(int argc, char* argv[])
 {
   ArgumentList args(argc, argv);
@@ -156,6 +156,7 @@ ModelVariant construct_model(
   pdr::peterson::PetersonModel peter(context.z3_ctx, start, max);
   log.stats.is_peter(start, max);
   peter.show(args.folders.model_file);
+  peter.constrain_switches(2);
 
   return peter;
 }
@@ -232,8 +233,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       visitor{
           [&](test::z3PebblingIPDR& a) -> ResultVariant
           { return a.control_run(ipdr.type); },
-          [&](pebbling::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type); },
+          [&](pebbling::IPDR& a) -> ResultVariant { return a.run(ipdr.type); },
           [&](peterson::IPDR& a) -> ResultVariant
           { return a.run(ipdr.type, {}); },
       },

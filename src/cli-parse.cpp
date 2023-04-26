@@ -604,7 +604,8 @@ namespace my::cli
     if (mode == s_run)
     {
       ignored({ s_its, s_seeds }, clresult);
-      if (is<algo::t_PDR>(algorithm) && !experiment)
+      if (is<algo::t_PDR>(algorithm) && is<model_t::Pebbling>(model) &&
+          !experiment)
         throw std::invalid_argument(format(
             "pebbling pdr run requires a starting number of pebbles: `{}`",
             s_pebbles));

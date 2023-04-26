@@ -2,8 +2,10 @@
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <regex>
 #include <tabulate/table.hpp>
@@ -49,6 +51,11 @@ namespace pdr::peterson
     for (size_t i = 0; i < free.size(); i++)
       conj.push_back(free[i] ? m.free[i] : !m.free[i]());
 
+    for (expr const& e : m.proc_last.uint(proc_last))
+      conj.push_back(e);
+    for (expr const& e : m.switch_count.uint(switch_count))
+      conj.push_back(e);
+
     return conj;
   }
 
@@ -71,8 +78,19 @@ namespace pdr::peterson
 
     if (last < s.last)
       return true;
+    if (s.last < last)
+      return false;
 
-    // return inline_string() < s.inline_string();
+    if (proc_last < s.proc_last)
+      return true;
+    if (s.proc_last < proc_last)
+      return false;
+
+    if (switch_count < s.switch_count)
+      return true;
+    if (s.switch_count < switch_count)
+      return false;
+
     return false;
   }
 
@@ -85,6 +103,10 @@ namespace pdr::peterson
     if (free != s.free)
       return false;
     if (last != s.last)
+      return false;
+    if (proc_last != s.proc_last)
+      return false;
+    if (switch_count != s.switch_count)
       return false;
 
     return true;
@@ -135,6 +157,9 @@ namespace pdr::peterson
         ss << tab(2) << format("{},", last.at(i)) << end();
       ss << tab(1) << "] " << end();
     }
+    ss << tab(1) << "proc_last = " << proc_last << end();
+    ss << tab(1) << "switch_count = " << switch_count << end();
+
     ss << "}";
 
     return ss.str();
@@ -144,13 +169,6 @@ namespace pdr::peterson
 
   // PETERSONMODEL MEMBERS
   //
-  size_t bits_for(PetersonModel::numrep_t n)
-  {
-    size_t bits = std::ceil(std::log2(n - 1) + 1);
-    assert(bits <= std::numeric_limits<PetersonModel::numrep_t>::digits);
-    return bits;
-  }
-
   size_t PetersonModel::n_lits() const
   {
     size_t total{ 0 };
@@ -161,6 +179,9 @@ namespace pdr::peterson
     total = std::accumulate(level.begin(), level.end(), total, add_size);
     total = std::accumulate(last.begin(), last.end(), total, add_size);
     total += free.size();
+    total += proc.size;
+    total += proc_last.size;
+    total += switch_count.size;
 
     return total;
   }
@@ -171,9 +192,6 @@ namespace pdr::peterson
     using z3::atleast;
     using z3::atmost;
 
-    // create variables
-    size_t pc_bits = bits_for(pc_num);
-    size_t N_bits  = bits_for(N);
     // 0 = idle, take to aquire lock
     // 1 = aquiring, take to bound check
     // 2 = aquiring, take to set last
@@ -184,11 +202,11 @@ namespace pdr::peterson
     {
       {
         string pc_i = format("pc{}", i);
-        pc.emplace_back(ctx, pc_i, pc_bits);
+        pc.push_back(BitVec::holding(ctx, pc_i, pc_num));
       }
       {
         string l_i = format("level{}", i);
-        level.emplace_back(ctx, l_i, N_bits);
+        level.push_back(BitVec::holding(ctx, l_i, N));
       }
       {
         string free_i = format("free{}", i);
@@ -197,7 +215,7 @@ namespace pdr::peterson
       if (i < N - 1)
       {
         string last_i = format("last{}", i);
-        last.emplace_back(ctx, last_i, N_bits);
+        last.push_back(BitVec::holding(ctx, last_i, N));
       }
     }
 
@@ -251,7 +269,8 @@ namespace pdr::peterson
         N(max_procs),
         p(n_procs),
         proc(BitVec::holding(c, "proc", n_procs)),
-        n_switches(c, "n_switches", 4),
+        proc_last(BitVec::holding(c, "proc_last", n_procs)),
+        switch_count(c, "n_switches", MAX_SWITCHES),
         pc(),
         level(),
         last()
@@ -281,6 +300,12 @@ namespace pdr::peterson
           initial.push_back(e);
     }
 
+    if (max_switches)
+    {
+      initial.push_back(proc_last.equals(0));
+      initial.push_back(switch_count.equals(0));
+    }
+
     constrain(n_procs);
 
     // test_bug();
@@ -289,6 +314,7 @@ namespace pdr::peterson
     // test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
+    // bv_inc_test(10);
   }
 
   const std::string PetersonModel::constraint_str() const
@@ -304,21 +330,6 @@ namespace pdr::peterson
   expr if_then_else(const expr& i, const expr& t, const expr& e)
   {
     return (!i || t) && (i || e); // i => t || !i => e
-  }
-
-  void PetersonModel::constrain_switches(numrep_t n)
-  {
-    // proc_last' <- proc
-    expr store_pid = proc_last.p_equals(proc);
-    // if proc_last == proc then n_switches' <- n_switches
-    // else n_switches' <- n_switches + 1
-    expr do_switch = (proc_last.nequals(proc) || n_switches.unchanged()) &&
-                     (proc_last.equals(proc) || n_switches.incremented());
-
-    expr switch_bound = n_switches.less(n);
-
-    // guard each process's actions with
-    expr guard = proc.equals(1);
   }
 
   void PetersonModel::constrain(numrep_t processes)
@@ -341,16 +352,33 @@ namespace pdr::peterson
     transition.resize(0);
     constraint.resize(0);
 
+    if (max_switches)
+    {
+      // store the pid that is used in this step
+      //    proc_last' <- proc
+      transition.push_back(proc_last.p_equals(proc));
+
+      // count the number of times that the active process is switched
+      //    if proc_last == proc then n_switches' <- n_switches
+      //    else n_switches' <- n_switches + 1
+      transition.push_back(
+          (proc_last.nequals(proc) || switch_count.unchanged()) &&
+          (proc_last.equals(proc) || switch_count.incremented()));
+
+      constraint.push_back(switch_count.less(*max_switches));
+    }
+
     // can be easily constrained be removing transitions for i >= p
     // leave transition empty, put decreasing T-relation in constraint
     expr_vector disj(ctx);
     for (numrep_t i = 0; i < p; i++)
     {
-      disj.push_back(T_start(i));
-      disj.push_back(T_boundcheck(i));
-      disj.push_back(T_setlast(i));
-      disj.push_back(T_await(i));
-      disj.push_back(T_release(i));
+      expr i_steps = T_start(i) || T_boundcheck(i) || T_setlast(i) ||
+                     T_await(i) || T_release(i);
+      if (max_switches)
+        disj.push_back(proc.equals(i) && i_steps);
+      else
+        disj.push_back(i_steps);
     }
     // transition = disj; // no
     // std::cout << "RAW TRANSITION" << std::endl;
@@ -359,6 +387,12 @@ namespace pdr::peterson
     // constraint.push_back(mk_or(disj);
     // std::cout << "CNF TRANSITION" << std::endl;
     // std::cout << transition << std::endl;
+  }
+
+  void PetersonModel::constrain_switches(size_t m)
+  {
+    max_switches = m;
+    constrain(p);
   }
 
   template <typename T,
@@ -504,18 +538,18 @@ namespace pdr::peterson
       }
 
       // l[i]++
-      expr_vector increment(ctx);
-      for (numrep_t x = 0; x < N - 1; x++)
-      {
-        expr set_index =
-            implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
-        // expr rest_stays =
-        //     implies(!level.at(i).equals(x), level.at(i).unchanged()); // uhmm
-        increment.push_back(set_index);
-      }
+      // expr_vector increment(ctx);
+      // for (numrep_t x = 0; x < N - 1; x++)
+      // {
+      //   expr set_index =
+      //       implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
+      //   // expr rest_stays =
+      //   //     implies(!level.at(i).equals(x), level.at(i).unchanged()); //
+      //   uhmm increment.push_back(set_index);
+      // }
 
       expr wait     = pc.at(i).p_equals(3) && level.at(i).unchanged();
-      expr end_loop = pc.at(i).p_equals(1) && mk_and(increment);
+      expr end_loop = pc.at(i).p_equals(1) && level.at(i).incremented();
 
       branch = if_then_else(check, wait, end_loop);
     }
@@ -721,81 +755,6 @@ namespace pdr::peterson
       std::cout << "n_property - four_crit: sat" << std::endl;
     else
       std::cout << "n_property - four_crit: unsat" << std::endl;
-  }
-
-  void PetersonModel::bv_comp_test(size_t max_value)
-  {
-    mysat::primed::BitVec bv1(ctx, "b1", bits_for(max_value + 1));
-    mysat::primed::BitVec bv2(ctx, "b2", bits_for(max_value + 1));
-    unsigned wrong{ 0 };
-
-    for (unsigned i = 0; i <= max_value; i++)
-    {
-      for (unsigned j = 0; j <= max_value; j++)
-      {
-        z3::solver s(ctx);
-
-        s.add(bv1.equals(i));
-        s.add(bv2.equals(j));
-        s.add(bv1.less(bv2));
-        z3::check_result r = s.check();
-        if (i >= j && r == z3::check_result::sat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl
-                    << "\tfalse sat" << std::endl
-                    << s << std::endl
-                    << "---" << std::endl;
-          wrong++;
-        }
-        if (i < j && r == z3::check_result::unsat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl
-                    << "\tfalse unsat" << std::endl
-                    << s << std::endl
-                    << "---" << std::endl;
-          wrong++;
-        }
-      }
-    }
-    std::cout << fmt::format("{} wrong bv comparisons", wrong) << std::endl;
-    return;
-  }
-
-  void PetersonModel::bv_val_test(size_t max_value)
-  {
-    mysat::primed::BitVec bv(ctx, "b", bits_for(max_value + 1));
-    unsigned wrong{ 0 };
-
-    for (unsigned i = 0; i <= max_value; i++)
-    {
-      for (unsigned j = 0; j <= max_value; j++)
-      {
-        z3::solver s(ctx);
-
-        s.add(bv.equals(i));
-        s.add(bv.less(j));
-        z3::check_result r = s.check();
-        if (i >= j && r == z3::check_result::sat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl
-                    << "\tfalse sat" << std::endl
-                    << s << std::endl
-                    << "---" << std::endl;
-          wrong++;
-        }
-        if (i < j && r == z3::check_result::unsat)
-        {
-          std::cout << fmt::format("{} < {}", i, j) << std::endl
-                    << "\tfalse unsat" << std::endl
-                    << s << std::endl
-                    << "---" << std::endl;
-          wrong++;
-        }
-      }
-    }
-    std::cout << fmt::format("{} wrong bv - uint comparisons", wrong)
-              << std::endl;
-    return;
   }
 
   void PetersonModel::test_room()

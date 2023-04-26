@@ -23,6 +23,9 @@ namespace pdr::peterson
     using BitVec   = mysat::primed::BitVec;
     using numrep_t = BitVec::numrep_t;
 
+    // the maximum amount of switches that can be tracked
+    static constexpr size_t MAX_SWITCHES = 31; // 5 bits
+
     friend PetersonState;
 
     PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs);
@@ -34,22 +37,24 @@ namespace pdr::peterson
 
     // Configure IModel
     void constrain(numrep_t processes);
-    void constrain_switches(numrep_t n);
+    void constrain_switches(size_t m);
 
     // Convert a cube (typically a witness from a SAT call) to a state
     PetersonState extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base) const;
     PetersonState extract_state_p(const z3::expr_vector& witness) const;
 
-
    private:
     // max no. processes. the size of the waiting queue
     const numrep_t N;
     // no. processes that can fire
     numrep_t p;
+    //  constraint on number of allowed context-switches per run
+    std::optional<size_t> max_switches;
+
     BitVec proc; // currently active process
     BitVec proc_last; // last active process
-    BitVec n_switches; // no. context switches performed
+    BitVec switch_count; // no. context switches performed
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
     const static numrep_t pc_num = 5;
@@ -85,8 +90,6 @@ namespace pdr::peterson
     z3::expr T_await(numrep_t i);
     z3::expr T_release(numrep_t i);
 
-    void bv_comp_test(size_t max_value);
-    void bv_val_test(size_t max_value);
   }; // class Model
 
   struct PetersonState
@@ -95,6 +98,8 @@ namespace pdr::peterson
     std::vector<PetersonModel::numrep_t> level;
     std::vector<bool> free;
     std::vector<PetersonModel::numrep_t> last;
+    PetersonModel::numrep_t proc_last;
+    PetersonModel::numrep_t switch_count;
 
     // TODO use model vector sizes
     PetersonState() : pc(0), level(0), free(0), last(0) {}

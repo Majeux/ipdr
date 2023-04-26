@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <fmt/core.h>
+#include <iostream>
 #include <optional>
 #include <regex>
 #include <stdexcept>
@@ -325,6 +326,8 @@ namespace mysat::primed
 
   BitVec BitVec::holding(z3::context& c, const string& n, numrep_t max_val)
   {
+    size_t bits = std::log2(max_val) + 1; // floored
+    assert(bits <= std::numeric_limits<numrep_t>::digits);
     return BitVec(c, n, std::log2(max_val) + 1);
   }
 
@@ -463,7 +466,7 @@ namespace mysat::primed
           (current[i] || carry_out[i - 1] || !next[i]));
       out.push_back( // carry_out' == (current and carry_out)
           (!current[i] || !carry_out[i - 1] || carry_out[i]) &&
-          (current[i] || !next[i]) && (carry_out[i - 1] || !carry_out[i]));
+          (current[i] || !carry_out[i]) && (carry_out[i - 1] || !carry_out[i]));
     }
 
     return z3::mk_and(out);
@@ -591,4 +594,116 @@ namespace mysat::primed
 
     return z3::mk_and(conj);
   }
+
+  // TESTS
+  //
+  void bv_comp_test(size_t max_value)
+  {
+    z3::context ctx;
+    auto bv1 = BitVec::holding(ctx, "b1", max_value);
+    auto bv2 = BitVec::holding(ctx, "b2", max_value);
+    unsigned wrong{ 0 };
+
+    for (unsigned i = 0; i <= max_value; i++)
+    {
+      for (unsigned j = 0; j <= max_value; j++)
+      {
+        z3::solver s(ctx);
+
+        s.add(bv1.equals(i));
+        s.add(bv2.equals(j));
+        s.add(bv1.less(bv2));
+        z3::check_result r = s.check();
+        if (i >= j && r == z3::check_result::sat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse sat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+        if (i < j && r == z3::check_result::unsat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse unsat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+      }
+    }
+    std::cout << fmt::format("{} wrong bv comparisons", wrong) << std::endl;
+    return;
+  }
+
+  void bv_val_test(size_t max_value)
+  {
+    z3::context ctx;
+    auto bv = BitVec::holding(ctx, "b", max_value);
+    unsigned wrong{ 0 };
+
+    for (unsigned i = 0; i <= max_value; i++)
+    {
+      for (unsigned j = 0; j <= max_value; j++)
+      {
+        z3::solver s(ctx);
+
+        s.add(bv.equals(i));
+        s.add(bv.less(j));
+        z3::check_result r = s.check();
+        if (i >= j && r == z3::check_result::sat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse sat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+        if (i < j && r == z3::check_result::unsat)
+        {
+          std::cout << fmt::format("{} < {}", i, j) << std::endl
+                    << "\tfalse unsat" << std::endl
+                    << s << std::endl
+                    << "---" << std::endl;
+          wrong++;
+        }
+      }
+    }
+    std::cout << fmt::format("{} wrong bv - uint comparisons", wrong)
+              << std::endl;
+    return;
+  }
+
+  void bv_inc_test(size_t max_value)
+  {
+    z3::context ctx;
+    auto bv = BitVec::holding(ctx, "b", max_value);
+    unsigned wrong{ 0 };
+
+    for (unsigned i = 0; i <= max_value; i++)
+    {
+      z3::solver s(ctx);
+
+      s.add(bv.equals(i));
+      s.add(bv.incremented());
+
+      std::optional<z3::expr_vector> result = z3ext::solver::check_witness(s);
+      if (result)
+      {
+        unsigned sum =
+            bv.extract_value(result.value(), mysat::primed::lit_type::primed);
+        std::cout << fmt::format("{} + 1 = {}", i, sum) << std::endl;
+
+        if (sum != i + 1)
+          wrong++;
+      }
+      else
+        wrong++;
+    }
+
+    std::cout << fmt::format("BitVec incrementation for i={}..{}", 0, max_value)
+              << std::endl
+              << fmt::format("{} wrong", wrong) << std::endl;
+  }
+
 } // namespace mysat::primed

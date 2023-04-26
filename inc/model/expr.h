@@ -301,6 +301,9 @@ namespace mysat::primed
     // z3::expr rec_less(const BitVec& x, size_t msb, size_t nbits) const;
   };
 
+  void bv_comp_test(size_t max_value);
+  void bv_val_test(size_t max_value);
+  void bv_inc_test(size_t max_value);
 } // namespace mysat::primed
 
 #endif // MY_EXPR_H
