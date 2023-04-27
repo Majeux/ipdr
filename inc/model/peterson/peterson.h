@@ -37,12 +37,18 @@ namespace pdr::peterson
 
     // Configure IModel
     void constrain(numrep_t processes);
-    void constrain_switches(size_t m);
+    void constrain_switches(numrep_t m);
 
     // Convert a cube (typically a witness from a SAT call) to a state
     PetersonState extract_state(const z3::expr_vector& witness,
         mysat::primed::lit_type t = mysat::primed::lit_type::base) const;
     PetersonState extract_state_p(const z3::expr_vector& witness) const;
+
+    void test_room();
+    void test_wait(numrep_t i);
+    void test_bug();
+    void test_property();
+    void test_p_pred();
 
    private:
     // max no. processes. the size of the waiting queue
@@ -50,10 +56,10 @@ namespace pdr::peterson
     // no. processes that can fire
     numrep_t p;
     //  constraint on number of allowed context-switches per run
-    std::optional<size_t> max_switches;
+    std::optional<numrep_t> max_switches;
 
-    BitVec proc; // currently active process
-    BitVec proc_last; // last active process
+    BitVec proc;         // currently active process
+    BitVec proc_last;    // last active process
     BitVec switch_count; // no. context switches performed
     // vector of ints[0-4]. program counter for process i
     std::vector<BitVec> pc;
@@ -73,15 +79,10 @@ namespace pdr::peterson
 
     // fill the pc, level, free and last variables
     Vars create_vars();
+    void reset_initial();
 
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
-
-    void test_room();
-    void test_wait(numrep_t i);
-    void test_bug();
-    void test_property();
-    void test_p_pred();
 
     void set_trans(numrep_t max_p);
     z3::expr T_start(numrep_t i);

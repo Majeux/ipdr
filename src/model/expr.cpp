@@ -57,6 +57,12 @@ namespace mysat::primed
   Lit::operator const expr&() const { return current; }
   const expr& Lit::operator()() const { return current; }
   const expr& Lit::p() const { return next; }
+  const expr& Lit::get(lit_type t) const
+  {
+    if (t == lit_type::base)
+      return current;
+    return next;
+  }
 
   expr Lit::unchanged() const { return current == next; }
 
@@ -68,7 +74,7 @@ namespace mysat::primed
     // matches name[i], extracts name and i
     std::regex is_value;
     string match_name;
-    if (t == primed)
+    if (t == lit_type::primed)
     {
       is_value   = next_name;
       match_name = next_name;
@@ -96,7 +102,7 @@ namespace mysat::primed
       }
     }
 
-    return v.value(); // no value if no literal was found
+    return v.value_or(false); // no value if no literal was found, assumes false
   }
 
   // VarVec
@@ -154,6 +160,12 @@ namespace mysat::primed
   VarVec::operator const expr_vector&() const { return current; }
   const expr_vector& VarVec::operator()() const { return current; }
   const expr_vector& VarVec::p() const { return next; }
+  const expr_vector& VarVec::get(lit_type t) const
+  {
+    if (t == lit_type::base)
+      return current;
+    return next;
+  }
   vector<string> VarVec::names() const { return extract_names(current); }
   vector<string> VarVec::names_p() const { return extract_names(next); }
 
@@ -268,6 +280,12 @@ namespace mysat::primed
   ExpVec::operator const expr_vector&() const { return current; }
   const expr_vector& ExpVec::operator()() const { return current; }
   const expr_vector& ExpVec::p() const { return next; }
+  const expr_vector& ExpVec::get(lit_type t) const
+  {
+    if (t == lit_type::base)
+      return current;
+    return next;
+  }
   std::vector<z3::expr> ExpVec::p_vec() const { return z3ext::convert(next); }
 
   vector<string> ExpVec::names() const { return extract_names(current); }
@@ -334,6 +352,12 @@ namespace mysat::primed
   BitVec::operator const expr_vector&() const { return current; }
   const expr_vector& BitVec::operator()() const { return current; }
   const expr_vector& BitVec::p() const { return next; }
+  const expr_vector& BitVec::get(lit_type t) const
+  {
+    if (t == lit_type::base)
+      return current;
+    return next;
+  }
 
   expr BitVec::operator()(size_t i) const { return current[i]; }
   expr BitVec::p(size_t i) const { return next[i]; }
@@ -341,10 +365,13 @@ namespace mysat::primed
   vector<string> BitVec::names() const { return extract_names(current); }
   vector<string> BitVec::names_p() const { return extract_names(next); }
 
-  expr_vector BitVec::uint(numrep_t n) const { return unint_to_lits(n, false); }
+  expr_vector BitVec::uint(numrep_t n) const
+  {
+    return unint_to_lits(n, lit_type::base);
+  }
   expr_vector BitVec::uint_p(numrep_t n) const
   {
-    return unint_to_lits(n, true);
+    return unint_to_lits(n, lit_type::primed);
   }
   expr_vector BitVec::uint_both(numrep_t n) const
   {
@@ -358,7 +385,7 @@ namespace mysat::primed
       const expr_vector& cube, const lit_type t) const
   {
     std::bitset<MAX_BITS> n;
-    const string match_name{ t == primed ? next_name : name };
+    const string match_name{ t == lit_type::primed ? next_name : name };
     // matches name__i, extracts i
     const std::regex is_value{ fmt::format("{}__([[:digit:]]+)", match_name) };
 
@@ -381,9 +408,20 @@ namespace mysat::primed
   namespace
   {
     // equality for literals
-    expr eq_cnf(expr const& a, expr const& b) { return (!a || b) && (a || !b); }
+    expr eq_cnf(expr const& a, expr const& b)
+    {
+      if (!a.is_const())
+        throw std::invalid_argument("a must be a const.");
+      if (!b.is_const())
+        throw std::invalid_argument("b must be a const.");
+      return (!a || b) && (a || !b);
+    }
     expr neq_cnf(expr const& a, expr const& b)
     {
+      if (!a.is_const())
+        throw std::invalid_argument("a must be a const.");
+      if (!b.is_const())
+        throw std::invalid_argument("b must be a const.");
       return (!a || !b) && (a || b);
     }
   } // namespace
@@ -473,7 +511,7 @@ namespace mysat::primed
   }
 
   // private
-  expr_vector BitVec::unint_to_lits(numrep_t n, bool primed) const
+  expr_vector BitVec::unint_to_lits(numrep_t n, lit_type t) const
   {
     expr_vector rv(ctx), reversed(ctx);
     std::bitset<MAX_BITS> bits(n);
@@ -482,9 +520,9 @@ namespace mysat::primed
     for (size_t i = 0; i < current.size(); i++)
     {
       if (n & 1) // first bit is 1
-        reversed.push_back(primed ? next[i] : current[i]);
+        reversed.push_back(get(t)[i]);
       else
-        reversed.push_back(primed ? !next[i] : !current[i]);
+        reversed.push_back(!get(t)[i]);
 
       n >>= 1;
     }
@@ -495,7 +533,7 @@ namespace mysat::primed
     return rv;
   }
 
-  expr BitVec::less_4b(numrep_t n, size_t msb) const
+  expr BitVec::less_4b(numrep_t n, size_t msb, lit_type t) const
   {
     assert(msb < INT_MAX);
     assert((msb + 1) % 4 == 0);
@@ -516,13 +554,13 @@ namespace mysat::primed
     expr_vector disj(ctx);
     for (int i = msb; i >= (int)lsb; i--)
     {
-      expr bit = i < (int)size ? current[i] : ctx.bool_val(false);
+      expr bit = i < (int)size ? get(t)[i] : ctx.bool_val(false);
       expr e   = !bit && set(i);
       for (size_t j = i + 1; j <= msb; j++)
       {
         // handle if BitVec does not store i+1 bits
-        expr bit = j < size ? current[j] : ctx.bool_val(false);
-        e        = !(bit ^ set(j)) && e;
+        expr bit = j < size ? get(t)[j] : ctx.bool_val(false);
+        e        = eq_cnf(bit, set(j)) && e;
       }
       disj.push_back(e);
     }
@@ -530,7 +568,7 @@ namespace mysat::primed
     return z3::mk_or(disj);
   }
 
-  expr BitVec::less_4b(const BitVec& cube, size_t msb) const
+  expr BitVec::less_4b(const BitVec& cube, size_t msb, lit_type t) const
   {
     assert(size == cube.size);
     assert(msb < INT_MAX);
@@ -540,15 +578,15 @@ namespace mysat::primed
     expr_vector disj(ctx);
     for (int i = msb; i >= (int)lsb; i--)
     {
-      expr bit      = i < (int)size ? current[i] : ctx.bool_val(false);
+      expr bit      = i < (int)size ? get(t)[i] : ctx.bool_val(false);
       expr cube_bit = i < (int)size ? cube(i) : ctx.bool_val(false);
       expr e        = !bit && cube_bit;
       for (size_t j = i + 1; j <= msb; j++)
       {
         // handle if BitVec does not store i+1 bits
-        expr bit      = j < size ? current[j] : ctx.bool_val(false);
+        expr bit      = j < size ? get(t)[j] : ctx.bool_val(false);
         expr cube_bit = j < size ? cube(j) : ctx.bool_val(false);
-        e             = !(bit ^ cube_bit) && e;
+        e             = eq_cnf(bit, cube_bit) && e;
       }
       disj.push_back(e);
     }
@@ -556,7 +594,7 @@ namespace mysat::primed
     return z3::mk_or(disj);
   }
 
-  z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits) const
+  z3::expr BitVec::eq(numrep_t n, size_t msb, size_t nbits, lit_type t) const
   {
     assert((msb + 1) % 4 == 0);
     assert((msb + 1) >= nbits);
@@ -567,7 +605,7 @@ namespace mysat::primed
     z3::expr_vector conj(ctx);
     for (size_t i = lsb; i <= msb; i++)
     {
-      expr bit = i < size ? current[i] : ctx.bool_val(false);
+      expr bit = i < size ? get(t)[i] : ctx.bool_val(false);
       if (bits.test(i))
         conj.push_back(bit);
       else
@@ -577,7 +615,8 @@ namespace mysat::primed
     return z3::mk_and(conj);
   }
 
-  z3::expr BitVec::eq(const BitVec& cube, size_t msb, size_t nbits) const
+  z3::expr BitVec::eq(
+      const BitVec& cube, size_t msb, size_t nbits, lit_type t) const
   {
     assert(size == cube.size);
     assert((msb + 1) % 4 == 0);
@@ -587,9 +626,9 @@ namespace mysat::primed
     z3::expr_vector conj(ctx);
     for (size_t i = lsb; i <= msb; i++)
     {
-      expr bit      = i < size ? current[i] : ctx.bool_val(false);
+      expr bit      = i < size ? get(t)[i] : ctx.bool_val(false);
       expr cube_bit = i < size ? cube(i) : ctx.bool_val(false);
-      conj.push_back(!(cube_bit ^ bit)); // n[i] <=> current[i]
+      conj.push_back(eq_cnf(cube_bit, bit)); // n[i] == current[i]
     }
 
     return z3::mk_and(conj);
@@ -690,8 +729,7 @@ namespace mysat::primed
       std::optional<z3::expr_vector> result = z3ext::solver::check_witness(s);
       if (result)
       {
-        unsigned sum =
-            bv.extract_value(result.value(), mysat::primed::lit_type::primed);
+        unsigned sum = bv.extract_value(result.value(), lit_type::primed);
         std::cout << fmt::format("{} + 1 = {}", i, sum) << std::endl;
 
         if (sum != i + 1)

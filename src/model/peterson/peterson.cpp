@@ -8,6 +8,7 @@
 #include <optional>
 #include <queue>
 #include <regex>
+#include <stdexcept>
 #include <tabulate/table.hpp>
 #include <z3++.h>
 #include <z3_api.h>
@@ -137,28 +138,28 @@ namespace pdr::peterson
       ss << tab(1) << "pc [" << end();
       for (PetersonModel::numrep_t i = 0; i < pc.size(); i++)
         ss << tab(2) << format("{},", pc.at(i)) << end();
-      ss << tab(1) << "]" << end() << end();
+      ss << tab(1) << "]," << end() << end();
     }
     {
       ss << tab(1) << "level [" << end();
       for (PetersonModel::numrep_t i = 0; i < level.size(); i++)
         ss << tab(2) << format("{},", level.at(i)) << end();
-      ss << tab(1) << "]" << end() << end();
+      ss << tab(1) << "]," << end() << end();
     }
     {
       ss << tab(1) << "free [" << end();
       for (PetersonModel::numrep_t i = 0; i < free.size(); i++)
         ss << tab(2) << format("{},", free.at(i) ? "t" : "f") << end();
-      ss << tab(1) << "]" << end() << end();
+      ss << tab(1) << "]," << end() << end();
     }
     {
       ss << tab(1) << "last [" << end();
       for (PetersonModel::numrep_t i = 0; i < last.size(); i++)
         ss << tab(2) << format("{},", last.at(i)) << end();
-      ss << tab(1) << "] " << end();
+      ss << tab(1) << "]," << end();
     }
-    ss << tab(1) << "proc_last = " << proc_last << end();
-    ss << tab(1) << "switch_count = " << switch_count << end();
+    ss << tab(1) << "proc_last = " << proc_last << "," << end();
+    ss << tab(1) << "switch_count = " << switch_count << "," << end();
 
     ss << "}";
 
@@ -263,26 +264,9 @@ namespace pdr::peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(
-      z3::context& c, numrep_t n_procs, numrep_t max_procs)
-      : IModel(c, {}),
-        N(max_procs),
-        p(n_procs),
-        proc(BitVec::holding(c, "proc", n_procs)),
-        proc_last(BitVec::holding(c, "proc_last", n_procs)),
-        switch_count(c, "n_switches", MAX_SWITCHES),
-        pc(),
-        level(),
-        last()
+  void PetersonModel::reset_initial()
   {
-    using fmt::format;
-    Vars allvars = create_vars();
-    vars.add(allvars.curr, allvars.next);
-
-    for (auto n : vars.p())
-      std::cout << n.to_string() << std::endl;
-
-    assert(N < INT_MAX);
+    initial.resize(0);
 
     // initialize vars at 0
     for (numrep_t i = 0; i < N; i++)
@@ -305,7 +289,30 @@ namespace pdr::peterson
       initial.push_back(proc_last.equals(0));
       initial.push_back(switch_count.equals(0));
     }
+  }
 
+  PetersonModel::PetersonModel(
+      z3::context& c, numrep_t n_procs, numrep_t max_procs)
+      : IModel(c, {}),
+        N(max_procs),
+        p(n_procs),
+        proc(BitVec::holding(c, "proc", n_procs)),
+        proc_last(BitVec::holding(c, "proc_last", n_procs)),
+        switch_count(c, "n_switches", MAX_SWITCHES),
+        pc(),
+        level(),
+        last()
+  {
+    using fmt::format;
+    Vars allvars = create_vars();
+    vars.add(allvars.curr, allvars.next);
+
+    for (auto n : vars.p())
+      std::cout << n.to_string() << std::endl;
+
+    assert(N < INT_MAX);
+
+    reset_initial();
     constrain(n_procs);
 
     // test_bug();
@@ -334,6 +341,7 @@ namespace pdr::peterson
 
   void PetersonModel::constrain(numrep_t processes)
   {
+    using mysat::primed::lit_type;
     using z3ext::tseytin::to_cnf_vec;
     assert(processes <= N);
 
@@ -365,7 +373,8 @@ namespace pdr::peterson
           (proc_last.nequals(proc) || switch_count.unchanged()) &&
           (proc_last.equals(proc) || switch_count.incremented()));
 
-      constraint.push_back(switch_count.less(*max_switches));
+      // cannot take a transition that causes us to hit max_switches
+      constraint.push_back(switch_count.less(*max_switches, lit_type::primed));
     }
 
     // can be easily constrained be removing transitions for i >= p
@@ -389,10 +398,20 @@ namespace pdr::peterson
     // std::cout << transition << std::endl;
   }
 
-  void PetersonModel::constrain_switches(size_t m)
+  void PetersonModel::constrain_switches(numrep_t m)
   {
-    max_switches = m;
-    constrain(p);
+    if (m < MAX_SWITCHES) // cannot count past MAX_SWITCHES
+    {
+      max_switches = m;
+      constrain(p);
+    }
+    else
+    {
+      throw std::invalid_argument(
+          fmt::format("The maximum number of switches m (={}) cannot be higher "
+                      "than MAX_SWITCHES={}",
+              m, MAX_SWITCHES));
+    }
   }
 
   template <typename T,
@@ -538,15 +557,15 @@ namespace pdr::peterson
       }
 
       // l[i]++
-      // expr_vector increment(ctx);
-      // for (numrep_t x = 0; x < N - 1; x++)
-      // {
-      //   expr set_index =
-      //       implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
-      //   // expr rest_stays =
-      //   //     implies(!level.at(i).equals(x), level.at(i).unchanged()); //
-      //   uhmm increment.push_back(set_index);
-      // }
+      expr_vector increment(ctx);
+      for (numrep_t x = 0; x < N - 1; x++)
+      {
+        expr set_index =
+            implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
+        // expr rest_stays =
+        //     implies(!level.at(i).equals(x), level.at(i).unchanged()); // uhmm
+        increment.push_back(set_index);
+      }
 
       expr wait     = pc.at(i).p_equals(3) && level.at(i).unchanged();
       expr end_loop = pc.at(i).p_equals(1) && level.at(i).incremented();
@@ -836,6 +855,8 @@ namespace pdr::peterson
       if (i < s.last.size())
         s.last.at(i) = last.at(i).extract_value(cube, t);
     }
+    s.proc_last    = proc_last.extract_value(cube, t);
+    s.switch_count = proc_last.extract_value(cube, t);
 
     return s;
   }
