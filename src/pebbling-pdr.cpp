@@ -158,7 +158,7 @@ ModelVariant construct_model(
   // peter.constrain_switches(2);
   peter.show(args.folders.model_file);
   peter.test_room();
-  mysat::primed::bv_comp_test(255);
+  // mysat::primed::bv_comp_test(255);
 
   return peter;
 }

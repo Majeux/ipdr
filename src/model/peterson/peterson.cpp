@@ -881,8 +881,10 @@ namespace pdr::peterson
 
     z3::solver solver(ctx);
     solver.add(s.cube(*this));
+    solver.add(transition);
+    solver.add(constraint);
 
-    while (optional<expr_vector> w = check_witness(solver, transition))
+    while (optional<expr_vector> w = check_witness(solver))
     {
       S.insert(extract_state(*w, lit_type::primed));
       solver.add(!mk_and(*w)); // exclude from future search
