@@ -6,6 +6,9 @@
 #include <climits>
 #include <fmt/color.h>
 #include <z3++.h>
+
+#include <dbg.h>
+
 namespace mysat::primed
 {
 
@@ -261,10 +264,9 @@ namespace mysat::primed
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
-      // less_4b assigns default values if size is too smalle
-      size_t nbits = size + size % 4;
-      // size_t nbits = size + (4 - size % 4);
-      return rec_less(n, nbits - 1, nbits, t);
+      // less_4b assigns default values if size is too small
+      size_t nbits = dbg(size) + 4 - (size % 4);
+      return rec_less(n, nbits - 1, dbg(nbits), t);
     }
 
    private:

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <dbg.h>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fstream>
@@ -298,7 +299,7 @@ namespace pdr::peterson
         p(n_procs),
         proc(BitVec::holding(c, "proc", n_procs)),
         proc_last(BitVec::holding(c, "proc_last", n_procs)),
-        switch_count(c, "n_switches", MAX_SWITCHES),
+        switch_count(BitVec::holding(c, "n_switches", MAX_SWITCHES)),
         pc(),
         level(),
         last()
@@ -369,9 +370,10 @@ namespace pdr::peterson
       // count the number of times that the active process is switched
       //    if proc_last == proc then n_switches' <- n_switches
       //    else n_switches' <- n_switches + 1
-      transition.push_back(
-          (proc_last.nequals(proc) || switch_count.unchanged()) &&
-          (proc_last.equals(proc) || switch_count.incremented()));
+      // transition.push_back(
+      //     (proc_last.nequals(proc) || switch_count.unchanged()) &&
+      //     (proc_last.equals(proc) || switch_count.incremented()));
+      transition.push_back(z3::ite(proc_last.equals(proc), switch_count.unchanged(), switch_count.incremented()));
 
       // cannot take a transition that causes us to hit max_switches
       constraint.push_back(switch_count.less(*max_switches, lit_type::primed));
@@ -557,18 +559,27 @@ namespace pdr::peterson
       }
 
       // l[i]++
-      expr_vector increment(ctx);
-      for (numrep_t x = 0; x < N - 1; x++)
+      expr incremented(ctx);
       {
-        expr set_index =
-            implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
-        // expr rest_stays =
-        //     implies(!level.at(i).equals(x), level.at(i).unchanged()); // uhmm
-        increment.push_back(set_index);
+        expr_vector increment(ctx);
+        for (numrep_t x = 0; x < N - 1; x++)
+        {
+          expr set_index =
+              implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
+          // expr rest_stays =
+          //     implies(!level.at(i).equals(x), level.at(i).unchanged()); //
+          //     uhmm
+          increment.push_back(set_index);
+        }
+        expr raw = z3ext::tseytin::to_cnf(z3::mk_and(increment));
+        expr adder = z3ext::tseytin::to_cnf(level.at(i).incremented());
+
+        // incremented = raw.num_args() < adder.num_args() ? raw : adder;
+        incremented = adder;
       }
 
       expr wait     = pc.at(i).p_equals(3) && level.at(i).unchanged();
-      expr end_loop = pc.at(i).p_equals(1) && level.at(i).incremented();
+      expr end_loop = pc.at(i).p_equals(1) && incremented;
 
       branch = if_then_else(check, wait, end_loop);
     }

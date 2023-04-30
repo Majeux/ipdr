@@ -719,11 +719,47 @@ namespace mysat::primed
     auto bv = BitVec::holding(ctx, "b", max_value);
     unsigned wrong{ 0 };
 
+    std::cout << "Adder" << std::endl;
     for (unsigned i = 0; i <= max_value; i++)
     {
       z3::solver s(ctx);
 
       s.add(bv.equals(i));
+      s.add(bv.incremented());
+
+      std::optional<z3::expr_vector> result = z3ext::solver::check_witness(s);
+      if (result)
+      {
+        unsigned sum = bv.extract_value(result.value(), lit_type::primed);
+        std::cout << fmt::format("{} + 1 = {}", i, sum) << std::endl;
+
+        if (sum != i + 1)
+          wrong++;
+      }
+      else
+        wrong++;
+    }
+
+    std::cout << fmt::format("BitVec incrementation for i={}..{}", 0, max_value)
+              << std::endl
+              << fmt::format("{} wrong", wrong) << std::endl;
+
+    std::cout << "Brute" << std::endl;
+    for (unsigned i = 0; i <= max_value; i++)
+    {
+      z3::solver s(ctx);
+
+      s.add(bv.equals(i));
+      expr_vector increment(ctx);
+      for (BitVec::numrep_t x = 0; x <= max_value; x++)
+      {
+        expr set_index =
+            implies(bv.equals(x), bv.p_equals(x + 1));
+        // expr rest_stays =
+        //     implies(!bv1.equals(x), bv1.unchanged()); // uhmm
+        increment.push_back(set_index);
+      }
+
       s.add(bv.incremented());
 
       std::optional<z3::expr_vector> result = z3ext::solver::check_witness(s);

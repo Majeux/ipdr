@@ -11,7 +11,7 @@ set shortmess=aoO
 argglobal
 %argdel
 $argadd src/model/peterson/peterson.cpp
-edit inc/model/expr.h
+edit src/model/peterson/peterson.cpp
 let s:save_splitbelow = &splitbelow
 let s:save_splitright = &splitright
 set splitbelow splitright
@@ -37,12 +37,12 @@ set winminwidth=0
 set winwidth=1
 exe 'vert 1resize ' . ((&columns * 120 + 181) / 363)
 exe 'vert 2resize ' . ((&columns * 121 + 181) / 363)
-exe '3resize ' . ((&lines * 41 + 43) / 87)
+exe '3resize ' . ((&lines * 42 + 43) / 87)
 exe 'vert 3resize ' . ((&columns * 120 + 181) / 363)
-exe '4resize ' . ((&lines * 42 + 43) / 87)
+exe '4resize ' . ((&lines * 41 + 43) / 87)
 exe 'vert 4resize ' . ((&columns * 120 + 181) / 363)
 argglobal
-balt inc/model/peterson/peterson.h
+balt inc/model/expr.h
 setlocal fdm=manual
 setlocal fde=0
 setlocal fmr={{{,}}}
@@ -53,12 +53,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 265 - ((25 * winheight(0) + 42) / 84)
+let s:l = 578 - ((61 * winheight(0) + 42) / 84)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 265
-normal! 036|
+keepjumps 578
+normal! 028|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 argglobal
@@ -77,12 +77,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 859 - ((43 * winheight(0) + 42) / 84)
+let s:l = 373 - ((46 * winheight(0) + 42) / 84)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 859
-normal! 018|
+keepjumps 373
+normal! 027|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 argglobal
@@ -101,12 +101,12 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 155 - ((20 * winheight(0) + 20) / 41)
+let s:l = 158 - ((23 * winheight(0) + 21) / 42)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 155
-normal! 039|
+keepjumps 158
+normal! 028|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 argglobal
@@ -125,27 +125,27 @@ setlocal fdn=20
 setlocal fen
 silent! normal! zE
 let &fdl = &fdl
-let s:l = 161 - ((15 * winheight(0) + 21) / 42)
+let s:l = 172 - ((11 * winheight(0) + 20) / 41)
 if s:l < 1 | let s:l = 1 | endif
 keepjumps exe s:l
 normal! zt
-keepjumps 161
-normal! 033|
+keepjumps 172
+normal! 052|
 lcd ~/Documents/master/pebbling-pdr
 wincmd w
 exe 'vert 1resize ' . ((&columns * 120 + 181) / 363)
 exe 'vert 2resize ' . ((&columns * 121 + 181) / 363)
-exe '3resize ' . ((&lines * 41 + 43) / 87)
+exe '3resize ' . ((&lines * 42 + 43) / 87)
 exe 'vert 3resize ' . ((&columns * 120 + 181) / 363)
-exe '4resize ' . ((&lines * 42 + 43) / 87)
+exe '4resize ' . ((&lines * 41 + 43) / 87)
 exe 'vert 4resize ' . ((&columns * 120 + 181) / 363)
 tabnext 1
-badd +68 ~/Documents/master/pebbling-pdr/inc/model/peterson/peterson.h
-badd +318 ~/Documents/master/pebbling-pdr/src/model/peterson/peterson.cpp
-badd +298 ~/Documents/master/pebbling-pdr/inc/model/expr.h
-badd +161 ~/Documents/master/pebbling-pdr/src/pebbling-pdr.cpp
+badd +265 ~/Documents/master/pebbling-pdr/inc/model/expr.h
+badd +578 ~/Documents/master/pebbling-pdr/src/model/peterson/peterson.cpp
+badd +63 ~/Documents/master/pebbling-pdr/inc/model/peterson/peterson.h
+badd +744 ~/Documents/master/pebbling-pdr/src/model/expr.cpp
+badd +158 ~/Documents/master/pebbling-pdr/src/pebbling-pdr.cpp
 badd +37 ~/Documents/master/pebbling-pdr/inc/auxiliary/z3-ext.h
-badd +429 ~/Documents/master/pebbling-pdr/src/model/expr.cpp
 if exists('s:wipebuf') && len(win_findbuf(s:wipebuf)) == 0 && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
   silent exe 'bwipe ' . s:wipebuf
 endif
