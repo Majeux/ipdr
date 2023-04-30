@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <dbg.h>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fstream>
@@ -343,6 +342,7 @@ namespace pdr::peterson
   void PetersonModel::constrain(numrep_t processes)
   {
     using mysat::primed::lit_type;
+    using z3ext::tseytin::to_cnf;
     using z3ext::tseytin::to_cnf_vec;
     assert(processes <= N);
 
@@ -365,18 +365,22 @@ namespace pdr::peterson
     {
       // store the pid that is used in this step
       //    proc_last' <- proc
-      transition.push_back(proc_last.p_equals(proc));
+      transition.push_back(proc_last.p_equals(proc).simplify());
 
       // count the number of times that the active process is switched
       //    if proc_last == proc then n_switches' <- n_switches
       //    else n_switches' <- n_switches + 1
-      // transition.push_back(
-      //     (proc_last.nequals(proc) || switch_count.unchanged()) &&
-      //     (proc_last.equals(proc) || switch_count.incremented()));
-      transition.push_back(z3::ite(proc_last.equals(proc), switch_count.unchanged(), switch_count.incremented()));
+      transition.push_back(
+          to_cnf((proc_last.nequals(proc) || switch_count.unchanged()) &&
+                 (proc_last.equals(proc) || switch_count.incremented()))
+              .simplify());
+      // transition.push_back(z3::ite(proc_last.equals(proc),
+      // switch_count.unchanged(), switch_count.incremented()));
 
       // cannot take a transition that causes us to hit max_switches
-      constraint.push_back(switch_count.less(*max_switches, lit_type::primed));
+      constraint.push_back(
+          to_cnf(switch_count.less(*max_switches, lit_type::primed))
+              .simplify());
     }
 
     // can be easily constrained be removing transitions for i >= p
@@ -394,7 +398,8 @@ namespace pdr::peterson
     // transition = disj; // no
     // std::cout << "RAW TRANSITION" << std::endl;
     // std::cout << disj << std::endl;
-    constraint = to_cnf_vec(mk_or(disj));
+    // constraint = to_cnf_vec(mk_or(disj));
+    constraint.push_back(to_cnf(mk_or(disj)).simplify());
     // constraint.push_back(mk_or(disj);
     // std::cout << "CNF TRANSITION" << std::endl;
     // std::cout << transition << std::endl;
@@ -571,7 +576,7 @@ namespace pdr::peterson
           //     uhmm
           increment.push_back(set_index);
         }
-        expr raw = z3ext::tseytin::to_cnf(z3::mk_and(increment));
+        expr raw   = z3ext::tseytin::to_cnf(z3::mk_and(increment));
         expr adder = z3ext::tseytin::to_cnf(level.at(i).incremented());
 
         // incremented = raw.num_args() < adder.num_args() ? raw : adder;

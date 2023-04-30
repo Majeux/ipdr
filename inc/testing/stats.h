@@ -147,6 +147,7 @@ namespace pdr
    public:
     void reset(std::string_view name);
     void add_datapoint(size_t label, Statistics const& stats);
+    std::string get() const;
     std::string get_cti() const;
     std::string get_obligation() const;
     std::string get_sat() const;

@@ -316,6 +316,18 @@ namespace pdr
     }
   }
 
+  string Graphs::get() const 
+  {
+    std::stringstream ss;
+    
+    ss << get_cti() << endl
+      << get_obligation() << endl
+      << get_sat() << endl 
+      << get_relax() << endl;
+
+    return ss.str();
+  }
+
   string Graphs::get_cti() const
   {
     return "\% CTI graph\n" + get("cti", cti_data);

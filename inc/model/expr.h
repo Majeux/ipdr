@@ -7,8 +7,6 @@
 #include <fmt/color.h>
 #include <z3++.h>
 
-#include <dbg.h>
-
 namespace mysat::primed
 {
 
@@ -265,8 +263,8 @@ namespace mysat::primed
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
       // less_4b assigns default values if size is too small
-      size_t nbits = dbg(size) + 4 - (size % 4);
-      return rec_less(n, nbits - 1, dbg(nbits), t);
+      size_t nbits = size + 4 - (size % 4);
+      return rec_less(n, nbits - 1, nbits, t);
     }
 
    private:

@@ -157,7 +157,7 @@ ModelVariant construct_model(
   log.stats.is_peter(start, max);
   peter.constrain_switches(3);
   peter.show(args.folders.model_file);
-  peter.test_room();
+  // peter.test_room();
   // mysat::primed::bv_comp_test(255);
 
   return peter;
@@ -180,7 +180,14 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       model);
 
+  log.graph.reset(model_t::get_name(args.model));
+
   pdr::PdrResult res = std::visit([](vPDR& a) { return a.run(); }, algorithm);
+
+  // write stat graph
+  std::ofstream graph = args.folders.file_in_analysis("tex");
+  graph << log.graph.get();
+
   std::cout << "result" << std::endl;
   tabulate::Table T = res.get_table();
 
@@ -217,6 +224,10 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   auto const& ipdr = get_cref<algo::t_IPDR>(args.algorithm)->get();
 
   ModelVariant model(construct_model(args, context, log));
+
+  log.graph.reset(model_t::get_name(args.model));
+
+  // create algorithm
   IPDRVariant algorithm(std::visit(
       visitor{
           [&](test::Z3PebblingModel& m) -> IPDRVariant
@@ -231,6 +242,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       model));
 
+  // run
   ResultVariant result(std::visit(
       visitor{
           [&](test::z3PebblingIPDR& a) -> ResultVariant
@@ -241,6 +253,11 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       algorithm));
 
+  // write stat graph
+  std::ofstream graph = args.folders.file_in_analysis("tex");
+  graph << log.graph.get();
+
+  // write result
   std::visit(
       [&](IpdrResult const& r)
       {
@@ -251,6 +268,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       result);
 
+  // write solver state
   std::visit(
       visitor{
           [&](test::z3PebblingIPDR const& a)

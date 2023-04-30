@@ -461,7 +461,7 @@ namespace mysat::primed
     for (size_t i{ 0 }; i < size; i++)
       rv.push_back(neq_cnf(current[i], other[i]));
 
-    return z3::mk_and(rv);
+    return z3::mk_or(rv);
   }
 
   expr BitVec::p_nequals(expr_vector const& other) const
@@ -473,7 +473,7 @@ namespace mysat::primed
     for (size_t i{ 0 }; i < size; i++)
       rv.push_back(neq_cnf(next[i], other[i]));
 
-    return z3::mk_and(rv);
+    return z3::mk_or(rv);
   }
 
   expr BitVec::unchanged() const
