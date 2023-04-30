@@ -666,16 +666,16 @@ namespace pdr
   {
     string rv = format("    {}", label);
 
-    size_t max_size = std::max_element(data.cbegin(), data.cend(),
-        [](vector<size_t> const& a, vector<size_t> const& b) {
-          return a.size() < b.size();
-        })->size();
-
     for (size_t i{ 1 }; i < no_frames; i++) // iterate levels
     {
       vector<size_t> level_values; // aggregate repetitions per level
       for (size_t j{ 0 }; j < data.size(); j++)
-        level_values.push_back(i < max_size ? data[j].at(i) : 0);
+      {
+        if (i < data[j].size())
+          level_values.push_back(data[j].at(i));
+        else
+          level_values.push_back(0);
+      }
 
       double avg     = my::math::mean(level_values);
       double std_dev = my::math::std_dev(level_values, avg);
