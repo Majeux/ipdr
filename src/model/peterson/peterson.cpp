@@ -834,7 +834,7 @@ namespace pdr::peterson
     const PetersonState I = extract_state(initial);
     Q.push(I);
 
-    while (not Q.empty() && edges.size() < 5)
+    while (not Q.empty())
     {
       const PetersonState& source = Q.front();
       if (visited.insert(source).second) // if source was not done already

@@ -1,0 +1,17 @@
+digraph G {
+start -> "State { pc [ 0, 0, ], level [ 0, 0, ], free [ t, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}"
+"State { pc [ 0, 0, ], level [ 0, 0, ], free [ t, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}" -> "State { pc [ 0, 1, ], level [ 0, 0, ], free [ t, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}"
+
+"State { pc [ 0, 0, ], level [ 0, 0, ], free [ t, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}" -> "State { pc [ 1, 0, ], level [ 0, 0, ], free [ f, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}"
+
+"State { pc [ 0, 1, ], level [ 0, 0, ], free [ t, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}" -> "State { pc [ 0, 2, ], level [ 0, 0, ], free [ t, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}"
+
+"State { pc [ 0, 2, ], level [ 0, 0, ], free [ t, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}" -> "State { pc [ 0, 3, ], level [ 0, 0, ], free [ t, f, ], last [ 1, ], proc_last = 1, switch_count = 1,}"
+
+"State { pc [ 1, 0, ], level [ 0, 0, ], free [ f, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}" -> "State { pc [ 1, 1, ], level [ 0, 0, ], free [ f, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}"
+
+"State { pc [ 1, 0, ], level [ 0, 0, ], free [ f, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}" -> "State { pc [ 2, 0, ], level [ 0, 0, ], free [ f, t, ], last [ 0, ], proc_last = 0, switch_count = 0,}"
+
+"State { pc [ 1, 1, ], level [ 0, 0, ], free [ f, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}" -> "State { pc [ 1, 2, ], level [ 0, 0, ], free [ f, f, ], last [ 0, ], proc_last = 1, switch_count = 1,}"
+
+}
