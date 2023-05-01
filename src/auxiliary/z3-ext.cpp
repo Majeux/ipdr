@@ -73,7 +73,7 @@ namespace z3ext
 
     optional<size_t> constraint_size(string_view str)
     {
-      // str must at least consist of tag and 1 character 
+      // str must at least consist of tag and 1 character
       if (str.size() <= tag_length || mysat::primed::is_reserved_lit(str))
         return {};
 
@@ -591,20 +591,24 @@ namespace z3ext
   //
   namespace tseytin
   {
-    expr_vector to_cnf_vec(z3::expr const& e)
+    expr_vector to_cnf_vec(z3::expr e)
     {
-      z3::tactic t1(e.ctx(), "simplify"), t2(e.ctx(), "tseitin-cnf");
-      z3::tactic t = t1 & t2;
+      e = e.simplify();
+      z3::tactic simplify(e.ctx(), "simplify");
+      // z3::tactic simplify(e.ctx(), "ctx-simplify");
+      z3::tactic cnf(e.ctx(), "tseitin-cnf");
+
+      z3::tactic t = cnf & simplify;
       z3::goal g(e.ctx());
 
       g.add(e);
       z3::apply_result r = t(g);
       assert(r.size() == 1);
-      z3::expr_vector cnf(e.ctx());
+      z3::expr_vector clauses(e.ctx());
       for (size_t i = 0; i < r[0].size(); i++)
-        cnf.push_back(r[0][i]);
+        clauses.push_back(r[0][i]);
 
-      return cnf;
+      return clauses;
     }
 
     expr to_cnf(expr const& e) { return z3::mk_and(to_cnf_vec(e)); }

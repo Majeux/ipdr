@@ -213,6 +213,10 @@ namespace mysat::primed
     // max = the maximum (unsigned) integer value the vector should describe
     BitVec(z3::context& c, std::string const& n, size_t Nbits);
 
+    // give this bitvector carry bits to allow for the incremented() function
+    // to perform a +1 addition on it
+    BitVec& incrementable();
+
     // construct a bitvector capable of holding the number in max_val
     static BitVec holding(
         z3::context& c, std::string const& n, numrep_t max_val);
@@ -251,6 +255,7 @@ namespace mysat::primed
     // Bitvec v BitVec comparison of current states
     z3::expr equals(z3::expr_vector const& other) const;
     z3::expr p_equals(z3::expr_vector const& other) const;
+
     z3::expr nequals(z3::expr_vector const& other) const;
     z3::expr p_nequals(z3::expr_vector const& other) const;
 
@@ -263,8 +268,16 @@ namespace mysat::primed
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
       // less_4b assigns default values if size is too small
-      size_t nbits = size + 4 - (size % 4);
+      size_t nbits;
+      if (size % 4 == 0)
+        nbits = size;
+      else
+        nbits = size + 4 - (size % 4);
       return rec_less(n, nbits - 1, nbits, t);
+    }
+    template <typename Tnum> z3::expr p_less(Tnum const& n) const
+    {
+      return less(n, lit_type::primed);
     }
 
    private:

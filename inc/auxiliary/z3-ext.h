@@ -358,7 +358,7 @@ namespace z3ext
   namespace tseytin
   {
     // convert e to cnf using z3's simplify and tseitin conversion tactics
-    z3::expr_vector to_cnf_vec(z3::expr const& e);
+    z3::expr_vector to_cnf_vec(z3::expr e);
     z3::expr to_cnf(z3::expr const& e);
 
     // add a tseytin encoded AND statement to "cnf"

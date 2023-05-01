@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include <optional>
 #include <queue>
 #include <regex>
+#include <spdlog/stopwatch.h>
 #include <stdexcept>
 #include <tabulate/table.hpp>
 #include <z3++.h>
@@ -207,7 +209,7 @@ namespace pdr::peterson
       }
       {
         string l_i = format("level{}", i);
-        level.push_back(BitVec::holding(ctx, l_i, N));
+        level.push_back(BitVec::holding(ctx, l_i, N).incrementable());
       }
       {
         string free_i = format("free{}", i);
@@ -261,6 +263,9 @@ namespace pdr::peterson
     for (const BitVec& var : last)
       append_names(var);
 
+    append_names(proc_last);
+    append_names(switch_count);
+
     return rv;
   }
 
@@ -286,8 +291,10 @@ namespace pdr::peterson
 
     if (max_switches)
     {
-      initial.push_back(proc_last.equals(0));
-      initial.push_back(switch_count.equals(0));
+      for (expr const& e : proc_last.uint(0))
+        initial.push_back(e);
+      for (expr const& e : switch_count.uint(0))
+        initial.push_back(e);
     }
   }
 
@@ -298,7 +305,7 @@ namespace pdr::peterson
         p(n_procs),
         proc(BitVec::holding(c, "proc", n_procs)),
         proc_last(BitVec::holding(c, "proc_last", n_procs)),
-        switch_count(BitVec::holding(c, "n_switches", MAX_SWITCHES)),
+        switch_count(BitVec::holding(c, "n_switches", MAX_SWITCHES).incrementable()),
         pc(),
         level(),
         last()
@@ -361,48 +368,54 @@ namespace pdr::peterson
     transition.resize(0);
     constraint.resize(0);
 
+    reset_initial();
     if (max_switches)
     {
       // store the pid that is used in this step
       //    proc_last' <- proc
-      transition.push_back(proc_last.p_equals(proc).simplify());
 
       // count the number of times that the active process is switched
       //    if proc_last == proc then n_switches' <- n_switches
       //    else n_switches' <- n_switches + 1
-      transition.push_back(
-          to_cnf((proc_last.nequals(proc) || switch_count.unchanged()) &&
-                 (proc_last.equals(proc) || switch_count.incremented()))
-              .simplify());
-      // transition.push_back(z3::ite(proc_last.equals(proc),
-      // switch_count.unchanged(), switch_count.incremented()));
+      expr count = z3::ite(proc_last.unchanged(), switch_count.unchanged(),
+          switch_count.incremented());
+      // expr count =
+      //     (!proc_last.unchanged() || switch_count.unchanged()) &&
+      //     (proc_last.unchanged() || switch_count.incremented());
+      for (expr const& clause : to_cnf_vec(count))
+      {
+        assert(clause.is_or() || clause.is_const() || clause.is_not());
+        transition.push_back(clause);
+      }
 
       // cannot take a transition that causes us to hit max_switches
-      constraint.push_back(
-          to_cnf(switch_count.less(*max_switches, lit_type::primed))
-              .simplify());
+      for (expr const& clause : to_cnf_vec(switch_count.p_less(*max_switches)))
+      {
+        assert(clause.is_or() || clause.is_const() || clause.is_not());
+        constraint.push_back(clause);
+      }
     }
 
     // can be easily constrained be removing transitions for i >= p
     // leave transition empty, put decreasing T-relation in constraint
+    expr steps(ctx);
     expr_vector disj(ctx);
     for (numrep_t i = 0; i < p; i++)
     {
       expr i_steps = T_start(i) || T_boundcheck(i) || T_setlast(i) ||
                      T_await(i) || T_release(i);
       if (max_switches)
-        disj.push_back(proc.equals(i) && i_steps);
+        disj.push_back(proc_last.p_equals(i) && i_steps);
       else
         disj.push_back(i_steps);
     }
-    // transition = disj; // no
-    // std::cout << "RAW TRANSITION" << std::endl;
-    // std::cout << disj << std::endl;
-    // constraint = to_cnf_vec(mk_or(disj));
-    constraint.push_back(to_cnf(mk_or(disj)).simplify());
-    // constraint.push_back(mk_or(disj);
-    // std::cout << "CNF TRANSITION" << std::endl;
-    // std::cout << transition << std::endl;
+    steps = z3::mk_or(disj);
+
+    for (expr const& clause : to_cnf_vec(steps))
+    {
+      assert(clause.is_or() || clause.is_const() || clause.is_not());
+      constraint.push_back(clause);
+    }
   }
 
   void PetersonModel::constrain_switches(numrep_t m)
@@ -803,8 +816,9 @@ namespace pdr::peterson
 
     std::ofstream out("peter-out.txt");
     // std::ostream& out = cout;
-    cout << "n procs = " << p << std::endl;
+    cout << "test_room:\nn procs = " << p << endl;
 
+    spdlog::stopwatch time;
     queue<PetersonState> Q;
     set<PetersonState> visited;
     map<PetersonState, set<PetersonState>> edges;
@@ -820,7 +834,7 @@ namespace pdr::peterson
     const PetersonState I = extract_state(initial);
     Q.push(I);
 
-    while (not Q.empty())
+    while (not Q.empty() && edges.size() < 5)
     {
       const PetersonState& source = Q.front();
       if (visited.insert(source).second) // if source was not done already
@@ -834,6 +848,8 @@ namespace pdr::peterson
       }
       Q.pop();
     }
+
+    cout << "test_room elapsed: " << time.elapsed().count() << endl;
 
     unsigned size = std::accumulate(edges.begin(), edges.end(), 0,
         [](unsigned a, const auto& s) { return a + s.second.size(); });
@@ -872,7 +888,7 @@ namespace pdr::peterson
         s.last.at(i) = last.at(i).extract_value(cube, t);
     }
     s.proc_last    = proc_last.extract_value(cube, t);
-    s.switch_count = proc_last.extract_value(cube, t);
+    s.switch_count = switch_count.extract_value(cube, t);
 
     return s;
   }
@@ -902,7 +918,10 @@ namespace pdr::peterson
 
     while (optional<expr_vector> w = check_witness(solver))
     {
-      S.insert(extract_state(*w, lit_type::primed));
+      auto s = extract_state(*w, lit_type::primed);
+      // std::cout << w->to_string() << std::endl;
+      // std::cout << s << std::endl << "----" << std::endl;
+      S.insert(s);
       solver.add(!mk_and(*w)); // exclude from future search
     }
 

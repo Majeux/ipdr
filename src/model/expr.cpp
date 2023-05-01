@@ -338,7 +338,6 @@ namespace mysat::primed
     {
       current.push_back(ctx.bool_const(index_str(name, i).c_str()));
       next.push_back(ctx.bool_const(index_str(next_name, i).c_str()));
-      carry_out.push_back(ctx.bool_const(carry_str(name, i).c_str()));
     }
   }
 
@@ -347,6 +346,16 @@ namespace mysat::primed
     size_t bits = std::log2(max_val) + 1; // floored
     assert(bits <= std::numeric_limits<numrep_t>::digits);
     return BitVec(c, n, std::log2(max_val) + 1);
+  }
+
+  BitVec& BitVec::incrementable()
+  {
+    carry_out.resize(0);
+    for (size_t i = 0; i < size; i++)
+    {
+      carry_out.push_back(ctx.bool_const(carry_str(name, i).c_str()));
+    }
+    return *this;
   }
 
   BitVec::operator const expr_vector&() const { return current; }
@@ -428,18 +437,7 @@ namespace mysat::primed
 
   expr BitVec::equals(numrep_t n) const { return mk_and(uint(n)); }
   expr BitVec::p_equals(numrep_t n) const { return mk_and(uint_p(n)); }
-  expr BitVec::p_equals(expr_vector const& other) const
-  {
-    if (size != other.size())
-      throw std::invalid_argument("Compared BitVecs must be of equal size");
-
-    expr_vector rv(ctx);
-    for (size_t i{ 0 }; i < size; i++)
-      rv.push_back(eq_cnf(next[i], other[i]));
-
-    return z3::mk_and(rv);
-  }
-
+#warning application of simplify are fragile on solver time (small case), check on larger
   expr BitVec::equals(expr_vector const& other) const
   {
     if (size != other.size())
@@ -449,7 +447,19 @@ namespace mysat::primed
     for (size_t i{ 0 }; i < size; i++)
       rv.push_back(eq_cnf(current[i], other[i]));
 
-    return z3::mk_and(rv);
+    return z3::mk_and(rv).simplify();
+  }
+
+  expr BitVec::p_equals(expr_vector const& other) const
+  {
+    if (size != other.size())
+      throw std::invalid_argument("Compared BitVecs must be of equal size");
+
+    expr_vector rv(ctx);
+    for (size_t i{ 0 }; i < size; i++)
+      rv.push_back(eq_cnf(next[i], other[i]));
+
+    return z3::mk_and(rv).simplify();
   }
 
   expr BitVec::nequals(expr_vector const& other) const
@@ -461,7 +471,7 @@ namespace mysat::primed
     for (size_t i{ 0 }; i < size; i++)
       rv.push_back(neq_cnf(current[i], other[i]));
 
-    return z3::mk_or(rv);
+    return z3::mk_or(rv).simplify();
   }
 
   expr BitVec::p_nequals(expr_vector const& other) const
@@ -473,7 +483,7 @@ namespace mysat::primed
     for (size_t i{ 0 }; i < size; i++)
       rv.push_back(neq_cnf(next[i], other[i]));
 
-    return z3::mk_or(rv);
+    return z3::mk_or(rv).simplify();
   }
 
   expr BitVec::unchanged() const
@@ -487,6 +497,10 @@ namespace mysat::primed
 
   z3::expr BitVec::incremented() const
   {
+    if (carry_out.empty())
+      throw std::runtime_error("This BitVec was not marked as incrementable, "
+                               "but has been incremented().");
+
     // ripple-carry adder with constant operant 0001
     expr_vector out(ctx);
 
@@ -638,21 +652,25 @@ namespace mysat::primed
   //
   void bv_comp_test(size_t max_value)
   {
+    std::cout << "bitvector comparison test" << std::endl;
     z3::context ctx;
     auto bv1 = BitVec::holding(ctx, "b1", max_value);
     auto bv2 = BitVec::holding(ctx, "b2", max_value);
     unsigned wrong{ 0 };
 
+    z3::solver s(ctx);
+    s.add(bv1.less(bv2).simplify());
+
+    std::cout << s.assertions() << std::endl;
+    std::cout << "begin" << std::endl;
     for (unsigned i = 0; i <= max_value; i++)
     {
       for (unsigned j = 0; j <= max_value; j++)
       {
-        z3::solver s(ctx);
-
-        s.add(bv1.equals(i));
-        s.add(bv2.equals(j));
-        s.add(bv1.less(bv2));
-        z3::check_result r = s.check();
+        z3::expr_vector ass(ctx);
+        ass.push_back(bv1.equals(i));
+        ass.push_back(bv2.equals(j));
+        z3::check_result r = s.check(ass);
         if (i >= j && r == z3::check_result::sat)
         {
           std::cout << fmt::format("{} < {}", i, j) << std::endl
@@ -744,6 +762,7 @@ namespace mysat::primed
               << std::endl
               << fmt::format("{} wrong", wrong) << std::endl;
 
+    wrong = 0;
     std::cout << "Brute" << std::endl;
     for (unsigned i = 0; i <= max_value; i++)
     {
@@ -753,8 +772,7 @@ namespace mysat::primed
       expr_vector increment(ctx);
       for (BitVec::numrep_t x = 0; x <= max_value; x++)
       {
-        expr set_index =
-            implies(bv.equals(x), bv.p_equals(x + 1));
+        expr set_index = implies(bv.equals(x), bv.p_equals(x + 1));
         // expr rest_stays =
         //     implies(!bv1.equals(x), bv1.unchanged()); // uhmm
         increment.push_back(set_index);
