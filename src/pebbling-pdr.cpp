@@ -155,9 +155,8 @@ ModelVariant construct_model(
   unsigned max   = peterson->get().max;
   pdr::peterson::PetersonModel peter(context.z3_ctx, start, max);
   log.stats.is_peter(start, max);
-  peter.constrain_switches(2);
+  peter.constrain_switches(4);
   peter.show(args.folders.model_file);
-  peter.test_room();
 
   return peter;
 }
