@@ -152,14 +152,8 @@ namespace pdr
       std::optional<unsigned> starting_pebbles;
       bool control_setting;
 
+      double collect_inc_time(size_t new_N, double t);
       void basic_reset(unsigned pebbles);
-      // TODO: partial constraint strategy georg
-      // If a cube cannot be propagated from a constraint p to p+1
-      // Add "cube \land __le_p__" where "atmost(p) \land atmost(p)' <=>
-      // __le_p__" This cube was already inductive under this lower constraint,
-      // so now the exact same ctis are not rediscovered
-      //  note: subsumption still works as normal? a more specific (subcube)
-      //  subsumes the larger
       void relax_reset(unsigned pebbles);
       void relax_reset_constrained(unsigned pebbles);
       std::optional<size_t> constrain_reset(unsigned pebbles);
@@ -188,6 +182,7 @@ namespace pdr
       PetersonModel& ts; // same instance as the IModel in alg
       bool control_setting;
 
+      double collect_inc_time(double t);
       void basic_reset(unsigned processes);
       void relax_reset(unsigned processes);
     }; // class Optimizer

@@ -74,7 +74,7 @@ namespace pdr::peterson
         basic_reset(p);
       else
         relax_reset(p);
-      total.append_inc(timer.elapsed().count()); // adds to previous result
+      total.append_inc_time(timer.elapsed().count()); // adds to previous result
 
       invariant = alg.run();
 

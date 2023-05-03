@@ -110,9 +110,10 @@ namespace pdr
     // adds the row form process_result(r) to the pdr_summaries
     IpdrResult& add(const PdrResult& r);
     // add the time spend during reconstraining and incremental propagation
-    void append_inc(double time);
+    void append_inc_time(double time);
 
-    // output the pdr_summaries in a formatted table and append the total time
+    // output the summaries of each pdr run in a formatted table and 
+    // append the total time.
     // build using rows from process_row()
     tabulate::Table summary_table() const;
     // table with total header and single row
@@ -120,6 +121,7 @@ namespace pdr
     tabulate::Table total_table() const;
 
     double get_total_time() const;
+    std::optional<double> get_inc_time() const; // included in total
     std::vector<double> g_times() const;
 
     // show a small string that described the end result of the run

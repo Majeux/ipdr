@@ -84,7 +84,8 @@ namespace pdr
     std::vector<size_t> pre_relax_F;
     std::vector<size_t> post_relax_F;
 
-    double elapsed = -1.0;
+    double elapsed     = 0.0;
+    double inc_elapsed = 0.0;
     std::vector<std::string> solver_dumps;
 
     // Statistics takes ownership of its file stream
@@ -147,7 +148,9 @@ namespace pdr
    public:
     void reset(std::string_view name);
     void add_datapoint(size_t label, Statistics const& stats);
+    void add_inc(size_t label, double it);
     std::string get() const;
+    std::string get_inc() const;
     std::string get_cti() const;
     std::string get_obligation() const;
     std::string get_sat() const;
@@ -163,6 +166,7 @@ namespace pdr
     std::map<unsigned, GraphData> obl_data;
     std::map<unsigned, GraphData> sat_data;
     std::map<unsigned, FrelaxData> relax_data;
+    std::map<unsigned, std::vector<double>> inc_times;
     size_t no_frames{ 0 };
 
     std::string get(
@@ -172,6 +176,11 @@ namespace pdr
         std::string_view line2) const;
     std::string get(std::string_view name,
         std::map<unsigned, FrelaxData> const& data) const;
+    std::string get(std::string_view name,
+        std::map<unsigned, std::vector<double>> const& data) const;
+    std::string get_combined(std::string_view name,
+        std::map<unsigned, std::vector<double>> const& data,
+        std::map<unsigned, std::vector<double>> const& data2) const;
 
     std::string get_bargraph(std::string_view name,
         std::map<unsigned, GraphData> const& data,

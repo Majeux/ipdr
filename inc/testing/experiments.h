@@ -6,6 +6,7 @@
 #include "pdr-model.h"
 #include "result.h"
 
+#include <optional>
 #include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/table.hpp>
@@ -39,6 +40,8 @@ namespace pdr::experiments
     std::string tactic;
     double avg_time;
     double std_dev_time;
+    std::optional<double> avg_inc_time;
+    std::optional<double> std_dev_inc_time;
 
     Run(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& r);
@@ -54,10 +57,12 @@ namespace pdr::experiments
     Row_t tactic_row() const;
     Row_t avg_time_row() const;
     Row_t std_time_row() const;
+    Row_t avg_inc_time_row() const;
+    Row_t std_inc_time_row() const;
     // latex export, called by str and str_compared to show results
-    virtual tabulate::Table make_table() const                          = 0;
+    virtual tabulate::Table make_table() const;
     // must pass a Run of same subtype
-    virtual tabulate::Table make_combined_table(const Run& other) const = 0;
+    virtual tabulate::Table make_combined_table(const Run& other) const;
   };
 
   class Experiment

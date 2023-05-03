@@ -7,6 +7,7 @@
 #include "tactic.h"
 #include "types-ext.h"
 
+#include <cassert>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <tabulate/exporter.hpp>
@@ -20,6 +21,7 @@ namespace pdr::experiments
 {
   using namespace my::cli;
   using namespace my::math;
+  using fmt::format;
   using std::vector;
 
   std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
@@ -52,17 +54,32 @@ namespace pdr::experiments
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : results(std::move(r)), model(m), tactic(t)
   {
-    double time_sum{ 0.0 };
-    vector<double> times;
+    double time_sum{ 0.0 }, inc_time_sum{ 0.0 };
+    vector<double> times, inc_times;
     for (auto const& r : results)
     {
-      time_sum += r->get_total_time();
-      times.push_back(r->get_total_time());
+      {
+        double dt = r->get_total_time();
+        time_sum += dt;
+        times.push_back(dt);
+      }
+      if (auto dt_inc = r->get_inc_time())
+      {
+        inc_time_sum += *dt_inc;
+        inc_times.push_back(*dt_inc);
+      }
     }
 
     assert(times.size() == results.size());
     avg_time     = time_sum / times.size();
     std_dev_time = std_dev(times, avg_time);
+
+    if (!inc_times.empty())
+    {
+      assert(inc_times.size() == results.size());
+      avg_inc_time     = inc_time_sum / inc_times.size();
+      std_dev_inc_time = std_dev(inc_times, avg_inc_time.value());
+    }
   }
 
   tabulate::Table::Row_t Run::tactic_row() const { return { "", tactic }; }
@@ -75,6 +92,80 @@ namespace pdr::experiments
   tabulate::Table::Row_t Run::std_time_row() const
   {
     return { "std dev time", time_str(std_dev_time) };
+  }
+
+  tabulate::Table::Row_t Run::avg_inc_time_row() const
+  {
+    return { "avg incremental time",
+      avg_inc_time ? time_str(*avg_inc_time) : "-" };
+  }
+
+  tabulate::Table::Row_t Run::std_inc_time_row() const
+  {
+    return { "std dev incremental time",
+      std_dev_inc_time ? time_str(*std_dev_inc_time) : "-" };
+  }
+
+  tabulate::Table Run::make_table() const
+  {
+    tabulate::Table t;
+    t.add_row(tactic_row());
+    t.add_row(avg_time_row());
+    t.add_row(std_time_row());
+    if (avg_inc_time)
+    {
+      assert(std_dev_inc_time);
+      t.add_row(avg_inc_time_row()); // control should have no inc_time
+      t.add_row(std_inc_time_row());
+    }
+    else {
+      t.add_row({});
+      t.add_row({});
+    }
+
+    return t;
+  }
+
+  tabulate::Table Run::make_combined_table(const Run& control) const
+  {
+    using namespace my::math;
+
+    std::string percentage_fmt{ "{:.2f} \\\%" };
+    auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
+
+    tabulate::Table t;
+    // append control and improvement column:
+    // tactic | control | improvement (%)
+    {
+      auto r = tactic_row();
+      r.push_back("control");
+      r.push_back("improvement");
+      t.add_row(r);
+    }
+    {
+      auto r = avg_time_row();
+      r.push_back(time_str(control.avg_time));
+      double speedup = percentage_dec(control.avg_time, avg_time);
+      r.push_back(perc_str(speedup));
+      t.add_row(r);
+    }
+    {
+      auto r = std_time_row();
+      r.push_back(time_str(control.std_dev_time));
+      t.add_row(r);
+    }
+    if (avg_inc_time)
+    {
+      assert(std_dev_inc_time);
+      t.add_row(avg_inc_time_row()); // control should have no inc_time
+      t.add_row(std_inc_time_row());
+    }
+    else {
+      t.add_row({});
+      t.add_row({});
+    }
+
+    return t;
   }
 
   std::string Run::str(output_format form) const
@@ -228,7 +319,6 @@ namespace pdr::experiments
       //           << log.graph.get_obligation() << endl
       //           << log.graph.get_sat() << endl
       //           << log.graph.get_relax() << endl;
-
     }
   }
 } // namespace pdr::experiments

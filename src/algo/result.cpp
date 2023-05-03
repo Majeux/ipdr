@@ -23,6 +23,7 @@ namespace pdr
 {
   using std::get;
   using std::shared_ptr;
+  using std::optional;
   using std::string;
   using std::vector;
   using z3ext::LitStr;
@@ -197,6 +198,13 @@ namespace pdr
 
   double IpdrResult::get_total_time() const { return total_time; }
 
+  optional<double> IpdrResult::get_inc_time() const
+  {
+    if(inc_times.empty())
+      return {};
+    return std::accumulate(inc_times.cbegin(), inc_times.cend(), 0.0);
+  }
+
   vector<double> IpdrResult::g_times() const
   {
     vector<double> times;
@@ -214,7 +222,7 @@ namespace pdr
     {
       if (row.size() == t.row(0).size() - 1)
         row.push_back(""); // append no inc_time
-      else 
+      else
       {
         assert(row.size() == t.row(0).size());
       }
@@ -227,7 +235,7 @@ namespace pdr
 
       vector<double> times = g_times();
       // assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
-      total.back() = fmt::format("{}", total_time);
+      total.back()         = fmt::format("{}", total_time);
       t.add_row(total);
     }
 
@@ -265,11 +273,11 @@ namespace pdr
     return *this;
   }
 
-  void IpdrResult::append_inc(double time)
+  void IpdrResult::append_inc_time(double time)
   {
     total_time += time;
     inc_times.push_back(time);
-    pdr_summaries.back().push_back(std::to_string(time));
+    pdr_summaries.back().push_back(std::to_string(time)); // extra column
   }
 
   const tabulate::Table::Row_t IpdrResult::process_result(PdrResult const& r)
@@ -315,7 +323,7 @@ namespace pdr
       using tabulate::Table;
 
       if (res.has_invariant())
-        return "Invariant, no trace.";
+        return "Invariant, no trace.\n";
 
       // process trace
       std::stringstream ss;

@@ -81,15 +81,17 @@ namespace pdr::pebbling
     {
       assert(N > ts.get_pebble_constraint()); // check for overflows
 
-      spdlog::stopwatch timer;
-      if (control)
-        basic_reset(N);
-      else
-      {
-        relax_reset_constrained(N);
-        // relax_reset(N);
+      { // timed
+        spdlog::stopwatch timer;
+        if (control)
+          basic_reset(N);
+        else
+        {
+          relax_reset_constrained(N);
+          // relax_reset(N);
+        }
+        total.append_inc_time(collect_inc_time(N, timer.elapsed().count()));
       }
-      total.append_inc(timer.elapsed().count());
 
       invariant = alg.run();
 
@@ -130,21 +132,26 @@ namespace pdr::pebbling
     {
       assert(N < ts.get_pebble_constraint());
 
-      spdlog::stopwatch timer;
-      if (control)
-      {
-        basic_reset(N);
-        invariant = alg.run();
-        total.append_inc(timer.elapsed().count()); // adds to previous result
-      }
-      else
-      {
-        optional<size_t> inv_frame = constrain_reset(N);
-        if (inv_frame)
-          invariant = PdrResult::found_invariant(*inv_frame);
-        else
+      { // timed
+        spdlog::stopwatch timer;
+        if (control)
+        {
+          basic_reset(N);
+          // adds to previous result
+          total.append_inc_time(collect_inc_time(N, timer.elapsed().count()));
           invariant = alg.run();
-        total.append_inc(timer.elapsed().count()); // adds to previous result
+        }
+        else
+        {
+          optional<size_t> inv_frame = constrain_reset(N);
+          // adds to previous result
+          total.append_inc_time(collect_inc_time(N, timer.elapsed().count()));
+
+          if (inv_frame)
+            invariant = PdrResult::found_invariant(*inv_frame);
+          else
+            invariant = alg.run();
+        }
       }
 
       total.add(invariant, ts.get_pebble_constraint());
@@ -205,21 +212,26 @@ namespace pdr::pebbling
 
       optional<size_t> early_inv; // contains level if an invariant is found
                                   // during incrementation
-      spdlog::stopwatch timer;
-      if (control)
-      {
-        basic_reset(m);
-        total.append_inc(timer.elapsed().count());
+
+      { // timed
+        spdlog::stopwatch timer;
+        if (control)
+        {
+          basic_reset(m);
+        }
+        else
+        {
+          assert(m != m_prev);
+          if (m < m_prev)
+            early_inv = constrain_reset(m);
+          else if (m > m_prev)
+          {
+            relax_reset_constrained(m);
+            // relax_reset(N);
+          }
+        }
+        total.append_inc_time(collect_inc_time(m, timer.elapsed().count()));
       }
-      else
-      {
-        assert(m != m_prev);
-        if (m < m_prev)
-          early_inv = constrain_reset(m);
-        else if (m > m_prev)
-          relax_reset(m);
-      }
-      total.append_inc(timer.elapsed().count());
 
       if (early_inv)
         invariant = PdrResult::found_invariant(*early_inv);
@@ -277,6 +289,12 @@ namespace pdr::pebbling
 
   // Private members
   //
+  double IPDR::collect_inc_time(size_t new_N, double t)
+  {
+    alg.logger.graph.add_inc(new_N, t);
+    return t;
+  }
+
   void IPDR::basic_reset(unsigned pebbles)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));

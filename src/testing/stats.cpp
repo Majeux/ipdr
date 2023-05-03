@@ -174,6 +174,8 @@ namespace pdr
     relax_copied_cubes_perc = 0.0;
     pre_relax_F.clear();
     post_relax_F.clear();
+    elapsed     = 0.0;
+    inc_elapsed = 0.0;
   }
 
   string Statistics::str() const
@@ -293,6 +295,7 @@ namespace pdr
     obl_data.clear();
     cti_data.clear();
     relax_data.clear();
+    inc_times.clear();
     no_frames = 0;
   }
 
@@ -316,16 +319,28 @@ namespace pdr
     }
   }
 
-  string Graphs::get() const 
+  void Graphs::add_inc(size_t label, double it)
+  {
+    vector<double>& inc_entry = inc_times.try_emplace(label).first->second;
+    inc_entry.push_back(it);
+  }
+
+  string Graphs::get() const
   {
     std::stringstream ss;
-    
-    ss << get_cti() << endl
-      << get_obligation() << endl
-      << get_sat() << endl 
-      << get_relax() << endl;
+
+    ss << get_inc() << endl
+       << get_cti() << endl
+       << get_obligation() << endl
+       << get_sat() << endl
+       << get_relax() << endl;
 
     return ss.str();
+  }
+
+  string Graphs::get_inc() const
+  {
+    return "\% Incremental times\n" + get("inc", inc_times);
   }
 
   string Graphs::get_cti() const
@@ -352,20 +367,26 @@ namespace pdr
   {
     std::stringstream ss;
 
-    ss << "\% CTI graph\n"
+    ss << "\% Incremental times\n"
+       << a.get_combined("inc", a.inc_times, b.inc_times) << endl
+       << endl
+       << "\% CTI graph\n"
        << a.get_combined("cti", a.cti_data,
               b.get_bargraph("naive cti-count", b.cti_data, "red"),
               b.get_linegraph("naive cti-time", b.cti_data, "red"))
+       << endl
        << endl
        << "\% Obligation graph\n"
        << a.get_combined("obligation", a.obl_data,
               b.get_bargraph("naive obligation-count", b.obl_data, "red"),
               b.get_linegraph("naive obligation-time", b.obl_data, "red"))
        << endl
+       << endl
        << "\% SAT-call graph\n"
        << a.get_combined("sat", a.sat_data,
               b.get_bargraph("naive sat-count", b.sat_data, "red"),
               b.get_linegraph("naive sat-time", b.sat_data, "red"))
+       << endl
        << endl
        << a.get_relax() << endl;
 
@@ -501,6 +522,49 @@ namespace pdr
             countgraph) +
         axis({ shared_options(), line_options("Time (s)") }, linename,
             rategraph) +
+        caption(ts_name));
+  }
+
+  string Graphs::get(
+      string_view name, std::map<unsigned, vector<double>> const& data) const
+  {
+    string line_name = format("{}-time", name);
+    string fname     = format("{} {}", ts_name, name);
+
+    string inc_data;
+    for (auto& [i, d] : data)
+      inc_data += pgf_line(i, d);
+
+    string linegraph = filecontents(fname, inc_data) + lineplot(fname, "blue");
+
+    return tikzpicture(
+        axis({ shared_options("Constraints"), line_options("Time (s)") },
+            line_name, linegraph) +
+        caption(ts_name));
+  }
+
+  string Graphs::get_combined(string_view name,
+      std::map<unsigned, vector<double>> const& data,
+      std::map<unsigned, vector<double>> const& data2) const
+  {
+    string line_name  = format("{}-time", name);
+    string line_name2 = format("naive {}-time", name);
+    auto fname = [this](string_view n) { return format("{} {}", ts_name, n); };
+
+    string inc_data, inc_data2;
+    for (auto& [i, d] : data)
+      inc_data += pgf_line(i, d);
+    for (auto& [i, d] : data2)
+      inc_data2 += pgf_line(i, d);
+
+    string linegraph = filecontents(fname(line_name), inc_data) +
+                       lineplot(fname(line_name), "blue") +
+                       filecontents(fname(line_name2), inc_data2) +
+                       lineplot(fname(line_name2), "red");
+
+    return tikzpicture(
+        axis({ shared_options("Constraints"), line_options("Time (s)") },
+            format("{} {}", line_name, line_name2), linegraph) +
         caption(ts_name));
   }
 
