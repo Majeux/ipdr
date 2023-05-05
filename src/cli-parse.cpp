@@ -605,7 +605,7 @@ namespace my::cli
     {
       ignored({ s_its, s_seeds }, clresult);
       if (is<algo::t_PDR>(algorithm) && is<model_t::Pebbling>(model) &&
-          !experiment)
+          !experiment && clresult.count(s_pebbles) == 0)
         throw std::invalid_argument(format(
             "pebbling pdr run requires a starting number of pebbles: `{}`",
             s_pebbles));
