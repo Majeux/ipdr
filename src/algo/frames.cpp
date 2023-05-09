@@ -205,9 +205,10 @@ namespace pdr
     MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
         frames.size() - 1);
 
+    new_constraint(old_step, old_constraint);
 
-        // put all definitions into solver
-        expr_vector base = z3ext::vec_add(model.property(), old_constraints());
+    // put all definitions into solver
+    expr_vector base = z3ext::vec_add(model.property(), old_constraints());
     delta_solver.remake(base, model.get_transition(), model.get_constraint());
 
     // aggregate level at which each cube was learned
@@ -604,11 +605,13 @@ namespace pdr
   void Frames::new_constraint(size_t i, expr_vector const& clauses)
   {
     using namespace z3ext::constrained_cube;
-    
+
     assert(z3ext::are_clauses(clauses)); // describes cnf
-    constraints.emplace(i, clauses);
     expr clit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
-    clits[i] = clit;
+
+    constraints.emplace(i, clauses);
+    clits.emplace(i, clit);
+    clit_ids.emplace(clit.id(), i);
   }
 
   void Frames::init_frames()
