@@ -150,14 +150,14 @@ namespace pdr
   {
     assert(!finished);
     model_info.emplace(PROC_STR, p);
-    model_info.emplace(N_STR, N);
+    model_info.emplace(SWITCH_STR, N);
     finished = true;
   }
 
   void Statistics::update_peter(unsigned p, unsigned N)
   {
     model_info[PROC_STR] = p;
-    model_info[N_STR]    = N;
+    model_info[SWITCH_STR]    = N;
   }
 
   void Statistics::clear()

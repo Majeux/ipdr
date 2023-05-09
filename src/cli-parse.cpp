@@ -21,8 +21,6 @@
 #include <variant>
 #include <vector>
 
-#include <dbg.h>
-
 namespace my::cli
 {
   using namespace pdr::tactic;
@@ -105,8 +103,12 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format(
-            "peterson algorithm. {} processes out of {} max.", m.start, m.max);
+        if (m.switch_bound)
+          return format("peterson algorithm. {} processes. context switches "
+                        "bounded by {}.",
+              m.processes, *m.switch_bound);
+        else
+          return format("peterson algorithm. {} processes.", m.processes);
       }
     };
     string describe(Model_var const& m)
@@ -124,7 +126,10 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format("peter_{}_{}", m.start, m.max);
+        if (m.switch_bound)
+          return format("peter_{}p_{}switch", m.processes, *m.switch_bound);
+        else
+          return format("peter_{}p", m.processes);
       }
     };
     string src_name(Model_var const& m)
@@ -165,7 +170,10 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format("peter_{}_{}", m.start, m.max);
+        if (m.switch_bound)
+          return format("peter_{}p_{}switch", m.processes, *m.switch_bound);
+        else
+          return format("peter_{}p", m.processes);
       }
     };
 
@@ -283,8 +291,8 @@ namespace my::cli
       else
       {
         auto peter = variant::get_cref<model_t::Peterson>(model);
-        folders.model_dir /=
-            format("peter_{}_{}", peter->get().start, peter->get().start);
+        folders.model_dir /= format(
+            "peter_{}_{}", peter->get().processes, peter->get().processes);
       }
     }
 
@@ -428,7 +436,9 @@ namespace my::cli
        value<unsigned>(), "(uint)");
 
     clopt.add_options(s_peter)
-      (s_mprocs, "REQUIRED. The maximum number of processes for the Peterson Protocol transition system",
+      // (s_mprocs, "REQUIRED. The maximum number of processes for the Peterson Protocol transition system.",
+      //  value<unsigned>(), "(uint)")
+      (s_mswitch, "The maximum number of context switches allowed for the Peterson Protocol transition system. For IPDR: the highest bound to check, starting at 0.",
        value<unsigned>(), "(uint)")
       (s_procs, "REQUIRED. Number of processes for a single peterson pdr run, or the starting value for ipdr.",
        value<unsigned>(), "(uint)");
@@ -512,13 +522,13 @@ namespace my::cli
     if (problem == s_peter)
     {
       ignored({ s_pebbles }, clresult);
-      require_one_of({ s_mprocs }, clresult);
+      require_one_of({ s_mswitch }, clresult);
       require_one_of({ s_procs }, clresult);
 
       model_t::Peterson peter;
 
-      peter.max   = clresult[s_mprocs].as<unsigned>();
-      peter.start = clresult[s_procs].as<unsigned>();
+      peter.switch_bound = clresult[s_mswitch].as<unsigned>();
+      peter.processes    = clresult[s_procs].as<unsigned>();
 
       model = peter;
     }
@@ -526,6 +536,7 @@ namespace my::cli
     {
       assert(problem == s_pebbling);
       ignored({ s_mprocs, s_procs }, clresult);
+      ignored({ s_mswitch, s_procs }, clresult);
 
       model_t::Pebbling pebbling;
       pebbling.src = parse_graph_src(clresult);
@@ -650,7 +661,7 @@ namespace my::cli
       r_seed = clresult[s_seed].as<unsigned>();
 
     if (clresult.count(s_skip_blocked))
-      skip_blocked = dbg(clresult[s_skip_blocked].as<bool>());
+      skip_blocked = clresult[s_skip_blocked].as<bool>();
 
     if (clresult.count(s_mic))
       mic_retries = clresult[s_mic].as<unsigned>();

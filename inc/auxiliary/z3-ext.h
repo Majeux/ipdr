@@ -86,6 +86,8 @@ namespace z3ext
 
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
+  bool is_clause(z3::expr const& e);
+  bool are_clauses(z3::expr_vector const& ev);
   // get the variable of a literal.
   // @pre: e is a literal
   z3::expr strip_not(z3::expr const& e);

@@ -169,11 +169,11 @@ namespace pdr
           PetersonModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes);
+      IpdrPetersonResult run(Tactic tactic, unsigned max_bound);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control (basic_reset only)
-      IpdrPetersonResult control_run(Tactic tactic, unsigned processes);
-      IpdrPetersonResult relax(unsigned processes, bool control);
+      IpdrPetersonResult control_run(Tactic tactic, unsigned max_bound);
+      IpdrPetersonResult relax(unsigned max_bound, bool control);
       IpdrPetersonResult relax_jump_test(unsigned start, int step);
 
       // PDR const& internal_alg() const; from vIPDR
@@ -183,8 +183,8 @@ namespace pdr
       bool control_setting;
 
       double collect_inc_time(double t);
-      void basic_reset(unsigned processes);
-      void relax_reset(unsigned processes);
+      void basic_reset(unsigned switches);
+      void relax_reset(unsigned switches);
     }; // class Optimizer
   }    // namespace peterson
 } // namespace pdr

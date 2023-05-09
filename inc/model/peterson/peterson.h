@@ -12,9 +12,34 @@ namespace pdr::peterson
   struct Vars;
 
   // encode the peterson algorithm for mutual exclusion as a cnf formula
-  // for p processes, to a maximum of N
+  // for p processes, to a maximum of N.
+  // The algorithm can be constrained to only allow a maximum number of context
+  // switches: a firing of one process after another has just fired
   //
-  // I:
+  // initial: pc[i] <- 0, level[i] <- 0, free[i] <- true, last[i] <- 0
+  //
+  // transition:
+  //  0: idle
+  //    level[i] <- 0
+  //  1: boundcheck
+  //    if level[i] < N-1 then pc[i] <- 2.
+  //    if level[i] >= N-1 then pc[i] <- 4.
+  //  2: set last
+  //    last[level[i]] <- i
+  //  3: wait
+  //    if last[level[i]] == i && exists k != i: level[k] >= level[i] then
+  //      pc[i] <- 3.
+  //    else
+  //      pc[i] <- 1
+  //      level[i] <- level[i] + 1
+  //  4: critical section (fire to release)
+  //    pc[i] <- 0
+  //    level[i] <- 0
+  //    free[i] <- true
+  //
+  // property: only one process in pc[4] at the same time
+  //
+  // constraint: switch_count <= max_switches
   class PetersonModel : public pdr::IModel
   {
    public:
@@ -24,20 +49,37 @@ namespace pdr::peterson
     using numrep_t = BitVec::numrep_t;
 
     // the maximum amount of switches that can be tracked
-    static constexpr size_t MAX_SWITCHES = 31; // 5 bits
+    static constexpr size_t SWITCH_COUNT_MAX = 31; // 5 bits
 
     friend PetersonState;
 
-    PetersonModel(z3::context& c, numrep_t n_procs, numrep_t max_procs);
+    // from IModel
+    // std::string name;
+    // z3::context ctx;
+    // ExpressionCache lits;
+    // ExpressionCache property;
+    // ExpressionCache n_property;
+
+    // const z3::expr_vector& get_transition() const;
+    // const z3::expr_vector& get_initial() const;
+
+    // void show(std::ostream& out) const;
+
+    PetersonModel(z3::context& c, numrep_t n_procs, numrep_t m_procs,
+        std::optional<numrep_t> m_switches);
+
+    static PetersonModel constrained_switches(
+        z3::context& c, numrep_t n_procs, numrep_t m_switches);
+    static PetersonModel constrained_procs(
+        z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
     const std::string constraint_str() const override;
     unsigned constraint_num() const override;
     unsigned n_processes() const;
-    unsigned max_processes() const;
+    std::optional<unsigned> get_switch_bound() const;
 
     // Configure IModel
-    void constrain(numrep_t processes);
-    void constrain_switches(numrep_t m);
+    void constrain_switches(std::optional<numrep_t> m);
 
     // Convert a cube (typically a witness from a SAT call) to a state
     PetersonState extract_state(const z3::expr_vector& witness,
@@ -80,6 +122,7 @@ namespace pdr::peterson
     // fill the pc, level, free and last variables
     Vars create_vars();
     void reset_initial();
+    void reset_transition();
 
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
@@ -99,8 +142,8 @@ namespace pdr::peterson
     std::vector<PetersonModel::numrep_t> level;
     std::vector<bool> free;
     std::vector<PetersonModel::numrep_t> last;
-    PetersonModel::numrep_t proc_last;
-    PetersonModel::numrep_t switch_count;
+    std::optional<PetersonModel::numrep_t> proc_last;
+    std::optional<PetersonModel::numrep_t> switch_count;
 
     // TODO use model vector sizes
     PetersonState() : pc(0), level(0), free(0), last(0) {}
@@ -116,6 +159,7 @@ namespace pdr::peterson
     }
 
     z3::expr_vector cube(PetersonModel& m) const;
+    z3::expr_vector cube_p(PetersonModel& m) const;
     std::string to_string(bool inl = false) const;
     std::string inline_string() const;
 

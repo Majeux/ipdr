@@ -19,7 +19,6 @@
 
 namespace pdr
 {
-
   class Frames
   {
    public:
@@ -56,9 +55,10 @@ namespace pdr
     // if a cube is no longer valid under the new system: add a constraint
     // specifying it for the old system.
     // @param old_step: the given size of the constraint from the previous run
-    // @param old_constraint: the expression for the constraint from the
+    // @param old_constraint: clauses that describe the constraint from the
     // previous run
-    void copy_to_Fk_keep(size_t old_step, z3::expr_vector const& old_constraint);
+    void copy_to_Fk_keep(
+        size_t old_step, z3::expr_vector const& old_constraint);
 
     // redo propagation for the previous level
     // return an invariant level if propagation finds one
@@ -137,13 +137,21 @@ namespace pdr
     // activation variables for each frame. if present in a query, the clauses
     // from the corresponding frame are loaded
     std::vector<z3::expr> act;
-    // activation literals for incremental relaxing.
-    // Defined in the solver as: c[i] <=> constraint(i),
+    // Defined in the solver as: clit[i] <=> constraint(i),
     // there is a constraint for each pdr-run after which a relaxing step was
     // made.
     // each constraint is user-defined such that:
     // constraint[i] => constraint[j] if i < j
+    // maps: i -> constraint[i]
     std::map<size_t, z3::expr_vector> constraints;
+    // activation literals for incremental relaxing.
+    // maps: i -> clit[i]
+    std::map<size_t, z3::expr> clits;
+    // stored for easy detection in z3ext::mk_constrained_cube()
+    // clit[i].id() -> i
+    std::map<unsigned, size_t> clit_ids;
+
+    void new_constraint(size_t i, z3::expr_vector const& clauses);
 
     void init_frames();
     void new_frame();

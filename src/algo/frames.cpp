@@ -195,18 +195,19 @@ namespace pdr
   void Frames::copy_to_Fk_keep(
       size_t old_step, expr_vector const& old_constraint)
   {
+    using namespace z3ext::constrained_cube;
+
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
-    // new step is marked as larger than the previous
+    // new step must be marked as larger than the previous
     assert(constraints.empty() || constraints.rbegin()->first < old_step);
-
-    using namespace z3ext::constrained_cube;
 
     MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
         frames.size() - 1);
 
-    constraints.emplace(old_step, old_constraint);
-    expr_vector base = z3ext::vec_add(model.property(), old_constraints());
+
+        // put all definitions into solver
+        expr_vector base = z3ext::vec_add(model.property(), old_constraints());
     delta_solver.remake(base, model.get_transition(), model.get_constraint());
 
     // aggregate level at which each cube was learned
@@ -223,13 +224,13 @@ namespace pdr
     }
 
     // every cube is valid under the old constraint, as proven by previous pdr
-    // TODO: add constraint <=> constraint_expression to solver
     MYLOG_DEBUG(log, "Copying frames under constraint: [{}]",
-        old_constraint[0].to_string());
+        old_constraint.to_string());
     IF_STATS({
       log.stats.pre_relax_F.resize(old_frames.size());
       log.stats.post_relax_F.resize(old_frames.size());
     });
+
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
       IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
@@ -600,6 +601,16 @@ namespace pdr
 
   //  PRIVATE MEMBERS
   //
+  void Frames::new_constraint(size_t i, expr_vector const& clauses)
+  {
+    using namespace z3ext::constrained_cube;
+    
+    assert(z3ext::are_clauses(clauses)); // describes cnf
+    constraints.emplace(i, clauses);
+    expr clit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
+    clits[i] = clit;
+  }
+
   void Frames::init_frames()
   {
     assert(frames.empty());
@@ -634,15 +645,13 @@ namespace pdr
 
     expr_vector rv(ctx.z3_ctx);
 
-    for (auto& [i, e] : constraints)
+    for (auto& [i, cnf_clauses] : constraints)
     {
-      assert(e.size() == 2);
       expr lit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
-      // lit <=> e and lit <=> e.p
-      rv.push_back(!lit || e[0]); // lit => e
-      // rv.push_back(lit || !e[0]); // e => lit
-      rv.push_back(!lit || e[1]); // idem for next state vars
-      // rv.push_back(lit || !e[1]);
+      // assert lit => cnf == !lit || cnf.
+      // note this is equivalent to: !l || clause for each clause in cnf.
+      for (expr const& clause : cnf_clauses)
+        rv.push_back(!lit || clause); // lit => clause
     }
 
     return rv;

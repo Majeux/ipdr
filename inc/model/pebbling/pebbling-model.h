@@ -50,6 +50,7 @@ namespace pdr::pebbling
    private:
     // z3::expr_vector initial;
     // z3::expr_vector transition; // vector of clauses (cnf)
+    // z3::expr_vector constraint; // vector of clauses (cnf)
 
     // number of marked literals in property
     unsigned final_pebbles;

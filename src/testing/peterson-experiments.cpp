@@ -65,13 +65,14 @@ namespace pdr::peterson::experiments
       pdr::Context ctx(z3_ctx, args);
       ctx.seed = seeds[i];
 
-      PetersonModel ts(z3_ctx, ts_descr.start, ts_descr.max);
+      PetersonModel ts = PetersonModel::constrained_switches(
+          z3_ctx, ts_descr.processes, ts_descr.switch_bound.value());
 
       IPDR opt(args, ctx, log, ts);
       {
-        IpdrPetersonResult result = is_control
-                                      ? opt.control_run(tactic, ts_descr.start)
-                                      : opt.run(tactic, ts_descr.start);
+        IpdrPetersonResult result =
+            is_control ? opt.control_run(tactic, ts_descr.processes)
+                       : opt.run(tactic, ts_descr.processes);
 
         if (!result.all_holds())
           cout << "! counter found" << endl;

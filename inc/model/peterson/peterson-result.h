@@ -19,7 +19,7 @@ namespace pdr::peterson
   {
    public:
     inline static const tabulate::Table::Row_t peterson_summary_header = {
-      "processes", "max_processes", "invariant index", "trace_length", "time"
+      "processes", "switch_bound", "invariant index", "trace_length", "time"
     };
     inline static const tabulate::Table::Row_t peterson_total_header = {
       "runtime", "proven for p=", "maximum p"
@@ -27,7 +27,7 @@ namespace pdr::peterson
 
     IpdrPetersonResult(const PetersonModel& m, Tactic t);
 
-    IpdrPetersonResult& add(const PdrResult& r, unsigned n_processes);
+    IpdrPetersonResult& add(const PdrResult& r, unsigned n_switches);
 
     double get_total_time() const;
     bool all_holds() const;
@@ -36,10 +36,10 @@ namespace pdr::peterson
 
    private:
     const PetersonModel& model;
-    const unsigned max_processes;
+    const unsigned processes;
     const Tactic tactic;
     bool holds{ true };
-    unsigned last_proof_procs{ 0 };
+    unsigned last_proof_switches{ 0 };
 
     const tabulate::Table::Row_t summary_header() const override;
     const tabulate::Table::Row_t total_header() const override;

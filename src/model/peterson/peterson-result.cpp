@@ -26,18 +26,18 @@ namespace pdr::peterson
   using std::vector;
 
   IpdrPetersonResult::IpdrPetersonResult(const PetersonModel& m, Tactic t)
-      : IpdrResult(m), model(m), max_processes(m.max_processes()), tactic(t)
+      : IpdrResult(m), model(m), processes(m.n_processes()), tactic(t)
   {
-    assert(tactic == Tactic::constrain || tactic == Tactic::relax);
+    assert(tactic == Tactic::relax);
   }
 
   // PetersonModel public members
   //
   IpdrPetersonResult& IpdrPetersonResult::add(
-      const PdrResult& r, unsigned n_processes)
+      const PdrResult& r, unsigned n_switches)
   {
-    tabulate::Table::Row_t res_row = process_result(r, n_processes);
-    assert(res_row.size() == summary_header().size()-1);
+    tabulate::Table::Row_t res_row = process_result(r, n_switches);
+    assert(res_row.size() == summary_header().size() - 1);
     pdr_summaries.push_back(res_row);
 
     return *this;
@@ -48,9 +48,8 @@ namespace pdr::peterson
 
   std::string IpdrPetersonResult::end_result() const
   {
-    assert(!all_holds() || last_proof_procs == max_processes);
-    return fmt::format("Peterson protocol proven for {}..{} processes",
-        model.n_processes(), last_proof_procs);
+    return fmt::format("Peterson protocol proven up to {} context switches",
+        last_proof_switches);
   }
 
   tabulate::Table::Row_t IpdrPetersonResult::total_row() const
@@ -95,7 +94,7 @@ namespace pdr::peterson
   }
 
   const tabulate::Table::Row_t IpdrPetersonResult::process_result(
-      const PdrResult& r, unsigned n_processes)
+      const PdrResult& r, unsigned n_switches)
   {
     // row with { invariant level, trace length, time }
     tabulate::Table::Row_t row = IpdrResult::process_result(r);
@@ -106,12 +105,12 @@ namespace pdr::peterson
       std::cout << process_trace(r) << std::endl;
     }
     else
-      last_proof_procs = n_processes;
+      last_proof_switches = n_switches;
 
-    row.insert(row.begin(), std::to_string(max_processes));
-    row.insert(row.begin(), std::to_string(n_processes));
+    row.insert(row.begin(), std::to_string(n_switches));
+    row.insert(row.begin(), std::to_string(processes));
 
-    assert(row.size() == summary_header().size()-1); // inc time to be added
+    assert(row.size() == summary_header().size() - 1); // inc time to be added
 
     return row;
   }
@@ -127,8 +126,9 @@ namespace pdr::peterson
 
     if (res.has_invariant())
     {
-      return format("Peterson protocol correct for {} processes (out of {}).\n",
-          last_proof_procs, max_processes);
+      return format("Peterson protocol correct for {} processes up to {} "
+                    "context switches.\n",
+          processes, last_proof_switches);
     }
 
     // process trace
@@ -202,8 +202,8 @@ namespace pdr::peterson
           state_t.add_row({ index_str, state_str });
         }
       }
-      ss << format("Trace to two processes with level[p] = N-1 = {}",
-                max_processes - 1)
+      ss << format("Trace to mutex violation within {} context switches",
+                last_proof_switches)
          << std::endl
          << std::endl;
     }

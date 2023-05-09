@@ -126,7 +126,6 @@ namespace z3ext
 
       if (auto current_constraint = constraint_size(lits.back().to_string()))
       {
-        std::cout << "yes" << std::endl;
         if (size >= *current_constraint) // new constraint subsumes old
           lits.back() = constraint;      // replace old
         return lits;
@@ -189,7 +188,30 @@ namespace z3ext
 
   bool is_lit(expr const& e)
   {
-    return e.is_bool() && (e.is_not() || e.is_const());
+    return e.is_bool() && (e.is_const() || (e.is_not() && e.arg(0).is_const()));
+  }
+
+  bool is_clause(expr const& e)
+  {
+    if (is_lit(e))
+      return true;
+
+    if (!e.is_or())
+      return false;
+
+    for (expr const& e : e.args())
+      if (!is_lit(e))
+        return false;
+
+    return true;
+  }
+
+  bool are_clauses(expr_vector const& ev)
+  {
+    for (expr const& e : ev)
+      if (!is_clause(e))
+        return false;
+    return true;
   }
 
   expr strip_not(expr const& e)
