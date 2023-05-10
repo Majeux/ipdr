@@ -28,6 +28,7 @@ namespace pdr
     subsumed_cutoff  = args.subsumed_cutoff.value_or(SUBSUMED_CUT_DEFEAULT);
     ctg_max_depth    = args.ctg_max_depth.value_or(CTG_MAX_DEPTH_DEFAULT);
     ctg_max_counters = args.ctg_max_counters.value_or(CTG_MAX_COUNTERS_DEFAULT);
+    simple_relax     = args.simple_relax;
 
     z3_ctx.set("unsat_core", true);
     z3_ctx.set("model", true);
@@ -94,6 +95,7 @@ namespace pdr
        << format("\tctg_max_depth: {}", ctg_max_depth) << endl
        << format("\tctg_max_counters: {}", ctg_max_counters) << endl
        << format("\tseed: {}", seed) << endl
+       << format("\tsimple_relax: {}", simple_relax) << endl
        << "-------------";
 
     return ss.str();

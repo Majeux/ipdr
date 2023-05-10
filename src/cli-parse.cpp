@@ -404,6 +404,8 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
         value<bool>(onlyshow)->default_value("false"))
 
+      (s_simple_relax, "Simply copy all valid cubes between relaxing instances without optimization.", 
+       value<bool>(simple_relax)->default_value("false"), "(Bool)")
       (s_skip_blocked, "Skip cubes for which a stronger cube is already blocked. (Default = true)",
        value<bool>(), "(Bool)")
       (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. (Default = UINT_MAX)",

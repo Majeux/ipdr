@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cstddef>
-#include <dbg.h>
 #include <fmt/core.h>
 #include <iterator>
 #include <spdlog/stopwatch.h>

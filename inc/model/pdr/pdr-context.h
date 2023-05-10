@@ -44,6 +44,10 @@ namespace pdr
     // considered per cube (resets if the cube is joined with a ctg)
     uint32_t ctg_max_counters;
 
+    // if false: perform an optimization during relaxing that copies of cubes with the old constraint appended if the whole cube could not be copied.
+    // if true: simply copy what is possible
+    bool simple_relax;
+
     Context(z3::context& c, my::cli::ArgumentList const& args);
     // override seed value
     Context(z3::context& c, my::cli::ArgumentList const& args, unsigned s);

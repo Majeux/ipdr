@@ -31,7 +31,7 @@ do
 		seeds="--seeds=529488115,746727049,2113701532,732466678,664842202,763600143,982476571,1710123539,46866309,987761909"
 		# exp=""
 
-		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its $seeds"
+		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its $seeds --simple-relax"
 
 		echo "${bold}$command${normal}"
 		$command
