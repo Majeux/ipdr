@@ -2,6 +2,7 @@
 #include "expr.h"
 
 #include <algorithm>
+#include <cassert>
 #include <fmt/core.h>
 #include <iostream>
 #include <optional>
@@ -109,29 +110,58 @@ namespace z3ext
     }
 
     std::vector<z3::expr> mk_constrained_cube(
-        std::vector<z3::expr> const& lits, size_t size)
+        std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& lits,
+        size_t size)
     {
       vector<expr> rv(lits);
-      return mk_constrained_cube(std::move(rv), size);
+      return mk_constrained_cube(order, std::move(rv), size);
     }
 
-    std::vector<z3::expr> mk_constrained_cube(vector<expr>&& lits, size_t size)
+    std::vector<z3::expr> mk_constrained_cube(
+        std::map<unsigned, size_t> const& order,
+        vector<expr>&& lits,
+        size_t size)
     {
-      assert(std::is_sorted(lits.cbegin(), lits.cend(), cexpr_less()));
-      assert(std::all_of(lits.cbegin(), std::prev(lits.cend()), // lits[0..-1]
-          [](expr const& e) { return !constraint_size(e); }));  // no constraint
+      assert(lits_ordered(lits));
+      assert(   // at most one clit
+          [&]() // lambda defined and immediately called
+          {
+            bool one_found{ false };
+            for (expr const& e : lits)
+              if (order.find(e) != order.end())
+              {
+                if (one_found)
+                  return false;
+                one_found = true;
+              }
+            return true;
+          }());
 
       z3::context& ctx = lits.at(0).ctx();
       expr constraint  = ctx.bool_const(constraint_str(size).c_str());
 
-      if (auto current_constraint = constraint_size(lits.back().to_string()))
+      auto start = lits.begin();
+      auto end   = lits.end();
+      // see if a clit from order is present
+      for (auto it = start; it != end; it++)
       {
-        if (size >= *current_constraint) // new constraint subsumes old
-          lits.back() = constraint;      // replace old
-        return lits;
+        auto lit = order.find(it->id());
+        if (lit != order.end()) // clit found
+        {
+          if (size >= lit->second) // new constraint subsumes old
+            lits.erase(it);        // replace old
+          break;
+        }
       }
 
-      lits.push_back(constraint);
+      // insert constraint and maintain sorted order
+      auto position = std::lower_bound(start, end, constraint, cube_orderer);
+      if (position != end)
+        lits.insert(position, constraint);
+      else
+        lits.push_back(constraint); // inserting at end segfaults on ctx
+
       return std::move(lits);
     }
 

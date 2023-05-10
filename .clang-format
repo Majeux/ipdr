@@ -23,6 +23,8 @@ AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortLambdasOnASingleLine : All
 AllowAllArgumentsOnNextLine: true
+BinPackArguments: true
+BinPackParameters: false
 
 FixNamespaceComments: true
 

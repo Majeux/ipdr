@@ -23,8 +23,6 @@ namespace pdr::peterson
         throw std::invalid_argument("Decrement not implemented.");
         break;
       case Tactic::relax: return relax(processes, true);
-      case Tactic::inc_jump_test: relax_jump_test(processes, 10); break;
-      case Tactic::inc_one_test: relax_jump_test(processes, 1); break;
       default: break;
     }
     throw std::invalid_argument(
@@ -39,8 +37,6 @@ namespace pdr::peterson
         throw std::invalid_argument("Constrain not implemented.");
         break;
       case Tactic::relax: return relax(max_bound, control_setting);
-      case Tactic::inc_jump_test: relax_jump_test(max_bound, 10); break;
-      case Tactic::inc_one_test: relax_jump_test(max_bound, 1); break;
       default: break;
     }
     throw std::invalid_argument(
@@ -58,7 +54,7 @@ namespace pdr::peterson
     IpdrPetersonResult total(ts, Tactic::relax);
 
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant, ts.n_processes());
+    total.add(invariant, bound);
 
     for (bound = bound + 1; invariant && bound <= max_bound; bound++)
     {
@@ -71,7 +67,7 @@ namespace pdr::peterson
 
       invariant = alg.run();
 
-      total.add(invariant, ts.n_processes());
+      total.add(invariant, bound);
     }
 
     if (invariant && bound > max_bound) // last run did not find a trace
@@ -112,30 +108,5 @@ namespace pdr::peterson
 
     alg.ctx.type = Tactic::relax;
     alg.frames.copy_to_Fk_keep(old, old_constraint);
-  }
-
-  IpdrPetersonResult IPDR::relax_jump_test(unsigned start, int step)
-  {
-    std::vector<pdr::Statistics> statistics;
-    alg.logger.and_show("NEW INC JUMP TEST RUN");
-    alg.logger.and_show("start {}. step {}", start, step);
-
-    IpdrPetersonResult total(ts, Tactic::relax);
-    basic_reset(start);
-    pdr::PdrResult invariant = alg.run();
-    total.add(invariant, ts.n_processes());
-
-    unsigned oldp = ts.n_processes();
-    unsigned newp = oldp + step;
-    assert(newp > 0);
-    assert(oldp < newp);
-    assert(newp <= ts.get_switch_bound());
-
-    relax_reset(newp);
-    invariant = alg.run();
-
-    total.add(invariant, ts.n_processes());
-
-    return total;
   }
 } // namespace pdr::peterson

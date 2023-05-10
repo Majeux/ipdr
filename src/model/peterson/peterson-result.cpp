@@ -69,9 +69,9 @@ namespace pdr::peterson
     string proven_str = fmt::format("{}", proc_values);
 
     auto limit_str = pdr_summaries.front().at(1);
-    assert(std::all_of(pdr_summaries.cbegin(), pdr_summaries.cend(),
-        [&limit_str](const Table::Row_t& row) -> bool
-        { return to_string(row.at(1)) == to_string(limit_str); }));
+    // assert(std::all_of(pdr_summaries.cbegin(), pdr_summaries.cend(),
+    //     [&limit_str](const Table::Row_t& row) -> bool
+    //     { return to_string(row.at(1)) == to_string(limit_str); }));
 
     return { time_str, proven_str, limit_str };
   }

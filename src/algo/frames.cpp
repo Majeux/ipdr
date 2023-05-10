@@ -33,7 +33,10 @@ namespace pdr
         ctx(c),
         model(m),
         log(l),
-        FI_solver(ctx, model, m.get_initial(), m.get_transition(),
+        FI_solver(ctx,
+            model,
+            m.get_initial(),
+            m.get_transition(),
             m.get_constraint()),
         delta_solver(
             ctx, model, m.property, m.get_transition(), m.get_constraint())
@@ -236,7 +239,8 @@ namespace pdr
     {
       IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
       for (vector<expr> const& cube : old_frames[i])
-        remove_state(mk_constrained_cube(cube, old_step), i); // at least true
+        remove_state(
+            mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
     }
     MYLOG_DEBUG(log, blocked_str());
 

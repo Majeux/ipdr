@@ -473,7 +473,6 @@ namespace pdr::peterson
         constraint.push_back(clause);
       }
     }
-    std::cout << constraint << std::endl;
   }
 
   // void PetersonModel::constrain(numrep_t processes)

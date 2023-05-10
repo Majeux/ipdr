@@ -174,7 +174,6 @@ namespace pdr
       // experiment_control (basic_reset only)
       IpdrPetersonResult control_run(Tactic tactic, unsigned max_bound);
       IpdrPetersonResult relax(unsigned max_bound, bool control);
-      IpdrPetersonResult relax_jump_test(unsigned start, int step);
 
       // PDR const& internal_alg() const; from vIPDR
      private:

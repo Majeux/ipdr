@@ -61,11 +61,14 @@ namespace z3ext
     // @pre: lits in form < c1, c2, ..., cn, constraint >.
     // @post: rv in form < c1, c2, ..., cn, constraint >.
     std::vector<z3::expr> mk_constrained_cube(
-        std::vector<z3::expr> const& lits, size_t size);
+        std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& lits,
+        size_t size);
     // move construction.
     // @pre: lits in form < c1, c2, ..., cn, constraint >.
     // @post: rv in form < c1, c2, ..., cn, constraint >.
     std::vector<z3::expr> mk_constrained_cube(
+        std::map<unsigned, size_t> const& order,
         std::vector<z3::expr>&& lits, size_t size);
 
     // true if a is stronger than b.
@@ -210,7 +213,8 @@ namespace z3ext
 
   // return a string representation of any vector containing z3::expr
   template <typename ExprVector>
-  inline std::string join_ev(ExprVector const& c, bool align = false,
+  inline std::string join_ev(ExprVector const& c,
+      bool align                  = false,
       const std::string delimiter = ", ")
   {
     // only join containers that can stream into stringstream
@@ -365,28 +369,38 @@ namespace z3ext
 
     // add a tseytin encoded AND statement to "cnf"
     // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
-    z3::expr add_and(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_and(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded OR statement to "cnf"
     // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
-    z3::expr add_or(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_or(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded IMPLIES statement to "cnf"
     // a => b <=> !a | b
-    z3::expr add_implies(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_implies(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded XOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
-    z3::expr add_xor(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_xor(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded XNOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | c) & (a | b | c) & (a | !b | !c) & (!a | b | !c)
-    z3::expr add_xnor(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_xnor(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
   } // namespace tseytin
 } // namespace z3ext
 #endif // Z3_EXT
