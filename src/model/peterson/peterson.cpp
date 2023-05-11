@@ -597,12 +597,12 @@ namespace pdr::peterson
     // IF l[i] < N-1
     // THEN pc[i].p <- 2
     // ELSE pc[i].p <- 4
-    // conj.push_back(if_then_else(
-    //     level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+    conj.push_back(if_then_else(
+        level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // wrong! (testing violations)
-    conj.push_back(if_then_else(
-        level.at(i).less(N -2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+    // conj.push_back(if_then_else(
+    //     level.at(i).less(N -2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);

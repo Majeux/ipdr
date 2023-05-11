@@ -28,7 +28,7 @@ do
 		folder="--dir=$BENCHMARKS"
 		model="--tfc=$m"
 		its="--iterations=$sample"
-		seeds="--seeds=1962830626,1034687201,209198572,104875891,399683891,903448323,1277237697,844529350,249979600,554136435"
+		seeds="--seeds=270798381,131681569,485372466,1282398185,514519091,1886656190,1364448269,998485344,1045798832"
 		# exp=""
 
 		command="$EXEC $MODE $INC --silent $Z3 $folder $model --z3pdr -c $its $seeds"
