@@ -676,8 +676,8 @@ namespace pdr::peterson
     conj.push_back(level.at(i).p_equals(0));   // not needed?
 
     // pc[i] <- 0
-    // conj.push_back(pc.at(i).p_equals(0));
-    conj.push_back(pc.at(i).p_equals(4)); // wrong! for testing
+    conj.push_back(pc.at(i).p_equals(0));
+    // conj.push_back(pc.at(i).p_equals(4)); // wrong! for testing
     // release lock
     conj.push_back(!free.at(i)());
     conj.push_back(free.at(i).p());
