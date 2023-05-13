@@ -22,8 +22,8 @@
 namespace pdr
 {
   using std::get;
-  using std::shared_ptr;
   using std::optional;
+  using std::shared_ptr;
   using std::string;
   using std::vector;
   using z3ext::LitStr;
@@ -200,7 +200,7 @@ namespace pdr
 
   optional<double> IpdrResult::get_inc_time() const
   {
-    if(inc_times.empty())
+    if (inc_times.empty())
       return {};
     return std::accumulate(inc_times.cbegin(), inc_times.cend(), 0.0);
   }
@@ -315,8 +315,8 @@ namespace pdr
   namespace result
   {
     std::string trace_table(PdrResult const& res,
-        std::vector<std::string> const& vars,
-        std::vector<std::string> const& vars_p)
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p)
     {
       using fmt::format;
       using std::to_string;
@@ -327,9 +327,8 @@ namespace pdr
 
       // process trace
       std::stringstream ss;
-
-      size_t longest =
-          std::max_element(vars.begin(), vars.end(), str_size_cmp)->size();
+      std::sort(vars.begin(), vars.end());
+      std::sort(vars_p.begin(), vars_p.end());
 
       Table t;
       // Write top row
@@ -342,9 +341,9 @@ namespace pdr
       }
 
       auto make_row =
-          [longest](string i, TraceState const& s, const vector<string>& names)
+          [](string i, TraceState const& s, const vector<string>& names)
       {
-        vector<string> r = state::marking(s, names, longest);
+        vector<string> r = state::marking(s, names);
         r.insert(r.begin(), string(i));
         Table::Row_t rv;
         rv.assign(r.begin(), r.end());
@@ -393,8 +392,7 @@ namespace pdr
 
     // return strings that mark whether every state in header a positive or
     // negative literal
-    vector<string> marking(
-        TraceState const& state, vector<string> header, unsigned width)
+    vector<string> marking(TraceState const& state, vector<string> header)
     {
       assert(std::is_sorted(header.begin(), header.end()));
 
@@ -406,8 +404,9 @@ namespace pdr
 
         if (it != header.end() && *it == lit.atom) // it points to s
         {
-          string fill_X           = fmt::format("{:X^{}}", "", width);
-          rv[it - header.begin()] = lit.sign ? fill_X : "";
+          string fill_X = fmt::format("{:X^{}}", "", it->size());
+          rv[it - header.begin()] =
+              lit.sign ? fill_X : std::string(it->size(), ' ');
         }
       }
 

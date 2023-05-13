@@ -1,6 +1,7 @@
 #include "pebbling-result.h"
 #include "expr.h"
 #include "obligation.h"
+#include "pebbling-model.h"
 #include "result.h"
 #include "string-ext.h"
 #include "types-ext.h"
@@ -66,7 +67,7 @@ namespace pdr::pebbling
       const PdrResult& r, std::optional<unsigned int> constraint)
   {
     tabulate::Table::Row_t res_row = process_result(r, constraint);
-    assert(res_row.size() == summary_header().size()-1);
+    assert(res_row.size() == summary_header().size() - 1);
     pdr_summaries.push_back(res_row);
 
     return *this;
@@ -143,7 +144,6 @@ namespace pdr::pebbling
     rv.insert(rv.begin(), "pebbled");
     rv.insert(rv.begin(), "constraint");
     return rv;
-    // return pebbling_summary_header;
   }
 
   const tabulate::Table::Row_t IpdrPebblingResult::total_header() const
@@ -200,79 +200,102 @@ namespace pdr::pebbling
       default: assert(false);
     }
 
-    assert(row.size() == summary_header().size()-1); // inc time to be added
+    assert(row.size() == summary_header().size() - 1); // inc time to be added
     return row;
   }
 
   std::string IpdrPebblingResult::process_trace(const PdrResult& res) const
   {
-    using fmt::format;
-    using std::to_string;
-    using tabulate::Table;
-    using TraceState = PdrResult::Trace::TraceState;
-
-    if (res.has_invariant())
-    {
-      return format("No strategy for constraint {}\n",
-          my::optional::to_string(total.inv->constraint));
-    }
-
-    // process trace
-    std::stringstream ss;
-
-    size_t longest =
-        std::max_element(vars.begin(), vars.end(), str::ext::size_lt)->size();
-
-    Table t;
-    // Write top row
-    {
-      Table::Row_t trace_header = { "", "marked" };
-      trace_header.insert(trace_header.end(), vars.begin(), vars.end());
-      t.add_row(trace_header);
-    }
-
-    auto make_row = [&longest](string a, string b, TraceState const& s,
-                        vector<string> const& names)
-    {
-      vector<string> r = state::marking(s, names, longest);
-      r.insert(r.begin(), b);
-      r.insert(r.begin(), a);
-      Table::Row_t rv;
-      rv.assign(r.begin(), r.end());
-      return rv;
-    };
-
-    // Write strategy states
-    {
-      unsigned marked = pebbles_final;
-      size_t N        = res.trace().length;
-      for (size_t i = 0; i < N; i++)
-      {
-        const TraceState& s = res.trace().states[i];
-        unsigned pebbled    = pdr::state::n_marked(s);
-        marked              = std::max(marked, pebbled);
-        string index_str;
-        {
-          if (i == 0)
-          {
-            index_str = "I";
-          }
-          else if (i == N - 1)
-            index_str = "(!P) " + to_string(i);
-          else
-            index_str = to_string(i);
-        }
-
-        Table::Row_t row_marking = make_row(
-            index_str, to_string(pebbled), s, (i < N - 1 ? vars : vars_p));
-        t.add_row(row_marking);
-      }
-      ss << format("Strategy for {} pebbles", marked) << std::endl << std::endl;
-    }
-
-    t.format().font_align(tabulate::FontAlign::right);
-
-    ss << tabulate::MarkdownExporter().dump(t);
-    return ss.str();
+    return result::trace_table(
+        res, vars, vars_p, total.inv->constraint, pebbles_final);
   }
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        PebblingModel const& m)
+    {
+      return trace_table(
+          res, vars, vars_p, m.get_pebble_constraint(), m.get_f_pebbles());
+    }
+
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        std::optional<unsigned> constraint,
+        unsigned const f_pebbles)
+    {
+      using fmt::format;
+      using std::to_string;
+      using tabulate::Table;
+      using TraceState = PdrResult::Trace::TraceState;
+
+      if (res.has_invariant())
+      {
+        return format("No strategy for constraint {}\n",
+            my::optional::to_string(constraint));
+      }
+
+      std::sort(vars.begin(), vars.end());
+      std::sort(vars_p.begin(), vars_p.end());
+
+      // process trace
+      std::stringstream ss;
+
+      Table t;
+      // Write top row
+      {
+        Table::Row_t trace_header = { "", "marked" };
+        trace_header.insert(trace_header.end(), vars.begin(), vars.end());
+        t.add_row(trace_header);
+      }
+
+      auto make_row = [](string a, string b, TraceState const& s,
+                          vector<string> const& names)
+      {
+        vector<string> r = state::marking(s, names);
+        r.insert(r.begin(), b);
+        r.insert(r.begin(), a);
+        Table::Row_t rv;
+        rv.assign(r.begin(), r.end());
+        return rv;
+      };
+
+      // Write strategy states
+      {
+        unsigned marked = f_pebbles;
+        size_t N        = res.trace().length;
+        for (size_t i = 0; i < N; i++)
+        {
+          const TraceState& s = res.trace().states[i];
+          unsigned pebbled    = pdr::state::n_marked(s);
+          marked              = std::max(marked, pebbled);
+          string index_str;
+          {
+            if (i == 0)
+            {
+              index_str = "I";
+            }
+            else if (i == N - 1)
+              index_str = "(!P) " + to_string(i);
+            else
+              index_str = to_string(i);
+          }
+
+          Table::Row_t row_marking = make_row(
+              index_str, to_string(pebbled), s, (i < N - 1 ? vars : vars_p));
+          t.add_row(row_marking);
+        }
+        ss << format("Strategy for {} pebbles", marked) << std::endl
+           << std::endl;
+      }
+
+      t.format().font_align(tabulate::FontAlign::right);
+
+      ss << tabulate::MarkdownExporter().dump(t);
+      return ss.str();
+    }
+  } // namespace result
 } // namespace pdr::pebbling

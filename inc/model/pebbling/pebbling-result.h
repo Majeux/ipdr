@@ -15,9 +15,6 @@ namespace pdr::pebbling
   class IpdrPebblingResult final : public IpdrResult
   {
    public:
-    inline static const tabulate::Table::Row_t pebbling_summary_header = {
-      "constraint", "pebbled", "invariant index", "trace length", "time"
-    };
     inline static const tabulate::Table::Row_t pebbling_total_header = {
       "runtime", "min constraint strategy", "length"
     };
@@ -72,6 +69,20 @@ namespace pdr::pebbling
         const PdrResult& r, std::optional<unsigned> constraint);
     std::string process_trace(PdrResult const& res) const override;
   };
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        PebblingModel const& model);
+
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        std::optional<unsigned> constraint,
+        unsigned const f_pebbles);
+  }
 } // namespace pdr::pebbling
 
 #endif // PEBBLING_RESULT_H

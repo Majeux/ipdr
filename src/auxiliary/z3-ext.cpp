@@ -6,6 +6,7 @@
 #include <fmt/core.h>
 #include <iostream>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>

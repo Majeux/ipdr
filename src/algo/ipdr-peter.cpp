@@ -4,6 +4,7 @@
 #include "peterson.h"
 #include "types-ext.h"
 #include <cassert>
+#include <climits>
 
 namespace pdr::peterson
 {
@@ -63,7 +64,7 @@ namespace pdr::peterson
         basic_reset(bound);
       else
         relax_reset(bound);
-      total.append_inc_time(timer.elapsed().count()); // adds to previous result
+      total.append_inc_time(collect_inc_time(bound, timer.elapsed().count()));
 
       invariant = alg.run();
 
@@ -86,10 +87,17 @@ namespace pdr::peterson
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
 
-    alg.logger.and_show("naive change from {} -> {} switches",
-        ts.get_switch_bound().value(), switches);
+    if (ts.get_switch_bound() != switches)
+    {
+      alg.logger.and_show("naive change from {} -> {} switches",
+          ts.get_switch_bound().value_or(UINT_MAX), switches);
+      ts.constrain_switches(switches);
+    }
+    else
+    {
+      alg.logger.and_show("switches kept at {}", switches);
+    }
 
-    ts.constrain_switches(switches);
     alg.ctx.type = Tactic::basic;
     alg.reset();
   }

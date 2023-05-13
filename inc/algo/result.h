@@ -31,7 +31,7 @@ namespace pdr
 
     struct Invariant
     {
-      int level{-1}; // the F_i that gives the inductive invariant
+      int level{ -1 }; // the F_i that gives the inductive invariant
 
       Invariant(int l);
       Invariant(std::optional<unsigned> c, int l);
@@ -112,7 +112,7 @@ namespace pdr
     // add the time spend during reconstraining and incremental propagation
     void append_inc_time(double time);
 
-    // output the summaries of each pdr run in a formatted table and 
+    // output the summaries of each pdr run in a formatted table and
     // append the total time.
     // build using rows from process_row()
     tabulate::Table summary_table() const;
@@ -162,8 +162,8 @@ namespace pdr
   namespace result
   {
     std::string trace_table(PdrResult const& res,
-        std::vector<std::string> const& vars,
-        std::vector<std::string> const& vars_p);
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p);
   }
 
   namespace state
@@ -171,7 +171,7 @@ namespace pdr
     size_t n_marked(PdrResult::Trace::TraceState const& s);
 
     std::vector<std::string> marking(PdrResult::Trace::TraceState const& s,
-        std::vector<std::string> header, unsigned width);
+        std::vector<std::string> header);
   } // namespace state
 
 } // namespace pdr

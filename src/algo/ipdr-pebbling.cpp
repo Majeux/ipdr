@@ -289,12 +289,6 @@ namespace pdr::pebbling
 
   // Private members
   //
-  double IPDR::collect_inc_time(size_t new_N, double t)
-  {
-    alg.logger.graph.add_inc(new_N, t);
-    return t;
-  }
-
   void IPDR::basic_reset(unsigned pebbles)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));

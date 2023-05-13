@@ -50,7 +50,8 @@ using namespace my::io;
 
 // aliases
 using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel, pdr::peterson::PetersonModel>;
+    pdr::pebbling::PebblingModel,
+    pdr::peterson::PetersonModel>;
 
 // algorithm handling
 ModelVariant construct_model(
@@ -123,7 +124,8 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 }
 
 using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel, pdr::peterson::PetersonModel>;
+    pdr::pebbling::PebblingModel,
+    pdr::peterson::PetersonModel>;
 
 ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log)
@@ -199,6 +201,16 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
                            return pdr::result::trace_table(
                                res, m.vars.names(), m.vars.names_p());
                          },
+                     [&](pebbling::PebblingModel const& m)
+                     {
+                       return pebbling::result::trace_table(
+                           res, m.vars.names(), m.vars.names_p(), m);
+                     },
+                     [&](peterson::PetersonModel const& m)
+                     {
+                       return peterson::result::trace_table(
+                           res, m.vars.names(), m.vars.names_p(), m);
+                     },
                      [&](IModel const& m) {
                        return pdr::result::trace_table(
                            res, m.vars.names(), m.vars.names_p());

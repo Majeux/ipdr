@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fmt/core.h>
 #include <optional>
+#include <ostream>
 #include <random>
 #include <set>
 #include <sstream>
@@ -27,7 +28,15 @@ namespace z3ext
     // LitStr(LitStr const&) = default;
     z3::expr to_expr(z3::context& ctx);
     std::string to_string() const;
+
+    friend std::ostream& operator<<(std::ostream& out, LitStr const& l);
   };
+
+  inline std::ostream& operator<<(std::ostream& out, LitStr const& l)
+  {
+    out << l.to_string();
+    return out;
+  }
 
   // handling cubes of the form: < c1, c2, ..., c3, constraint_lit >
   namespace constrained_cube

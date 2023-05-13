@@ -222,7 +222,7 @@ namespace pdr::peterson
     return total;
   }
 
-  Vars PetersonModel::create_vars()
+  Vars PetersonModel::mk_vars()
   {
     using fmt::format;
     using z3::atleast;
@@ -260,11 +260,14 @@ namespace pdr::peterson
       for (numrep_t i = 0; i < N; i++)
       {
 #warning PETERSON PROPERTY: some redundant literals (pc and level). include or not??
-        conj.push_back(
-            pc.at(i).equals(4) && !free.at(i)() && level.at(i).equals(N - 1));
+        // conj.push_back(
+        //     pc.at(i).equals(4) && !free.at(i)() && level.at(i).equals(N -
+        //     1));
+        conj.push_back(pc.at(i).equals(4));
 
-        conj_p.push_back(pc.at(i).p_equals(4) && !free.at(i).p() &&
-                         level.at(i).p_equals(N - 1));
+        // conj_p.push_back(pc.at(i).p_equals(4) && !free.at(i).p() &&
+        //                  level.at(i).p_equals(N - 1));
+        conj_p.push_back(pc.at(i).p_equals(4));
       }
     }
     property.add(atmost(conj, 1), atmost(conj_p, 1)).finish();
@@ -302,8 +305,10 @@ namespace pdr::peterson
     return rv;
   }
 
-  PetersonModel::PetersonModel(z3::context& c, numrep_t n_procs,
-      numrep_t m_procs, optional<numrep_t> m_switches)
+  PetersonModel::PetersonModel(z3::context& c,
+      numrep_t n_procs,
+      numrep_t m_procs,
+      optional<numrep_t> m_switches)
       : IModel(c, {}), // varnames are added in body
         N(m_procs),
         p(n_procs),
@@ -317,7 +322,7 @@ namespace pdr::peterson
         last()
   {
     using fmt::format;
-    Vars allvars = create_vars();
+    Vars allvars = mk_vars();
     vars.add(allvars.curr, allvars.next);
 
     assert(N < INT_MAX);
@@ -348,7 +353,10 @@ namespace pdr::peterson
     return fmt::format("{} active processes, out of {} max", p, N);
   }
 
-  unsigned PetersonModel::constraint_num() const { return p; }
+  unsigned PetersonModel::constraint_num() const
+  {
+    return max_switches.value();
+  }
 
   unsigned PetersonModel::n_processes() const { return p; }
   optional<unsigned> PetersonModel::get_switch_bound() const
@@ -466,7 +474,7 @@ namespace pdr::peterson
 
       // cannot take a transition that causes us to hit switch_bound
       unsigned switch_bound = *max_switches + 1;
-      assert(switch_bound <= SWITCH_COUNT_MAX);
+      assert(switch_bound <= SWITCH_COUNT_MAX && switch_bound >= 1);
       for (expr const& clause : to_cnf_vec(switch_count.p_less(switch_bound)))
       {
         assert(clause.is_or() || z3ext::is_lit(clause));
@@ -474,58 +482,6 @@ namespace pdr::peterson
       }
     }
   }
-
-  // void PetersonModel::constrain(numrep_t processes)
-  // {
-  //   using mysat::primed::lit_type;
-  //   using z3ext::tseytin::to_cnf;
-  //   using z3ext::tseytin::to_cnf_vec;
-  //   assert(processes <= N);
-
-  //   {
-  //     int d = processes - p;
-
-  //     if (d > 0)
-  //       diff = Diff_t::relaxed;
-  //     else if (d < 0)
-  //       diff = Diff_t::constrained;
-  //     else // d == 0
-  //       diff = Diff_t::none;
-  //   }
-
-  //   p = processes;
-  //   transition.resize(0);
-  //   constraint.resize(0);
-
-  //   reset_initial();
-  //   if (max_switches)
-  //   {
-  //     // store the pid that is used in this step
-  //     //    proc_last' <- proc
-
-  //     // count the number of times that the active process is switched
-  //     //    if proc_last == proc then n_switches' <- n_switches
-  //     //    else n_switches' <- n_switches + 1
-  //     expr count = z3::ite(proc_last.unchanged(), switch_count.unchanged(),
-  //         switch_count.incremented());
-  //     // expr count =
-  //     //     (!proc_last.unchanged() || switch_count.unchanged()) &&
-  //     //     (proc_last.unchanged() || switch_count.incremented());
-  //     for (expr const& clause : to_cnf_vec(count))
-  //     {
-  //       assert(clause.is_or() || clause.is_const() || clause.is_not());
-  //       transition.push_back(clause);
-  //     }
-
-  //     // cannot take a transition that causes us to hit max_switches
-  //     for (expr const& clause :
-  //     to_cnf_vec(switch_count.p_less(*max_switches)))
-  //     {
-  //       assert(clause.is_or() || clause.is_const() || clause.is_not());
-  //       constraint.push_back(clause);
-  //     }
-  //   }
-  // }
 
   template <typename T,
       std::enable_if_t<std::is_base_of_v<mysat::primed::IStays, T>, bool> =
@@ -559,7 +515,8 @@ namespace pdr::peterson
   //    -> if last[level[i]] == i && E k != i: level[k] >= level[i] then 3.
   //    -> else then 1. level[i] <- level[i] + 1
   //  4: critical section
-  //    ->
+  //    -> imagine some critical work
+  //    -> level[i] <- 0; free[i] <- true; then 0
 
   expr PetersonModel::T_start(numrep_t i)
   {
@@ -690,7 +647,6 @@ namespace pdr::peterson
         expr adder = z3ext::tseytin::to_cnf(level.at(i).incremented());
 
         incremented = raw.num_args() < adder.num_args() ? raw : adder;
-        incremented = adder;
       }
 
       expr wait     = pc.at(i).p_equals(3) && level.at(i).unchanged();
@@ -720,7 +676,8 @@ namespace pdr::peterson
     conj.push_back(level.at(i).p_equals(0));   // not needed?
 
     // pc[i] <- 0
-    conj.push_back(pc.at(i).p_equals(0));
+    // conj.push_back(pc.at(i).p_equals(0));
+    conj.push_back(pc.at(i).p_equals(4)); // wrong! for testing
     // release lock
     conj.push_back(!free.at(i)());
     conj.push_back(free.at(i).p());
@@ -1027,11 +984,11 @@ namespace pdr::peterson
 
     while (optional<expr_vector> w = check_witness(solver))
     {
-      auto s = extract_state(*w, lit_type::primed);
+      auto s      = extract_state(*w, lit_type::primed);
       // std::cout << w->to_string() << std::endl;
       // std::cout << s << std::endl << "----" << std::endl;
       bool is_new = S.insert(s).second;
-      assert(is_new); // no repetitions
+      assert(is_new);                       // no repetitions
       solver.add(!mk_and(s.cube_p(*this))); // exclude from future search
     }
 

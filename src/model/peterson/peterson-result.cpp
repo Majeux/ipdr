@@ -4,6 +4,7 @@
 #include "string-ext.h"
 #include "tabulate-ext.h"
 #include "tactic.h"
+#include "types-ext.h"
 #include "z3-ext.h"
 
 #include <algorithm>
@@ -82,10 +83,9 @@ namespace pdr::peterson
   const tabulate::Table::Row_t IpdrPetersonResult::summary_header() const
   {
     auto rv = IpdrResult::summary_header();
-    rv.insert(rv.begin(), "max_processes");
+    rv.insert(rv.begin(), "max switches");
     rv.insert(rv.begin(), "processes");
     return rv;
-    return peterson_summary_header;
   }
 
   const tabulate::Table::Row_t IpdrPetersonResult::total_header() const
@@ -117,107 +117,118 @@ namespace pdr::peterson
 
   std::string IpdrPetersonResult::process_trace(PdrResult const& res) const
   {
-    using fmt::format;
-    using std::to_string;
-    using tabulate::Table;
-    using z3::expr;
-    using z3::expr_vector;
-    using TraceState = PdrResult::Trace::TraceState;
-
-    if (res.has_invariant())
-    {
-      return format("Peterson protocol correct for {} processes up to {} "
-                    "context switches.\n",
-          processes, last_proof_switches);
-    }
-
-    // process trace
-    std::stringstream ss;
-
-    size_t longest =
-        std::max_element(vars.begin(), vars.end(), str::ext::size_lt)->size();
-
-    Table t, state_t;
-    // Write top row
-    {
-      Table::Row_t trace_header = { "" };
-      trace_header.insert(trace_header.end(), vars.begin(), vars.end());
-      t.add_row(trace_header);
-      state_t.add_row({ "", "" });
-    }
-
-    auto make_row =
-        [&longest](string a, TraceState const& s, const vector<string>& names)
-    {
-      std::vector<std::string> r = state::marking(s, names, longest);
-      r.insert(r.begin(), a);
-      Table::Row_t rv;
-      rv.assign(r.begin(), r.end());
-      return rv;
-    };
-
-    // Write strategy states
-    {
-      size_t N = res.trace().states.size();
-      for (size_t i = 0; i < N; i++)
-      {
-        TraceState const& s = res.trace().states[i];
-
-        string index_str;
-        {
-          if (i == 0)
-          {
-            index_str = "I";
-          }
-          else if (i == N - 1)
-            index_str = "(!P) " + to_string(i);
-          else
-            index_str = to_string(i);
-        }
-
-        t.add_row(make_row(index_str, s, (i < N - 1 ? vars : vars_p)));
-        // also create readable peterson state representation
-        {
-          expr_vector current(model.ctx), next(model.ctx);
-          for (z3ext::LitStr const& l : s)
-          {
-            expr c = model.ctx.bool_const(l.atom.c_str());
-            expr n = model.vars.p(c);
-            if (l.sign)
-            {
-              current.push_back(c);
-              next.push_back(n);
-            }
-            else
-            {
-              current.push_back(!c);
-              next.push_back(!n);
-            }
-          }
-
-          const PetersonModel& m = dynamic_cast<const PetersonModel&>(model);
-          string state_str       = i < N - 1
-                                     ? m.extract_state(current).to_string(true)
-                                     : m.extract_state_p(next).to_string(true);
-          state_t.add_row({ index_str, state_str });
-        }
-      }
-      ss << format("Trace to mutex violation within {} context switches",
-                last_proof_switches)
-         << std::endl
-         << std::endl;
-    }
-
-    {
-      tabulate::MarkdownExporter exp;
-      t.format().font_align(tabulate::FontAlign::right);
-      state_t.format().font_align(tabulate::FontAlign::right);
-
-      ss << exp.dump(t) << std::endl
-         << string(15, '=') << std::endl
-         << exp.dump(state_t);
-    }
-
-    return ss.str();
+    return result::trace_table(res, vars, vars_p, model);
   }
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        PetersonModel const& model)
+    {
+      using fmt::format;
+      using std::to_string;
+      using tabulate::Table;
+      using z3::expr;
+      using z3::expr_vector;
+      using TraceState = PdrResult::Trace::TraceState;
+
+      if (res.has_invariant())
+      {
+        return format("Peterson protocol correct for {} processes up to {} "
+                      "context switches.\n",
+            model.n_processes(),
+            my::optional::to_string(model.get_switch_bound()));
+      }
+
+      std::sort(vars.begin(), vars.end());
+      std::sort(vars_p.begin(), vars_p.end());
+
+      // process trace
+      std::stringstream ss;
+
+      Table t, state_t;
+      // Write top row
+      {
+        Table::Row_t trace_header = { "" };
+        trace_header.insert(trace_header.end(), vars.begin(), vars.end());
+        t.add_row(trace_header);
+        state_t.add_row({ "", "" });
+      }
+
+      auto make_row =
+          [](string a, TraceState const& s, const vector<string>& names)
+      {
+        std::vector<std::string> r = state::marking(s, names);
+        r.insert(r.begin(), a);
+        Table::Row_t rv;
+        rv.assign(r.begin(), r.end());
+        return rv;
+      };
+
+      // Write strategy states
+      {
+        size_t N = res.trace().states.size();
+        for (size_t i = 0; i < N; i++)
+        {
+          TraceState const& s = res.trace().states[i];
+
+          string index_str;
+          {
+            if (i == 0)
+            {
+              index_str = "I";
+            }
+            else if (i == N - 1)
+              index_str = "(!P) " + to_string(i);
+            else
+              index_str = to_string(i);
+          }
+
+          t.add_row(make_row(index_str, s, (i < N - 1 ? vars : vars_p)));
+          // also create readable peterson state representation
+          {
+            expr_vector current(model.ctx), next(model.ctx);
+            for (z3ext::LitStr const& l : s)
+            {
+              expr c = model.ctx.bool_const(l.atom.c_str());
+              expr n = model.vars.p(c);
+              if (l.sign)
+              {
+                current.push_back(c);
+                next.push_back(n);
+              }
+              else
+              {
+                current.push_back(!c);
+                next.push_back(!n);
+              }
+            }
+
+            string state_str = i < N - 1
+                                 ? model.extract_state(current).to_string(true)
+                                 : model.extract_state_p(next).to_string(true);
+            state_t.add_row({ index_str, state_str });
+          }
+        }
+        ss << format("Trace to mutex violation within {} context switches",
+                  my::optional::to_string(model.get_switch_bound()))
+           << std::endl
+           << std::endl;
+      }
+
+      {
+        tabulate::MarkdownExporter exp;
+        t.format().font_align(tabulate::FontAlign::right);
+        state_t.format().font_align(tabulate::FontAlign::right);
+
+        ss << exp.dump(t) << std::endl
+           << string(15, '=') << std::endl
+           << exp.dump(state_t);
+      }
+
+      return ss.str();
+    }
+  } // namespace result
 } // namespace pdr::peterson

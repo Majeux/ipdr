@@ -120,7 +120,7 @@ namespace pdr::peterson
     // z3::expr_vector transition; // converted into cnf via tseytin
 
     // fill the pc, level, free and last variables
-    Vars create_vars();
+    Vars mk_vars();
     void reset_initial();
     void reset_transition();
 

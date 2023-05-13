@@ -126,10 +126,7 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        if (m.switch_bound)
-          return format("peter_{}p_{}switch", m.processes, *m.switch_bound);
-        else
-          return format("peter_{}p", m.processes);
+        return format("{}procs", m.processes);
       }
     };
     string src_name(Model_var const& m)
@@ -171,9 +168,9 @@ namespace my::cli
       string operator()(Peterson const& m) const
       {
         if (m.switch_bound)
-          return format("peter_{}p_{}switch", m.processes, *m.switch_bound);
+          return format("peter_{}switches", *m.switch_bound);
         else
-          return format("peter_{}p", m.processes);
+          return format("peter", m.processes);
       }
     };
 
@@ -284,17 +281,7 @@ namespace my::cli
     else
       folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
-    folders.model_dir = folders.model_type_dir;
-    {
-      if (auto peb = variant::get_cref<model_t::Pebbling>(model))
-        folders.model_dir /= graph_src::get_name(peb->get().src);
-      else
-      {
-        auto peter = variant::get_cref<model_t::Peterson>(model);
-        folders.model_dir /= format(
-            "peter_{}_{}", peter->get().processes, peter->get().processes);
-      }
-    }
+    folders.model_dir = folders.model_type_dir / model_t::src_name(model);
 
     folders.file_base = model_t::src_name(model);
     {

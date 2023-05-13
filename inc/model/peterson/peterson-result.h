@@ -10,17 +10,10 @@
 
 namespace pdr::peterson
 {
-  namespace result
-  {
-  } // namespace result
-
   // processes | max_processes | invariant | trace | time
   class IpdrPetersonResult final : public IpdrResult
   {
    public:
-    inline static const tabulate::Table::Row_t peterson_summary_header = {
-      "processes", "switch_bound", "invariant index", "trace_length", "time"
-    };
     inline static const tabulate::Table::Row_t peterson_total_header = {
       "runtime", "proven for p=", "maximum p"
     };
@@ -47,6 +40,14 @@ namespace pdr::peterson
         const PdrResult& r, unsigned n_processes);
     std::string process_trace(PdrResult const& res) const override;
   }; // class PeterState
+
+  namespace result
+  {
+    std::string trace_table(PdrResult const& res,
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p,
+        PetersonModel const& model);
+  }
 } // namespace pdr::peterson
 
 #endif // PETER_RESULT_H
