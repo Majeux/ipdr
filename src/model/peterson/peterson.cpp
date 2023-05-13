@@ -259,20 +259,12 @@ namespace pdr::peterson
     {
       for (numrep_t i = 0; i < N; i++)
       {
-#warning PETERSON PROPERTY: some redundant literals (pc and level). include or not??
-        // conj.push_back(
-        //     pc.at(i).equals(4) && !free.at(i)() && level.at(i).equals(N -
-        //     1));
         conj.push_back(pc.at(i).equals(4));
-
-        // conj_p.push_back(pc.at(i).p_equals(4) && !free.at(i).p() &&
-        //                  level.at(i).p_equals(N - 1));
         conj_p.push_back(pc.at(i).p_equals(4));
       }
     }
     property.add(atmost(conj, 1), atmost(conj_p, 1)).finish();
     n_property.add(atleast(conj, 2), atleast(conj_p, 2)).finish();
-    // n_property.add(!atmost(conj, 1), !atmost(conj_p, 1)).finish();
 
     // collect symbol strings
     Vars rv;
@@ -366,7 +358,8 @@ namespace pdr::peterson
 
   expr if_then_else(const expr& i, const expr& t, const expr& e)
   {
-    return (!i || t) && (i || e); // i => t || !i => e
+    // return (!i || t) && (i || e); // i => t || !i => e
+    return z3::ite(i, t, e);
   }
 
   void PetersonModel::reset_initial()
@@ -463,8 +456,8 @@ namespace pdr::peterson
       //    if proc_last == proc then n_switches' <- n_switches
       //    else n_switches' <- n_switches + 1
       {
-        expr count = z3::ite(proc_last.unchanged(), switch_count.unchanged(),
-            switch_count.incremented());
+        expr count = if_then_else(proc_last.unchanged(),
+            switch_count.unchanged(), switch_count.incremented());
         for (expr const& clause : to_cnf_vec(count))
         {
           assert(clause.is_or() || z3ext::is_lit(clause));
