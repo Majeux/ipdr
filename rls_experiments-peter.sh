@@ -37,7 +37,7 @@ do
 		command="$EXEC $MODE $INC --silent $model $bound $its"
 
 		echo "${bold}$command${normal}"
-		# $command
+		$command
 		echo -e "done\n"
 	fi
 done

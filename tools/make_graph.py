@@ -9,7 +9,8 @@ import pprint
 import string
 from typing import KeysView, List, Mapping
 
-TYPES = ["pebbling", "z3pdr", "bmc"]
+PEBBLING_TYPES = {"pebbling", "z3pdr", "bmc"}
+TYPES = {"pebbling", "z3pdr", "bmc", "peter"}
 tools_folder = os.path.dirname(os.path.realpath(__file__))
 with open(tools_folder + "/model_order.txt", 'r') as model_file:
     MODELS = [m.rstrip() for m in model_file.readlines()]
@@ -32,23 +33,46 @@ parser.add_argument(
     help=f"the types of algorithm to search results for in the \"output\" folder\". T = {TYPES}",
     metavar="T"
 )
-modelgroup = parser.add_mutually_exclusive_group(required=True)
+modelgroup = parser.add_mutually_exclusive_group()
 modelgroup.add_argument(
     "--allmodels", action="store_true",
-    help=f"create a graph for all models {MODELS}"
+    help=f"create a graph for all pebbling models {MODELS}"
 )
 modelgroup.add_argument(
     "--models", nargs="+", type=str, choices=MODELS,
     help=f"a list of model names (from model_order.txt) for which to gather results. M = {MODELS}",
     metavar="M"
 )
+parser.add_argument(
+    "--procs", type=int,
+    help=f"range of Peterson models to gather results for: [2..P]. P = integer",
+)
+modelgroup.add_argument(
+    "--switches", nargs="+", type=int,
+    help=f"the amount of switches for each iteration in order (2..P)."
+)
+parser.add_argument(
+    "--reps", type=int,
+    help=f"no. of experiment repetitions (for peter format)."
+)
 
 args = parser.parse_args()
 # sort args.models according order in model_order
+if len(PEBBLING_TYPES.intersection(args.types)) != 0:
+    if not (args.allmodels or args.models):
+        raise argparse.ArgumentError(None, f"{PEBBLING_TYPES} requires either --allmodels or --models")
+
+if "peter" in args.types:
+    if not (args.procs and args.switches and args.reps):
+        raise argparse.ArgumentError(None, "peter requires --reps, --procs and --switches")
+
 if args.allmodels:
     args.models = MODELS
-else:
+elif args.models:
     args.models = sorted(args.models, key=MODELS.index)
+else:
+    args.models = None
+
 args.dir = os.path.expanduser(args.dir)
 
 
@@ -57,17 +81,28 @@ def main():
     print(f"content:\t\t {os.listdir(args.dir)}")
     print(f"available models:\t {MODELS}")
     print(f"selected models:\t {args.models}")
+    print(f"selected procs:\t\t [2..{args.procs}]")
+    print(f"selected procs:\t\t {args.switches}")
     print(f"selected algorithm:\t {args.types}")
+    print(f"no. experiment reps:\t {args.reps}")
     print()
 
     model_data = {}
     control = False
     for run in args.types:
-        for model in args.models:
+        if run == "peter":
+            models = [f"{p}procs" for p in range(2, args.procs+1)]
+        else:
+            models = args.models
+
+        for i, model in enumerate(models):
             if args.debug:
                 print(f"model: {model}")
 
-            model_folder = f"{model}-{args.format}"
+            if run == "peter":
+                model_folder = f"{model}-peter_{args.switches[i]}switches-ipdr_relax-exp_{args.reps}"
+            else:
+                model_folder = f"{model}-{args.format}"
 
             if run == "z3pdr":
                 control = True
