@@ -65,7 +65,7 @@ parser.add_argument(
     help=f"which ipdr algorithm to gather for. A = {IPDRS}."
 )
 parser.add_argument(
-    "--control", action="store_const", const="-C",
+    "--control", action="store_const", const="-C", default="",
     help=f"if the experiment was a control run (for peter format)."
 )
 
