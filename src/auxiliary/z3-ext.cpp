@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 #include <z3++.h>
+#include <z3_api.h>
 
 namespace z3ext
 {
@@ -219,7 +220,9 @@ namespace z3ext
 
   bool is_lit(expr const& e)
   {
-    return e.is_bool() && (e.is_const() || (e.is_not() && e.arg(0).is_const()));
+    return e.is_bool() &&
+           ((e.is_const() || is_card(e)) ||
+               (e.is_not() && (e.arg(0).is_const() || is_card(e.arg(0)))));
   }
 
   bool is_clause(expr const& e)
@@ -243,6 +246,17 @@ namespace z3ext
       if (!is_clause(e))
         return false;
     return true;
+  }
+
+  bool is_card(z3::expr const& e)
+  {
+    if (e.is_app())
+    {
+      auto kind = e.decl().decl_kind();
+      return kind == Z3_OP_PB_AT_LEAST || kind == Z3_OP_PB_AT_MOST;
+    }
+    else
+      return false;
   }
 
   expr strip_not(expr const& e)

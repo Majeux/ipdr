@@ -19,6 +19,8 @@
 #include <vector>
 #include <z3++.h>
 
+#include <dbg.h>
+
 namespace pdr
 {
   using std::optional;
@@ -658,7 +660,11 @@ namespace pdr
       // assert lit => cnf == !lit || cnf.
       // note this is equivalent to: !l || clause for each clause in cnf.
       for (expr const& clause : cnf_clauses)
+      {
         rv.push_back(!lit || clause); // lit => clause
+        // rv.push_back(lit || !clause); // clause => lit
+        // rv.push_back(dbg(z3ext::tseytin::to_cnf(lit == clause)));
+      }
     }
 
     return rv;
