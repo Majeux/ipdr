@@ -237,13 +237,13 @@ namespace pdr
       log.stats.post_relax_F.resize(old_frames.size());
     });
 
-    for (size_t i{ 1 }; i < old_frames.size(); i++)
-    {
-      IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
-      for (vector<expr> const& cube : old_frames[i])
-        remove_state(
-            mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
-    }
+    // for (size_t i{ 1 }; i < old_frames.size(); i++)
+    // {
+    //   IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
+    //   for (vector<expr> const& cube : old_frames[i])
+    //     remove_state(
+    //         mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
+    // }
     MYLOG_DEBUG(log, blocked_str());
 
     // try to reblock all states from old_frames
@@ -659,12 +659,15 @@ namespace pdr
       expr lit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
       // assert lit => cnf == !lit || cnf.
       // note this is equivalent to: !l || clause for each clause in cnf.
-      for (expr const& clause : cnf_clauses)
-      {
-        rv.push_back(!lit || clause); // lit => clause
-        // rv.push_back(lit || !clause); // clause => lit
-        // rv.push_back(dbg(z3ext::tseytin::to_cnf(lit == clause)));
-      }
+
+      expr def = z3::implies(!lit, !z3::mk_and(cnf_clauses));
+      rv.push_back(z3ext::tseytin::to_cnf(def));
+      // for (expr const& clause : cnf_clauses)
+      // {
+      //   rv.push_back(!lit || clause); // lit => clause
+      //   // rv.push_back(lit || !clause); // clause => lit
+      //   // rv.push_back(dbg(z3ext::tseytin::to_cnf(lit == clause)));
+      // }
     }
 
     return rv;

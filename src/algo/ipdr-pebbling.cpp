@@ -87,8 +87,8 @@ namespace pdr::pebbling
           basic_reset(N);
         else
         {
-          relax_reset_constrained(N);
-          // relax_reset(N);
+          // relax_reset_constrained(N);
+          relax_reset(N);
         }
         total.append_inc_time(collect_inc_time(N, timer.elapsed().count()));
       }
@@ -304,6 +304,7 @@ namespace pdr::pebbling
 
   void IPDR::relax_reset(unsigned pebbles)
   {
+    assert(std::addressof(ts) == std::addressof(alg.ts));
     using fmt::format;
 
     optional<unsigned> old = ts.get_pebble_constraint();
@@ -315,14 +316,13 @@ namespace pdr::pebbling
     ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.copy_to_F1();
-    // alg.frames.copy_to_Fk();
+    // alg.frames.copy_to_F1();
+    alg.frames.copy_to_Fk();
   }
 
   void IPDR::relax_reset_constrained(unsigned pebbles)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
-
     using fmt::format;
 
     unsigned old                   = ts.get_pebble_constraint().value();

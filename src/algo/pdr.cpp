@@ -266,7 +266,8 @@ namespace pdr
        << frames.blocked_str() << endl
        << SEP2 << endl
        << "Solvers" << endl
-       << frames.solver_str(true) << endl;
+       << frames.solver_str(false) << endl;
+       // << frames.solver_str(true) << endl;
 
     logger.stats.solver_dumps.push_back(ss.str());
   }
