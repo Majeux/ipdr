@@ -294,9 +294,9 @@ namespace pdr::experiments
       latex << aggregate->str(output_format::latex);
 
       Graphs run_graph = log.graph;
-      log.graph.reset(model_t::get_name(args.model));
 
       std::cout << "control run." << endl;
+      log.graph.reset(model_t::src_name(args.model));
       std::shared_ptr<Run> control_aggregate = do_reps(true);
       assert(control_aggregate != nullptr);
       latex << aggregate->str_compared(
