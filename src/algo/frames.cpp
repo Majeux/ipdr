@@ -237,13 +237,13 @@ namespace pdr
       log.stats.post_relax_F.resize(old_frames.size());
     });
 
-    // for (size_t i{ 1 }; i < old_frames.size(); i++)
-    // {
-    //   IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
-    //   for (vector<expr> const& cube : old_frames[i])
-    //     remove_state(
-    //         mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
-    // }
+    for (size_t i{ 1 }; i < old_frames.size(); i++)
+    {
+      IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
+      for (vector<expr> const& cube : old_frames[i])
+        remove_state(
+            mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
+    }
     MYLOG_DEBUG(log, blocked_str());
 
     // try to reblock all states from old_frames
@@ -257,7 +257,7 @@ namespace pdr
       {
         if (!trans_source(i, *cube_it))
         {
-          remove_state(*cube_it, i + 1);
+          remove_state_constrained(*cube_it, i + 1);
           cube_it++;
         }
         else
@@ -339,6 +339,52 @@ namespace pdr
     return false;
   }
 
+  // constrained state removal functions
+  //
+  bool Frames::remove_state_constrained(
+      std::vector<expr> const& cube, size_t level)
+  {
+    assert(level < frames.size());
+    // level = std::min(level, frames.size() - 1);
+    MYLOG_DEBUG(log, "removing constrained cube from level [1..{}]: [{}]",
+        level, join_ev(cube));
+
+    log.indent++;
+    bool result = delta_remove_state_constrained(cube, level);
+    log.indent--;
+    return result;
+  }
+
+  bool Frames::delta_remove_state_constrained(
+      std::vector<expr> const& cube, size_t level)
+  {
+    for (unsigned i = 1; i <= level; i++)
+    {
+      // remove all blocked cubes that are equal or weaker than cube
+      // in the last level, we can leave an equal cube in
+      unsigned n_removed =
+          frames.at(i).remove_subsumed_constrained(clit_ids, cube, i < level);
+      delta_solver.n_subsumed += n_removed;
+      MYLOG_DEBUG(
+          log, "cube subsumes {} cubes in level {}. removed.", n_removed, i);
+      IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
+    }
+
+    assert(level > 0 && level < frames.size());
+
+    if (frames[level].block(cube))
+    {
+      delta_solver.block(cube, act.at(level));
+      MYLOG_DEBUG(log, "blocked in {}", level);
+      return true;
+    }
+
+    MYLOG_DEBUG(log, "was already blocked in {}", level);
+    return false;
+  }
+
+  // propagation phase functions
+  //
   std::optional<size_t> Frames::propagate() { return propagate(frontier()); }
   std::optional<size_t> Frames::propagate(size_t k)
   {
@@ -660,7 +706,7 @@ namespace pdr
       // assert lit => cnf == !lit || cnf.
       // note this is equivalent to: !l || clause for each clause in cnf.
 
-      expr def = z3::implies(!lit, !z3::mk_and(cnf_clauses));
+      expr def = z3::implies(lit, z3::mk_and(cnf_clauses));
       rv.push_back(z3ext::tseytin::to_cnf(def));
       // for (expr const& clause : cnf_clauses)
       // {

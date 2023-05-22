@@ -78,12 +78,17 @@ namespace z3ext
     // @post: rv in form < c1, c2, ..., cn, constraint >.
     std::vector<z3::expr> mk_constrained_cube(
         std::map<unsigned, size_t> const& order,
-        std::vector<z3::expr>&& lits, size_t size);
+        std::vector<z3::expr>&& lits,
+        size_t size);
 
     // true if a is stronger than b.
-    // @pre: a and b in form < c1, c2, ..., cn, constraint >
-    bool subsumes_le(
-        std::vector<z3::expr> const& a, std::vector<z3::expr> const& b);
+    // @pre: a and b are potentially constrained literals
+    bool subsumes_l(std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& a,
+        std::vector<z3::expr> const& b);
+    bool subsumes_le(std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& a,
+        std::vector<z3::expr> const& b);
 
     // compares constrained cubes
     // cubes in form < c1, c2, ..., cn, constraint >

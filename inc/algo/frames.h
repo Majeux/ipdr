@@ -40,17 +40,14 @@ namespace pdr
     // reset solvers and repopulate with current blocked cubes
     void repopulate_solvers();
 
-    // incremental pdr functions
+    // relaxing opdr functions
     //
-    // after relaxing:
     // carry over all learned cubes to F_1 in a new sequence (if valid)
     // used after a constraint has been relaxed since a previous model
     void copy_to_F1();
-    // after relaxing:
     // carry over all learned cubes to a new sequence F_1..F_k (if valid)
     // used after a constraint has been relaxed since a previous model
     void copy_to_Fk();
-    // after relaxing.
     // carry over all learned cubes to a new sequence F_1..F_k.
     // if a cube is no longer valid under the new system: add a constraint
     // specifying it for the old system.
@@ -60,6 +57,8 @@ namespace pdr
     void copy_to_Fk_keep(
         size_t old_step, z3::expr_vector const& old_constraint);
 
+    // constraining ipdr functions
+    //
     // redo propagation for the previous level
     // return an invariant level if propagation finds one
     // used after a constraint has been tightened
@@ -75,6 +74,10 @@ namespace pdr
     //
     //
     bool remove_state(const std::vector<z3::expr>& cube, size_t level);
+    // removes a state and handles subsumption with cube constrained.
+    // slower that regular remove state. used only during relaxation
+    bool remove_state_constrained(
+        const std::vector<z3::expr>& cube, size_t level);
     std::optional<size_t> propagate();
     std::optional<size_t> propagate(size_t k);
     void push_forward_delta(size_t level, bool repeat = false);
@@ -90,11 +93,13 @@ namespace pdr
     // returns if there exists a transition from frame to cube,
     // allows collection of witness from solver(frame) if true.
     // if primed: cube is already in next state, else first convert it
-    bool trans_source(size_t frame, const std::vector<z3::expr>& dest_cube,
+    bool trans_source(size_t frame,
+        const std::vector<z3::expr>& dest_cube,
         bool primed = false);
     // returns the witness to a transition if it exists, else none
     std::optional<z3ext::solver::Witness> get_trans_source(size_t frame,
-        const std::vector<z3::expr>& dest_cube, bool primed = false);
+        const std::vector<z3::expr>& dest_cube,
+        bool primed = false);
 
     // returns true if the given cube or a stronger cube is already blocked
     // at level
@@ -168,6 +173,10 @@ namespace pdr
     // "delta_solver".
     // @return: true if "cube" was newly removed, false if it was already.
     bool delta_remove_state(const std::vector<z3::expr>& cube, size_t level);
+    // state removal for the delta-encoding with constrained cubes.
+    // called by remove_state_constrained().
+    bool delta_remove_state_constrained(
+        const std::vector<z3::expr>& cube, size_t level);
   };
 
 } // namespace pdr
