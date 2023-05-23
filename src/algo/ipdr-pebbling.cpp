@@ -20,7 +20,8 @@ namespace pdr::pebbling
       : vIPDR(args, c, l, m),
         ts(m),
         starting_pebbles(),
-        control_setting(args.control_run)
+        control_setting(args.control_run),
+        simple_relax(args.simple_relax)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
     auto const& peb =
@@ -87,8 +88,10 @@ namespace pdr::pebbling
           basic_reset(N);
         else
         {
-          relax_reset_constrained(N);
-          // relax_reset(N);
+          if (simple_relax)
+            relax_reset(N);
+          else
+            relax_reset_constrained(N);
         }
         total.append_inc_time(collect_inc_time(N, timer.elapsed().count()));
       }

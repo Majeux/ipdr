@@ -162,6 +162,7 @@ namespace pdr
       PebblingModel& ts; // same instance as the IModel in alg
       std::optional<unsigned> starting_pebbles;
       bool control_setting;
+      bool simple_relax;
 
       void basic_reset(unsigned pebbles);
       void relax_reset(unsigned pebbles);

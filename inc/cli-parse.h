@@ -138,6 +138,7 @@ namespace my::cli
     std::optional<double> subsumed_cutoff;
     std::optional<unsigned> ctg_max_depth;
     std::optional<unsigned> ctg_max_counters;
+    bool simple_relax{ true }; // else do constrained copy
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
     bool onlyshow; // only read in and produce the model image and description
     bool control_run;
@@ -209,6 +210,7 @@ namespace my::cli
     inline static const std::string s_whisper = "whisper";
     inline static const std::string s_silent  = "silent";
 
+    inline static const std::string s_simple_relax = "simple-relax";
     inline static const std::string s_skip_blocked = "skip-blocked";
     inline static const std::string s_mic          = "mic-attempts";
     inline static const std::string s_subsumed     = "cut-subsumed";

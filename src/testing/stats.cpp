@@ -695,6 +695,12 @@ namespace pdr
 
   string Graphs::lineplot(string_view name, string_view colour)
   {
+    string filling = name == "blue"
+                       ? ""
+                       : format(", every segment no 0/.style={{pattern=north "
+                                "west lines,pattern color={}}}",
+                             colour);
+
     return format(
         "\\addplot+[{},mark=x, mark size=4pt, x=x, y=y] "
         "table {{{}.dat}};\n"
@@ -702,8 +708,8 @@ namespace pdr
         "    table[x=x,y expr=\\thisrow{{y}}+\\thisrow{{err}}] {{{}.dat}};\n"
         "\\addplot [name path=lower,draw=none] \n"
         "    table[x=x,y expr=\\thisrow{{y}}-\\thisrow{{err}}] {{{}.dat}};\n"
-        "\\addplot [fill={}!20] fill between[of=upper and lower];",
-        colour, name, name, name, colour);
+        "\\addplot [fill={}!20] fill between[of=upper and lower{}];",
+        colour, name, name, name, colour, filling);
   }
 
   string Graphs::relaxplot(string_view name) const
