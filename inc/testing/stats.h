@@ -146,7 +146,7 @@ namespace pdr
   class Graphs
   {
    public:
-    void reset(std::string_view name);
+    void reset(std::string_view name, std::string_view inc_type);
     void add_datapoint(size_t label, Statistics const& stats);
     void add_inc(size_t label, double it);
     std::string get() const;

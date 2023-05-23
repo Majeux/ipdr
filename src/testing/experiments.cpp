@@ -50,7 +50,8 @@ namespace pdr::experiments
 
   // RUN PUBLIC MEMBERS
   //
-  Run::Run(std::string const& m, std::string const& t,
+  Run::Run(std::string const& m,
+      std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : results(std::move(r)), model(m), tactic(t)
   {
@@ -118,7 +119,8 @@ namespace pdr::experiments
       t.add_row(avg_inc_time_row()); // control should have no inc_time
       t.add_row(std_inc_time_row());
     }
-    else {
+    else
+    {
       t.add_row({});
       t.add_row({});
     }
@@ -160,7 +162,8 @@ namespace pdr::experiments
       t.add_row(avg_inc_time_row()); // control should have no inc_time
       t.add_row(std_inc_time_row());
     }
-    else {
+    else
+    {
       t.add_row({});
       t.add_row({});
     }
@@ -261,7 +264,10 @@ namespace pdr::experiments
     using fmt::format;
     using std::endl;
 
-    log.graph.reset(model_t::get_name(args.model));
+    std::string model_name  = model_t::get_name(args.model);
+    std::string tactic_name = pdr::tactic::to_string(tactic);
+
+    log.graph.reset(model_name, tactic_name);
     reset_tables();
 
     std::ofstream latex = args.folders.file_in_run("tex");
@@ -289,14 +295,14 @@ namespace pdr::experiments
     {
       std::cout << type + " run." << endl;
 
-      log.graph.reset(model_t::src_name(args.model));
+      log.graph.reset(model_name, tactic_name);
       std::shared_ptr<Run> aggregate = do_reps(false);
       latex << aggregate->str(output_format::latex);
 
       Graphs run_graph = log.graph;
 
       std::cout << "control run." << endl;
-      log.graph.reset(model_t::src_name(args.model));
+      log.graph.reset(model_name, tactic_name);
       std::shared_ptr<Run> control_aggregate = do_reps(true);
       assert(control_aggregate != nullptr);
       latex << aggregate->str_compared(

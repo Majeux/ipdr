@@ -156,8 +156,8 @@ namespace pdr
 
   void Statistics::update_peter(unsigned p, unsigned N)
   {
-    model_info[PROC_STR] = p;
-    model_info[SWITCH_STR]    = N;
+    model_info[PROC_STR]   = p;
+    model_info[SWITCH_STR] = N;
   }
 
   void Statistics::clear()
@@ -288,9 +288,9 @@ namespace pdr
 
   // Graphs MEMBERS
   //
-  void Graphs::reset(string_view name)
+  void Graphs::reset(string_view name, string_view inc_type)
   {
-    ts_name = name;
+    ts_name = format("{} ({})", name, inc_type);
     cti_data.clear();
     obl_data.clear();
     cti_data.clear();
@@ -429,7 +429,8 @@ namespace pdr
           "\%\\caption{{Statistics for {} experiment.}}\n", escape(name));
     }
 
-    string axis(vector<vector<string>> const& opt_groups, string_view name,
+    string axis(vector<vector<string>> const& opt_groups,
+        string_view name,
         string_view content)
     {
       std::stringstream ss;
@@ -569,7 +570,8 @@ namespace pdr
   }
 
   string Graphs::get_combined(string_view name,
-      std::map<unsigned, GraphData> const& data, string_view bar2,
+      std::map<unsigned, GraphData> const& data,
+      string_view bar2,
       string_view line2) const
   {
     string barname  = format("{}-count", name);
@@ -592,7 +594,8 @@ namespace pdr
   }
 
   string Graphs::get_bargraph(string_view name,
-      std::map<unsigned, GraphData> const& data, string_view colour) const
+      std::map<unsigned, GraphData> const& data,
+      string_view colour) const
   {
     string fname = format("{} {}", ts_name, name);
     string count_data;
@@ -604,7 +607,8 @@ namespace pdr
   }
 
   string Graphs::get_linegraph(string_view name,
-      std::map<unsigned, GraphData> const& data, string_view colour) const
+      std::map<unsigned, GraphData> const& data,
+      string_view colour) const
   {
     string fname = format("{} {}", ts_name, name);
     string line_data;

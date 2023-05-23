@@ -182,7 +182,8 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       },
       model);
 
-  log.graph.reset(model_t::get_name(args.model));
+  std::string model_name = model_t::get_name(args.model);
+  log.graph.reset(model_name, "pdr");
 
   pdr::PdrResult res = std::visit([](vPDR& a) { return a.run(); }, algorithm);
 
@@ -237,7 +238,9 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 
   ModelVariant model(construct_model(args, context, log));
 
-  log.graph.reset(model_t::get_name(args.model));
+  std::string model_name  = model_t::get_name(args.model);
+  std::string tactic_name = pdr::tactic::to_string(ipdr.type);
+  log.graph.reset(model_name, tactic_name);
 
   // create algorithm
   IPDRVariant algorithm(std::visit(

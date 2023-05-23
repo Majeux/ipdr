@@ -229,8 +229,10 @@ namespace pdr::pebbling
             early_inv = constrain_reset(m);
           else if (m > m_prev)
           {
-            relax_reset_constrained(m);
-            // relax_reset(N);
+            if (simple_relax)
+              relax_reset(m);
+            else
+              relax_reset_constrained(m);
           }
         }
         total.append_inc_time(collect_inc_time(m, timer.elapsed().count()));
