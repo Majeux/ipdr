@@ -19,6 +19,8 @@
 #include <vector>
 #include <z3++.h>
 
+#include <dbg.h>
+
 namespace pdr
 {
   using std::optional;
@@ -33,7 +35,10 @@ namespace pdr
         ctx(c),
         model(m),
         log(l),
-        FI_solver(ctx, model, m.get_initial(), m.get_transition(),
+        FI_solver(ctx,
+            model,
+            m.get_initial(),
+            m.get_transition(),
             m.get_constraint()),
         delta_solver(
             ctx, model, m.property, m.get_transition(), m.get_constraint())
@@ -195,17 +200,19 @@ namespace pdr
   void Frames::copy_to_Fk_keep(
       size_t old_step, expr_vector const& old_constraint)
   {
+    using namespace z3ext::constrained_cube;
+
     assert(frames.size() > 0);
     assert(model.diff == IModel::Diff_t::relaxed);
-    // new step is marked as larger than the previous
+    // new step must be marked as larger than the previous
     assert(constraints.empty() || constraints.rbegin()->first < old_step);
-
-    using namespace z3ext::constrained_cube;
 
     MYLOG_INFO(log, "Check and copy frames to new sequence: < F_1 ... F_{} >",
         frames.size() - 1);
 
-    constraints.emplace(old_step, old_constraint);
+    new_constraint(old_step, old_constraint);
+
+    // put all definitions into solver
     expr_vector base = z3ext::vec_add(model.property(), old_constraints());
     delta_solver.remake(base, model.get_transition(), model.get_constraint());
 
@@ -223,18 +230,19 @@ namespace pdr
     }
 
     // every cube is valid under the old constraint, as proven by previous pdr
-    // TODO: add constraint <=> constraint_expression to solver
     MYLOG_DEBUG(log, "Copying frames under constraint: [{}]",
-        old_constraint[0].to_string());
+        old_constraint.to_string());
     IF_STATS({
       log.stats.pre_relax_F.resize(old_frames.size());
       log.stats.post_relax_F.resize(old_frames.size());
     });
+
     for (size_t i{ 1 }; i < old_frames.size(); i++)
     {
       IF_STATS(log.stats.pre_relax_F.at(i) = old_frames[i].size(););
       for (vector<expr> const& cube : old_frames[i])
-        remove_state(mk_constrained_cube(cube, old_step), i); // at least true
+        remove_state(
+            mk_constrained_cube(clit_ids, cube, old_step), i); // at least true
     }
     MYLOG_DEBUG(log, blocked_str());
 
@@ -249,7 +257,7 @@ namespace pdr
       {
         if (!trans_source(i, *cube_it))
         {
-          remove_state(*cube_it, i + 1);
+          remove_state_constrained(*cube_it, i + 1);
           cube_it++;
         }
         else
@@ -331,6 +339,52 @@ namespace pdr
     return false;
   }
 
+  // constrained state removal functions
+  //
+  bool Frames::remove_state_constrained(
+      std::vector<expr> const& cube, size_t level)
+  {
+    assert(level < frames.size());
+    // level = std::min(level, frames.size() - 1);
+    MYLOG_DEBUG(log, "removing constrained cube from level [1..{}]: [{}]",
+        level, join_ev(cube));
+
+    log.indent++;
+    bool result = delta_remove_state_constrained(cube, level);
+    log.indent--;
+    return result;
+  }
+
+  bool Frames::delta_remove_state_constrained(
+      std::vector<expr> const& cube, size_t level)
+  {
+    for (unsigned i = 1; i <= level; i++)
+    {
+      // remove all blocked cubes that are equal or weaker than cube
+      // in the last level, we can leave an equal cube in
+      unsigned n_removed =
+          frames.at(i).remove_subsumed_constrained(clit_ids, cube, i < level);
+      delta_solver.n_subsumed += n_removed;
+      MYLOG_DEBUG(
+          log, "cube subsumes {} cubes in level {}. removed.", n_removed, i);
+      IF_STATS(log.stats.subsumed_cubes.add(level, n_removed));
+    }
+
+    assert(level > 0 && level < frames.size());
+
+    if (frames[level].block(cube))
+    {
+      delta_solver.block(cube, act.at(level));
+      MYLOG_DEBUG(log, "blocked in {}", level);
+      return true;
+    }
+
+    MYLOG_DEBUG(log, "was already blocked in {}", level);
+    return false;
+  }
+
+  // propagation phase functions
+  //
   std::optional<size_t> Frames::propagate() { return propagate(frontier()); }
   std::optional<size_t> Frames::propagate(size_t k)
   {
@@ -600,6 +654,18 @@ namespace pdr
 
   //  PRIVATE MEMBERS
   //
+  void Frames::new_constraint(size_t i, expr_vector const& clauses)
+  {
+    using namespace z3ext::constrained_cube;
+
+    assert(z3ext::are_clauses(clauses)); // describes cnf
+    expr clit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
+
+    constraints.emplace(i, clauses);
+    clits.emplace(i, clit);
+    clit_ids.emplace(clit.id(), i);
+  }
+
   void Frames::init_frames()
   {
     assert(frames.empty());
@@ -634,15 +700,20 @@ namespace pdr
 
     expr_vector rv(ctx.z3_ctx);
 
-    for (auto& [i, e] : constraints)
+    for (auto& [i, cnf_clauses] : constraints)
     {
-      assert(e.size() == 2);
       expr lit = ctx.z3_ctx.bool_const(constraint_str(i).c_str());
-      // lit <=> e and lit <=> e.p
-      rv.push_back(!lit || e[0]); // lit => e
-      // rv.push_back(lit || !e[0]); // e => lit
-      rv.push_back(!lit || e[1]); // idem for next state vars
-      // rv.push_back(lit || !e[1]);
+      // assert lit => cnf == !lit || cnf.
+      // note this is equivalent to: !l || clause for each clause in cnf.
+
+      expr def = z3::implies(lit, z3::mk_and(cnf_clauses));
+      rv.push_back(z3ext::tseytin::to_cnf(def));
+      // for (expr const& clause : cnf_clauses)
+      // {
+      //   rv.push_back(!lit || clause); // lit => clause
+      //   // rv.push_back(lit || !clause); // clause => lit
+      //   // rv.push_back(dbg(z3ext::tseytin::to_cnf(lit == clause)));
+      // }
     }
 
     return rv;

@@ -31,6 +31,7 @@
 
 namespace pdr
 {
+  class vIPDR;
   namespace pebbling
   {
     class IPDR;
@@ -42,6 +43,7 @@ namespace pdr
 
   class PDR : public vPDR
   {
+    friend class vIPDR;
     friend class pebbling::IPDR;
     friend class peterson::IPDR;
 
@@ -105,7 +107,8 @@ namespace pdr
     void log_iteration();
     void log_cti(std::vector<z3::expr> const& cti, unsigned level);
     void log_propagation(unsigned level, double time);
-    void log_top_obligation(size_t queue_size, unsigned top_level,
+    void log_top_obligation(size_t queue_size,
+        unsigned top_level,
         std::vector<z3::expr> const& top);
     void log_pred(std::vector<z3::expr> const& p);
     void log_state_push(unsigned frame);
@@ -125,6 +128,12 @@ namespace pdr
 
     PDR const& internal_alg() const { return alg; }
 
+    double collect_inc_time(size_t new_N, double t)
+    {
+      alg.logger.graph.add_inc(new_N, t);
+      return t;
+    }
+
    protected: // usable by pdr and ipdr implementations
     PDR alg;
   };
@@ -134,7 +143,9 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
+      IPDR(my::cli::ArgumentList const& args,
+          Context c,
+          Logger& l,
           PebblingModel& m);
 
       // runs the optimizer as dictated by the argument
@@ -153,7 +164,6 @@ namespace pdr
       bool control_setting;
       bool simple_relax;
 
-      double collect_inc_time(size_t new_N, double t);
       void basic_reset(unsigned pebbles);
       void relax_reset(unsigned pebbles);
       void relax_reset_constrained(unsigned pebbles);
@@ -166,16 +176,17 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args, Context c, Logger& l,
+      IPDR(my::cli::ArgumentList const& args,
+          Context c,
+          Logger& l,
           PetersonModel& m);
 
       // runs the optimizer as dictated by the argument
-      IpdrPetersonResult run(Tactic tactic, std::optional<unsigned> processes);
+      IpdrPetersonResult run(Tactic tactic, unsigned max_bound);
       // runs the optimizer as dictated by the argument but with forced
       // experiment_control (basic_reset only)
-      IpdrPetersonResult control_run(Tactic tactic, unsigned processes);
-      IpdrPetersonResult relax(unsigned processes, bool control);
-      IpdrPetersonResult relax_jump_test(unsigned start, int step);
+      IpdrPetersonResult control_run(Tactic tactic, unsigned max_bound);
+      IpdrPetersonResult relax(unsigned max_bound, bool control);
 
       // PDR const& internal_alg() const; from vIPDR
      private:
@@ -183,9 +194,8 @@ namespace pdr
       PetersonModel& ts; // same instance as the IModel in alg
       bool control_setting;
 
-      double collect_inc_time(double t);
-      void basic_reset(unsigned processes);
-      void relax_reset(unsigned processes);
+      void basic_reset(unsigned switches);
+      void relax_reset(unsigned switches);
     }; // class Optimizer
   }    // namespace peterson
 } // namespace pdr

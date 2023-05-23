@@ -292,12 +292,6 @@ namespace pdr::pebbling
 
   // Private members
   //
-  double IPDR::collect_inc_time(size_t new_N, double t)
-  {
-    alg.logger.graph.add_inc(new_N, t);
-    return t;
-  }
-
   void IPDR::basic_reset(unsigned pebbles)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
@@ -313,6 +307,7 @@ namespace pdr::pebbling
 
   void IPDR::relax_reset(unsigned pebbles)
   {
+    assert(std::addressof(ts) == std::addressof(alg.ts));
     using fmt::format;
 
     optional<unsigned> old = ts.get_pebble_constraint();
@@ -324,14 +319,13 @@ namespace pdr::pebbling
     ts.constrain(pebbles);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.copy_to_F1();
-    // alg.frames.copy_to_Fk();
+    // alg.frames.copy_to_F1();
+    alg.frames.copy_to_Fk();
   }
 
   void IPDR::relax_reset_constrained(unsigned pebbles)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
-
     using fmt::format;
 
     unsigned old                   = ts.get_pebble_constraint().value();

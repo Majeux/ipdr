@@ -21,10 +21,7 @@ namespace pdr
 
   Frame::Frame(unsigned i) : level(i) {}
 
-  void Frame::clear()
-  {
-    blocked_cubes.clear();
-  }
+  void Frame::clear() { blocked_cubes.clear(); }
 
   bool Frame::is_subsumed(vector<expr> const& new_cube) const
   {
@@ -45,6 +42,31 @@ namespace pdr
     auto subsumes = [remove_equal](const vector<expr>& l, const vector<expr>& r)
     {
       return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
+    };
+
+    for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
+    {
+      if (subsumes(cube, *it))
+        it = blocked_cubes.erase(it);
+      else
+        it++;
+    }
+    return before - blocked_cubes.size();
+  }
+
+  unsigned Frame::remove_subsumed_constrained(
+      std::map<unsigned, size_t> const& order,
+      const std::vector<z3::expr>& cube,
+      bool remove_equal)
+  {
+    using z3ext::constrained_cube::subsumes_l;
+    using z3ext::constrained_cube::subsumes_le;
+
+    unsigned before = blocked_cubes.size();
+
+    auto subsumes = [remove_equal, &order](
+                        const vector<expr>& l, const vector<expr>& r) {
+      return remove_equal ? subsumes_le(order, l, r) : subsumes_l(order, l, r);
     };
 
     for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)

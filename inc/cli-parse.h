@@ -63,8 +63,8 @@ namespace my::cli
 
     struct Peterson
     {
-      unsigned start;
-      unsigned max;
+      unsigned processes;
+      std::optional<unsigned> switch_bound;
     };
 
     using Model_var = std::variant<Pebbling, Peterson>;
@@ -193,6 +193,7 @@ namespace my::cli
 
     inline static const std::string s_pebbles = "pebbles";
     inline static const std::string s_mprocs  = "max_procs";
+    inline static const std::string s_mswitch = "max_switches";
     inline static const std::string s_procs   = "procs";
 
     inline static const std::string s_dir   = "dir";

@@ -4,6 +4,7 @@
 #include "peterson.h"
 #include "types-ext.h"
 #include <cassert>
+#include <climits>
 
 namespace pdr::peterson
 {
@@ -23,128 +24,97 @@ namespace pdr::peterson
         throw std::invalid_argument("Decrement not implemented.");
         break;
       case Tactic::relax: return relax(processes, true);
-      case Tactic::inc_jump_test: relax_jump_test(processes, 10); break;
-      case Tactic::inc_one_test: relax_jump_test(processes, 1); break;
       default: break;
     }
     throw std::invalid_argument(
         "No optimization pdr tactic has been selected.");
   }
 
-  IpdrPetersonResult IPDR::run(Tactic tactic, std::optional<unsigned> processes)
+  IpdrPetersonResult IPDR::run(Tactic tactic, unsigned max_bound)
   {
-    unsigned p;
-    if (processes)
-    {
-      p = processes.value();
-      basic_reset(p);
-    }
-    else
-      p = ts.n_processes();
-
     switch (tactic)
     {
       case Tactic::constrain:
         throw std::invalid_argument("Constrain not implemented.");
         break;
-      case Tactic::relax: return relax(p, control_setting);
-      case Tactic::inc_jump_test: relax_jump_test(p, 10); break;
-      case Tactic::inc_one_test: relax_jump_test(p, 1); break;
+      case Tactic::relax: return relax(max_bound, control_setting);
       default: break;
     }
     throw std::invalid_argument(
         "No optimization pdr tactic has been selected.");
   }
 
-  IpdrPetersonResult IPDR::relax(unsigned p, bool control)
+  IpdrPetersonResult IPDR::relax(unsigned max_bound, bool control)
   {
-    assert(p == ts.n_processes());
-    unsigned N = ts.max_processes();
-    alg.logger.and_whisper("! Proving peterson for {}..{} processes.", p, N);
+    alg.logger.and_whisper(
+        "! Proving peterson for {} processes.", ts.n_processes());
+
+    unsigned bound = 0;
+    basic_reset(bound);
 
     IpdrPetersonResult total(ts, Tactic::relax);
 
     pdr::PdrResult invariant = alg.run();
-    total.add(invariant, ts.n_processes());
+    total.add(invariant, bound);
 
-    for (p = p + 1; invariant && p <= N; p++)
+    for (bound = bound + 1; invariant && bound <= max_bound; bound++)
     {
       spdlog::stopwatch timer;
       if (control)
-        basic_reset(p);
+        basic_reset(bound);
       else
-        relax_reset(p);
-      total.append_inc_time(timer.elapsed().count()); // adds to previous result
+        relax_reset(bound);
+      total.append_inc_time(collect_inc_time(bound, timer.elapsed().count()));
 
       invariant = alg.run();
 
-      total.add(invariant, ts.n_processes());
+      total.add(invariant, bound);
     }
 
-    if (invariant && p > N) // last run did not find a trace
+    if (invariant && bound > max_bound) // last run did not find a trace
     {
       alg.logger.and_whisper("! No trace exists.");
       return total;
     }
     // N is minimal
-    alg.logger.and_whisper("! Counter for p={}", p - 1);
+    alg.logger.and_whisper("! Counter for switches switch", bound);
     return total;
   }
 
   // Private members
   //
-  void IPDR::basic_reset(unsigned processes)
+  void IPDR::basic_reset(unsigned switches)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
 
-    unsigned old = ts.n_processes();
+    if (ts.get_switch_bound() != switches)
+    {
+      alg.logger.and_show("naive change from {} -> {} switches",
+          ts.get_switch_bound().value_or(UINT_MAX), switches);
+      ts.constrain_switches(switches);
+    }
+    else
+    {
+      alg.logger.and_show("switches kept at {}", switches);
+    }
 
-    alg.logger.and_show("naive change from {} / {} -> {} / {}", old,
-        ts.max_processes(), processes, ts.max_processes());
-
-    ts.constrain(processes);
     alg.ctx.type = Tactic::basic;
     alg.reset();
   }
 
-  void IPDR::relax_reset(unsigned processes)
+  void IPDR::relax_reset(unsigned switches)
   {
     assert(std::addressof(ts) == std::addressof(alg.ts));
 
-    unsigned old = ts.n_processes();
-    assert(processes > old);
+    unsigned old                   = ts.get_switch_bound().value();
+    z3::expr_vector old_constraint = z3ext::copy(ts.get_constraint());
+    assert(switches > old);
 
-    alg.logger.and_show("increment from {} / {} -> {} / {} processes", old,
-        ts.max_processes(), processes, ts.max_processes());
+    alg.logger.and_show("increment from {} -> {} switches", old, switches);
 
-    ts.constrain(processes);
+    ts.constrain_switches(switches);
 
     alg.ctx.type = Tactic::relax;
-    alg.frames.copy_to_F1();
-  }
-
-  IpdrPetersonResult IPDR::relax_jump_test(unsigned start, int step)
-  {
-    std::vector<pdr::Statistics> statistics;
-    alg.logger.and_show("NEW INC JUMP TEST RUN");
-    alg.logger.and_show("start {}. step {}", start, step);
-
-    IpdrPetersonResult total(ts, Tactic::relax);
-    basic_reset(start);
-    pdr::PdrResult invariant = alg.run();
-    total.add(invariant, ts.n_processes());
-
-    unsigned oldp = ts.n_processes();
-    unsigned newp = oldp + step;
-    assert(newp > 0);
-    assert(oldp < newp);
-    assert(newp <= ts.max_processes());
-
-    relax_reset(newp);
-    invariant = alg.run();
-
-    total.add(invariant, ts.n_processes());
-
-    return total;
+    alg.frames.copy_to_Fk_keep(old, old_constraint);
   }
 } // namespace pdr::peterson

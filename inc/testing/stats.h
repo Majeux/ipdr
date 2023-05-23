@@ -115,7 +115,7 @@ namespace pdr
     std::map<std::string, unsigned> model_info;
 
     static inline const std::string PROC_STR = "processes";
-    static inline const std::string N_STR    = "max_processes";
+    static inline const std::string SWITCH_STR    = "bound on switches";
   };
 
   // aggregated data over a certain number of experiments

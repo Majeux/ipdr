@@ -50,7 +50,8 @@ using namespace my::io;
 
 // aliases
 using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel, pdr::peterson::PetersonModel>;
+    pdr::pebbling::PebblingModel,
+    pdr::peterson::PetersonModel>;
 
 // algorithm handling
 ModelVariant construct_model(
@@ -123,7 +124,8 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
 }
 
 using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel, pdr::peterson::PetersonModel>;
+    pdr::pebbling::PebblingModel,
+    pdr::peterson::PetersonModel>;
 
 ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log)
@@ -151,12 +153,14 @@ ModelVariant construct_model(
   auto peterson = get_cref<model_t::Peterson>(args.model);
   assert(peterson);
 
-  unsigned start = peterson->get().start;
-  unsigned max   = peterson->get().max;
-  pdr::peterson::PetersonModel peter(context.z3_ctx, start, max);
-  log.stats.is_peter(start, max);
-  peter.constrain_switches(4);
+  unsigned procs        = peterson->get().processes;
+  unsigned switch_bound = peterson->get().switch_bound.value();
+
+  auto peter = pdr::peterson::PetersonModel::constrained_switches(
+      context.z3_ctx, procs, switch_bound);
+  log.stats.is_peter(procs, switch_bound);
   peter.show(args.folders.model_file);
+  // peter.test_room();
 
   return peter;
 }
@@ -197,6 +201,16 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
                            return pdr::result::trace_table(
                                res, m.vars.names(), m.vars.names_p());
                          },
+                     [&](pebbling::PebblingModel const& m)
+                     {
+                       return pebbling::result::trace_table(
+                           res, m.vars.names(), m.vars.names_p(), m);
+                     },
+                     [&](peterson::PetersonModel const& m)
+                     {
+                       return peterson::result::trace_table(
+                           res, m.vars.names(), m.vars.names_p(), m);
+                     },
                      [&](IModel const& m) {
                        return pdr::result::trace_table(
                            res, m.vars.names(), m.vars.names_p());
@@ -247,7 +261,12 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
           { return a.control_run(ipdr.type); },
           [&](pebbling::IPDR& a) -> ResultVariant { return a.run(ipdr.type); },
           [&](peterson::IPDR& a) -> ResultVariant
-          { return a.run(ipdr.type, {}); },
+          {
+            unsigned max_switches = get_cref<model_t::Peterson>(args.model)
+                                        ->get()
+                                        .switch_bound.value();
+            return a.run(ipdr.type, max_switches);
+          },
       },
       algorithm));
 

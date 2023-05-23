@@ -2,15 +2,18 @@
 #include "expr.h"
 
 #include <algorithm>
+#include <cassert>
 #include <fmt/core.h>
 #include <iostream>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <z3++.h>
+#include <z3_api.h>
 
 namespace z3ext
 {
@@ -109,64 +112,139 @@ namespace z3ext
     }
 
     std::vector<z3::expr> mk_constrained_cube(
-        std::vector<z3::expr> const& lits, size_t size)
+        std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& lits,
+        size_t size)
     {
       vector<expr> rv(lits);
-      return mk_constrained_cube(std::move(rv), size);
+      return mk_constrained_cube(order, std::move(rv), size);
     }
 
-    std::vector<z3::expr> mk_constrained_cube(vector<expr>&& lits, size_t size)
+    bool atmost_one_clit(
+        std::map<unsigned, size_t> const& order, vector<expr> const& lits)
     {
-      assert(std::is_sorted(lits.cbegin(), lits.cend(), cexpr_less()));
-      assert(std::all_of(lits.cbegin(), std::prev(lits.cend()), // lits[0..-1]
-          [](expr const& e) { return !constraint_size(e); }));  // no constraint
+      bool one_found{ false };
+      for (expr const& e : lits)
+        if (order.find(e) != order.end())
+        {
+          if (one_found)
+            return false;
+          one_found = true;
+        }
+      return true;
+    }
+
+    std::vector<z3::expr> mk_constrained_cube(
+        std::map<unsigned, size_t> const& order,
+        vector<expr>&& lits,
+        size_t size)
+    {
+      assert(lits_ordered(lits));
+      assert(atmost_one_clit(order, lits));
 
       z3::context& ctx = lits.at(0).ctx();
       expr constraint  = ctx.bool_const(constraint_str(size).c_str());
 
-      if (auto current_constraint = constraint_size(lits.back().to_string()))
+      auto start = lits.begin();
+      auto end   = lits.end();
+      // see if a clit from order is present
+      for (auto it = start; it != end; it++)
       {
-        std::cout << "yes" << std::endl;
-        if (size >= *current_constraint) // new constraint subsumes old
-          lits.back() = constraint;      // replace old
-        return lits;
+        auto lit = order.find(it->id());
+        if (lit != order.end()) // clit found
+        {
+          if (size < lit->second) // tightest constraint holds
+          {
+            lits.erase(it);        // replace old
+            break;
+          }
+          else 
+            return std::move(lits); // keep old lits
+        }
       }
 
-      lits.push_back(constraint);
+      // insert constraint and maintain sorted order
+      auto position = std::lower_bound(start, end, constraint, cube_orderer);
+      if (position != end)
+        lits.insert(position, constraint);
+      else
+        lits.push_back(constraint); // inserting at end segfaults on ctx
+
       return std::move(lits);
     }
 
-    bool subsumes_le(vector<expr> const& a, vector<expr> const& b)
+    struct CLit
     {
-      // preliminary
-      optional<size_t> a_con = constraint_size(a.back());
-      optional<size_t> b_con = constraint_size(b.back());
+      optional<size_t> constraint;
+      vector<expr> lits;
+    };
 
-      auto a_last = a_con ? std::prev(a.cend()) : a.cend(); // strip constraint
-      auto b_last = b_con ? std::prev(b.cend()) : b.cend();
-
-      auto cube_size = [](vector<expr> const& ev, bool constrained)
-      { return ev.size() - constrained; };
-
-      auto alits_subsume_blits = [&]() -> bool
+    CLit extract_clit(
+        std::map<unsigned, size_t> const& order, vector<expr> const& lits)
+    {
+      CLit rv;
+      // see if a clit from order is present
+      for (auto it = lits.begin(); it != lits.end(); it++)
       {
-        // cube a is larger, so cannot subsume b
-        if (cube_size(a, a_con.has_value()) > cube_size(b, b_con.has_value()))
-          return false;
+        auto lit = order.find(it->id());
+        if (lit != order.end()) // clit found
+        {
+          if (rv.constraint)
+            throw std::runtime_error("expr_vector contains multiple clits");
+          rv.constraint = lit->second;
+        }
+        else
+          rv.lits.push_back(*it);
+      }
+      return rv;
+    }
 
-        return std::includes(
-            b.cbegin(), b_last, a.cbegin(), a_last, cube_orderer);
-      };
+    bool subsumes_l(std::map<unsigned, size_t> const& order,
+        vector<expr> const& a,
+        vector<expr> const& b)
+    {
+      assert(lits_ordered(a));
+      assert(lits_ordered(b));
+      assert(atmost_one_clit(order, a));
+      assert(atmost_one_clit(order, b));
+
+      CLit alits = extract_clit(order, a);
+      CLit blits = extract_clit(order, b);
 
       // main body
-      if (!a_con) // no constraint is always stronger or equal
-        return alits_subsume_blits(); // return if a's literals are stronger
+      if (!alits.constraint) // no constraint is always stronger or equal
+        return z3ext::subsumes_l(alits.lits, blits.lits);
 
-      if (b_con && *a_con >= *b_con)  // a has a stronger constraint
-        return alits_subsume_blits(); // return if a's literals are stronger
+      // a has a stronger constraint
+      if (blits.constraint && *alits.constraint > *blits.constraint)
+        return z3ext::subsumes_l(alits.lits, blits.lits);
 
-      // b_con is stronger than a_con, or b is unconstrained
-      return false; // so b is stronger even if cubes subsumes
+      // constraint b is stronger than constraint a, or b is unconstrained
+      return false; // so b is stronger even if cube subsumes
+    }
+
+    bool subsumes_le(std::map<unsigned, size_t> const& order,
+        vector<expr> const& a,
+        vector<expr> const& b)
+    {
+      assert(lits_ordered(a));
+      assert(lits_ordered(b));
+      assert(atmost_one_clit(order, a));
+      assert(atmost_one_clit(order, b));
+
+      CLit alits = extract_clit(order, a);
+      CLit blits = extract_clit(order, b);
+
+      // main body
+      if (!alits.constraint) // no constraint is always stronger or equal
+        return z3ext::subsumes_le(alits.lits, blits.lits);
+
+      // a has a stronger constraint
+      if (blits.constraint && *alits.constraint >= *blits.constraint)
+        return z3ext::subsumes_le(alits.lits, blits.lits);
+
+      // constraint b is stronger than constraint a, or b is unconstrained
+      return false; // so b is stronger even if cube subsumes
     }
 
     bool cexpr_less::operator()(expr const& a, expr const& b) const
@@ -189,7 +267,43 @@ namespace z3ext
 
   bool is_lit(expr const& e)
   {
-    return e.is_bool() && (e.is_not() || e.is_const());
+    return e.is_bool() &&
+           ((e.is_const() || is_card(e)) ||
+               (e.is_not() && (e.arg(0).is_const() || is_card(e.arg(0)))));
+  }
+
+  bool is_clause(expr const& e)
+  {
+    if (is_lit(e))
+      return true;
+
+    if (!e.is_or())
+      return false;
+
+    for (expr const& e : e.args())
+      if (!is_lit(e))
+        return false;
+
+    return true;
+  }
+
+  bool are_clauses(expr_vector const& ev)
+  {
+    for (expr const& e : ev)
+      if (!is_clause(e))
+        return false;
+    return true;
+  }
+
+  bool is_card(z3::expr const& e)
+  {
+    if (e.is_app())
+    {
+      auto kind = e.decl().decl_kind();
+      return kind == Z3_OP_PB_AT_LEAST || kind == Z3_OP_PB_AT_MOST;
+    }
+    else
+      return false;
   }
 
   expr strip_not(expr const& e)
