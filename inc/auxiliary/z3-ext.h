@@ -103,6 +103,7 @@ namespace z3ext
 
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
+  bool is_cube(z3::expr const& e);
   bool is_clause(z3::expr const& e);
   bool are_clauses(z3::expr_vector const& ev);
   bool is_card(z3::expr const& e);

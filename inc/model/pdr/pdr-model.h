@@ -34,6 +34,10 @@ namespace pdr
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_constraint() const;
+    virtual const z3::expr get_constraint_current() const = 0;
+
+    // the number of literals that encode a state of the system
+    virtual unsigned state_size() const = 0;
     // brief string to describe the meaning of the present constraint
     virtual const std::string constraint_str() const = 0;
     // number representative of the constraint. a larger number is a looser

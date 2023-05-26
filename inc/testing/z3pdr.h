@@ -5,6 +5,7 @@
 #include "expr.h"
 #include "logger.h"
 #include "pdr-context.h"
+#include "pdr-model.h"
 #include "pebbling-result.h"
 #include "result.h"
 #include "vpdr.h"
@@ -22,13 +23,19 @@ namespace pdr::test
     friend class z3PebblingIPDR;
 
    public:
-    z3PDR(Context c, Logger& l, Z3Model& m);
+    z3PDR(Context c, Logger& l, IModel& m);
 
     PdrResult run() override;
     void reset() override;
     void show_solver(std::ostream& out) const override;
 
    private:
+    IModel& ts;
+
+    z3::sort_vector state_sorts;
+    z3::func_decl state; // B^N |-> B
+    z3::func_decl step;  // B^N B^N |-> B
+
     struct Rule
     {
       z3::expr expr;
@@ -38,7 +45,6 @@ namespace pdr::test
       Rule(z3::expr const& e, z3::symbol const& n) : expr(e), name(n) {}
     };
 
-    Z3Model& ts;
     z3::check_result last_result = z3::check_result::unknown;
     std::string cover_string{ "" };
 
@@ -46,6 +52,14 @@ namespace pdr::test
     PdrResult::Trace::TraceVec get_trace_states(z3::fixedpoint& engine);
 
     z3::fixedpoint mk_prepare_fixedpoint();
+
+    // create a rule for the fixedpoint engine
+    Rule mk_rule(z3::expr const& e, std::string const& n);
+    Rule mk_rule(
+        z3::expr const& head, z3::expr const& body, std::string const& n);
+
+    // quantify over all variables in vars
+    z3::expr forall_vars(z3::expr const& e) const;
   };
 
   // class to verify against z3's pdr implementation
@@ -53,7 +67,9 @@ namespace pdr::test
   class z3PebblingIPDR
   {
    public:
-    z3PebblingIPDR(my::cli::ArgumentList const& args, Context& c, Logger& l,
+    z3PebblingIPDR(my::cli::ArgumentList const& args,
+        Context& c,
+        Logger& l,
         Z3PebblingModel& m);
 
     // run ipdr without any incremental funtionality

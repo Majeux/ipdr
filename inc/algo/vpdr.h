@@ -6,28 +6,29 @@
 #include "result.h"
 #include <ostream>
 
-namespace pdr {
+namespace pdr
+{
   class vPDR
   {
-    public:
-      vPDR(Context c, Logger& l) : ctx(c), logger(l) {}
-      virtual ~vPDR() {}
+   public:
+    Context ctx;
+    Logger& logger;
 
-      // Context const& get_ctx() const { return ctx; };
-      // Context& get_ctx() { return ctx; }
+    vPDR(Context c, Logger& l) : ctx(c), logger(l) {}
+    virtual ~vPDR() {}
 
-      // run pdr, returning either an inductive invariant or a counterexample trace
-      virtual PdrResult run() = 0;
+    Context const& get_ctx() const { return ctx; };
+    // Context& get_ctx() { return ctx; }
 
-      // rest pdr's internal state. discards any recorded information or state
-      virtual void reset() = 0;
+    // run pdr, returning either an inductive invariant or a counterexample
+    // trace
+    virtual PdrResult run() = 0;
 
-      virtual void show_solver(std::ostream& out) const = 0;
+    // rest pdr's internal state. discards any recorded information or state
+    virtual void reset() = 0;
 
-    protected: // usable by pdr and ipdr implementations
-      Context ctx;
-      Logger& logger;
+    virtual void show_solver(std::ostream& out) const = 0;
   };
-}
+} // namespace pdr
 
 #endif // VPDR_H

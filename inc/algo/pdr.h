@@ -120,22 +120,19 @@ namespace pdr
   class vIPDR
   {
    public:
-    vIPDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
-        : alg(args, c, l, m)
-    {
-    }
+    vIPDR(std::shared_ptr<vPDR>&& a) : alg(std::move(a)) {}
     virtual ~vIPDR() {}
 
-    PDR const& internal_alg() const { return alg; }
+    vPDR const& internal_alg() const { return *alg; }
 
     double collect_inc_time(size_t new_N, double t)
     {
-      alg.logger.graph.add_inc(new_N, t);
+      alg->logger.graph.add_inc(new_N, t);
       return t;
     }
 
    protected: // usable by pdr and ipdr implementations
-    PDR alg;
+    std::shared_ptr<vPDR> alg;
   };
 
   namespace pebbling
@@ -144,6 +141,14 @@ namespace pdr
     {
      public:
       IPDR(my::cli::ArgumentList const& args,
+          std::shared_ptr<vPDR>&& a,
+          PebblingModel& m);
+
+      static IPDR myIPDR(my::cli::ArgumentList const& args,
+          Context c,
+          Logger& l,
+          PebblingModel& m);
+      static IPDR z3IPDR(my::cli::ArgumentList const& args,
           Context c,
           Logger& l,
           PebblingModel& m);
@@ -156,7 +161,6 @@ namespace pdr
       IpdrPebblingResult relax(bool control);
       IpdrPebblingResult constrain(bool control);
       IpdrPebblingResult binary(bool control);
-      IpdrPebblingResult relax_jump_test(unsigned start, int step);
 
      private:
       PebblingModel& ts; // same instance as the IModel in alg

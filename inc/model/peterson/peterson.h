@@ -73,6 +73,8 @@ namespace pdr::peterson
     static PetersonModel constrained_procs(
         z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
+    const z3::expr get_constraint_current() const override;
+    unsigned state_size() const override;
     const std::string constraint_str() const override;
     unsigned constraint_num() const override;
     unsigned n_processes() const;

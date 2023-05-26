@@ -213,6 +213,16 @@ namespace pdr::pebbling
     return pebble_constraint;
   }
 
+  const expr PebblingModel::get_constraint_current() const 
+  {
+    return constraint[0];
+  }
+
+  unsigned PebblingModel::state_size() const 
+  {
+    return n_nodes();
+  }
+
   const std::string PebblingModel::constraint_str() const
   {
     if (pebble_constraint)

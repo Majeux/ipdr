@@ -272,6 +272,21 @@ namespace z3ext
                (e.is_not() && (e.arg(0).is_const() || is_card(e.arg(0)))));
   }
 
+  bool is_cube(expr const& e)
+  {
+    if (is_lit(e))
+      return true;
+
+    if (!e.is_and())
+      return false;
+
+    for (expr const& e : e.args())
+      if (!is_lit(e))
+        return false;
+
+    return true;
+  }
+
   bool is_clause(expr const& e)
   {
     if (is_lit(e))

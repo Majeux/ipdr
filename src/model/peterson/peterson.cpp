@@ -340,6 +340,16 @@ namespace pdr::peterson
     return PetersonModel(c, n_procs, n_procs, m_switches);
   }
 
+  const expr PetersonModel::get_constraint_current() const 
+  {
+    return z3::mk_and(constraint);
+  }
+
+  unsigned PetersonModel::state_size() const 
+  {
+    return n_lits();
+  }
+
   const std::string PetersonModel::constraint_str() const
   {
     return fmt::format("{} active processes, out of {} max", p, N);

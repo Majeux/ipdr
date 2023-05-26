@@ -49,9 +49,8 @@ using namespace my::cli;
 using namespace my::io;
 
 // aliases
-using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel,
-    pdr::peterson::PetersonModel>;
+using ModelVariant =
+    std::variant<pdr::pebbling::PebblingModel, pdr::peterson::PetersonModel>;
 
 // algorithm handling
 ModelVariant construct_model(
@@ -123,10 +122,6 @@ std::ostream& operator<<(std::ostream& o, std::exception const& e)
   return o;
 }
 
-using ModelVariant = std::variant<pdr::test::Z3PebblingModel,
-    pdr::pebbling::PebblingModel,
-    pdr::peterson::PetersonModel>;
-
 ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log)
 {
@@ -138,16 +133,8 @@ ModelVariant construct_model(
     G.show(args.folders.model_dir / "dag", true);
     log.stats.is_pebbling(G);
 
-    if (args.z3pdr)
-    {
-      return pdr::test::Z3PebblingModel(args, context.z3_ctx, G)
-          .constrained(pebbling->get().max_pebbles);
-    }
-    else
-    {
-      return pdr::pebbling::PebblingModel(args, context.z3_ctx, G)
-          .constrained(pebbling->get().max_pebbles);
-    }
+    return pdr::pebbling::PebblingModel(args, context.z3_ctx, G)
+        .constrained(pebbling->get().max_pebbles);
   }
 
   auto peterson = get_cref<model_t::Peterson>(args.model);
@@ -176,9 +163,13 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   ModelVariant model   = construct_model(args, context, log);
   PDRVariant algorithm = std::visit(
       visitor{
-          [&](test::Z3PebblingModel& m) -> PDRVariant
-          { return test::z3PDR(context, log, m); },
-          [&](auto& m) -> PDRVariant { return PDR(args, context, log, m); },
+          [&](auto& m) -> PDRVariant
+          {
+            if (args.z3pdr)
+              return test::z3PDR(context, log, m);
+            else
+              return PDR(args, context, log, m);
+          },
       },
       model);
 
@@ -197,26 +188,21 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   std::cout << T << endl << endl;
   args.folders.trace_file << T << endl << endl;
 
-  std::string trace =
-      std::visit(visitor{ [&](test::Z3PebblingModel const& m) {
-                           return pdr::result::trace_table(
-                               res, m.vars.names(), m.vars.names_p());
-                         },
-                     [&](pebbling::PebblingModel const& m)
-                     {
-                       return pebbling::result::trace_table(
-                           res, m.vars.names(), m.vars.names_p(), m);
-                     },
-                     [&](peterson::PetersonModel const& m)
-                     {
-                       return peterson::result::trace_table(
-                           res, m.vars.names(), m.vars.names_p(), m);
-                     },
-                     [&](IModel const& m) {
-                       return pdr::result::trace_table(
-                           res, m.vars.names(), m.vars.names_p());
-                     } },
-          model);
+  std::string trace = std::visit(visitor{ [&](pebbling::PebblingModel const& m)
+                                     {
+                                       return pebbling::result::trace_table(res,
+                                           m.vars.names(), m.vars.names_p(), m);
+                                     },
+                                     [&](peterson::PetersonModel const& m)
+                                     {
+                                       return peterson::result::trace_table(res,
+                                           m.vars.names(), m.vars.names_p(), m);
+                                     },
+                                     [&](IModel const& m) {
+                                       return pdr::result::trace_table(res,
+                                           m.vars.names(), m.vars.names_p());
+                                     } },
+      model);
   std::cout << trace;
   args.folders.trace_file << trace;
 
@@ -229,8 +215,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   using namespace pdr;
   using namespace my::variant;
   using std::endl;
-  using IPDRVariant =
-      std::variant<test::z3PebblingIPDR, pebbling::IPDR, peterson::IPDR>;
+  using IPDRVariant = std::variant<pebbling::IPDR, peterson::IPDR>;
   using ResultVariant =
       std::variant<pebbling::IpdrPebblingResult, peterson::IpdrPetersonResult>;
 
@@ -245,12 +230,12 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   // create algorithm
   IPDRVariant algorithm(std::visit(
       visitor{
-          [&](test::Z3PebblingModel& m) -> IPDRVariant
-          { return test::z3PebblingIPDR(args, context, log, m); },
           [&](pebbling::PebblingModel& m) -> IPDRVariant
           {
-            pebbling::IPDR rv(args, context, log, m);
-            return rv;
+            if (args.z3pdr)
+              return pebbling::IPDR::z3IPDR(args, context, log, m);
+            else
+              return pebbling::IPDR::myIPDR(args, context, log, m);
           },
           [&](peterson::PetersonModel& m) -> IPDRVariant
           { return peterson::IPDR(args, context, log, m); },
@@ -260,8 +245,6 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   // run
   ResultVariant result(std::visit(
       visitor{
-          [&](test::z3PebblingIPDR& a) -> ResultVariant
-          { return a.control_run(ipdr.type); },
           [&](pebbling::IPDR& a) -> ResultVariant { return a.run(ipdr.type); },
           [&](peterson::IPDR& a) -> ResultVariant
           {
@@ -291,8 +274,6 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   // write solver state
   std::visit(
       visitor{
-          [&](test::z3PebblingIPDR const& a)
-          { a.internal_alg().show_solver(args.folders.solver_dump); },
           [&](vIPDR const& a)
           { a.internal_alg().show_solver(args.folders.solver_dump); },
       },

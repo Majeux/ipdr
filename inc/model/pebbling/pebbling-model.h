@@ -41,6 +41,9 @@ namespace pdr::pebbling
     unsigned get_f_pebbles() const;
     // return the current maximum number of pebbles
     std::optional<unsigned> get_pebble_constraint() const;
+
+    const z3::expr get_constraint_current() const override;
+    unsigned state_size() const override;
     // return string representation of the constraint
     const std::string constraint_str() const override;
     // number representative of the constraint. a larger number is a looser
