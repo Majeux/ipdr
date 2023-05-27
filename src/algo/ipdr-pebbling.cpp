@@ -1,9 +1,9 @@
 #include "logger.h"
 #include "pdr-model.h"
 #include "pdr.h"
-#include "z3pdr.h"
 #include "result.h"
 #include "types-ext.h"
+#include "z3pdr.h"
 
 #include <cassert>
 #include <cstddef>
@@ -17,33 +17,18 @@ namespace pdr::pebbling
 {
   using std::optional;
 
-  IPDR::IPDR(my::cli::ArgumentList const& args,
-      std::shared_ptr<vPDR>&& a,
-      PebblingModel& m)
-      : vIPDR(std::move(a)),
+  IPDR::IPDR(
+      my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
+      : vIPDR(mk_pdr(args, c, l, m)),
         ts(m),
         starting_pebbles(),
         control_setting(args.control_run),
         simple_relax(args.simple_relax)
   {
-    assert(std::addressof(ts) == std::addressof(alg.ts));
     auto const& peb =
         my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
     starting_pebbles = peb.max_pebbles;
   }
-
-  IPDR myIPDR(
-      my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
-  {
-    return IPDR(args, std::make_shared<PDR>(args, c, l, m), m);
-  }
-
-  IPDR z3IPDR(
-      my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
-  {
-    return IPDR(args, std::make_shared<test::z3PDR>(c, l, m), m);
-  }
-
 
   IpdrPebblingResult IPDR::control_run(Tactic tactic)
   {
@@ -215,7 +200,7 @@ namespace pdr::pebbling
     {
       unsigned m = (top + bottom) / 2; // halfway between N and bottom
       MYLOG_DEBUG(
-          alg.logger, "binary search step: {} --- {} --- {}", bottom, m, top);
+          alg->logger, "binary search step: {} --- {} --- {}", bottom, m, top);
 
       optional<size_t> early_inv; // contains level if an invariant is found
                                   // during incrementation
@@ -253,13 +238,13 @@ namespace pdr::pebbling
       {
         bottom = m + 1;
         MYLOG_DEBUG(
-            alg.logger, "invariant found, try higher: bottom <- {}", bottom);
+            alg->logger, "invariant found, try higher: bottom <- {}", bottom);
       }
       else // trace found
       {
         assert(invariant.trace().n_marked <= m);
         top = invariant.trace().n_marked - 1;
-        MYLOG_DEBUG(alg.logger,
+        MYLOG_DEBUG(alg->logger,
             "trace of length {} found, try lower: top <- {}",
             invariant.trace().n_marked, top);
       }
@@ -274,8 +259,6 @@ namespace pdr::pebbling
   //
   void IPDR::basic_reset(unsigned pebbles)
   {
-    assert(std::addressof(ts) == std::addressof(alg.ts));
-
     std::optional<unsigned> current = ts.get_pebble_constraint();
     std::string from = current ? std::to_string(*current) : "any";
     alg->logger.and_show("naive change from {} -> {} pebbles", from, pebbles);
@@ -287,26 +270,19 @@ namespace pdr::pebbling
 
   void IPDR::relax_reset(unsigned pebbles)
   {
-    assert(std::addressof(ts) == std::addressof(alg.ts));
     using fmt::format;
 
     optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles > old.value());
-    assert(std::addressof(ts) == std::addressof(alg.ts));
     alg->logger.and_show(
         "increment from {} -> {} pebbles", old.value(), pebbles);
 
     ts.constrain(pebbles);
-
-    alg->ctx.type = Tactic::relax;
-
-    auto myalg = dynamic_cast<PDR&>(*alg);
-    myalg.frames.copy_to_Fk();
+    alg->relax();
   }
 
   void IPDR::relax_reset_constrained(unsigned pebbles)
   {
-    assert(std::addressof(ts) == std::addressof(alg.ts));
     using fmt::format;
 
     unsigned old                   = ts.get_pebble_constraint().value();
@@ -317,11 +293,17 @@ namespace pdr::pebbling
     alg->logger.and_show("increment from {} -> {} pebbles", old, pebbles);
 
     ts.constrain(pebbles);
-
     alg->ctx.type = Tactic::relax;
 
-    auto myalg = dynamic_cast<PDR&>(*alg);
-    myalg.frames.copy_to_Fk_keep(old, old_constraint);
+    try
+    {
+      auto myalg = dynamic_cast<PDR&>(*alg);
+      myalg.frames.copy_to_Fk_keep(old, old_constraint);
+    }
+    catch (...)
+    {
+      throw std::runtime_error("(experimental) constrained copy for PDR only.");
+    }
   }
 
   std::optional<size_t> IPDR::constrain_reset(unsigned pebbles)
@@ -330,15 +312,10 @@ namespace pdr::pebbling
 
     optional<unsigned> old = ts.get_pebble_constraint();
     assert(pebbles < old.value());
-    assert(std::addressof(ts) == std::addressof(alg.ts));
     alg->logger.and_show(
         "decrement from {} -> {} pebbles", old.value(), pebbles);
 
     ts.constrain(pebbles);
-
-    alg->ctx.type = Tactic::constrain;
-
-    auto myalg = dynamic_cast<PDR&>(*alg);
-    return myalg.frames.reuse();
+    return alg->constrain();
   }
 } // namespace pdr::pebbling

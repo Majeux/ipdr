@@ -261,23 +261,17 @@ namespace my::cli
     parse_verbosity(clresult);
     parse_context(clresult);
 
-    // if (!onlyshow)
-    //   parse_mode(clresult);
-    // }
-    // catch (std::exception const& e)
-    // {
-    //   std::cerr << e.what() << std::endl
-    //             << "Error parsing command line arguments" << std::endl
-    //             << std::endl
-    //             << clopt.help() << std::endl;
-    //   throw;
-    // }
+    if (clresult.count(s_copy_constrain))
+      simple_relax = false;
+    else
+      simple_relax = true;
 
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
 
     if (z3pdr)
-      folders.model_type_dir = folders.run_type_dir / "z3pdr";
+      folders.model_type_dir =
+          folders.run_type_dir / "z3pdr" / model_t::get_name(model);
     else
       folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
@@ -399,8 +393,7 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
         value<bool>(onlyshow)->default_value("false"))
 
-      (s_simple_relax, "Simply copy all valid cubes between relaxing instances without optimization.", 
-       value<bool>(simple_relax)->default_value("false"), "(Bool)")
+      (s_copy_constrain, "Copy cubes with previous constraint attached.")
       (s_skip_blocked, "Skip cubes for which a stronger cube is already blocked. (Default = true)",
        value<bool>(), "(Bool)")
       (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. (Default = UINT_MAX)",

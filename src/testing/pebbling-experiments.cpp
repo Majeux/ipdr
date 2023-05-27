@@ -67,11 +67,8 @@ namespace pdr::pebbling::experiments
       // new context with new random seed
       z3::context z3_ctx;
       pdr::Context ctx(z3_ctx, args, seeds[i]);
-
-      dag::Graph G = model_t::make_graph(ts_descr.src);
-      PebblingModel ts(args, z3_ctx, G);
-
-      IPDR opt(args, ctx, log, ts);
+      PebblingModel ts(args, z3_ctx, model_t::make_graph(ts_descr.src));
+      IPDR opt = IPDR(args, ctx, log, ts);
       {
         IpdrPebblingResult result =
             is_control ? opt.control_run(tactic) : opt.run(tactic);
@@ -97,7 +94,8 @@ namespace pdr::pebbling::experiments
   // Run members
   //
   // aggregate multiple experiments and format
-  PebblingRun::PebblingRun(std::string const& m, std::string const& t,
+  PebblingRun::PebblingRun(std::string const& m,
+      std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : Run(m, t, std::move(r))
   {
@@ -214,14 +212,12 @@ namespace pdr::pebbling::experiments
       {
         {
           auto r = constraint_row();
-          r.push_back(
-              to_string(pebbling_ctrl.min_inv->constraint.value()));
+          r.push_back(to_string(pebbling_ctrl.min_inv->constraint.value()));
           t.add_row(r);
         }
         {
           auto r = level_row();
-          r.push_back(
-              to_string(pebbling_ctrl.min_inv->constraint.value()));
+          r.push_back(to_string(pebbling_ctrl.min_inv->constraint.value()));
           double dec = percentage_dec(pebbling_ctrl.min_inv->constraint.value(),
               min_inv->constraint.value());
           r.push_back(perc_str(dec));

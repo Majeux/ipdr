@@ -19,8 +19,6 @@
 #include "result.h"
 #include "types-ext.h"
 #include "vpdr.h"
-#include "z3-pebbling-experiments.h"
-#include "z3-pebbling-model.h"
 #include "z3pdr.h"
 
 #include <algorithm>
@@ -231,12 +229,7 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   IPDRVariant algorithm(std::visit(
       visitor{
           [&](pebbling::PebblingModel& m) -> IPDRVariant
-          {
-            if (args.z3pdr)
-              return pebbling::IPDR::z3IPDR(args, context, log, m);
-            else
-              return pebbling::IPDR::myIPDR(args, context, log, m);
-          },
+          { return pebbling::IPDR(args, context, log, m); },
           [&](peterson::PetersonModel& m) -> IPDRVariant
           { return peterson::IPDR(args, context, log, m); },
       },
@@ -283,29 +276,18 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
   using namespace pdr;
-  using namespace my::variant;
-  using pdr::pebbling::PebblingModel;
+  using my::variant::get_cref;
   using pdr::pebbling::experiments::PebblingExperiment;
-  using pdr::peterson::PetersonModel;
   using pdr::peterson::experiments::PetersonExperiment;
-  using pdr::test::Z3PebblingModel;
-  using pdr::test::experiments::Z3PebblingExperiment;
   using std::make_unique;
   using std::unique_ptr;
 
-  using GeneralExperimentPtr = unique_ptr<experiments::Experiment>;
-
-  GeneralExperimentPtr experiment = [&]() -> GeneralExperimentPtr
+  auto experiment = [&]() -> unique_ptr<experiments::Experiment>
   {
     if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
-    {
-      if (args.z3pdr)
-      {
-        return make_unique<Z3PebblingExperiment>(args, log);
-      }
       return make_unique<PebblingExperiment>(args, log);
-    }
-    return make_unique<PetersonExperiment>(args, log);
+    else
+      return make_unique<PetersonExperiment>(args, log);
   }();
 
   experiment->run();

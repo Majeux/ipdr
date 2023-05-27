@@ -27,6 +27,8 @@ namespace pdr::test
 
     PdrResult run() override;
     void reset() override;
+    std::optional<size_t> constrain() override;
+    void relax() override;
     void show_solver(std::ostream& out) const override;
 
    private:

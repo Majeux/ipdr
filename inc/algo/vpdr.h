@@ -24,8 +24,15 @@ namespace pdr
     // trace
     virtual PdrResult run() = 0;
 
-    // rest pdr's internal state. discards any recorded information or state
+    // reset pdr's internal state. discards any recorded information or state
     virtual void reset() = 0;
+    // reset pdr's internal state. if supported, copy information as per the
+    // constraining ipdr algorithm.
+    // @return: if constraining detects an inductive invariant, return its level
+    virtual std::optional<size_t> constrain() = 0;
+    // reset pdr's internal state. if supported, copy information as per the
+    // relaxing ipdr algorithm
+    virtual void relax() = 0;
 
     virtual void show_solver(std::ostream& out) const = 0;
   };

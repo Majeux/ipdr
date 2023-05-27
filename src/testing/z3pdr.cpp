@@ -81,9 +81,24 @@ namespace pdr::test
 
   void z3PDR::reset() { last_result = z3::check_result::unknown; }
 
+  std::optional<size_t> z3PDR::constrain()
+  {
+    last_result = z3::check_result::unknown;
+    ctx.type    = Tactic::constrain;
+    MYLOG_DEBUG(logger, "constraining ipdr not supported for spacer");
+    return {};
+  }
+
+  void z3PDR::relax()
+  {
+    last_result = z3::check_result::unknown;
+    ctx.type    = Tactic::relax;
+    MYLOG_DEBUG(logger, "relaxing ipdr not supported for spacer");
+  }
+
   namespace
   {
-    expr mk_initial_assignment(expr_vector const& cube)
+    expr cube_to_assignment(expr_vector const& cube)
     {
       expr z3_true  = cube.ctx().bool_val(true);
       expr z3_false = cube.ctx().bool_val(false);
@@ -91,11 +106,24 @@ namespace pdr::test
       for (expr const& e : cube)
       {
         if (!z3ext::is_lit(e))
-          throw std::runtime_error(
-              "Initial states must be a cube for spacer implementation");
+          throw std::runtime_error("Need a cube to turn into assignment.");
         rv.push_back(e.is_not() ? e.arg(0) == z3_false : e == z3_true);
       }
       return z3::mk_and(rv);
+    }
+
+    expr cube_to_state(expr_vector const& cube, z3::func_decl const& state)
+    {
+      expr z3_true  = cube.ctx().bool_val(true);
+      expr z3_false = cube.ctx().bool_val(false);
+      expr_vector args(cube.ctx());
+      for (expr const& e : cube)
+      {
+        if (!z3ext::is_lit(e))
+          throw std::runtime_error("Need a cube to turn into assignment.");
+        args.push_back(e.is_not() ? z3_false : z3_true);
+      }
+      return state(args);
     }
 
     // gather all expressions in e, except those in basic
@@ -146,10 +174,10 @@ namespace pdr::test
     z3::fixedpoint engine = mk_prepare_fixedpoint();
 
     Rule I = mk_rule(
-        z3::implies(mk_initial_assignment(ts.get_initial()), state(ts.vars())),
+        z3::implies(cube_to_assignment(ts.get_initial()), state(ts.vars())),
         "I");
 
-    expr guard = forall_vars(ts.get_constraint_current());
+    expr guard = (ts.get_constraint_current());
     expr trans = z3::mk_and(ts.get_transition());
     expr horn =
         z3::implies(state(ts.vars()) && trans && guard, state(ts.vars.p()));
@@ -163,12 +191,10 @@ namespace pdr::test
     engine.add_rule(I.expr, I.name);
     engine.add_rule(T.expr, T.name);
 
-    auto pts                  = dynamic_cast<Z3PebblingModel&>(ts);
-    expr target               = state(ts.vars) && ts.property();
+    expr target = cube_to_state(ts.n_property(), state);
     z3::func_decl target_decl = target.decl();
 
-    MYLOG_INFO(logger, "Transition System:\n{}", pts.to_string());
-
+    MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 

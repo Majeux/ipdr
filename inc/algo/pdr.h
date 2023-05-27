@@ -55,7 +55,15 @@ namespace pdr
     PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m);
 
     PdrResult run() override;
+    // reset pdr's internal state. discards any recorded information or state
     void reset() override;
+    // reset pdr's internal state. if supported, copy information as per the
+    // constraining ipdr algorithm.
+    // @return: if constraining detects an inductive invariant, return its level
+    std::optional<size_t> constrain() override;
+    // reset pdr's internal state. if supported, copy information as per the
+    // relaxing ipdr algorithm
+    void relax() override;
 
     Statistics& stats();
     void show_solver(std::ostream& out) const override;
@@ -135,20 +143,21 @@ namespace pdr
     std::shared_ptr<vPDR> alg;
   };
 
+  inline std::shared_ptr<vPDR> mk_pdr(
+      my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
+  {
+    if (args.z3pdr)
+      return std::make_shared<test::z3PDR>(c, l, m);
+    else
+      return std::make_shared<PDR>(args, c, l, m);
+  }
+
   namespace pebbling
   {
     class IPDR : public vIPDR
     {
      public:
       IPDR(my::cli::ArgumentList const& args,
-          std::shared_ptr<vPDR>&& a,
-          PebblingModel& m);
-
-      static IPDR myIPDR(my::cli::ArgumentList const& args,
-          Context c,
-          Logger& l,
-          PebblingModel& m);
-      static IPDR z3IPDR(my::cli::ArgumentList const& args,
           Context c,
           Logger& l,
           PebblingModel& m);

@@ -210,7 +210,7 @@ namespace my::cli
     inline static const std::string s_whisper = "whisper";
     inline static const std::string s_silent  = "silent";
 
-    inline static const std::string s_simple_relax = "simple-relax";
+    inline static const std::string s_copy_constrain = "copy-constrain";
     inline static const std::string s_skip_blocked = "skip-blocked";
     inline static const std::string s_mic          = "mic-attempts";
     inline static const std::string s_subsumed     = "cut-subsumed";

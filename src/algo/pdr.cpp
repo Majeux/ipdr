@@ -39,6 +39,18 @@ namespace pdr
 
   void PDR::reset() { frames.reset(); }
 
+  std::optional<size_t> PDR::constrain() 
+  {
+    ctx.type = Tactic::constrain;
+    return frames.reuse();
+  }
+
+  void PDR::relax() 
+  {
+    ctx.type = Tactic::relax;
+    return frames.copy_to_Fk();
+  }
+
   void PDR::print_model(z3::model const& m)
   {
     logger.show("model consts \{");
