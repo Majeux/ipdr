@@ -191,8 +191,9 @@ namespace pdr::test
     engine.add_rule(I.expr, I.name);
     engine.add_rule(T.expr, T.name);
 
-    expr target = cube_to_state(ts.n_property(), state);
-    z3::func_decl target_decl = target.decl();
+    // expr target = cube_to_state(ts.n_property(), state);
+    expr target = z3::exists(ts.vars(), state(ts.vars) && z3::mk_and(ts.n_property()));
+    // z3::func_decl target_decl = target.decl();
 
     MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
@@ -202,19 +203,19 @@ namespace pdr::test
     last_result = engine.query(target);
     double time = timer.elapsed().count();
 
-    cover_string = "fixedpoint delta-covers:\n";
-    {
-      int n_levels = engine.get_num_levels(target_decl);
-      assert(n_levels > 0);
-      for (int i{ -1 }; i < n_levels; i++)
-      {
-        cover_string += fmt::format("-- level {}\n", i);
-        cover_string += fmt::format(
-            "{}\n", engine.get_cover_delta(i, target_decl).to_string());
-        cover_string += "\n";
-      }
-    }
-    MYLOG_DEBUG(logger, cover_string);
+    // cover_string = "fixedpoint delta-covers:\n";
+    // {
+    //   int n_levels = engine.get_num_levels(target_decl);
+    //   assert(n_levels > 0);
+    //   for (int i{ -1 }; i < n_levels; i++)
+    //   {
+    //     cover_string += fmt::format("-- level {}\n", i);
+    //     cover_string += fmt::format(
+    //         "{}\n", engine.get_cover_delta(i, target_decl).to_string());
+    //     cover_string += "\n";
+    //   }
+    // }
+    // MYLOG_DEBUG(logger, cover_string);
 
     vector<std::string> trace;
     unsigned n_levels;
@@ -227,7 +228,7 @@ namespace pdr::test
         return PdrResult::found_trace(get_trace_states(engine))
             .with_duration(time);
       case z3::check_result::unsat:
-        n_levels = engine.get_num_levels(target_decl);
+        // n_levels = engine.get_num_levels(target_decl);
         MYLOG_DEBUG(logger, "UNSAT fixedpoint");
         MYLOG_DEBUG(logger, "Invariant found after {} levels", n_levels);
         return PdrResult::found_invariant(n_levels).with_duration(time);
