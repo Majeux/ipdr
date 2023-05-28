@@ -15,6 +15,7 @@
 #include <fmt/ranges.h>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <regex>
 #include <spdlog/stopwatch.h>
 #include <sstream>
@@ -37,7 +38,7 @@ namespace pdr::test
   // done in setup, defines relation between state and next state
   // if step(state, state.p) |-> true && state, then state.p
   z3PDR::z3PDR(Context c, Logger& l, IModel& m)
-      : vPDR(c, l), ts(m), state_sorts(ctx), state(ctx), step(ctx)
+      : vPDR(c, l, m), state_sorts(ctx), state(ctx), step(ctx)
   {
     for (size_t i{ 0 }; i < m.state_size(); i++)
       state_sorts.push_back(ctx.z3_ctx.bool_sort());
@@ -171,72 +172,83 @@ namespace pdr::test
     using std::cout;
     using std::endl;
 
+    log_start();
+    timer.reset();
+
     z3::fixedpoint engine = mk_prepare_fixedpoint();
+    engine.register_relation(state);
 
     Rule I = mk_rule(
         z3::implies(cube_to_assignment(ts.get_initial()), state(ts.vars())),
         "I");
+    MYLOG_INFO(logger, "Initial State:\n{}", I.expr.to_string());
+    engine.add_rule(I.expr, I.name);
 
     expr guard = (ts.get_constraint_current());
     expr trans = z3::mk_and(ts.get_transition());
     expr horn =
         z3::implies(state(ts.vars()) && trans && guard, state(ts.vars.p()));
-    // collect potential auxiliary vars (such as from tseytin)
+    // collect potential auxiliary vars not in the state (such as from tseytin)
     expr_vector all_vars =
-        get_all_vars(trans, z3ext::vec_add(ts.vars(), ts.vars.p()));
+        get_all_vars(horn, z3ext::vec_add(ts.vars(), ts.vars.p()));
 
     Rule T = { z3::forall(all_vars, horn), ctx.z3_ctx.str_symbol("T") };
-
-    engine.register_relation(state);
-    engine.add_rule(I.expr, I.name);
+    MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
     engine.add_rule(T.expr, T.name);
 
     // expr target = cube_to_state(ts.n_property(), state);
-    expr target = z3::exists(ts.vars(), state(ts.vars) && z3::mk_and(ts.n_property()));
-    // z3::func_decl target_decl = target.decl();
-
-    MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
+    expr target =
+        z3::exists(ts.vars(), state(ts.vars) && z3::mk_and(ts.n_property()));
     MYLOG_INFO(logger, "Target:\n{}", target.to_string());
+    z3::func_decl target_decl = state;
+
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 
     spdlog::stopwatch timer;
     last_result = engine.query(target);
     double time = timer.elapsed().count();
 
-    // cover_string = "fixedpoint delta-covers:\n";
-    // {
-    //   int n_levels = engine.get_num_levels(target_decl);
-    //   assert(n_levels > 0);
-    //   for (int i{ -1 }; i < n_levels; i++)
-    //   {
-    //     cover_string += fmt::format("-- level {}\n", i);
-    //     cover_string += fmt::format(
-    //         "{}\n", engine.get_cover_delta(i, target_decl).to_string());
-    //     cover_string += "\n";
-    //   }
-    // }
-    // MYLOG_DEBUG(logger, cover_string);
+    cover_string = "fixedpoint delta-covers:\n";
+    {
+      int n_levels = engine.get_num_levels(target_decl);
+      assert(n_levels > 0);
+      for (int i{ -1 }; i < n_levels; i++)
+      {
+        cover_string += fmt::format("-- level {}\n", i);
+        cover_string += fmt::format(
+            "{}\n", engine.get_cover_delta(i, target_decl).to_string());
+        cover_string += "\n";
+      }
+    }
+    MYLOG_DEBUG(logger, cover_string);
 
     vector<std::string> trace;
     unsigned n_levels;
+    optional<PdrResult> rv;
     switch (last_result)
     {
       case z3::check_result::sat:
         trace = get_trace(engine);
         MYLOG_DEBUG(logger, "SAT fixedpoint");
         MYLOG_DEBUG(logger, "Trace: {}", trace);
-        return PdrResult::found_trace(get_trace_states(engine))
-            .with_duration(time);
+        rv = PdrResult::found_trace(get_trace_states(engine))
+                 .with_duration(time);
+        break;
       case z3::check_result::unsat:
-        // n_levels = engine.get_num_levels(target_decl);
+        n_levels = engine.get_num_levels(target_decl);
         MYLOG_DEBUG(logger, "UNSAT fixedpoint");
         MYLOG_DEBUG(logger, "Invariant found after {} levels", n_levels);
-        return PdrResult::found_invariant(n_levels).with_duration(time);
-      default: break;
+        rv = PdrResult::found_invariant(n_levels).with_duration(time);
+        break;
+      default:
+        MYLOG_WARN(logger, "Undefined fixedpoint result");
+        rv = PdrResult::empty_true();
+        break;
     }
-
-    MYLOG_WARN(logger, "Undefined fixedpoint result");
-    return PdrResult::empty_true();
+    double final_time = timer.elapsed().count();
+    log_pdr_finish(rv.value(), final_time);
+    rv->time = final_time;
+    return rv.value();
   }
 
   void z3PDR::show_solver(std::ostream& out) const

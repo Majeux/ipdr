@@ -102,7 +102,6 @@ namespace pdr::peterson
     //  constraint on number of allowed context-switches per run
     std::optional<numrep_t> max_switches;
 
-    BitVec proc;         // currently active process
     BitVec proc_last;    // last active process
     BitVec switch_count; // no. context switches performed
     // vector of ints[0-4]. program counter for process i

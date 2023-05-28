@@ -33,7 +33,7 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
-      : vPDR(c, l), ts(m), frames(ctx, m, logger)
+      : vPDR(c, l, m), frames(ctx, m, logger)
   {
   }
 
@@ -148,7 +148,7 @@ namespace pdr
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
-      log_iteration();
+      log_iteration(frames.frontier());
       while (optional<Witness> witness =
                  frames.get_trans_source(k, ts.n_property.p_vec(), true))
       {

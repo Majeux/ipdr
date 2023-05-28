@@ -48,9 +48,11 @@ namespace pdr
     friend class peterson::IPDR;
 
    public:
-    // Inherited from vPDR
+    // inherited from vPDR
+    // Context ctx
+    // Logger& logger
+    // 
     // vPDR(Context c, Logger& l)
-    // get_ctx() -> Context const&
 
     PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m);
 
@@ -74,7 +76,7 @@ namespace pdr
     // inherited from vPDR
     // Context ctx
     // Logger& logger
-    IModel& ts;
+    // IModel& ts;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch sub_timer;
@@ -109,20 +111,6 @@ namespace pdr
     // stores final logs, stats and result and returns its argument
     PdrResult finish(PdrResult&& rv);
     void store_frame_strings();
-
-    // logging shorthands
-    void log_start() const;
-    void log_iteration();
-    void log_cti(std::vector<z3::expr> const& cti, unsigned level);
-    void log_propagation(unsigned level, double time);
-    void log_top_obligation(size_t queue_size,
-        unsigned top_level,
-        std::vector<z3::expr> const& top);
-    void log_pred(std::vector<z3::expr> const& p);
-    void log_state_push(unsigned frame);
-    void log_finish_state(std::vector<z3::expr> const& s);
-    void log_obligation_done(std::string_view type, unsigned l, double time);
-    void log_pdr_finish(PdrResult const& r, double final_time);
   };
 
   class vIPDR

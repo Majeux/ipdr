@@ -11,6 +11,7 @@
 #include "vpdr.h"
 #include "z3-pebbling-model.h"
 
+#include <spdlog/stopwatch.h>
 #include <tabulate/table.hpp>
 #include <z3++.h>
 
@@ -32,11 +33,14 @@ namespace pdr::test
     void show_solver(std::ostream& out) const override;
 
    private:
-    IModel& ts;
-
     z3::sort_vector state_sorts;
     z3::func_decl state; // B^N |-> B
     z3::func_decl step;  // B^N B^N |-> B
+
+    z3::check_result last_result = z3::check_result::unknown;
+    std::string cover_string{ "" };
+
+    spdlog::stopwatch timer;
 
     struct Rule
     {
@@ -47,8 +51,6 @@ namespace pdr::test
       Rule(z3::expr const& e, z3::symbol const& n) : expr(e), name(n) {}
     };
 
-    z3::check_result last_result = z3::check_result::unknown;
-    std::string cover_string{ "" };
 
     std::vector<std::string> get_trace(z3::fixedpoint& engine);
     PdrResult::Trace::TraceVec get_trace_states(z3::fixedpoint& engine);

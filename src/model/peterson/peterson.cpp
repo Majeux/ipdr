@@ -215,7 +215,6 @@ namespace pdr::peterson
     total = std::accumulate(level.begin(), level.end(), total, add_size);
     total = std::accumulate(last.begin(), last.end(), total, add_size);
     total += free.size();
-    total += proc.size;
     total += proc_last.size;
     total += switch_count.size;
 
@@ -305,7 +304,6 @@ namespace pdr::peterson
         N(m_procs),
         p(n_procs),
         max_switches(m_switches),
-        proc(BitVec::holding(c, "proc", n_procs)),
         proc_last(BitVec::holding(c, "proc_last", n_procs)),
         switch_count(BitVec::holding(c, "switch_count", SWITCH_COUNT_MAX)
                          .incrementable()),
@@ -340,19 +338,17 @@ namespace pdr::peterson
     return PetersonModel(c, n_procs, n_procs, m_switches);
   }
 
-  const expr PetersonModel::get_constraint_current() const 
+  const expr PetersonModel::get_constraint_current() const
   {
     return z3::mk_and(constraint);
   }
 
-  unsigned PetersonModel::state_size() const 
-  {
-    return n_lits();
-  }
+  unsigned PetersonModel::state_size() const { return n_lits(); }
 
   const std::string PetersonModel::constraint_str() const
   {
-    return fmt::format("{} active processes, out of {} max", p, N);
+    return fmt::format("{} processes, at most {} context switches", p,
+        max_switches.value_or(UINTMAX_MAX));
   }
 
   unsigned PetersonModel::constraint_num() const
@@ -560,7 +556,7 @@ namespace pdr::peterson
     conj.push_back(if_then_else(
         level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
-    // wrong! (testing violations)
+    // wrong! (for testing violations)
     // conj.push_back(if_then_else(
     //     level.at(i).less(N -2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
