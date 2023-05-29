@@ -7,7 +7,6 @@
 #include "string-ext.h"
 #include "vpdr.h"
 #include "z3-ext.h"
-#include "z3-pebbling-model.h"
 
 #include <algorithm>
 #include <cassert>
@@ -38,14 +37,8 @@ namespace pdr::test
   // done in setup, defines relation between state and next state
   // if step(state, state.p) |-> true && state, then state.p
   z3PDR::z3PDR(Context c, Logger& l, IModel& m)
-      : vPDR(c, l, m), state_sorts(ctx), state(ctx), step(ctx)
+      : vPDR(c, l, m) 
   {
-    for (size_t i{ 0 }; i < m.state_size(); i++)
-      state_sorts.push_back(ctx.z3_ctx.bool_sort());
-
-    state = z3::function("state", state_sorts, ctx.z3_ctx.bool_sort());
-    step  = z3::function("step", z3ext::vec_add(state_sorts, state_sorts),
-         ctx.z3_ctx.bool_sort());
   }
 
   z3::fixedpoint z3PDR::mk_prepare_fixedpoint()
@@ -61,23 +54,6 @@ namespace pdr::test
     // z3::set_param("trace", true);
 
     return engine;
-  }
-
-  z3PDR::Rule z3PDR::mk_rule(expr const& e, string const& n)
-  {
-    return { forall_vars(e), ctx.z3_ctx.str_symbol(n.c_str()) };
-  }
-
-  z3PDR::Rule z3PDR::mk_rule(
-      expr const& head, expr const& body, string const& n)
-  {
-    return { forall_vars(z3::implies(body, head)),
-      ctx.z3_ctx.str_symbol(n.c_str()) };
-  }
-
-  expr z3PDR::forall_vars(expr const& e) const
-  {
-    return z3::forall(z3ext::vec_add(ts.vars(), ts.vars.p()), e);
   }
 
   void z3PDR::reset() { last_result = z3::check_result::unknown; }
@@ -97,76 +73,6 @@ namespace pdr::test
     MYLOG_DEBUG(logger, "relaxing ipdr not supported for spacer");
   }
 
-  namespace
-  {
-    expr cube_to_assignment(expr_vector const& cube)
-    {
-      expr z3_true  = cube.ctx().bool_val(true);
-      expr z3_false = cube.ctx().bool_val(false);
-      expr_vector rv(cube.ctx());
-      for (expr const& e : cube)
-      {
-        if (!z3ext::is_lit(e))
-          throw std::runtime_error("Need a cube to turn into assignment.");
-        rv.push_back(e.is_not() ? e.arg(0) == z3_false : e == z3_true);
-      }
-      return z3::mk_and(rv);
-    }
-
-    expr cube_to_state(expr_vector const& cube, z3::func_decl const& state)
-    {
-      expr z3_true  = cube.ctx().bool_val(true);
-      expr z3_false = cube.ctx().bool_val(false);
-      expr_vector args(cube.ctx());
-      for (expr const& e : cube)
-      {
-        if (!z3ext::is_lit(e))
-          throw std::runtime_error("Need a cube to turn into assignment.");
-        args.push_back(e.is_not() ? z3_false : z3_true);
-      }
-      return state(args);
-    }
-
-    // gather all expressions in e, except those in basic
-    void aux_var_rec(expr const& e,
-        std::set<expr, z3ext::expr_less>& visited,
-        expr_vector& aux,
-        std::set<expr, z3ext::expr_less> const& basic)
-    {
-      // already visited or is one the basic variables
-      if (visited.insert(e).second == false || basic.find(e) != basic.end())
-        return;
-
-      if (e.is_const())
-      {
-        aux.push_back(e);
-      }
-      else if (e.is_app())
-      {
-        for (size_t i{ 0 }; i < e.num_args(); i++)
-          aux_var_rec(e.arg(i), visited, aux, basic);
-      }
-      else if (e.is_quantifier())
-      {
-        aux_var_rec(e.body(), visited, aux, basic);
-      }
-    }
-
-    // gather all auxiliary variables in e (introduced by tseitin.
-    // return vars() + vars.p() + aux_vars
-    expr_vector get_all_vars(expr e, expr_vector const& basic)
-    {
-      expr_vector aux(basic);
-      std::set<expr, z3ext::expr_less> visited, basic_set;
-      for (expr const& e : basic)
-        basic_set.insert(e);
-
-      aux_var_rec(e, visited, aux, basic_set);
-
-      return z3ext::vec_add(basic, aux);
-    }
-  } // namespace
-
   PdrResult z3PDR::run()
   {
     using std::cout;
@@ -176,31 +82,13 @@ namespace pdr::test
     timer.reset();
 
     z3::fixedpoint engine = mk_prepare_fixedpoint();
-    engine.register_relation(state);
-
-    Rule I = mk_rule(
-        z3::implies(cube_to_assignment(ts.get_initial()), state(ts.vars())),
-        "I");
-    MYLOG_INFO(logger, "Initial State:\n{}", I.expr.to_string());
-    engine.add_rule(I.expr, I.name);
-
-    expr guard = (ts.get_constraint_current());
-    expr trans = z3::mk_and(ts.get_transition());
-    expr horn =
-        z3::implies(state(ts.vars()) && trans && guard, state(ts.vars.p()));
-    // collect potential auxiliary vars not in the state (such as from tseytin)
-    expr_vector all_vars =
-        get_all_vars(horn, z3ext::vec_add(ts.vars(), ts.vars.p()));
-
-    Rule T = { z3::forall(all_vars, horn), ctx.z3_ctx.str_symbol("T") };
-    MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
-    engine.add_rule(T.expr, T.name);
-
-    // expr target = cube_to_state(ts.n_property(), state);
-    expr target =
-        z3::exists(ts.vars(), state(ts.vars) && z3::mk_and(ts.n_property()));
-    MYLOG_INFO(logger, "Target:\n{}", target.to_string());
-    z3::func_decl target_decl = state;
+    ts.load_initial(engine);
+    ts.load_transition(engine);
+    expr target = ts.create_fp_target();
+    // MYLOG_INFO(logger, "Initial State:\n{}", ts.fp_I->expr.to_string());
+    // MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
+    // MYLOG_INFO(logger, "Target:\n{}", target.to_string());
+    z3::func_decl target_decl = ts.state;
 
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 

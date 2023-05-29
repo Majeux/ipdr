@@ -101,6 +101,8 @@ namespace z3ext
 
   }; // namespace constrained_cube
 
+  z3::expr z3_true(z3::context& ctx);
+  z3::expr z3_false(z3::context& ctx);
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
   bool is_cube(z3::expr const& e);

@@ -73,6 +73,8 @@ namespace pdr::peterson
     static PetersonModel constrained_procs(
         z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
+    void load_transition(z3::fixedpoint& engine) override;
+
     const z3::expr get_constraint_current() const override;
     unsigned state_size() const override;
     const std::string constraint_str() const override;
@@ -95,6 +97,13 @@ namespace pdr::peterson
     void test_p_pred();
 
    private:
+    // inherited from IModel
+    // z3::expr_vector initial;    // each array index to '-1;. pc to 0
+    // z3::expr_vector transition; // converted into cnf via tseytin
+
+    z3::func_decl step;  // B^N B^N |-> B
+    Rule reach_rule;
+
     // max no. processes. the size of the waiting queue
     const numrep_t N;
     // no. processes that can fire
@@ -117,9 +126,6 @@ namespace pdr::peterson
 
     size_t n_lits() const;
 
-    // z3::expr_vector initial;    // each array index to '-1;. pc to 0
-    // z3::expr_vector transition; // converted into cnf via tseytin
-
     // fill the pc, level, free and last variables
     Vars mk_vars();
     void reset_initial();
@@ -128,14 +134,13 @@ namespace pdr::peterson
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
 
-    void set_trans(numrep_t max_p);
     z3::expr T_start(numrep_t i);
     z3::expr T_boundcheck(numrep_t i);
     z3::expr T_setlast(numrep_t i);
     z3::expr T_await(numrep_t i);
     z3::expr T_release(numrep_t i);
 
-  }; // class Model
+  }; // class PetersonModel
 
   struct PetersonState
   {

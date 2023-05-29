@@ -263,6 +263,16 @@ namespace z3ext
 
   // atoms and lits
   //
+  expr z3_true(z3::context &ctx)
+  {
+    return ctx.bool_val(true);
+  }
+
+  expr z3_false(z3::context &ctx)
+  {
+    return ctx.bool_val(false);
+  }
+
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
   bool is_lit(expr const& e)

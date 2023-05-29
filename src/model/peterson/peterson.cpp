@@ -301,6 +301,8 @@ namespace pdr::peterson
       numrep_t m_procs,
       optional<numrep_t> m_switches)
       : IModel(c, {}), // varnames are added in body
+        step(ctx),
+        reach_rule(ctx),
         N(m_procs),
         p(n_procs),
         max_switches(m_switches),
@@ -420,6 +422,44 @@ namespace pdr::peterson
       assert(clause.is_or() || z3ext::is_lit(clause));
       transition.push_back(clause);
     }
+  }
+
+  void PetersonModel::load_transition(z3::fixedpoint& engine)
+  {
+    step = z3::function(
+        "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
+    engine.register_relation(step);
+
+    expr_vector all = z3ext::vec_add(vars(), vars.p());
+    {
+      z3::expr head = state(vars.p());
+      expr body     = state(vars()) && step(all);
+      reach_rule    = mk_rule(z3::implies(body, head), "->");
+    }
+
+    fp_T.clear();
+    for (numrep_t i = 0; i < p; i++)
+    {
+      expr guard = proc_last.p_equals(i) && z3::mk_and(constraint);
+
+      fp_T.push_back(mk_rule_aux(
+          step(all), guard && T_start(i), fmt::format("T_start({})", i)));
+
+      fp_T.push_back(mk_rule_aux(step(all), guard && T_boundcheck(i),
+          fmt::format("T_boundcheck({})", i)));
+
+      fp_T.push_back(mk_rule_aux(
+          step(all), guard && T_setlast(i), fmt::format("T_setlast({})", i)));
+
+      fp_T.push_back(mk_rule_aux(
+          step(all), guard && T_await(i), fmt::format("T_await({})", i)));
+
+      fp_T.push_back(mk_rule_aux(
+          step(all), guard && T_release(i), fmt::format("T_release({})", i)));
+    }
+
+    for (Rule& rule : fp_T)
+      engine.add_rule(rule.expr, rule.name);
   }
 
   void PetersonModel::constrain_switches(optional<numrep_t> m)

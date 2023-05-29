@@ -14,7 +14,6 @@
 #include "stats.h"
 #include "vpdr.h"
 #include "z3-ext.h"
-#include "z3-pebbling-model.h"
 #include "z3pdr.h"
 
 #include <climits>
