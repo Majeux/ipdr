@@ -424,70 +424,6 @@ namespace pdr::peterson
     }
   }
 
-  void PetersonModel::load_transition(z3::fixedpoint& engine)
-  {
-    using fmt::format;
-    auto bits = [](unsigned n) { return std::log2(n) + 1; };
-
-    vector<expr> fp_pc, fp_level, fp_free, fp_last, fp_proc_last,
-        fp_switch_count;
-
-    for (size_t i = 0; i < N; i++)
-      fp_pc.push_back(ctx.bv_const(format("fp_pc{}", i).c_str(), bits(pc_num)));
-    for (size_t i = 0; i < N; i++)
-      fp_level.push_back(
-          ctx.bv_const(format("fp_level{}", i).c_str(), bits(N)));
-    for (size_t i = 0; i < N; i++)
-      fp_free.push_back(ctx.bool_const(format("fp_free{}", i).c_str()));
-    for (size_t i = 0; i < N; i++)
-      fp_last.push_back(ctx.bv_const(format("fp_last{}", i).c_str(), bits(N)));
-    for (size_t i = 0; i < N; i++)
-      fp_proc_last.push_back(
-          ctx.bv_const(format("fp_proc_last{}", i).c_str(), bits(N)));
-    for (size_t i = 0; i < N; i++)
-      fp_switch_count.push_back(
-          ctx.bv_const(format("fp_switch_count{}", i).c_str(), bits(N)));
-
-    step = z3::function(
-        "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
-    engine.register_relation(step);
-
-    expr_vector all = z3ext::vec_add(vars(), vars.p());
-    {
-      z3::expr head = state(vars.p());
-      expr body     = state(vars()) && step(all);
-      reach_rule    = mk_rule(z3::implies(body, head), "->");
-    }
-
-    fp_T.clear();
-    for (numrep_t i = 0; i < p; i++)
-    {
-      expr guard     = proc_last.p_equals(i) && z3::mk_and(constraint);
-      // add to guard
-      expr start_pre = pc.at(i).equals(0) && free.at(i);
-      expr start_post =
-          pc.at(i).p_equals(1) && !free.at(i).p() && level.at(i).p_equals(0);
-
-      fp_T.push_back(mk_rule_aux(
-          step(all), guard && T_start(i), fmt::format("T_start({})", i)));
-
-      fp_T.push_back(mk_rule_aux(step(all), guard && T_boundcheck(i),
-          fmt::format("T_boundcheck({})", i)));
-
-      fp_T.push_back(mk_rule_aux(
-          step(all), guard && T_setlast(i), fmt::format("T_setlast({})", i)));
-
-      fp_T.push_back(mk_rule_aux(
-          step(all), guard && T_await(i), fmt::format("T_await({})", i)));
-
-      fp_T.push_back(mk_rule_aux(
-          step(all), guard && T_release(i), fmt::format("T_release({})", i)));
-    }
-
-    for (Rule& rule : fp_T)
-      engine.add_rule(rule.expr, rule.name);
-  }
-
   void PetersonModel::constrain_switches(optional<numrep_t> m)
   {
     using mysat::primed::lit_type;
@@ -704,8 +640,8 @@ namespace pdr::peterson
           expr set_index =
               implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
           // expr rest_stays =
-          //     implies(!level.at(i).equals(x), level.at(i).unchanged()); //
-          //     uhmm
+          //     implies(!level.at(i).equals(x), level.at(i).unchanged());
+          //     // uhmm
           increment.push_back(set_index);
         }
         expr raw   = z3ext::tseytin::to_cnf(mk_and(increment));
@@ -1059,4 +995,153 @@ namespace pdr::peterson
 
     return S;
   }
+
+  void PetersonModel::load_initial(z3::fixedpoint& engine)
+  {
+    state_sorts.resize(0);
+    for (size_t i{ 0 }; i < state_size(); i++)
+      state_sorts.push_back(ctx.bool_sort());
+
+    // State(pc, level, last, proc_last, switch_count)
+    fp_state = z3::function("fp_state", fp_state_sorts, ctx.bool_sort());
+    engine.register_relation(fp_state);
+
+    fp_step = z3::function("fp_step", // Step(State, State) -> B
+        z3ext::vec_add(fp_state_sorts, fp_state_sorts), ctx.bool_sort());
+    engine.register_relation(fp_step);
+
+    state = z3::function("state", state_sorts, ctx.bool_sort());
+    engine.register_relation(state);
+
+    expr_vector conj(ctx);
+    for (numrep_t i = 0; i < N; i++)
+    {
+      conj.push_back(fp_pc.at(i) == 0);
+      conj.push_back(fp_level.at(i) == -1);
+      conj.push_back(fp_last.at(i) == 0);
+      conj.push_back(fp_switch_count == 0);
+    }
+
+    fp_I = mk_rule(z3::implies(z3::mk_and(conj), state(vars())), "I");
+    engine.add_rule(fp_I->expr, fp_I->name);
+  }
+
+  void PetersonModel::load_transition(z3::fixedpoint& engine)
+  {
+    using fmt::format;
+    auto bits       = [](unsigned n) { return std::log2(n) + 1; };
+    auto declare_bv = [&](expr& curr, expr& next, string const& name,
+                          unsigned holding) -> void
+    {
+      curr = ctx.bv_const(name.c_str(), bits(holding));
+      vars0.push_back(curr);
+      fp_state_sorts.push_back(curr.get_sort());
+
+      next = ctx.bv_const(name.c_str(), bits(holding));
+      vars1.push_back(next);
+    };
+    auto declare_bvs = [&](vector<expr>& curr, vector<expr>& next,
+                           string_view name, unsigned holding) -> void
+    {
+      curr.resize(0);
+      next.resize(0);
+      for (size_t i = 0; i < N; i++)
+      {
+        curr.push_back(
+            ctx.bv_const(format("{}{}", name, i).c_str(), bits(holding)));
+        vars0.push_back(curr.back());
+        fp_state_sorts.push_back(curr.back().get_sort());
+
+        next.push_back(
+            ctx.bv_const(format("{}{}.p", name, i).c_str(), bits(holding)));
+        vars1.push_back(next.back());
+      }
+    };
+
+    declare_bvs(fp_pc, fp_pc_p, "fp_pc", pc_num);
+    declare_bvs(fp_level, fp_level_p, "fp_level", N);
+    declare_bvs(fp_last, fp_last_p, "fp_last", N);
+    declare_bv(fp_proc_last, fp_proc_last_p, "fp_proc_last", N);
+    declare_bv(fp_switch_count, fp_switch_count_p, "fp_switch_count",
+        SWITCH_COUNT_MAX);
+
+    expr state0 = fp_state(vars0), state1 = fp_state(vars1);
+    {
+      z3::expr head = fp_state(vars1);
+
+      expr count = z3::ite(fp_proc_last == fp_proc_last_p,
+          fp_switch_count_p == fp_switch_count,
+          fp_switch_count_p == fp_switch_count + 1);
+      int bound  = max_switches.value() + 1;
+      expr guard = fp_switch_count_p < bound;
+
+      expr body = fp_state(vars0) && count && guard &&
+                  fp_step(z3ext::vec_add(vars0, vars1));
+      reach_rule = mk_rule(z3::implies(body, head), "->");
+    }
+
+    // state arguments that set the variables of process P to the specified
+    // expression, any others are set to the current state value
+    auto change = [&](numrep_t P, optional<expr> pc, optional<expr> level,
+                      optional<expr> last, optional<expr> proc_last,
+                      optional<expr> switch_count)
+    {
+      expr_vector rv(ctx);
+      for (size_t i = 0; i < N; i++)
+        rv.push_back(i == P && pc ? *pc : fp_pc.at(i));
+      for (size_t i = 0; i < N; i++)
+        rv.push_back(i == P && level ? *level : fp_level.at(i));
+      for (size_t i = 0; i < N - 1; i++)
+        rv.push_back(i == P && last ? *last : fp_last.at(i));
+      rv.push_back(proc_last.value_or(fp_proc_last));
+      rv.push_back(switch_count.value_or(fp_switch_count));
+      return rv;
+    };
+
+    fp_T.clear();
+    for (numrep_t i = 0; i < p; i++)
+    {
+      expr this_proc    = (fp_proc_last == ctx.int_val(i));
+      // add to guard
+      expr start_guard  = this_proc && fp_pc.at(i) == 0 && fp_level.at(i) == -1;
+      expr start_effect = fp_state(change(i, ctx.int_val(1), ctx.int_val(0), {},
+          fp_proc_last_p, fp_switch_count_p));
+
+      expr bound_guard = this_proc && fp_pc.at(i) == 1 &&
+                         z3::ite(fp_level.at(i) < (int)N - 1,
+                             fp_pc_p.at(i) == 2, fp_pc_p.at(i) == 4);
+      expr bound_effect = fp_state(
+          change(i, fp_pc_p.at(i), {}, {}, fp_proc_last_p, fp_switch_count_p));
+
+      for (int x = 0; x < N - 1; x++)
+      {
+        expr setlast_guard =
+            this_proc && fp_pc.at(i) == 2 &&
+            z3::ite(fp_level.at(i) == x, fp_last_p.at(x) == (int)i,
+                fp_last_p.at(x) == fp_last.at(x));
+        expr setlast_effect = fp_state(change(
+            i, ctx.int_val(3), {}, {}, fp_proc_last_p, fp_switch_count_p));
+      }
+
+      expr_vector exists_larger(ctx);
+      for (numrep_t k = 0; k < N; k++)
+        exists_larger.push_back(fp_level.at(k) >= fp_last.at(i));
+
+      expr await_guard =
+          this_proc && fp_pc.at(i) == 3 &&
+          z3::ite(fp_last_p.at(i) == (int)i && z3::mk_or(exists_larger),
+              fp_pc_p.at(i) == 3 && fp_level_p.at(i) == fp_level.at(i),
+              fp_pc_p.at(i) == 1 && fp_level_p.at(i) == fp_level.at(i) + 1);
+      expr await_effect = fp_state(change(i, fp_pc_p.at(i), fp_level_p.at(i),
+          {}, fp_proc_last_p, fp_switch_count_p));
+
+      expr release_guard  = this_proc && fp_pc.at(i) == 4;
+      expr release_effect = fp_state(change(i, ctx.int_val(0), ctx.int_val(-1),
+          {}, fp_proc_last_p, fp_switch_count_p));
+    }
+
+    for (Rule& rule : fp_T)
+      engine.add_rule(rule.expr, rule.name);
+  }
+
 } // namespace pdr::peterson

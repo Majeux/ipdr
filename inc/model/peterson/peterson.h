@@ -65,7 +65,9 @@ namespace pdr::peterson
 
     // void show(std::ostream& out) const;
 
-    PetersonModel(z3::context& c, numrep_t n_procs, numrep_t m_procs,
+    PetersonModel(z3::context& c,
+        numrep_t n_procs,
+        numrep_t m_procs,
         std::optional<numrep_t> m_switches);
 
     static PetersonModel constrained_switches(
@@ -73,6 +75,7 @@ namespace pdr::peterson
     static PetersonModel constrained_procs(
         z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
+    void load_initial(z3::fixedpoint& engine) override;
     void load_transition(z3::fixedpoint& engine) override;
 
     const z3::expr get_constraint_current() const override;
@@ -101,8 +104,17 @@ namespace pdr::peterson
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
 
-    z3::func_decl step;  // B^N B^N |-> B
+    z3::func_decl step; // B^N B^N |-> B
     Rule reach_rule;
+
+    std::vector<z3::expr> fp_pc, fp_level, fp_last;
+    z3::expr fp_proc_last, fp_switch_count;
+    std::vector<z3::expr> fp_pc_p, fp_level_p, fp_last_p;
+    z3::expr fp_proc_last_p, fp_switch_count_p;
+
+    z3::expr_vector vars0, vars1;
+    z3::func_decl fp_state, fp_step;
+    z3::sort_vector fp_state_sorts;
 
     // max no. processes. the size of the waiting queue
     const numrep_t N;
@@ -158,7 +170,8 @@ namespace pdr::peterson
     {
     }
     PetersonState(std::vector<PetersonModel::numrep_t>&& p,
-        std::vector<PetersonModel::numrep_t>&& l, std::vector<bool>&& f,
+        std::vector<PetersonModel::numrep_t>&& l,
+        std::vector<bool>&& f,
         std::vector<PetersonModel::numrep_t>&& lst)
         : pc(p), level(l), free(f), last(lst)
     {

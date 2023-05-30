@@ -17,11 +17,11 @@ namespace pdr
         vars(ctx, varnames),
         property(ctx, vars),
         n_property(ctx, vars),
+        state(ctx),
         initial(ctx),
         transition(ctx),
         constraint(ctx),
-        state_sorts(ctx),
-        state(ctx)
+        state_sorts(ctx)
   {
   }
 
