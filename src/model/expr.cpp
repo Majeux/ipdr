@@ -345,7 +345,7 @@ namespace mysat::primed
   {
     size_t bits = std::log2(max_val) + 1; // floored
     assert(bits <= std::numeric_limits<numrep_t>::digits);
-    return BitVec(c, n, std::log2(max_val) + 1);
+    return BitVec(c, n, bits);
   }
 
   BitVec& BitVec::incrementable()

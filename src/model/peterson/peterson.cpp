@@ -426,6 +426,28 @@ namespace pdr::peterson
 
   void PetersonModel::load_transition(z3::fixedpoint& engine)
   {
+    using fmt::format;
+    auto bits = [](unsigned n) { return std::log2(n) + 1; };
+
+    vector<expr> fp_pc, fp_level, fp_free, fp_last, fp_proc_last,
+        fp_switch_count;
+
+    for (size_t i = 0; i < N; i++)
+      fp_pc.push_back(ctx.bv_const(format("fp_pc{}", i).c_str(), bits(pc_num)));
+    for (size_t i = 0; i < N; i++)
+      fp_level.push_back(
+          ctx.bv_const(format("fp_level{}", i).c_str(), bits(N)));
+    for (size_t i = 0; i < N; i++)
+      fp_free.push_back(ctx.bool_const(format("fp_free{}", i).c_str()));
+    for (size_t i = 0; i < N; i++)
+      fp_last.push_back(ctx.bv_const(format("fp_last{}", i).c_str(), bits(N)));
+    for (size_t i = 0; i < N; i++)
+      fp_proc_last.push_back(
+          ctx.bv_const(format("fp_proc_last{}", i).c_str(), bits(N)));
+    for (size_t i = 0; i < N; i++)
+      fp_switch_count.push_back(
+          ctx.bv_const(format("fp_switch_count{}", i).c_str(), bits(N)));
+
     step = z3::function(
         "step", z3ext::vec_add(state_sorts, state_sorts), ctx.bool_sort());
     engine.register_relation(step);
@@ -440,7 +462,11 @@ namespace pdr::peterson
     fp_T.clear();
     for (numrep_t i = 0; i < p; i++)
     {
-      expr guard = proc_last.p_equals(i) && z3::mk_and(constraint);
+      expr guard     = proc_last.p_equals(i) && z3::mk_and(constraint);
+      // add to guard
+      expr start_pre = pc.at(i).equals(0) && free.at(i);
+      expr start_post =
+          pc.at(i).p_equals(1) && !free.at(i).p() && level.at(i).p_equals(0);
 
       fp_T.push_back(mk_rule_aux(
           step(all), guard && T_start(i), fmt::format("T_start({})", i)));
