@@ -96,19 +96,19 @@ namespace pdr::test
     last_result = engine.query(target);
     double time = timer.elapsed().count();
 
-    cover_string = "fixedpoint delta-covers:\n";
-    {
-      int n_levels = engine.get_num_levels(target_decl);
-      assert(n_levels > 0);
-      for (int i{ -1 }; i < n_levels; i++)
-      {
-        cover_string += fmt::format("-- level {}\n", i);
-        cover_string += fmt::format(
-            "{}\n", engine.get_cover_delta(i, target_decl).to_string());
-        cover_string += "\n";
-      }
-    }
-    MYLOG_DEBUG(logger, cover_string);
+    // cover_string = "fixedpoint delta-covers:\n";
+    // {
+    //   int n_levels = engine.get_num_levels(target_decl);
+    //   assert(n_levels > 0);
+    //   for (int i{ -1 }; i < n_levels; i++)
+    //   {
+    //     cover_string += fmt::format("-- level {}\n", i);
+    //     cover_string += fmt::format(
+    //         "{}\n", engine.get_cover_delta(i, target_decl).to_string());
+    //     cover_string += "\n";
+    //   }
+    // }
+    // MYLOG_DEBUG(logger, cover_string);
 
     vector<std::string> trace;
     unsigned n_levels;
@@ -123,7 +123,7 @@ namespace pdr::test
                  .with_duration(time);
         break;
       case z3::check_result::unsat:
-        n_levels = engine.get_num_levels(target_decl);
+        // n_levels = engine.get_num_levels(target_decl);
         MYLOG_DEBUG(logger, "UNSAT fixedpoint");
         MYLOG_DEBUG(logger, "Invariant found after {} levels", n_levels);
         rv = PdrResult::found_invariant(n_levels).with_duration(time);
@@ -145,19 +145,22 @@ namespace pdr::test
         << cover_string << std::endl;
   }
 
+#include <dbg.h>
   vector<std::string> z3PDR::get_trace(z3::fixedpoint& engine)
   {
     assert(last_result == z3::check_result::sat);
 
     z3::symbol raw(
         ctx(), Z3_fixedpoint_get_rule_names_along_trace(ctx(), engine));
+    dbg(raw);
+    MYLOG_TRACE(logger, "TRACE: {}", raw.str());
     vector<std::string> trace = str::ext::split(raw.str(), ';');
     trace.erase(std::remove_if(trace.begin(), trace.end(),
                     [](string_view a) { return a == "->"; }),
         trace.end());
 
     std::reverse(trace.begin(), trace.end());
-    assert(trace.at(0) == "I");
+    // assert(trace.at(0) == "I");
 
     return trace;
   }

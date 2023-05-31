@@ -77,6 +77,7 @@ namespace pdr::peterson
 
     void load_initial(z3::fixedpoint& engine) override;
     void load_transition(z3::fixedpoint& engine) override;
+    z3::expr create_fp_target() override;
 
     const z3::expr get_constraint_current() const override;
     unsigned state_size() const override;
@@ -112,7 +113,7 @@ namespace pdr::peterson
     std::vector<z3::expr> fp_pc_p, fp_level_p, fp_last_p;
     z3::expr fp_proc_last_p, fp_switch_count_p;
 
-    z3::expr_vector vars0, vars1;
+    z3::expr_vector fp_vars0, fp_vars1, fp_vars01;
     z3::func_decl fp_state, fp_step;
     z3::sort_vector fp_state_sorts;
 
@@ -151,6 +152,8 @@ namespace pdr::peterson
     z3::expr T_setlast(numrep_t i);
     z3::expr T_await(numrep_t i);
     z3::expr T_release(numrep_t i);
+
+    void fp_declarations(z3::fixedpoint& engine);
 
   }; // class PetersonModel
 

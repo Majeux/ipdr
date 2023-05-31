@@ -73,6 +73,10 @@ namespace pdr
 
       Rule(z3::context& ctx) : expr(ctx), name(ctx.str_symbol("empty str")) {}
       Rule(z3::expr const& e, z3::symbol const& n) : expr(e), name(n) {}
+      Rule(z3::expr const& e, std::string const& n)
+          : expr(e), name(e.ctx().str_symbol(n.c_str()))
+      {
+      }
     };
     std::optional<Rule> fp_I;
     std::vector<Rule> fp_T;

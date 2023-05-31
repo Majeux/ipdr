@@ -22,6 +22,7 @@
 
 namespace pdr::peterson
 {
+  using fmt::format;
   using std::set;
   using std::string;
   using std::vector;
@@ -223,7 +224,6 @@ namespace pdr::peterson
 
   Vars PetersonModel::mk_vars()
   {
-    using fmt::format;
     using z3::atleast;
     using z3::atmost;
 
@@ -303,6 +303,16 @@ namespace pdr::peterson
       : IModel(c, {}), // varnames are added in body
         step(ctx),
         reach_rule(ctx),
+        fp_proc_last(ctx),
+        fp_switch_count(ctx),
+        fp_proc_last_p(ctx),
+        fp_switch_count_p(ctx),
+        fp_vars0(ctx),
+        fp_vars1(ctx),
+        fp_vars01(ctx),
+        fp_state(ctx),
+        fp_step(ctx),
+        fp_state_sorts(ctx),
         N(m_procs),
         p(n_procs),
         max_switches(m_switches),
@@ -313,7 +323,6 @@ namespace pdr::peterson
         level(),
         last()
   {
-    using fmt::format;
     Vars allvars = mk_vars();
     vars.add(allvars.curr, allvars.next);
 
@@ -349,7 +358,7 @@ namespace pdr::peterson
 
   const std::string PetersonModel::constraint_str() const
   {
-    return fmt::format("{} processes, at most {} context switches", p,
+    return format("{} processes, at most {} context switches", p,
         max_switches.value_or(UINTMAX_MAX));
   }
 
@@ -434,8 +443,8 @@ namespace pdr::peterson
     if (m.has_value() && !(*m + 1 < SWITCH_COUNT_MAX))
     {
       throw std::invalid_argument(
-          fmt::format("The maximum number of switches m+1 (={}+1) must be less "
-                      "than SWITCH_COUNT_MAX={}",
+          format("The maximum number of switches m+1 (={}+1) must be less "
+                 "than SWITCH_COUNT_MAX={}",
               *m, SWITCH_COUNT_MAX));
     }
 
@@ -555,12 +564,13 @@ namespace pdr::peterson
     // IF l[i] < N-1
     // THEN pc[i].p <- 2
     // ELSE pc[i].p <- 4
-    conj.push_back(if_then_else(
-        level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+    // conj.push_back(if_then_else(
+    //     level.at(i).less(N - 1), pc.at(i).p_equals(2),
+    //     pc.at(i).p_equals(4)));
 
     // wrong! (for testing violations)
-    // conj.push_back(if_then_else(
-    //     level.at(i).less(N -2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+    conj.push_back(if_then_else(
+        level.at(i).less(N - 2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);
@@ -738,7 +748,7 @@ namespace pdr::peterson
     {
       auto witness = z3ext::solver::get_witness(solver);
       std::cout << " - final: sat" << std::endl
-                << fmt::format("witness ({}/{}): {}", witness.size(), Nlits,
+                << format("witness ({}/{}): {}", witness.size(), Nlits,
                        witness.to_string())
                 << std::endl
                 << extract_state(witness).to_string(true) << std::endl;
@@ -747,7 +757,7 @@ namespace pdr::peterson
     {
       auto core = z3ext::solver::get_core(solver);
       std::cout << " - final: unsat" << std::endl
-                << fmt::format(
+                << format(
                        "core ({}/{}): {}", core.size(), Nlits, core.to_string())
                 << extract_state(core).to_string(true) << std::endl;
     }
@@ -911,10 +921,10 @@ namespace pdr::peterson
     unsigned size = std::accumulate(edges.begin(), edges.end(), 0,
         [](unsigned a, const auto& s) { return a + s.second.size(); });
 
-    cout << fmt::format("No. edges = {}", size) << endl;
+    cout << format("No. edges = {}", size) << endl;
 
     out << "digraph G {" << endl;
-    out << fmt::format("start -> \"{}\"", I.inline_string()) << endl;
+    out << format("start -> \"{}\"", I.inline_string()) << endl;
     for (const auto& map_pair : edges)
     {
       assert(map_pair.second.size() <= p);
@@ -922,8 +932,7 @@ namespace pdr::peterson
       string src_str = map_pair.first.inline_string();
 
       for (const PetersonState& dst : map_pair.second)
-        out << fmt::format("\"{}\" -> \"{}\"", src_str, dst.inline_string())
-            << endl
+        out << format("\"{}\" -> \"{}\"", src_str, dst.inline_string()) << endl
             << endl;
     }
     out << "}" << endl;
@@ -996,78 +1005,77 @@ namespace pdr::peterson
     return S;
   }
 
-  void PetersonModel::load_initial(z3::fixedpoint& engine)
+  void PetersonModel::fp_declarations(z3::fixedpoint& engine)
   {
-    state_sorts.resize(0);
-    for (size_t i{ 0 }; i < state_size(); i++)
-      state_sorts.push_back(ctx.bool_sort());
+    fp_vars0.resize(0);
+    fp_vars1.resize(0);
+    fp_state_sorts.resize(0);
 
+    auto declare_bv = [&](expr& curr, expr& next, string const& name) -> void
+    {
+      curr = ctx.int_const(name.c_str());
+      fp_vars0.push_back(curr);
+      fp_state_sorts.push_back(curr.get_sort());
+
+      next = ctx.int_const(format("{}.p", name).c_str());
+      fp_vars1.push_back(next);
+    };
+    auto declare_bvs = [&](vector<expr>& curr, vector<expr>& next,
+                           string_view name, unsigned amount) -> void
+    {
+      curr.clear();
+      next.clear();
+      for (size_t i = 0; i < amount; i++)
+      {
+        curr.push_back(ctx.int_const(format("{}{}", name, i).c_str()));
+        fp_vars0.push_back(curr.back());
+        fp_state_sorts.push_back(curr.back().get_sort());
+
+        next.push_back(ctx.int_const(format("{}{}.p", name, i).c_str()));
+        fp_vars1.push_back(next.back());
+      }
+    };
+
+    declare_bvs(fp_pc, fp_pc_p, "fp_pc", N);
+    declare_bvs(fp_level, fp_level_p, "fp_level", N);
+    declare_bvs(fp_last, fp_last_p, "fp_last", N - 1);
+    declare_bv(fp_proc_last, fp_proc_last_p, "fp_proc_last");
+    declare_bv(fp_switch_count, fp_switch_count_p, "fp_switch_count");
+
+    fp_vars01 = z3ext::vec_add(fp_vars0, fp_vars1);
     // State(pc, level, last, proc_last, switch_count)
-    fp_state = z3::function("fp_state", fp_state_sorts, ctx.bool_sort());
+    fp_state  = z3::function("fp_state", fp_state_sorts, ctx.bool_sort());
     engine.register_relation(fp_state);
-
-    fp_step = z3::function("fp_step", // Step(State, State) -> B
+    // Step(State, State) -> B
+    fp_step = z3::function("fp_step",
         z3ext::vec_add(fp_state_sorts, fp_state_sorts), ctx.bool_sort());
     engine.register_relation(fp_step);
+  }
 
-    state = z3::function("state", state_sorts, ctx.bool_sort());
-    engine.register_relation(state);
+  void PetersonModel::load_initial(z3::fixedpoint& engine)
+  {
+    fp_declarations(engine);
 
     expr_vector conj(ctx);
-    for (numrep_t i = 0; i < N; i++)
-    {
-      conj.push_back(fp_pc.at(i) == 0);
-      conj.push_back(fp_level.at(i) == -1);
-      conj.push_back(fp_last.at(i) == 0);
-      conj.push_back(fp_switch_count == 0);
-    }
+    for (expr const& i : fp_pc)
+      conj.push_back(i == 0);
+    for (expr const& i : fp_level)
+      conj.push_back(i == -1);
+    for (expr const& i : fp_last)
+      conj.push_back(i == 0);
+    conj.push_back(fp_switch_count == 0);
 
-    fp_I = mk_rule(z3::implies(z3::mk_and(conj), state(vars())), "I");
+    fp_I = {
+      z3::forall(fp_vars0, z3::implies(z3::mk_and(conj), fp_state(fp_vars0))), "I"
+    };
     engine.add_rule(fp_I->expr, fp_I->name);
   }
 
   void PetersonModel::load_transition(z3::fixedpoint& engine)
   {
-    using fmt::format;
-    auto bits       = [](unsigned n) { return std::log2(n) + 1; };
-    auto declare_bv = [&](expr& curr, expr& next, string const& name,
-                          unsigned holding) -> void
+    expr state0 = fp_state(fp_vars0), state1 = fp_state(fp_vars1);
     {
-      curr = ctx.bv_const(name.c_str(), bits(holding));
-      vars0.push_back(curr);
-      fp_state_sorts.push_back(curr.get_sort());
-
-      next = ctx.bv_const(name.c_str(), bits(holding));
-      vars1.push_back(next);
-    };
-    auto declare_bvs = [&](vector<expr>& curr, vector<expr>& next,
-                           string_view name, unsigned holding) -> void
-    {
-      curr.resize(0);
-      next.resize(0);
-      for (size_t i = 0; i < N; i++)
-      {
-        curr.push_back(
-            ctx.bv_const(format("{}{}", name, i).c_str(), bits(holding)));
-        vars0.push_back(curr.back());
-        fp_state_sorts.push_back(curr.back().get_sort());
-
-        next.push_back(
-            ctx.bv_const(format("{}{}.p", name, i).c_str(), bits(holding)));
-        vars1.push_back(next.back());
-      }
-    };
-
-    declare_bvs(fp_pc, fp_pc_p, "fp_pc", pc_num);
-    declare_bvs(fp_level, fp_level_p, "fp_level", N);
-    declare_bvs(fp_last, fp_last_p, "fp_last", N);
-    declare_bv(fp_proc_last, fp_proc_last_p, "fp_proc_last", N);
-    declare_bv(fp_switch_count, fp_switch_count_p, "fp_switch_count",
-        SWITCH_COUNT_MAX);
-
-    expr state0 = fp_state(vars0), state1 = fp_state(vars1);
-    {
-      z3::expr head = fp_state(vars1);
+      z3::expr head = fp_state(fp_vars1);
 
       expr count = z3::ite(fp_proc_last == fp_proc_last_p,
           fp_switch_count_p == fp_switch_count,
@@ -1075,10 +1083,11 @@ namespace pdr::peterson
       int bound  = max_switches.value() + 1;
       expr guard = fp_switch_count_p < bound;
 
-      expr body = fp_state(vars0) && count && guard &&
-                  fp_step(z3ext::vec_add(vars0, vars1));
-      reach_rule = mk_rule(z3::implies(body, head), "->");
+      expr body = fp_state(fp_vars0) && count && guard &&
+                  fp_step(z3ext::vec_add(fp_vars0, fp_vars1));
+      reach_rule = { z3::forall(fp_vars01, z3::implies(body, head)), "->" };
     }
+    engine.add_rule(reach_rule.expr, reach_rule.name);
 
     // state arguments that set the variables of process P to the specified
     // expression, any others are set to the current state value
@@ -1097,51 +1106,102 @@ namespace pdr::peterson
       rv.push_back(switch_count.value_or(fp_switch_count));
       return rv;
     };
+    auto transition = [&](expr guard, expr_vector effect_state) -> expr
+    {
+      expr effect = fp_step(z3ext::vec_add(fp_vars0, effect_state));
+      expr horn   = z3::implies(guard, effect);
+      return z3::forall(fp_vars01, horn);
+    };
 
+    // gather transition rules
     fp_T.clear();
     for (numrep_t i = 0; i < p; i++)
     {
-      expr this_proc    = (fp_proc_last == ctx.int_val(i));
-      // add to guard
-      expr start_guard  = this_proc && fp_pc.at(i) == 0 && fp_level.at(i) == -1;
-      expr start_effect = fp_state(change(i, ctx.int_val(1), ctx.int_val(0), {},
-          fp_proc_last_p, fp_switch_count_p));
-
-      expr bound_guard = this_proc && fp_pc.at(i) == 1 &&
-                         z3::ite(fp_level.at(i) < (int)N - 1,
-                             fp_pc_p.at(i) == 2, fp_pc_p.at(i) == 4);
-      expr bound_effect = fp_state(
-          change(i, fp_pc_p.at(i), {}, {}, fp_proc_last_p, fp_switch_count_p));
-
-      for (int x = 0; x < N - 1; x++)
+      expr this_proc = (fp_proc_last == ctx.int_val(i));
+      // T_start
       {
-        expr setlast_guard =
-            this_proc && fp_pc.at(i) == 2 &&
-            z3::ite(fp_level.at(i) == x, fp_last_p.at(x) == (int)i,
-                fp_last_p.at(x) == fp_last.at(x));
-        expr setlast_effect = fp_state(change(
-            i, ctx.int_val(3), {}, {}, fp_proc_last_p, fp_switch_count_p));
+        expr t_start =
+            transition(this_proc && fp_pc.at(i) == 0 && fp_level.at(i) == -1,
+                change(i, ctx.int_val(1), ctx.int_val(0), {}, fp_proc_last_p,
+                    fp_switch_count_p));
+
+        fp_T.emplace_back(t_start, format("start{}", i));
+      }
+      // T_boundcheck
+      {
+        expr t_bound =
+            transition(this_proc && fp_pc.at(i) == 1 &&
+                           ite(fp_level.at(i) < (int)N - 2, fp_pc_p.at(i) == 2,
+                               fp_pc_p.at(i) == 4),
+                change(i, fp_pc_p.at(i), {}, {}, fp_proc_last_p,
+                    fp_switch_count_p));
+
+        fp_T.emplace_back(t_bound, format("bouncheck{}", i));
       }
 
-      expr_vector exists_larger(ctx);
-      for (numrep_t k = 0; k < N; k++)
-        exists_larger.push_back(fp_level.at(k) >= fp_last.at(i));
+      // T_setlast
+      for (int x = 0; x < (int)N - 1; x++)
+      {
+        expr t_setlast = transition(
+            this_proc && fp_pc.at(i) == 2 &&
+                z3::ite(fp_level.at(i) == x, fp_last_p.at(x) == (int)i,
+                    fp_last_p.at(x) == fp_last.at(x)),
+            change(
+                i, ctx.int_val(3), {}, {}, fp_proc_last_p, fp_switch_count_p));
 
-      expr await_guard =
-          this_proc && fp_pc.at(i) == 3 &&
-          z3::ite(fp_last_p.at(i) == (int)i && z3::mk_or(exists_larger),
-              fp_pc_p.at(i) == 3 && fp_level_p.at(i) == fp_level.at(i),
-              fp_pc_p.at(i) == 1 && fp_level_p.at(i) == fp_level.at(i) + 1);
-      expr await_effect = fp_state(change(i, fp_pc_p.at(i), fp_level_p.at(i),
-          {}, fp_proc_last_p, fp_switch_count_p));
+        fp_T.emplace_back(t_setlast, format("last[{}] <- {}", x, i));
+      }
+      // T_await
+      {
+        expr entered_last = [&]()
+        {
+          expr_vector conj(ctx);
+          for (int x = 0; x < (int)N - 1; x++)
+            conj.push_back(
+                z3::implies(fp_level.at(i) == x, fp_last.at(x) == (int)i));
+          return z3::mk_and(conj);
+        }();
+        expr larger_lvl_exists = [&]()
+        {
+          expr_vector disj(ctx);
+          for (numrep_t k = 0; k < N; k++)
+            disj.push_back(fp_level.at(k) >= fp_level.at(i));
+          return z3::mk_or(disj);
+        }();
 
-      expr release_guard  = this_proc && fp_pc.at(i) == 4;
-      expr release_effect = fp_state(change(i, ctx.int_val(0), ctx.int_val(-1),
-          {}, fp_proc_last_p, fp_switch_count_p));
+        expr t_await = transition(
+            this_proc && fp_pc.at(i) == 3 &&
+                z3::ite(entered_last && larger_lvl_exists,
+                    fp_pc_p.at(i) == 3 && fp_level_p.at(i) == fp_level.at(i),
+                    fp_pc_p.at(i) == 1 &&
+                        fp_level_p.at(i) == fp_level.at(i) + 1),
+            change(i, fp_pc_p.at(i), fp_level_p.at(i), {}, fp_proc_last_p,
+                fp_switch_count_p));
+
+        fp_T.emplace_back(t_await, format("await{}", i));
+      }
+      // T_release
+      {
+        expr t_release = transition(this_proc && fp_pc.at(i) == 4,
+            change(i, ctx.int_val(0), ctx.int_val(-1), {}, fp_proc_last_p,
+                fp_switch_count_p));
+
+        fp_T.emplace_back(t_release, format("release{}", i));
+      }
     }
 
     for (Rule& rule : fp_T)
       engine.add_rule(rule.expr, rule.name);
+  }
+
+  expr PetersonModel::create_fp_target()
+  {
+    expr_vector in_critical(ctx);
+    for (numrep_t i = 0; i < N; i++)
+      in_critical.push_back(fp_pc.at(i) == 4);
+
+    return z3::exists(
+        fp_vars0, fp_state(fp_vars0) && z3::atleast(in_critical, 2));
   }
 
 } // namespace pdr::peterson
