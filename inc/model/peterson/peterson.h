@@ -78,6 +78,8 @@ namespace pdr::peterson
     void load_initial(z3::fixedpoint& engine) override;
     void load_transition(z3::fixedpoint& engine) override;
     z3::expr create_fp_target() override;
+    z3::func_decl& fp_query_ref() override;
+    PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine) override;
 
     const z3::expr get_constraint_current() const override;
     unsigned state_size() const override;

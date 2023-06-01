@@ -387,7 +387,7 @@ namespace pdr
     size_t n_marked(PdrResult::Trace::TraceState const& s)
     {
       return std::accumulate(s.cbegin(), s.cend(), size_t{ 0 },
-          [](size_t a, LitStr const& l) { return a + l.sign; });
+          [](size_t a, LitStr const& l) { return a + l.value; });
     }
 
     // return strings that mark whether every state in header a positive or
@@ -406,7 +406,7 @@ namespace pdr
         {
           string fill_X = fmt::format("{:X^{}}", "", it->size());
           rv[it - header.begin()] =
-              lit.sign ? fill_X : std::string(it->size(), ' ');
+              lit.value ? fill_X : std::string(it->size(), ' ');
         }
       }
 

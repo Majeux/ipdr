@@ -7,6 +7,7 @@
 #include <z3++.h>
 
 #include "expr.h"
+#include "result.h"
 
 namespace pdr
 {
@@ -45,6 +46,9 @@ namespace pdr
     virtual void load_initial(z3::fixedpoint& engine);
     virtual void load_transition(z3::fixedpoint& engine);
     virtual z3::expr create_fp_target();
+    // return a "predicate" target for engine.get_num_levels() and engine.
+    virtual z3::func_decl& fp_query_ref();
+    virtual PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine);
 
     // the number of literals that encode a state of the system
     virtual unsigned state_size() const              = 0;

@@ -1,5 +1,6 @@
 #include "z3-ext.h"
 #include "expr.h"
+#include "types-ext.h"
 
 #include <algorithm>
 #include <cassert>
@@ -11,6 +12,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 #include <z3++.h>
 #include <z3_api.h>
@@ -24,29 +26,54 @@ namespace z3ext
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
+  using my::variant::visitor;
 
   // LitStr Members
   //
-  LitStr::LitStr(string_view a, bool s) : atom(a), sign(s) {}
+  LitStr::LitStr(string_view a, std::variant<bool, int> v) : atom(a), value(v)
+  {
+  }
   LitStr::LitStr(expr const& l)
   {
-    const auto invalid = std::invalid_argument(
-        format("\"{}\" is not boolean literal", l.to_string()));
+    const auto invalid = std::invalid_argument(format(
+        "\"{}\" is not boolean literal or integer assignment", l.to_string()));
 
     if (!l.is_bool())
       throw invalid;
 
     if (l.is_const())
     {
-      atom = l.to_string();
-      sign = true;
+      atom  = l.to_string();
+      value = true;
     }
     else if (l.is_not())
     {
       if (!l.arg(0).is_const())
         throw invalid;
-      atom = l.arg(0).to_string();
-      sign = false;
+      atom  = l.arg(0).to_string();
+      value = false;
+    }
+    else if (l.is_eq())
+    {
+      try
+      {
+        if (l.arg(0).is_int())
+        {
+          atom  = l.arg(0).to_string();
+          value = l.arg(1).get_numeral_int();
+        }
+        else if (l.arg(1).is_int())
+        {
+          value = l.arg(0).get_numeral_int();
+          atom  = l.arg(1).to_string();
+        }
+        else
+          throw invalid;
+      }
+      catch (z3::exception const& e)
+      {
+        throw invalid;
+      }
     }
     else
       throw invalid;
@@ -54,15 +81,24 @@ namespace z3ext
 
   z3::expr LitStr::to_expr(z3::context& ctx)
   {
-    if (sign)
-      return ctx.bool_const(atom.c_str());
-
-    return !ctx.bool_const(atom.c_str());
+    return std::visit(
+        visitor{ [&](bool sign)
+            {
+              expr e = ctx.bool_const(atom.c_str());
+              return sign ? e : !e;
+            },
+            [&](int v) { return ctx.int_const(atom.c_str()) == v; } },
+        value);
   }
 
-  std::string LitStr::to_string() const
+  string LitStr::to_string() const
   {
-    return fmt::format("{} -> {}", atom, sign ? "true" : "false");
+    string v_string =
+        std::visit(visitor{ [](bool sign) -> string
+                       { return sign ? "true" : "false"; },
+                       [](int v) -> string { return std::to_string(v); } },
+            value);
+    return fmt::format("{} -> {}", atom, v_string);
   }
 
   // ConstrainedCube Members
@@ -111,9 +147,9 @@ namespace z3ext
       return *a_con >= *b_con; // predefined: higher size is stronger
     }
 
-    std::vector<z3::expr> mk_constrained_cube(
+    vector<z3::expr> mk_constrained_cube(
         std::map<unsigned, size_t> const& order,
-        std::vector<z3::expr> const& lits,
+        vector<z3::expr> const& lits,
         size_t size)
     {
       vector<expr> rv(lits);
@@ -134,7 +170,7 @@ namespace z3ext
       return true;
     }
 
-    std::vector<z3::expr> mk_constrained_cube(
+    vector<z3::expr> mk_constrained_cube(
         std::map<unsigned, size_t> const& order,
         vector<expr>&& lits,
         size_t size)
@@ -155,10 +191,10 @@ namespace z3ext
         {
           if (size < lit->second) // tightest constraint holds
           {
-            lits.erase(it);        // replace old
+            lits.erase(it); // replace old
             break;
           }
-          else 
+          else
             return std::move(lits); // keep old lits
         }
       }
@@ -263,15 +299,9 @@ namespace z3ext
 
   // atoms and lits
   //
-  expr z3_true(z3::context &ctx)
-  {
-    return ctx.bool_val(true);
-  }
+  expr z3_true(z3::context& ctx) { return ctx.bool_val(true); }
 
-  expr z3_false(z3::context &ctx)
-  {
-    return ctx.bool_val(false);
-  }
+  expr z3_false(z3::context& ctx) { return ctx.bool_val(false); }
 
   expr minus(expr const& e) { return e.is_not() ? e.arg(0) : !e; }
 
@@ -348,7 +378,7 @@ namespace z3ext
     return rv;
   }
 
-  expr_vector mk_expr_vec(std::initializer_list<z3::expr> l)
+  expr_vector mk_expr_vec(std::initializer_list<expr> l)
   {
     assert(not std::empty(l));
     expr_vector rv(l.begin()->ctx());
@@ -360,8 +390,8 @@ namespace z3ext
 
   expr_vector copy(expr_vector const& v)
   {
-    z3::expr_vector new_v(v.ctx());
-    for (const z3::expr& e : v)
+    expr_vector new_v(v.ctx());
+    for (const expr& e : v)
       new_v.push_back(e);
 
     return new_v;
@@ -434,7 +464,7 @@ namespace z3ext
     cube = convert(std::move(std_vec));
   }
 
-  void sort_exprs(std::vector<z3::expr>& v)
+  void sort_exprs(vector<expr>& v)
   {
     std::sort(v.begin(), v.end(), expr_less());
   }
@@ -446,12 +476,12 @@ namespace z3ext
     v = convert(std::move(std_vec));
   }
 
-  void order_lits(std::vector<z3::expr>& cube)
+  void order_lits(vector<expr>& cube)
   {
     std::sort(cube.begin(), cube.end(), cube_orderer);
   }
 
-  void order_lits(z3::expr_vector& cube)
+  void order_lits(expr_vector& cube)
   {
     if (cube.size() == 0)
       return;
@@ -460,7 +490,7 @@ namespace z3ext
     cube = convert(std::move(std_vec));
   }
 
-  vector<expr> order_lits_std(z3::expr_vector const& cube)
+  vector<expr> order_lits_std(expr_vector const& cube)
   {
     if (cube.size() == 0)
       return {};
@@ -522,10 +552,10 @@ namespace z3ext
     return true;
   }
 
-  bool quick_implies(z3::expr_vector const& l, z3::expr_vector const& r)
+  bool quick_implies(expr_vector const& l, expr_vector const& r)
   {
     z3::solver s(l.ctx());
-    s.add(z3::implies(z3::mk_and(l), z3::mk_and(r)));
+    s.add(z3::implies(mk_and(l), mk_and(r)));
     return s.check() == z3::check_result::sat;
   }
   // COMPARATOR FUNCTORS
@@ -604,7 +634,7 @@ namespace z3ext
     {
     }
 
-    Witness::Witness(z3::expr_vector const& c, z3::expr_vector const& n)
+    Witness::Witness(expr_vector const& c, expr_vector const& n)
     {
       for (expr const& e : c)
         curr.push_back(e);
@@ -618,18 +648,18 @@ namespace z3ext
       return convert(get_std_witness(s));
     }
 
-    std::vector<expr> get_std_witness(z3::solver const& s)
+    vector<expr> get_std_witness(z3::solver const& s)
     {
       z3::model m = s.get_model();
 
-      std::vector<z3::expr> std_vec;
+      vector<expr> std_vec;
       std_vec.reserve(m.num_consts());
 
       for (unsigned i = 0; i < m.size(); i++)
       {
         z3::func_decl f        = m[i];
-        z3::expr boolean_value = m.get_const_interp(f);
-        z3::expr literal       = f();
+        expr boolean_value = m.get_const_interp(f);
+        expr literal       = f();
 
         if (boolean_value.is_true())
           std_vec.push_back(literal);
@@ -656,7 +686,7 @@ namespace z3ext
       return core;
     }
 
-    std::optional<z3::expr_vector> check_witness(z3::solver& s)
+    std::optional<expr_vector> check_witness(z3::solver& s)
     {
       z3::check_result r = s.check();
       assert(not(r == z3::check_result::unknown));
@@ -666,8 +696,8 @@ namespace z3ext
         return {};
     }
 
-    std::optional<z3::expr_vector> check_witness(
-        z3::solver& s, z3::expr_vector const& assumptions)
+    std::optional<expr_vector> check_witness(
+        z3::solver& s, expr_vector const& assumptions)
     {
       z3::check_result r = s.check(assumptions);
       assert(not(r == z3::check_result::unknown));
@@ -692,9 +722,9 @@ namespace z3ext
 
   namespace fixedpoint
   {
-    std::vector<z3::expr> extract_trace_states(z3::fixedpoint& engine)
+    vector<expr> extract_trace_states(z3::fixedpoint& engine)
     {
-      std::vector<z3::expr> rv;
+      vector<expr> rv;
       // answer {
       // arg(0) = proof {
       //  arg(0) = define-target
@@ -730,7 +760,7 @@ namespace z3ext
   //
   namespace tseytin
   {
-    expr_vector to_cnf_vec(z3::expr e)
+    expr_vector to_cnf_vec(expr e)
     {
       e = e.simplify();
       z3::tactic simplify(e.ctx(), "simplify");
@@ -743,14 +773,14 @@ namespace z3ext
       g.add(e);
       z3::apply_result r = t(g);
       assert(r.size() == 1);
-      z3::expr_vector clauses(e.ctx());
+      expr_vector clauses(e.ctx());
       for (size_t i = 0; i < r[0].size(); i++)
         clauses.push_back(r[0][i]);
 
       return clauses;
     }
 
-    expr to_cnf(expr const& e) { return z3::mk_and(to_cnf_vec(e)); }
+    expr to_cnf(expr const& e) { return mk_and(to_cnf_vec(e)); }
 
     expr add_and(
         expr_vector& cnf, string const& name, expr const& a, expr const& b)

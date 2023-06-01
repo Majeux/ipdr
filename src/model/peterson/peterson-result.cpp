@@ -194,7 +194,7 @@ namespace pdr::peterson
             {
               expr c = model.ctx.bool_const(l.atom.c_str());
               expr n = model.vars.p(c);
-              if (l.sign)
+              if (l.value)
               {
                 current.push_back(c);
                 next.push_back(n);

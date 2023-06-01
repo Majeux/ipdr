@@ -4,6 +4,7 @@
 #include <fmt/core.h>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <numeric>
 #include <optional>
@@ -11,6 +12,7 @@
 #include <regex>
 #include <spdlog/stopwatch.h>
 #include <stdexcept>
+#include <string>
 #include <tabulate/table.hpp>
 #include <z3++.h>
 #include <z3_api.h>
@@ -1202,6 +1204,89 @@ namespace pdr::peterson
 
     return z3::exists(
         fp_vars0, fp_state(fp_vars0) && z3::atleast(in_critical, 2));
+  }
+
+  z3::func_decl& PetersonModel::fp_query_ref() { return fp_state; }
+
+  vector<expr> extract_trace_states(z3::fixedpoint& engine)
+  {
+    vector<expr> rv;
+    // answer {
+    //  arg(0):
+    //  arg(1):
+    //  arg(2):
+    //  arg(3): destination
+    // }
+    expr answer = engine.get_answer().arg(0).arg(1);
+
+    while (answer.num_args() == 4)
+    {
+      assert(answer.arg(3).get_sort().is_bool());
+      rv.push_back(answer.arg(3));
+
+      answer = answer.arg(2);
+    }
+
+    assert(answer.num_args() == 3);
+    rv.push_back(answer.arg(2));
+    std::reverse(rv.begin(), rv.end());
+    return rv;
+  }
+
+  PdrResult::Trace::TraceVec PetersonModel::fp_trace_states(
+      z3::fixedpoint& engine)
+  {
+    using tabulate::Table;
+    using z3ext::LitStr;
+    using namespace str::ext;
+
+    vector<vector<LitStr>> rv;
+    const vector<string> header = vars.names();
+    auto answer                 = engine.get_answer().arg(0).arg(1);
+
+    vector<expr> states = extract_trace_states(engine);
+
+    auto invalid = [](std::string_view s)
+    {
+      return std::invalid_argument(
+          fmt::format("\"{}\" is not a valid state in the trace", s));
+    };
+
+    // use regex to extract the assignments of "digit" or "(- digit)" from a
+    // state they are in order of ts.vars.names()
+    const std::regex marking(R"(\(fp_state((?:\s+(?:\d+|\(- \d+\)))*)\))");
+    std::smatch match;
+
+    for (size_t i{ 0 }; i < states.size(); i++)
+    {
+      string state_str(states[i].to_string());
+      if (!std::regex_match(state_str, match, marking))
+        throw invalid(state_str);
+      assert(match.size() == 2);
+
+      const std::regex extract_values(R"((?:\s+(?:\d+|\(- \d+\))))");
+      std::smatch value_match;
+      string mark_string = match[1];
+
+      // iterators over values in marking
+      auto values_begin = std::sregex_iterator(
+          mark_string.cbegin(), mark_string.cend(), extract_values);
+      auto values_end = std::sregex_iterator();
+      if (std::distance(values_begin, values_end) != (int)header.size())
+        throw invalid(state_str);
+
+      vector<LitStr> state;
+      size_t j = 0;
+      for (auto v_it = values_begin; v_it != values_end; v_it++, j++)
+      {
+        std::string num = v_it->str(v_it->size()-1); // get last match
+        trim(num);
+        state.emplace_back(header.at(j), std::stoi(num));
+      }
+      rv.push_back(state);
+    }
+
+    return rv;
   }
 
 } // namespace pdr::peterson

@@ -11,6 +11,7 @@
 #include <set>
 #include <sstream>
 #include <type_traits>
+#include <variant>
 #include <vector>
 #include <z3++.h>
 
@@ -21,13 +22,16 @@ namespace z3ext
   struct LitStr
   {
     std::string atom;
-    bool sign;
+    std::variant<bool, int> value;
     // extract the string representation and sign from a literal expressions
-    LitStr(std::string_view a, bool s);
+    LitStr(std::string_view a, std::variant<bool, int> v);
     LitStr(z3::expr const& l);
     // LitStr(LitStr const&) = default;
     z3::expr to_expr(z3::context& ctx);
     std::string to_string() const;
+
+    static LitStr mk_bool(std::string_view a, bool s);
+    static LitStr mk_int(std::string_view a, int s);
 
     friend std::ostream& operator<<(std::ostream& out, LitStr const& l);
   };
