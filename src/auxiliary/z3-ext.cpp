@@ -20,17 +20,17 @@
 namespace z3ext
 {
   using fmt::format;
+  using my::variant::visitor;
   using std::optional;
   using std::string;
   using std::string_view;
   using std::vector;
   using z3::expr;
   using z3::expr_vector;
-  using my::variant::visitor;
 
   // LitStr Members
   //
-  LitStr::LitStr(string_view a, std::variant<bool, int> v) : atom(a), value(v)
+  LitStr::LitStr(string_view a, std::variant<bool, int> v) : name(a), value(v)
   {
   }
   LitStr::LitStr(expr const& l)
@@ -43,14 +43,14 @@ namespace z3ext
 
     if (l.is_const())
     {
-      atom  = l.to_string();
+      name  = l.to_string();
       value = true;
     }
     else if (l.is_not())
     {
       if (!l.arg(0).is_const())
         throw invalid;
-      atom  = l.arg(0).to_string();
+      name  = l.arg(0).to_string();
       value = false;
     }
     else if (l.is_eq())
@@ -59,13 +59,13 @@ namespace z3ext
       {
         if (l.arg(0).is_int())
         {
-          atom  = l.arg(0).to_string();
+          name  = l.arg(0).to_string();
           value = l.arg(1).get_numeral_int();
         }
         else if (l.arg(1).is_int())
         {
           value = l.arg(0).get_numeral_int();
-          atom  = l.arg(1).to_string();
+          name  = l.arg(1).to_string();
         }
         else
           throw invalid;
@@ -79,32 +79,87 @@ namespace z3ext
       throw invalid;
   }
 
-  z3::expr LitStr::to_expr(z3::context& ctx)
+  z3::expr LitStr::to_expr(z3::context& ctx) const
   {
     return std::visit(
         visitor{ [&](bool sign)
             {
-              expr e = ctx.bool_const(atom.c_str());
+              expr e = ctx.bool_const(name.c_str());
               return sign ? e : !e;
             },
-            [&](int v) { return ctx.int_const(atom.c_str()) == v; } },
+            [&](int v) { return ctx.int_const(name.c_str()) == v; } },
+        value);
+  }
+
+  bool LitStr::sign() const
+  {
+    if (std::holds_alternative<int>(value))
+      throw std::runtime_error(
+          format("\"{}\" is not a boolean variable", name));
+    return std::get<bool>(value);
+  }
+
+  bool LitStr::sign_or_nonzero() const
+  {
+    if (std::holds_alternative<int>(value))
+      return true;
+    return std::get<bool>(value);
+  }
+
+  optional<int> LitStr::int_value() const
+  {
+    if (std::holds_alternative<int>(value))
+      return std::get<int>(value);
+    return {};
+  }
+
+  std::string LitStr::value_str() const
+  {
+    return std::visit(
+        visitor{ [](bool sign) -> string { return sign ? "true" : "false"; },
+            [](int v) -> string { return std::to_string(v); } },
+        value);
+  }
+
+  std::string LitStr::marking() const
+  {
+    return std::visit(
+        visitor{ [this](bool sign) -> string
+            {
+              string fill_X = fmt::format("{:X^{}}", "", name.size());
+              return sign ? fill_X : std::string(name.size(), ' ');
+            },
+            [](int v) -> string { return std::to_string(v); } },
         value);
   }
 
   string LitStr::to_string() const
   {
-    string v_string =
-        std::visit(visitor{ [](bool sign) -> string
-                       { return sign ? "true" : "false"; },
-                       [](int v) -> string { return std::to_string(v); } },
-            value);
-    return fmt::format("{} -> {}", atom, v_string);
+    return fmt::format("{} -> {}", name, value_str());
   }
+
+  LitStr LitStr::next() const { return LitStr(name + ".p", value); }
 
   // ConstrainedCube Members
   //
   namespace constrained_cube
   {
+    bool is_reserved_lit(std::string_view name)
+    {
+      return name.size() >= 2 && name[0] == '_' && name[1] == '_';
+    }
+
+    bool is_reserved_lit(expr const& e)
+    {
+      return is_reserved_lit(e.to_string());
+    }
+
+    void validate_lit_name(std::string_view name)
+    {
+      if (is_reserved_lit(name))
+        throw ReservedLiteral(name);
+    }
+
     string constraint_str(size_t size)
     {
       return format("{}{}{}", prefix, size, suffix);
@@ -113,7 +168,7 @@ namespace z3ext
     optional<size_t> constraint_size(string_view str)
     {
       // str must at least consist of tag and 1 character
-      if (str.size() <= tag_length || mysat::primed::is_reserved_lit(str))
+      if (str.size() <= tag_length || is_reserved_lit(str))
         return {};
 
       if (str.substr(0, prefix.length()) != prefix)
@@ -657,7 +712,7 @@ namespace z3ext
 
       for (unsigned i = 0; i < m.size(); i++)
       {
-        z3::func_decl f        = m[i];
+        z3::func_decl f    = m[i];
         expr boolean_value = m.get_const_interp(f);
         expr literal       = f();
 

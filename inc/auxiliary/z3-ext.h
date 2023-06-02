@@ -21,14 +21,20 @@ namespace z3ext
   //
   struct LitStr
   {
-    std::string atom;
+    std::string name;
     std::variant<bool, int> value;
     // extract the string representation and sign from a literal expressions
     LitStr(std::string_view a, std::variant<bool, int> v);
     LitStr(z3::expr const& l);
     // LitStr(LitStr const&) = default;
-    z3::expr to_expr(z3::context& ctx);
+    z3::expr to_expr(z3::context& ctx) const;
+    bool sign() const;
+    bool sign_or_nonzero() const;
+    std::optional<int> int_value() const;
+    std::string value_str() const;
+    std::string marking() const;
     std::string to_string() const;
+    LitStr next() const;
 
     static LitStr mk_bool(std::string_view a, bool s);
     static LitStr mk_int(std::string_view a, int s);
@@ -62,6 +68,34 @@ namespace z3ext
     inline static const std::string prefix = tag.substr(0, tag.length() - 2);
     // last two are suffix
     inline static const std::string suffix = tag.substr(tag.length() - 2, 2);
+
+    class ReservedLiteral : public std::exception
+    {
+     private:
+      std::string message;
+
+      void explain(std::string_view msg)
+      {
+        message = fmt::format(
+            "ReservedLiteral: {} contains the prefix \"__\", which is reserved "
+            "for implementation variables (such as activation literals)",
+            msg);
+      }
+
+     public:
+      ReservedLiteral(z3::expr const& lit) : message()
+      {
+        explain(lit.to_string());
+      }
+      ReservedLiteral(std::string_view name) : message() { explain(name); }
+
+      const char* what() const noexcept override { return message.c_str(); }
+    };
+
+    // constant names with the prefix "__" are reserved for internal variables
+    bool is_reserved_lit(std::string_view name);
+    bool is_reserved_lit(z3::expr const& e);
+    void validate_lit_name(std::string_view name);
 
     std::string constraint_str(size_t size);
     std::optional<size_t> constraint_size(std::string_view str);

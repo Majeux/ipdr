@@ -13,9 +13,12 @@ namespace pdr
   using z3::expr;
   using z3::expr_vector;
 
-  Solver::Solver(Context& ctx, const IModel& m, expr_vector base,
-      expr_vector transition, expr_vector constraint)
-      : vars(m.vars), internal_solver(ctx)
+  Solver::Solver(Context& c,
+      const IModel& m,
+      expr_vector base,
+      expr_vector transition,
+      expr_vector constraint)
+      : ctx(c), vars(m.vars), internal_solver(c)
   {
     internal_solver.set("sat.random_seed", ctx.seed);
     internal_solver.set("sat.cardinality.solver", true);
@@ -157,8 +160,10 @@ namespace pdr
       z3::func_decl f    = m[i];
       expr boolean_value = m.get_const_interp(f);
       expr literal       = f();
+      bool is_reserved =
+          ctx.simple_relax || z3ext::constrained_cube::is_reserved_lit(literal);
 
-      if (vars.lit_is_current(literal))
+      if (is_reserved && vars.lit_is_current(literal))
       {
         if (boolean_value.is_true())
           std_vec.push_back(literal);
@@ -201,8 +206,10 @@ namespace pdr
       z3::func_decl f    = m[i];
       expr boolean_value = m.get_const_interp(f);
       expr var           = f();
+      bool is_reserved =
+          ctx.simple_relax || z3ext::constrained_cube::is_reserved_lit(var);
 
-      if (vars.lit_is_current(var))
+      if (is_reserved && vars.lit_is_current(var))
       {
         expr literal(var.ctx());
         if (boolean_value.is_true())

@@ -24,7 +24,7 @@ namespace pdr::pebbling
   //
   // Constructors
   IpdrPebblingResult::IpdrPebblingResult(PebblingModel const& m, Tactic t)
-      : IpdrResult(m),
+      : IpdrResult(m.vars.names(), m.vars.names_p()),
         pebbles_final(m.get_f_pebbles()),
         tactic(t),
         total{ total_time, {}, {} }

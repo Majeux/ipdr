@@ -60,7 +60,12 @@ namespace pdr
       // extract destination lits and convert to current state literals
       for (expr const& e : *result.core)
         if (ts.vars.lit_is_p(e))
-          rv_core.push_back(ts.vars(e));
+        {
+          if (z3ext::constrained_cube::is_reserved_lit(e))
+            rv_core.push_back(e);
+          else
+            rv_core.push_back(ts.vars(e));
+        }
 
       z3ext::order_lits(rv_core);
 

@@ -27,7 +27,10 @@ namespace pdr::peterson
   using std::vector;
 
   IpdrPetersonResult::IpdrPetersonResult(const PetersonModel& m, Tactic t)
-      : IpdrResult(m), model(m), processes(m.n_processes()), tactic(t)
+      : IpdrResult(m.vars.names(), m.vars.names_p()),
+        model(m),
+        processes(m.n_processes()),
+        tactic(t)
   {
     assert(tactic == Tactic::relax);
   }
@@ -192,18 +195,8 @@ namespace pdr::peterson
             expr_vector current(model.ctx), next(model.ctx);
             for (z3ext::LitStr const& l : s)
             {
-              expr c = model.ctx.bool_const(l.atom.c_str());
-              expr n = model.vars.p(c);
-              if (l.value)
-              {
-                current.push_back(c);
-                next.push_back(n);
-              }
-              else
-              {
-                current.push_back(!c);
-                next.push_back(!n);
-              }
+              current.push_back(l.to_expr(model.ctx));
+              next.push_back(l.next().to_expr(model.ctx));
             }
 
             string state_str = i < N - 1

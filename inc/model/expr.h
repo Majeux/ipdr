@@ -16,34 +16,6 @@ namespace mysat::primed
     primed
   };
 
-  // constant names with the prefix "__" are reserved for internal variables
-  bool is_reserved_lit(std::string_view name);
-  bool is_reserved_lit(z3::expr const& e);
-  void validate_lit_name(std::string_view name);
-
-  class ReservedLiteral : public std::exception
-  {
-   private:
-    std::string message;
-
-    void explain(std::string_view msg)
-    {
-      message = fmt::format(
-          "ReservedLiteral: {} contains the prefix \"__\", which is reserved "
-          "for implementation variables (such as activation literals)",
-          msg);
-    }
-
-   public:
-    ReservedLiteral(z3::expr const& lit) : message()
-    {
-      explain(lit.to_string());
-    }
-    ReservedLiteral(std::string_view name) : message() { explain(name); }
-
-    const char* what() const noexcept override { return message.c_str(); }
-  };
-
   // this class can return an expression that ensures its value does not change
   // in the next state
   class IStays

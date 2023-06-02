@@ -1,8 +1,6 @@
 #include "result.h"
 #include "expr.h"
 #include "obligation.h"
-#include "pdr-model.h"
-#include "pebbling-model.h"
 #include "z3-ext.h"
 
 #include <TextTable.h>
@@ -123,7 +121,6 @@ namespace pdr
     return *this;
   }
 
-#warning TODO int level to size_t
   PdrResult PdrResult::found_invariant(int level) { return PdrResult(level); }
 
   PdrResult PdrResult::empty_true() { return PdrResult(-1); }
@@ -182,11 +179,6 @@ namespace pdr
   // IpdrResult
   // Public members
   //
-
-  IpdrResult::IpdrResult(IModel const& m)
-      : IpdrResult(m.vars.names(), m.vars.names_p())
-  {
-  }
   IpdrResult::IpdrResult(vector<string> const& v, vector<string> const& vp)
       : vars(v), vars_p(vp)
   {
@@ -387,7 +379,7 @@ namespace pdr
     size_t n_marked(PdrResult::Trace::TraceState const& s)
     {
       return std::accumulate(s.cbegin(), s.cend(), size_t{ 0 },
-          [](size_t a, LitStr const& l) { return a + l.value; });
+          [](size_t a, LitStr const& l) { return a + l.sign_or_nonzero(); });
     }
 
     // return strings that mark whether every state in header a positive or
@@ -400,13 +392,12 @@ namespace pdr
       for (z3ext::LitStr const& lit : state)
       {
         auto it = std::lower_bound(header.begin(), header.end(), lit,
-            [](std::string_view h, LitStr const& l) { return h < l.atom; });
+            [](std::string_view h, LitStr const& l) { return h < l.name; });
 
-        if (it != header.end() && *it == lit.atom) // it points to s
+        if (it != header.end() && *it == lit.name) // it points to s
         {
-          string fill_X = fmt::format("{:X^{}}", "", it->size());
-          rv[it - header.begin()] =
-              lit.value ? fill_X : std::string(it->size(), ' ');
+          size_t index = it - header.begin();
+          rv[index] = lit.marking();
         }
       }
 

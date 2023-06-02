@@ -37,7 +37,7 @@ namespace pdr::peterson
   //
   expr_vector PetersonState::cube(PetersonModel& m) const
   {
-    using num_vec = std::vector<PetersonModel::numrep_t>;
+    using num_vec = std::vector<int>;
     using bv_vec  = std::vector<PetersonModel::BitVec>;
 
     expr_vector conj(m.ctx);
@@ -566,13 +566,13 @@ namespace pdr::peterson
     // IF l[i] < N-1
     // THEN pc[i].p <- 2
     // ELSE pc[i].p <- 4
-    // conj.push_back(if_then_else(
-    //     level.at(i).less(N - 1), pc.at(i).p_equals(2),
-    //     pc.at(i).p_equals(4)));
+    conj.push_back(if_then_else(
+        level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // wrong! (for testing violations)
-    conj.push_back(if_then_else(
-        level.at(i).less(N - 2), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+    // conj.push_back(if_then_else(
+    //     level.at(i).less(N - 2), pc.at(i).p_equals(2),
+    //     pc.at(i).p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);
@@ -942,30 +942,100 @@ namespace pdr::peterson
 
   // PetersonState members
   //
+  PetersonModel::Internals PetersonModel::verify_cube(
+      expr_vector const& cube) const
+  {
+    if (fp_vars01.empty())
+      return Internals::mine;
+
+    Internals rv;
+    for (expr const& l : cube)
+    {
+      if (z3ext::is_lit(l))
+      {
+        if (vars.lit_is_current(l) || vars.lit_is_p(l))
+        {
+          if (rv == Internals::z3_fp)
+            throw std::runtime_error("cube contained mix of Internals::my and "
+                                     "Internals::z3_fp variables.");
+          rv = Internals::mine;
+        }
+        else
+          throw std::runtime_error("cube not recorded in system variables.");
+      }
+      else
+      {
+        if (rv == Internals::mine)
+          throw std::runtime_error("cube contained mix of Internals::my and "
+                                   "Internals::z3_fp variables.");
+        rv = Internals::z3_fp;
+      }
+    }
+    return rv;
+  }
+
   PetersonState PetersonModel::extract_state(
       const expr_vector& cube, mysat::primed::lit_type t) const
   {
     PetersonState s(N);
+    Internals type = verify_cube(cube);
 
-    for (numrep_t i = 0; i < N; i++)
+    if (type == Internals::mine)
     {
-      s.pc.at(i)    = pc.at(i).extract_value(cube, t);
-      s.level.at(i) = level.at(i).extract_value(cube, t);
-      s.free.at(i)  = free.at(i).extract_value(cube, t);
-      if (i < s.last.size())
-        s.last.at(i) = last.at(i).extract_value(cube, t);
+      for (numrep_t i = 0; i < N; i++)
+      {
+        s.pc.at(i)    = pc.at(i).extract_value(cube, t);
+        s.level.at(i) = level.at(i).extract_value(cube, t);
+        s.free.at(i)  = free.at(i).extract_value(cube, t);
+        if (i < s.last.size())
+          s.last.at(i) = last.at(i).extract_value(cube, t);
+      }
+
+      if (max_switches)
+      {
+        s.proc_last    = proc_last.extract_value(cube, t);
+        s.switch_count = switch_count.extract_value(cube, t);
+      }
+      else
+      {
+        s.proc_last    = {};
+        s.switch_count = {};
+      }
     }
-
-    if (max_switches)
+    else if (type == Internals::z3_fp)
     {
-      s.proc_last    = proc_last.extract_value(cube, t);
-      s.switch_count = switch_count.extract_value(cube, t);
+      assert(cube.size() == fp_vars0.size());
+      for (expr const& v : cube)
+      {
+        z3ext::LitStr var(v);
+        int value = var.int_value().value();
+
+        for (numrep_t i = 0; i < N; i++)
+        {
+          if (fp_pc.at(i).to_string() == var.name ||
+              fp_pc_p.at(i).to_string() == var.name)
+            s.pc.at(i) = value;
+          if (fp_level.at(i).to_string() == var.name ||
+              fp_level_p.at(i).to_string() == var.name)
+            s.level.at(i) = value;
+          if (i < s.last.size() && (fp_last.at(i).to_string() == var.name ||
+                                       fp_last_p.at(i).to_string() == var.name))
+            s.last.at(i) = value;
+        }
+
+        if (max_switches)
+        {
+          if (fp_proc_last.to_string() == var.name ||
+              fp_proc_last_p.to_string() == var.name)
+            s.proc_last = value;
+          if (fp_switch_count.to_string() == var.name ||
+              fp_switch_count_p.to_string() == var.name)
+            s.switch_count = value;
+        }
+      }
     }
     else
-    {
-      s.proc_last    = {};
-      s.switch_count = {};
-    }
+      throw std::runtime_error("undefined internal variables in PetersonModel");
 
     return s;
   }
@@ -1119,7 +1189,7 @@ namespace pdr::peterson
     fp_T.clear();
     for (numrep_t i = 0; i < p; i++)
     {
-      expr this_proc = (fp_proc_last == ctx.int_val(i));
+      expr this_proc = (fp_proc_last_p == ctx.int_val(i));
       // T_start
       {
         expr t_start =
@@ -1133,7 +1203,7 @@ namespace pdr::peterson
       {
         expr t_bound =
             transition(this_proc && fp_pc.at(i) == 1 &&
-                           ite(fp_level.at(i) < (int)N - 2, fp_pc_p.at(i) == 2,
+                           ite(fp_level.at(i) < (int)N - 1, fp_pc_p.at(i) == 2,
                                fp_pc_p.at(i) == 4),
                 change(i, fp_pc_p.at(i), {}, {}, fp_proc_last_p,
                     fp_switch_count_p));
@@ -1224,11 +1294,11 @@ namespace pdr::peterson
       assert(answer.arg(3).get_sort().is_bool());
       rv.push_back(answer.arg(3));
 
-      answer = answer.arg(2);
+      answer = answer.arg(1);
     }
 
-    assert(answer.num_args() == 3);
-    rv.push_back(answer.arg(2));
+    assert(answer.num_args() == 2);
+    rv.push_back(answer.arg(1));
     std::reverse(rv.begin(), rv.end());
     return rv;
   }
@@ -1241,8 +1311,9 @@ namespace pdr::peterson
     using namespace str::ext;
 
     vector<vector<LitStr>> rv;
-    const vector<string> header = vars.names();
-    auto answer                 = engine.get_answer().arg(0).arg(1);
+    vector<string> header;
+    for (expr const& e : fp_vars0)
+      header.push_back(e.to_string());
 
     vector<expr> states = extract_trace_states(engine);
 
@@ -1279,9 +1350,17 @@ namespace pdr::peterson
       size_t j = 0;
       for (auto v_it = values_begin; v_it != values_end; v_it++, j++)
       {
-        std::string num = v_it->str(v_it->size()-1); // get last match
-        trim(num);
-        state.emplace_back(header.at(j), std::stoi(num));
+        int num;
+        std::string num_str = v_it->str(v_it->size() - 1); // get last match
+        trim(num_str);
+        std::regex get_neg(R"(\(- (\d+)\))");
+        std::smatch num_match;
+        if (std::regex_match(num_str, num_match, get_neg))
+          num = -1 * std::stoi(num_match[1]);
+        else
+          num = std::stoi(num_str);
+
+        state.emplace_back(header.at(j), num);
       }
       rv.push_back(state);
     }

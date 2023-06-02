@@ -2,8 +2,6 @@
 #define PDR_RESULT_H
 
 #include "obligation.h"
-#include "pdr-model.h"
-#include "pebbling-model.h"
 #include "tactic.h"
 #include "z3-ext.h"
 
@@ -99,7 +97,6 @@ namespace pdr
   class IpdrResult
   {
    public:
-    IpdrResult(const IModel& m);
     IpdrResult(
         std::vector<std::string> const& v, std::vector<std::string> const& vp);
     virtual ~IpdrResult();
@@ -170,8 +167,8 @@ namespace pdr
   {
     size_t n_marked(PdrResult::Trace::TraceState const& s);
 
-    std::vector<std::string> marking(PdrResult::Trace::TraceState const& s,
-        std::vector<std::string> header);
+    std::vector<std::string> marking(
+        PdrResult::Trace::TraceState const& s, std::vector<std::string> header);
   } // namespace state
 
 } // namespace pdr

@@ -51,6 +51,13 @@ namespace pdr::peterson
     // the maximum amount of switches that can be tracked
     static constexpr size_t SWITCH_COUNT_MAX = 31; // 5 bits
 
+    enum Internals
+    {
+      undef,
+      mine,
+      z3_fp,
+    };
+
     friend PetersonState;
 
     // from IModel
@@ -146,6 +153,9 @@ namespace pdr::peterson
     void reset_initial();
     void reset_transition();
 
+    // returns which variables are used in the cube. throws if more than one
+    // type is used.
+    Internals verify_cube(z3::expr_vector const& cube) const;
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
 
@@ -161,12 +171,12 @@ namespace pdr::peterson
 
   struct PetersonState
   {
-    std::vector<PetersonModel::numrep_t> pc;
-    std::vector<PetersonModel::numrep_t> level;
+    std::vector<int> pc;
+    std::vector<int> level;
     std::vector<bool> free;
-    std::vector<PetersonModel::numrep_t> last;
-    std::optional<PetersonModel::numrep_t> proc_last;
-    std::optional<PetersonModel::numrep_t> switch_count;
+    std::vector<int> last;
+    std::optional<int> proc_last;
+    std::optional<int> switch_count;
 
     // TODO use model vector sizes
     PetersonState() : pc(0), level(0), free(0), last(0) {}
@@ -174,13 +184,13 @@ namespace pdr::peterson
         : pc(N), level(N), free(N), last(N - 1)
     {
     }
-    PetersonState(std::vector<PetersonModel::numrep_t>&& p,
-        std::vector<PetersonModel::numrep_t>&& l,
-        std::vector<bool>&& f,
-        std::vector<PetersonModel::numrep_t>&& lst)
-        : pc(p), level(l), free(f), last(lst)
-    {
-    }
+    // PetersonState(std::vector<PetersonModel::numrep_t>&& p,
+    //     std::vector<PetersonModel::numrep_t>&& l,
+    //     std::vector<bool>&& f,
+    //     std::vector<PetersonModel::numrep_t>&& lst)
+    //     : pc(p), level(l), free(f), last(lst)
+    // {
+    // }
 
     z3::expr_vector cube(PetersonModel& m) const;
     z3::expr_vector cube_p(PetersonModel& m) const;

@@ -82,6 +82,7 @@ namespace pdr
     z3::expr_vector unsat_core(UnaryPredicate p, Transform t);
 
    private:
+    Context& ctx;
     // wrapper to add an expression to the internal solver
     void add_clause(const z3::expr& e);
 

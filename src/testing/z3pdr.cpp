@@ -119,7 +119,7 @@ namespace pdr::test
         trace = get_trace(engine);
         MYLOG_DEBUG(logger, "SAT fixedpoint");
         MYLOG_DEBUG(logger, "Trace: {}", trace);
-        rv = PdrResult::found_trace(get_trace_states(engine))
+        rv = PdrResult::found_trace(ts.fp_trace_states(engine))
                  .with_duration(time);
         break;
       case z3::check_result::unsat:
@@ -145,14 +145,12 @@ namespace pdr::test
         << cover_string << std::endl;
   }
 
-#include <dbg.h>
   vector<std::string> z3PDR::get_trace(z3::fixedpoint& engine)
   {
     assert(last_result == z3::check_result::sat);
 
     z3::symbol raw(
         ctx(), Z3_fixedpoint_get_rule_names_along_trace(ctx(), engine));
-    dbg(raw);
     MYLOG_TRACE(logger, "TRACE: {}", raw.str());
     vector<std::string> trace = str::ext::split(raw.str(), ';');
     trace.erase(std::remove_if(trace.begin(), trace.end(),
