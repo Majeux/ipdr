@@ -51,12 +51,12 @@ namespace pdr::peterson
     // the maximum amount of switches that can be tracked
     static constexpr size_t SWITCH_COUNT_MAX = 31; // 5 bits
 
-    enum Internals
-    {
-      undef,
-      mine,
-      z3_fp,
-    };
+    // enum Internals
+    // {
+    //   undef,
+    //   mine,
+    //   z3_fp,
+    // };
 
     friend PetersonState;
 
@@ -82,11 +82,11 @@ namespace pdr::peterson
     static PetersonModel constrained_procs(
         z3::context& c, numrep_t n_procs, numrep_t max_procs);
 
-    void load_initial(z3::fixedpoint& engine) override;
-    void load_transition(z3::fixedpoint& engine) override;
-    z3::expr create_fp_target() override;
-    z3::func_decl& fp_query_ref() override;
-    PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine) override;
+    // void load_initial(z3::fixedpoint& engine) override;
+    // void load_transition(z3::fixedpoint& engine) override;
+    // z3::expr create_fp_target() override;
+    // z3::func_decl& fp_query_ref() override;
+    // PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine) override;
 
     const z3::expr get_constraint_current() const override;
     unsigned state_size() const override;
@@ -114,17 +114,18 @@ namespace pdr::peterson
     // z3::expr_vector initial;    // each array index to '-1;. pc to 0
     // z3::expr_vector transition; // converted into cnf via tseytin
 
-    z3::func_decl step; // B^N B^N |-> B
-    Rule reach_rule;
+    // z3::fixedpoint support
+    // z3::func_decl step; // B^N B^N |-> B
+    // Rule reach_rule;
 
-    std::vector<z3::expr> fp_pc, fp_level, fp_last;
-    z3::expr fp_proc_last, fp_switch_count;
-    std::vector<z3::expr> fp_pc_p, fp_level_p, fp_last_p;
-    z3::expr fp_proc_last_p, fp_switch_count_p;
+    // std::vector<z3::expr> fp_pc, fp_level, fp_last;
+    // z3::expr fp_proc_last, fp_switch_count;
+    // std::vector<z3::expr> fp_pc_p, fp_level_p, fp_last_p;
+    // z3::expr fp_proc_last_p, fp_switch_count_p;
 
-    z3::expr_vector fp_vars0, fp_vars1, fp_vars01;
-    z3::func_decl fp_state, fp_step;
-    z3::sort_vector fp_state_sorts;
+    // z3::expr_vector fp_vars0, fp_vars1, fp_vars01;
+    // z3::func_decl fp_state, fp_step;
+    // z3::sort_vector fp_state_sorts;
 
     // max no. processes. the size of the waiting queue
     const numrep_t N;
@@ -155,9 +156,11 @@ namespace pdr::peterson
 
     // returns which variables are used in the cube. throws if more than one
     // type is used.
-    Internals verify_cube(z3::expr_vector const& cube) const;
     std::set<PetersonState> successors(const z3::expr_vector& v);
     std::set<PetersonState> successors(const PetersonState& s);
+
+    // z3::fixedpoint support
+    // Internals verify_cube(z3::expr_vector const& cube) const;
 
     z3::expr T_start(numrep_t i);
     z3::expr T_boundcheck(numrep_t i);
@@ -184,13 +187,6 @@ namespace pdr::peterson
         : pc(N), level(N), free(N), last(N - 1)
     {
     }
-    // PetersonState(std::vector<PetersonModel::numrep_t>&& p,
-    //     std::vector<PetersonModel::numrep_t>&& l,
-    //     std::vector<bool>&& f,
-    //     std::vector<PetersonModel::numrep_t>&& lst)
-    //     : pc(p), level(l), free(f), last(lst)
-    // {
-    // }
 
     z3::expr_vector cube(PetersonModel& m) const;
     z3::expr_vector cube_p(PetersonModel& m) const;

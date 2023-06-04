@@ -90,14 +90,14 @@ def main():
     print(f"available models:\t {MODELS}")
     print(f"selected models:\t {args.models}")
     print(f"selected procs:\t\t [2..{args.procs}]")
-    print(f"selected procs:\t\t {args.switches}")
+    print(f"selected interleavings:\t {args.switches}")
     print(f"selected algorithm:\t {args.types}")
     print(f"control run:\t\t {args.control}")
     print(f"no. experiment reps:\t {args.reps}")
     print()
 
     model_data = {}
-    control = False
+    control = (args.control == "-C")
     for run in args.types:
         if run == "peter":
             models = [f"{p}procs" for p in range(2, args.procs+1)]
@@ -119,9 +119,6 @@ def main():
 
             if run == "z3pdr":
                 control = True
-
-            if control:
-                model_folder = add_C_tag(model_folder)
 
             file_content = get_data(run, model, model_folder, args.custom_path)
             table_contents = split_tables(file_content)
