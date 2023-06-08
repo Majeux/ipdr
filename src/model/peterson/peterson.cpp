@@ -617,12 +617,12 @@ namespace pdr::peterson
     // pc[i] == 3
     conj.push_back(pc.at(i).equals(3));
 
-    // IF last[i] == i AND EXISTS k != i: level[k] >= last[i]
+    // IF last[i] == i AND EXISTS k != i: level[k] >= level[i]
     // THEN repeat 3
     // ELSE increment and go to loop bound
     expr branch(ctx);
     {
-      expr check(ctx); // last[i] == i AND EXISTS k != i: level[k] >= last[i]
+      expr check(ctx); // last[i] == i AND EXISTS k != i: level[k] >= level[i]
       {
         expr_vector eq_i(ctx); // last[l[i]] = i:
         for (numrep_t x = 0; x < N - 1; x++)
@@ -631,7 +631,7 @@ namespace pdr::peterson
           eq_i.push_back(implies(level.at(i).equals(x), last.at(x).equals(i)));
         }
 
-        expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= last[i]
+        expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= level[i]
         for (numrep_t k = 0; k < N; k++)
         {
           if (k != i)             // forall k != i:
