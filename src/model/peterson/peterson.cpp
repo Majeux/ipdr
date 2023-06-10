@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <fstream>
@@ -54,9 +55,9 @@ namespace pdr::peterson
     bv_assign(level, m.level);
     bv_assign(last, m.last);
 
-    assert(free.size() == m.free.size());
-    for (size_t i = 0; i < free.size(); i++)
-      conj.push_back(free[i] ? m.free[i] : !m.free[i]());
+    // assert(free.size() == m.free.size());
+    // for (size_t i = 0; i < free.size(); i++)
+    //   conj.push_back(free[i] ? m.free[i] : !m.free[i]());
 
     assert(proc_last.has_value() == switch_count.has_value());
     if (proc_last)
@@ -87,10 +88,9 @@ namespace pdr::peterson
     if (s.level < level)
       return false;
 
-    if (free < s.free)
-      return true;
-    if (s.free < free)
-      return false;
+    // if (free < s.free)
+    //   return true;
+    // if (s.free < free)
 
     if (last < s.last)
       return true;
@@ -125,8 +125,8 @@ namespace pdr::peterson
       return false;
     if (level != s.level)
       return false;
-    if (free != s.free)
-      return false;
+    // if (free != s.free)
+    //   return false;
     if (last != s.last)
       return false;
 
@@ -180,15 +180,15 @@ namespace pdr::peterson
         ss << tab(2) << format("{},", level.at(i)) << end();
       ss << tab(1) << "]," << end() << end();
     }
+    // {
+    //   ss << tab(1) << "free [" << end();
+    //   for (PetersonModel::numrep_t i = 0; i < free.size(); i++)
+    //     ss << tab(2) << format("{},", free.at(i) ? "t" : "f") << end();
+    //   ss << tab(1) << "]," << end() << end();
+    // }
     {
-      ss << tab(1) << "free [" << end();
-      for (PetersonModel::numrep_t i = 0; i < free.size(); i++)
-        ss << tab(2) << format("{},", free.at(i) ? "t" : "f") << end();
-      ss << tab(1) << "]," << end() << end();
-    }
-    {
-      ss << tab(1) << "last [" << end();
-      for (PetersonModel::numrep_t i = 0; i < last.size(); i++)
+      ss << tab(1) << "last [ -," << end();
+      for (PetersonModel::numrep_t i = 1; i < last.size(); i++)
         ss << tab(2) << format("{},", last.at(i)) << end();
       ss << tab(1) << "]," << end();
     }
@@ -217,7 +217,7 @@ namespace pdr::peterson
     total = std::accumulate(pc.begin(), pc.end(), total, add_size);
     total = std::accumulate(level.begin(), level.end(), total, add_size);
     total = std::accumulate(last.begin(), last.end(), total, add_size);
-    total += free.size();
+    // total += free.size();
     total += proc_last.size;
     total += switch_count.size;
 
@@ -245,11 +245,13 @@ namespace pdr::peterson
         string l_i = format("level{}", i);
         level.push_back(BitVec::holding(ctx, l_i, N).incrementable());
       }
-      {
-        string free_i = format("free{}", i);
-        free.emplace_back(ctx, free_i);
-      }
-      if (i < N - 1)
+      // {
+      //   string free_i = format("free{}", i);
+      //   free.emplace_back(ctx, free_i);
+      // }
+      if (i == 0)
+        last.push_back(BitVec(ctx));
+      else
       {
         string last_i = format("last{}", i);
         last.push_back(BitVec::holding(ctx, last_i, N));
@@ -286,11 +288,11 @@ namespace pdr::peterson
     for (const BitVec& var : level)
       append_names(var);
 
-    for (const Lit& var : free)
-      append_names(var);
+    // for (const Lit& var : free)
+    //   append_names(var);
 
-    for (const BitVec& var : last)
-      append_names(var);
+    for (size_t i = 1; i < last.size(); i++)
+      append_names(last[i]);
 
     append_names(proc_last);
     append_names(switch_count);
@@ -303,18 +305,18 @@ namespace pdr::peterson
       numrep_t m_procs,
       optional<numrep_t> m_switches)
       : IModel(c, {}), // varnames are added in body
-        // step(ctx),
-        // reach_rule(ctx),
-        // fp_proc_last(ctx),
-        // fp_switch_count(ctx),
-        // fp_proc_last_p(ctx),
-        // fp_switch_count_p(ctx),
-        // fp_vars0(ctx),
-        // fp_vars1(ctx),
-        // fp_vars01(ctx),
-        // fp_state(ctx),
-        // fp_step(ctx),
-        // fp_state_sorts(ctx),
+                       // step(ctx),
+                       // reach_rule(ctx),
+                       // fp_proc_last(ctx),
+                       // fp_switch_count(ctx),
+                       // fp_proc_last_p(ctx),
+                       // fp_switch_count_p(ctx),
+                       // fp_vars0(ctx),
+                       // fp_vars1(ctx),
+                       // fp_vars01(ctx),
+                       // fp_state(ctx),
+                       // fp_step(ctx),
+                       // fp_state_sorts(ctx),
         N(m_procs),
         p(n_procs),
         max_switches(m_switches),
@@ -339,7 +341,7 @@ namespace pdr::peterson
     // test_bug();
     // test_p_pred();
     // test_property();
-    // test_room();
+    test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
     // bv_inc_test(10);
@@ -392,8 +394,8 @@ namespace pdr::peterson
         initial.push_back(lit);
       for (expr const& lit : level.at(i).uint(0))
         initial.push_back(lit);
-      initial.push_back(free.at(i));
-      if (i < N - 1)
+      // initial.push_back(free.at(i));
+      if (i > 0)
         for (expr const& lit : last.at(i).uint(0))
           initial.push_back(lit);
     }
@@ -517,10 +519,10 @@ namespace pdr::peterson
 
   //  T
   //  0: idle
-  //    -> 1. level[i] <- 0
+  //    -> 1. level[i] <- 1
   //  1: boundcheck
-  //    -> if level[i] < N-1 then 2.
-  //    -> if level[i] >= N-1 then 4.
+  //    -> if level[i] < N then 2.
+  //    -> if level[i] >= N then 4.
   //  2: set last
   //    -> 3. last[level[i]] <- i
   //  3: wait
@@ -528,7 +530,7 @@ namespace pdr::peterson
   //    -> else then 1. level[i] <- level[i] + 1
   //  4: critical section
   //    -> imagine some critical work
-  //    -> level[i] <- 0; free[i] <- true; then 0
+  //    -> level[i] <- 0; then 0
 
   expr PetersonModel::T_start(numrep_t i)
   {
@@ -541,15 +543,15 @@ namespace pdr::peterson
     conj.push_back(pc.at(i).p_equals(1));
 
     // l[i] was released, but now enters the queue
-    conj.push_back(free.at(i));
-    conj.push_back(!free.at(i).p());
-    // l[i] <- 0
-    conj.push_back(level.at(i).p_equals(0));
+    // conj.push_back(free.at(i));
+    // conj.push_back(!free.at(i).p());
+    // l[i] <- 1
+    conj.push_back(level.at(i).p_equals(1));
 
     // all else stays
     stays_except(conj, pc, i);
     stays_except(conj, level, i);
-    stays_except(conj, free, i);
+    // stays_except(conj, free, i);
     stays(conj, last);
 
     return mk_and(conj);
@@ -567,17 +569,17 @@ namespace pdr::peterson
     // THEN pc[i].p <- 2
     // ELSE pc[i].p <- 4
     conj.push_back(if_then_else(
-        level.at(i).less(N - 1), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
+        level.at(i).less(N), pc.at(i).p_equals(2), pc.at(i).p_equals(4)));
 
     // wrong! (for testing violations)
     // conj.push_back(if_then_else(
-    //     level.at(i).less(N - 2), pc.at(i).p_equals(2),
+    //     level.at(i).less(N - 1), pc.at(i).p_equals(2),
     //     pc.at(i).p_equals(4)));
 
     // all else stays
     stays_except(conj, pc, i);
     stays(conj, level);
-    stays(conj, free);
+    // stays(conj, free);
     stays(conj, last);
 
     return mk_and(conj);
@@ -594,7 +596,7 @@ namespace pdr::peterson
     conj.push_back(pc.at(i).p_equals(3));
 
     // old_last[l[i]] <- i:
-    for (numrep_t x = 0; x < N - 1; x++)
+    for (numrep_t x = 1; x < N; x++)
     {
       expr branch = if_then_else(level.at(i).equals(x), last.at(x).p_equals(i),
           last.at(x).unchanged());
@@ -604,7 +606,7 @@ namespace pdr::peterson
     // all else stays
     stays_except(conj, pc, i);
     stays(conj, level);
-    stays(conj, free);
+    // stays(conj, free);
 
     return mk_and(conj);
   }
@@ -617,28 +619,31 @@ namespace pdr::peterson
     // pc[i] == 3
     conj.push_back(pc.at(i).equals(3));
 
-    // IF last[i] == i AND EXISTS k != i: level[k] >= level[i]
+    // IF last[level[i]] == i AND EXISTS k != i: level[k] >= level[i]
     // THEN repeat 3
     // ELSE increment and go to loop bound
     expr branch(ctx);
     {
-      expr check(ctx); // last[i] == i AND EXISTS k != i: level[k] >= level[i]
+      expr check(ctx);
       {
-        expr_vector eq_i(ctx); // last[l[i]] = i:
-        for (numrep_t x = 0; x < N - 1; x++)
+        expr_vector eq_i(ctx);           // last[level[i]] = i:
+        for (numrep_t x = 1; x < N; x++) // all possible values of level[i] here
         {
-          // if l[i] = x, we require last[x] = i
+          // if level[i] = x, we require last[x] = i
           eq_i.push_back(implies(level.at(i).equals(x), last.at(x).equals(i)));
         }
 
         expr_vector any_higher(ctx); // EXISTS k != i: level[k] >= level[i]
-        for (numrep_t k = 0; k < N; k++)
+        for (numrep_t k = 0; k < N; k++) // all processes
         {
-          if (k != i)             // forall k != i:
-            any_higher.push_back( // l[i] < l[k], free acts as a sign bit
-                !free.at(k)() &&
-                (free.at(i) ||
-                    !level.at(k).less(level.at(i)))); // if free[i], l[i]=-1
+          if (k != i) // forall k != i:
+          {
+            any_higher.push_back(!level.at(k).less(level.at(i)));
+            // any_higher.push_back( // l[i] < l[k], free acts as a sign bit
+            //     !free.at(k)() &&
+            //     (free.at(i) ||
+            //         !level.at(k).less(level.at(i)))); // if free[i], l[i]=-1
+          }
         }
         check = mk_and(eq_i) && mk_or(any_higher);
       }
@@ -647,7 +652,7 @@ namespace pdr::peterson
       expr incremented(ctx);
       {
         expr_vector increment(ctx);
-        for (numrep_t x = 0; x < N - 1; x++)
+        for (numrep_t x = 1; x < N; x++) // all values of level[i]
         {
           expr set_index =
               implies(level.at(i).equals(x), level.at(i).p_equals(x + 1));
@@ -672,7 +677,7 @@ namespace pdr::peterson
     // all else stays
     stays_except(conj, pc, i); // pc[i] stays or changes based on logic above
     stays_except(conj, level, i);
-    stays(conj, free);
+    // stays(conj, free);
     stays(conj, last);
 
     return mk_and(conj);
@@ -685,20 +690,20 @@ namespace pdr::peterson
 
     // pc[i] == 4
     conj.push_back(pc.at(i).equals(4));
-    conj.push_back(level.at(i).equals(N - 1)); // not needed?
-    conj.push_back(level.at(i).p_equals(0));   // not needed?
+    // conj.push_back(level.at(i).equals(N)); // not needed?
+    conj.push_back(level.at(i).p_equals(0));
 
     // pc[i] <- 0
     conj.push_back(pc.at(i).p_equals(0));
     // conj.push_back(pc.at(i).p_equals(4)); // wrong! for testing
     // release lock
-    conj.push_back(!free.at(i)());
-    conj.push_back(free.at(i).p());
+    // conj.push_back(!free.at(i)());
+    // conj.push_back(free.at(i).p());
 
     // all else stays
     stays_except(conj, pc, i); // pc[i] stays or changes based on logic above
     stays_except(conj, level, i);
-    stays_except(conj, free, i);
+    // stays_except(conj, free, i);
     stays(conj, last);
 
     return mk_and(conj);
@@ -720,49 +725,6 @@ namespace pdr::peterson
       std::cout << solver.get_model() << std::endl;
     else
       std::cout << "unsat" << std::endl;
-  }
-
-  void PetersonModel::test_bug()
-  {
-    z3::solver solver(ctx);
-    solver.set("sat.cardinality.solver", true);
-    solver.set("cardinality.solver", true);
-
-    // solver.add(property);
-    // std::cout << "property";
-
-    solver.add(n_property);
-    std::cout << "n_property";
-
-    std::cout << solver << std::endl;
-    std::cout << std::endl;
-
-    expr_vector final(ctx), cti(ctx);
-    {
-      final.push_back(!free.at(0)());
-      final.push_back(!free.at(1)());
-      final.push_back(!free.at(2)());
-    }
-
-    size_t Nlits = n_lits();
-
-    if (z3::check_result r = solver.check(final))
-    {
-      auto witness = z3ext::solver::get_witness(solver);
-      std::cout << " - final: sat" << std::endl
-                << format("witness ({}/{}): {}", witness.size(), Nlits,
-                       witness.to_string())
-                << std::endl
-                << extract_state(witness).to_string(true) << std::endl;
-    }
-    else
-    {
-      auto core = z3ext::solver::get_core(solver);
-      std::cout << " - final: unsat" << std::endl
-                << format(
-                       "core ({}/{}): {}", core.size(), Nlits, core.to_string())
-                << extract_state(core).to_string(true) << std::endl;
-    }
   }
 
   void PetersonModel::test_property()
@@ -987,8 +949,8 @@ namespace pdr::peterson
     {
       s.pc.at(i)    = pc.at(i).extract_value(cube, t);
       s.level.at(i) = level.at(i).extract_value(cube, t);
-      s.free.at(i)  = free.at(i).extract_value(cube, t);
-      if (i < s.last.size())
+      // s.free.at(i)  = free.at(i).extract_value(cube, t);
+      if (i > 0)
         s.last.at(i) = last.at(i).extract_value(cube, t);
     }
 

@@ -86,7 +86,8 @@ namespace pdr::peterson
     // void load_transition(z3::fixedpoint& engine) override;
     // z3::expr create_fp_target() override;
     // z3::func_decl& fp_query_ref() override;
-    // PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine) override;
+    // PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine)
+    // override;
 
     const z3::expr get_constraint_current() const override;
     unsigned state_size() const override;
@@ -105,7 +106,6 @@ namespace pdr::peterson
 
     void test_room();
     void test_wait(numrep_t i);
-    void test_bug();
     void test_property();
     void test_p_pred();
 
@@ -136,16 +136,18 @@ namespace pdr::peterson
 
     BitVec proc_last;    // last active process
     BitVec switch_count; // no. context switches performed
-    // vector of ints[0-4]. program counter for process i
-    std::vector<BitVec> pc;
+    // program counter for each process.
+    std::vector<BitVec> pc; // pc[0..N-1] -> {0, 1, 2, 3, 4}
     const static numrep_t pc_num = 5;
-    // vector of ints. level for process i
-    std::vector<BitVec> level;
+    // level of each process. 
+    // level[i] = 0 is a idle process. 
+    // level[i] >= 1 is a waiting process.
+    std::vector<BitVec> level; // level[0..N-1] -> {0..N-2}
+    // last process to enter a level.
+    std::vector<BitVec> last; // last[1..N-1] -> {0..N-1}
     // flag that denotes if process i has released the resource
     // alternatively viewed as a sign bit for l
-    std::vector<Lit> free;
-    // int array. last process to enter level j
-    std::vector<BitVec> last;
+    // std::vector<Lit> free;
 
     size_t n_lits() const;
 
@@ -176,15 +178,24 @@ namespace pdr::peterson
   {
     std::vector<int> pc;
     std::vector<int> level;
-    std::vector<bool> free;
+    // std::vector<bool> free;
     std::vector<int> last;
     std::optional<int> proc_last;
     std::optional<int> switch_count;
 
     // TODO use model vector sizes
-    PetersonState() : pc(0), level(0), free(0), last(0) {}
+    PetersonState()
+        : pc(0),
+          level(0),
+          // free(0),
+          last(0)
+    {
+    }
     PetersonState(PetersonModel::numrep_t N)
-        : pc(N), level(N), free(N), last(N - 1)
+        : pc(N),
+          level(N),
+          // free(N),
+          last(N)
     {
     }
 

@@ -183,6 +183,7 @@ namespace mysat::primed
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
+    BitVec(z3::context& c);
     BitVec(z3::context& c, std::string const& n, size_t Nbits);
 
     // give this bitvector carry bits to allow for the incremented() function
@@ -265,14 +266,20 @@ namespace mysat::primed
         BitVec const& cube, size_t msb, lit_type t = lit_type::base) const;
 
     // compares the 'nbits' most significant bits, starting from 'msb' down
-    z3::expr eq(numrep_t n, size_t msb, size_t nbits,
+    z3::expr eq(numrep_t n,
+        size_t msb,
+        size_t nbits,
         lit_type t = lit_type::base) const;
-    z3::expr eq(BitVec const& n, size_t msb, size_t nbits,
+    z3::expr eq(BitVec const& n,
+        size_t msb,
+        size_t nbits,
         lit_type t = lit_type::base) const;
 
     // compares the 'Nbits' most significant bits, starting from 'msb' down
     template <typename Tnum>
-    z3::expr rec_less(Tnum const& n, size_t msb, size_t nbits,
+    z3::expr rec_less(Tnum const& n,
+        size_t msb,
+        size_t nbits,
         lit_type t = lit_type::base) const
     {
       static_assert(std::is_same<Tnum, numrep_t>::value ||

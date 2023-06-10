@@ -240,7 +240,7 @@ namespace mysat::primed
     try
     {
       expr key = strip_not(e);
-      rv = to_current.find(key.id()) != to_current.end();
+      rv       = to_current.find(key.id()) != to_current.end();
     }
     catch (const std::invalid_argument& e)
     {
@@ -309,6 +309,11 @@ namespace mysat::primed
       return fmt::format("{}__carry{}", n, i);
     }
   } // namespace
+
+  BitVec::BitVec(z3::context& c)
+      : IPrimed<expr_vector>(c, "empty"), size(0), carry_out(c)
+  {
+  }
 
   BitVec::BitVec(z3::context& c, const string& n, size_t Nbits)
       : IPrimed<expr_vector>(c, n), size(Nbits), carry_out(c)
