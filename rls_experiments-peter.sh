@@ -8,6 +8,7 @@ BENCHMARKS="./benchmark/rls/tfc"
 MODE="peterson ipdr experiment"
 INC="--inc=relax"
 Z3=""
+SEEDS=("1004116894,674395564,392236153,999267838,1385010657,1874259453,185577622,2046848429,1293318392,784654507" "1284338210,1454693642,1053420622,1593077573,1013342442,985605802,478986771,875591177,1149455113,444317512" "693825191,504369732,958993891")
 
 if [ $# -eq 0 ]
 then
@@ -15,8 +16,6 @@ then
 	exit 1
 fi
 sample=$1
-
-echo "searching in: $BENCHMARKS/"
 
 models=()
 while read -r line
@@ -33,8 +32,9 @@ do
 		model="--procs=$P"
 		its="--iterations=$sample"
 		# exp=""
+		seed=${SEEDS[$i]}
 
-		command="$EXEC $MODE $INC --silent $model $bound $its"
+		command="$EXEC $MODE $INC --silent $model $bound $its --z3pdr --seeds=$seed"
 
 		echo "${bold}$command${normal}"
 		$command

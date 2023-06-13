@@ -341,7 +341,7 @@ namespace pdr::peterson
     // test_bug();
     // test_p_pred();
     // test_property();
-    test_room();
+    // test_room();
     // bv_val_test(10);
     // bv_comp_test(10);
     // bv_inc_test(10);

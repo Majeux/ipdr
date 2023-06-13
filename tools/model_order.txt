@@ -1,9 +1,13 @@
-rd32
 ham3tc
 mod5d1
+mod5adders
 gf2^3mult_11_47
 4b15g_1
+4_49tc1
+hwb4tc
+mod5adders
 gf2^4mult_19_83
+rd73d2
 5mod5tc
 gf2^5mult_29_129
 ham7tc
