@@ -65,9 +65,6 @@ int main(int argc, char* argv[])
 {
   ArgumentList args(argc, argv);
 
-  if (args.onlyshow)
-    return 0;
-
   std::cout << args.folders.trace_file.is_open() << std::endl;
 
   args.show_header(std::cerr);
@@ -128,7 +125,7 @@ ModelVariant construct_model(
   if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
   {
     dag::Graph G = model_t::make_graph(pebbling->get().src);
-    G.show(args.folders.model_dir / "dag", true);
+    G.show(args.folders.model_dir / "dag", true, args.onlyshow);
     log.stats.is_pebbling(G);
 
     return pdr::pebbling::PebblingModel(args, context.z3_ctx, G)
@@ -159,6 +156,10 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   using PDRVariant = std::variant<PDR, test::z3PDR>;
 
   ModelVariant model   = construct_model(args, context, log);
+
+  if (args.onlyshow)
+    return;
+
   PDRVariant algorithm = std::visit(
       visitor{
           [&](auto& m) -> PDRVariant
@@ -220,6 +221,9 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   auto const& ipdr = get_cref<algo::t_IPDR>(args.algorithm)->get();
 
   ModelVariant model(construct_model(args, context, log));
+
+  if (args.onlyshow)
+    return;
 
   std::string model_name  = model_t::get_name(args.model);
   std::string tactic_name = pdr::tactic::to_string(ipdr.type);
