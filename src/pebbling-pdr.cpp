@@ -55,6 +55,7 @@ ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log);
 void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log);
 void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log);
+void handle_bounded(ArgumentList& args, pdr::Context context, pdr::Logger& log);
 void handle_experiment(ArgumentList& args, pdr::Logger& log);
 //
 // aux
@@ -87,6 +88,8 @@ int main(int argc, char* argv[])
     handle_pdr(args, std::move(context), logger);
   else if (std::holds_alternative<algo::t_IPDR>(args.algorithm))
     handle_ipdr(args, std::move(context), logger);
+  else if (std::holds_alternative<algo::t_Bounded>(args.algorithm))
+    handle_bounded(args, std::move(context), logger);
 
   std::cout << "goodbye :)" << std::endl;
   return 0;
@@ -155,7 +158,7 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
 
   using PDRVariant = std::variant<PDR, test::z3PDR>;
 
-  ModelVariant model   = construct_model(args, context, log);
+  ModelVariant model = construct_model(args, context, log);
 
   if (args.onlyshow)
     return;
@@ -277,6 +280,31 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       algorithm);
 }
 
+void handle_bounded(ArgumentList& args, pdr::Context context, pdr::Logger& log)
+{
+  using namespace bounded;
+  using namespace my::variant;
+  using std::endl;
+
+  if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
+  {
+    dag::Graph G = model_t::make_graph(pebbling->get().src);
+    G.show(args.folders.model_dir / "dag", true, args.onlyshow);
+    log.stats.is_pebbling(G);
+
+    BoundedPebbling algorithm(G, args);
+    pdr::pebbling::IpdrPebblingResult result = algorithm.run();
+
+    args.folders.trace_file << result.end_result() << endl
+                            << result.summary_table() << endl
+                            << std::string(20, '=') << endl
+                            << result.all_traces() << endl;
+  }
+  else
+    throw std::invalid_argument(
+        "Bounded Model Checking expects a graph for Reversible Pebbling.");
+}
+
 void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
   using namespace pdr;
@@ -289,7 +317,15 @@ void handle_experiment(ArgumentList& args, pdr::Logger& log)
   auto experiment = [&]() -> unique_ptr<experiments::Experiment>
   {
     if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
+    {
+      if (auto algo = get_cref<algo::t_Bounded>(args.algorithm))
+      {
+        auto rv = make_unique<PebblingExperiment>(args, log);
+        rv->use_bmc();
+        return rv;
+      }
       return make_unique<PebblingExperiment>(args, log);
+    }
     else
       return make_unique<PetersonExperiment>(args, log);
   }();

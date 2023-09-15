@@ -32,12 +32,19 @@ namespace pdr::pebbling
     assert(t == Tactic::constrain || t == Tactic::relax ||
            t == Tactic::binary_search);
   }
-  IpdrPebblingResult::IpdrPebblingResult(
-      VarVec const& vars, unsigned pebbles_final, Tactic t)
-      : IpdrResult(vars.names(), vars.names_p()),
+  IpdrPebblingResult::IpdrPebblingResult(std::vector<std::string> const& curr,
+      std::vector<std::string> const& next,
+      unsigned pebbles_final,
+      Tactic t)
+      : IpdrResult(curr, next),
         pebbles_final(pebbles_final),
         tactic(t),
         total{ total_time, {}, {} }
+  {
+  }
+  IpdrPebblingResult::IpdrPebblingResult(
+      VarVec const& vars, unsigned pebbles_final, Tactic t)
+      : IpdrPebblingResult(vars.names(), vars.names_p(), pebbles_final, t)
   {
   }
   // IpdrResult conversion constructors
@@ -266,7 +273,7 @@ namespace pdr::pebbling
       // Write strategy states
       {
         unsigned marked = f_pebbles;
-        size_t N        = res.trace().length;
+        size_t N        = res.trace().states.size();
         for (size_t i = 0; i < N; i++)
         {
           const TraceState& s = res.trace().states[i];

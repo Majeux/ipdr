@@ -1,4 +1,5 @@
 #include "pebbling-experiments.h"
+#include "bounded.h"
 #include "cli-parse.h"
 #include "experiments.h"
 #include "io.h"
@@ -45,6 +46,13 @@ namespace pdr::pebbling::experiments
     ts_descr = get_cref<model_t::Pebbling>(args.model).value();
   }
 
+  PebblingExperiment& PebblingExperiment::use_bmc()
+  {
+    bmc = true;
+    tactic = pdr::Tactic::constrain;
+    return *this;
+  }
+
   void PebblingExperiment::reset_tables()
   {
     sample_table          = tabulate::Table();
@@ -68,16 +76,24 @@ namespace pdr::pebbling::experiments
       z3::context z3_ctx;
       pdr::Context ctx(z3_ctx, args, seeds[i]);
       PebblingModel ts(args, z3_ctx, model_t::make_graph(ts_descr.src));
-      IPDR opt = IPDR(args, ctx, log, ts);
+      if (bmc)
       {
-        IpdrPebblingResult result =
-            is_control ? opt.control_run(tactic) : opt.run(tactic);
-
+        bounded::BoundedPebbling algo(ts.dag, args);
+        IpdrPebblingResult result = algo.run();
         if (!optimum)
           optimum = result.min_pebbles();
-
         assert(optimum == result.min_pebbles()); // all results should be same
-
+        results.emplace_back(
+            std::make_unique<IpdrPebblingResult>(std::move(result)));
+      }
+      else
+      {
+        IPDR opt = IPDR(args, ctx, log, ts);
+        IpdrPebblingResult result =
+            is_control ? opt.control_run(tactic) : opt.run(tactic);
+        if (!optimum)
+          optimum = result.min_pebbles();
+        assert(optimum == result.min_pebbles()); // all results should be same
         results.emplace_back(
             std::make_unique<IpdrPebblingResult>(std::move(result)));
       }

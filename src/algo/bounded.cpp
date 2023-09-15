@@ -2,6 +2,12 @@
 #include "cli-parse.h"
 #include "dag.h"
 #include "io.h"
+#include "pebbling-result.h"
+#include "result.h"
+#include "tactic.h"
+#include "z3-ext.h"
+#include <algorithm>
+#include <cassert>
 #include <regex>
 #include <tabulate/table.hpp>
 #include <z3++.h>
@@ -15,8 +21,11 @@ namespace bounded
   using z3::expr_vector;
 
   BoundedPebbling::BoundedPebbling(
-      const dag::Graph& G, my::cli::ArgumentList& args)
-      : context(), graph(G), solver(context), lit_names(),
+      const dag::Graph& G, my::cli::ArgumentList const& args)
+      : context(),
+        graph(G),
+        solver(context),
+        lit_names(),
         n_lits(G.nodes.size())
   {
     using namespace my::io;
@@ -129,16 +138,25 @@ namespace bounded
       solver.add(trans_step(i));
   }
 
-  bool BoundedPebbling::find_for(size_t pebbles)
+  pdr::pebbling::IpdrPebblingResult BoundedPebbling::run()
   {
     using fmt::format;
     using std::endl;
 
+    std::vector<std::string> names(graph.nodes.cbegin(), graph.nodes.cend());
+    pdr::pebbling::IpdrPebblingResult total(
+        names, names, graph.output.size(), pdr::Tactic::constrain);
+
+    size_t pebbles = graph.nodes.size();
+    bool done  = false;
+    trace      = {};
     total_time = 0.0;
     sub_times.resize(0);
     timer.reset();
 
-    bool done = false;
+    std::cout << "start BMC" << std::endl;
+
+    // constrain down to optimum
     while (!done && pebbles >= graph.output.size())
     {
       card_timer.reset();
@@ -146,7 +164,8 @@ namespace bounded
       auto elapsed = [this]() { return card_timer.elapsed().count(); };
 
       cardinality = pebbles;
-      // std::cout << fmt::format("{} pebbles", pebbles) << std::endl;
+
+      //
       for (size_t length = 1;; length++)
       {
         step_timer.reset();
@@ -160,35 +179,37 @@ namespace bounded
         if (r == z3::check_result::sat)
         {
           // std::cout << "FOUND at " << cardinality.value() << std::endl;
-          store_strategy(length);
+          auto r = pdr::PdrResult::found_trace(get_trace(length))
+                       .with_duration(elapsed());
+          total.add(r, cardinality);
           reset();
           break;
         }
 
         if (r == z3::check_result::unknown || elapsed() >= dtime_limit)
         {
+          auto r = pdr::PdrResult::empty_true().with_duration(elapsed());
+          total.add(r, cardinality);
           done = true;
-
-          // std::cout << "timeout" << std::endl;
-          result_out << strategy_table(trace) << endl
-                     << format("Min pebbles:  {}", cardinality.value()) << endl
-                     << format("Trace length: {}", trace.size() - 1) << endl;
-          // skip header in trace length
           break;
         }
       }
-      pebbles--;
+      if (total.get_total().strategy)
+        pebbles = total.get_total().strategy->n_marked - 1;
+      else
+        pebbles--;
     }
 
     total_time = timer.elapsed().count();
 
-    if (trace.size() == 0)
-      result_out << "no strategy" << std::endl;
+    std::cout << "done" << std::endl;
+
     dump_times(result_out);
 
-    return done;
+    return total;
   }
 
+  // get the name, mark and timestep of m[i]
   Marking get_time_step(const z3::model& m, size_t i)
   {
     assert(i < m.num_consts());
@@ -198,7 +219,7 @@ namespace bounded
       std::regex postfix(R"(^([[:alnum:]_]+).([[:digit:]]+)$)");
       std::smatch postfix_match;
       std::string lit_str{ m[i]().to_string() };
-      if(!std::regex_match(lit_str, postfix_match, postfix))
+      if (!std::regex_match(lit_str, postfix_match, postfix))
       {
         assert(false);
       }
@@ -243,35 +264,61 @@ namespace bounded
     return ss.str();
   }
 
-  void BoundedPebbling::store_strategy(size_t length)
+  BoundedPebbling::TraceVec BoundedPebbling::get_trace(size_t length) const
   {
-    auto l_begin = lit_names.begin();
-    auto l_end   = lit_names.end();
+    TraceVec rv;
 
     z3::model witness = solver.get_model();
-    trace.clear();
-    trace.reserve(length);
-
-    string_view longest_lit = *std::max_element(l_begin, l_end,
-        [](string_view a, string_view b) { return a.size() < b.size(); });
+    rv.clear();
+    rv.resize(length + 1);
 
     for (size_t i = 0; i < witness.size(); i++)
     {
       Marking lit = get_time_step(witness, i);
-
-      // fill trace to accomodate literal
-      while (trace.size() < lit.timestep + 1)
-        trace.emplace_back(lit_names.size(), "?");
-
-      auto it = std::lower_bound(l_begin, l_end, lit.name);
-      if (it != lit_names.end() && *it == lit.name) // it points to s
-      {
-        string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
-        size_t index  = it - l_begin;
-        trace.at(lit.timestep).mark(index, lit, fill_X);
-      }
+      assert(lit.timestep < length + 1);
+      rv.at(lit.timestep).push_back(z3ext::LitStr(lit.name, lit.mark));
     }
+
+    for (TraceState& s : rv)
+    {
+      std::sort(s.begin(), s.end(),
+          [](z3ext::LitStr const& a, z3ext::LitStr const& b)
+          { return a.name < b.name; });
+    }
+
+    return rv;
   }
+
+  // void BoundedPebbling::store_strategy(size_t length)
+  // {
+  //   auto l_begin = lit_names.begin();
+  //   auto l_end   = lit_names.end();
+
+  //   z3::model witness = solver.get_model();
+  //   trace->clear();
+  //   trace->reserve(length);
+
+  //   string_view longest_lit = *std::max_element(l_begin, l_end,
+  //       [](string_view a, string_view b) { return a.size() < b.size(); });
+
+  //   for (size_t i = 0; i < witness.size(); i++)
+  //   {
+  //     Marking lit = get_time_step(witness, i);
+
+  //     // fill trace to accomodate literal
+  //     while (trace->size() < lit.timestep + 1)
+  //       trace->emplace_back(lit_names.size(), "?");
+
+  //     // find and fill lit entries with "XXX" or "   "
+  //     auto it = std::lower_bound(l_begin, l_end, lit.name);
+  //     if (it != lit_names.end() && *it == lit.name) // it points to s
+  //     {
+  //       string fill_X = fmt::format("{:X^{}}", "", longest_lit.size());
+  //       size_t index  = it - l_begin;
+  //       trace->at(lit.timestep).mark(index, lit, fill_X);
+  //     }
+  //   }
+  // }
 
   void BoundedPebbling::dump_times(std::ostream& out) const
   {

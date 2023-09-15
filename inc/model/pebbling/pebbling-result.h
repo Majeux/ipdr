@@ -34,6 +34,10 @@ namespace pdr::pebbling
 
     // construct PebblingResult
     IpdrPebblingResult(const PebblingModel& m, Tactic t);
+    IpdrPebblingResult(std::vector<std::string> const& curr,
+        std::vector<std::string> const& next,
+        unsigned pebbles_final,
+        Tactic t);
     IpdrPebblingResult(
         mysat::primed::VarVec const& vars, unsigned pebbles_final, Tactic t);
     // convert from general IpdrResult to PebblingResult
@@ -82,7 +86,7 @@ namespace pdr::pebbling
         std::vector<std::string> vars_p,
         std::optional<unsigned> constraint,
         unsigned const f_pebbles);
-  }
+  } // namespace result
 } // namespace pdr::pebbling
 
 #endif // PEBBLING_RESULT_H

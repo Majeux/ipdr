@@ -3,6 +3,9 @@
 
 #include "cli-parse.h"
 #include "dag.h"
+#include "pebbling-result.h"
+#include "result.h"
+#include <cstddef>
 #include <optional>
 #include <spdlog/stopwatch.h>
 #include <tabulate/table.hpp>
@@ -78,12 +81,14 @@ namespace bounded
    public:
     // using Literals = std::vector<Literal>;
     using Literals = z3::expr_vector;
+    using TraceState = pdr::PdrResult::Trace::TraceState;
+    using TraceVec = pdr::PdrResult::Trace::TraceVec;
 
     std::vector<Literals> lits_at_time;
 
-    BoundedPebbling(const dag::Graph& G, my::cli::ArgumentList& args);
+    BoundedPebbling(const dag::Graph& G, my::cli::ArgumentList const& args);
 
-    bool find_for(size_t pebbles);
+    pdr::pebbling::IpdrPebblingResult run();
 
    private:
     z3::context context;
@@ -96,11 +101,13 @@ namespace bounded
     std::vector<std::string> lit_names;
     const size_t n_lits;
 
+    // constraint presently enforced in the solver
     std::optional<size_t> cardinality;
     // the amount of steps that are added to the solver
     // the last transition is from `current_bound-1` to `current_bound`
     std::optional<size_t> current_bound;
-    std::vector<TraceRow> trace;
+
+    std::optional<TraceVec> trace;
 
     spdlog::stopwatch timer;
     spdlog::stopwatch card_timer;
@@ -125,6 +132,7 @@ namespace bounded
 
     z3::check_result check(size_t steps, double allowance);
 
+    pdr::PdrResult::Trace::TraceVec get_trace(size_t length) const;
     std::string strategy_table(const std::vector<TraceRow>& content) const;
     void store_strategy(size_t length);
     void dump_times(std::ostream& out) const;

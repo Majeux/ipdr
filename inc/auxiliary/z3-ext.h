@@ -36,9 +36,6 @@ namespace z3ext
     std::string to_string() const;
     LitStr next() const;
 
-    static LitStr mk_bool(std::string_view a, bool s);
-    static LitStr mk_int(std::string_view a, int s);
-
     friend std::ostream& operator<<(std::ostream& out, LitStr const& l);
   };
 

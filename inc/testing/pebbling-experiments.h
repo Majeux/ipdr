@@ -42,8 +42,11 @@ namespace pdr::pebbling::experiments
    public:
     PebblingExperiment(my::cli::ArgumentList const& a, Logger& l);
 
+    PebblingExperiment& use_bmc();
+
    private:
     my::cli::model_t::Pebbling ts_descr;
+    bool bmc {false};
 
     void reset_tables() override;
     std::shared_ptr<expsuper::Run> do_reps(const bool is_control) override;

@@ -77,13 +77,13 @@ namespace pdr
   Trace::Trace(unsigned l) : length{ l }, n_marked{ 0 } {}
   Trace::Trace(shared_ptr<const PdrState> s)
       : states(make_trace_marking(s)),
-        length(states.size()),
+        length(states.size()), // discludes I (not a transition step)
         n_marked(greatest_marking(states))
   {
   }
   Trace::Trace(TraceVec const& trace_states)
       : states(trace_states),
-        length(trace_states.size()),
+        length(trace_states.size()), // discludes I (not a transition step)
         n_marked(greatest_marking(trace_states))
   {
   }
@@ -397,7 +397,7 @@ namespace pdr
         if (it != header.end() && *it == lit.name) // it points to s
         {
           size_t index = it - header.begin();
-          rv[index] = lit.marking();
+          rv[index]    = lit.marking();
         }
       }
 
