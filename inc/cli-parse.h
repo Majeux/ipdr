@@ -89,11 +89,7 @@ namespace my::cli
       t_IPDR(pdr::Tactic t) : type(t) {}
     };
 
-    struct t_Bounded
-    {
-    };
-
-    using Algo_var = std::variant<t_PDR, t_IPDR, t_Bounded>;
+    using Algo_var = std::variant<t_PDR, t_IPDR>;
 
     std::string get_name(Algo_var const& a);
     std::string filetag(Algo_var const& a);
@@ -165,9 +161,7 @@ namespace my::cli
     inline static const std::string o_alg     = "algo";
     inline static const std::string s_pdr     = "pdr";
     inline static const std::string s_ipdr    = "ipdr";
-    inline static const std::string s_bounded = "bounded";
-    inline static const std::vector<std::string> algo_group{ s_pdr, s_ipdr,
-      s_bounded };
+    inline static const std::vector<std::string> algo_group{ s_pdr, s_ipdr };
 
     inline static const std::string o_problem  = "problem";
     inline static const std::string s_pebbling = "pebbling";

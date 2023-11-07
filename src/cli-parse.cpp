@@ -197,12 +197,6 @@ namespace my::cli
         (void)a;
         return "ipdr";
       }
-
-      string operator()(t_Bounded const& a) const
-      {
-        (void)a;
-        return "bounded";
-      }
     };
     string get_name(Algo_var const& m)
     {
@@ -226,11 +220,6 @@ namespace my::cli
         return format("ipdr_{}", pdr::tactic::to_string(a.type));
       }
 
-      string operator()(t_Bounded const& a) const
-      {
-        (void)a;
-        return "bounded";
-      }
     };
     string filetag(Algo_var const& a)
     {
@@ -565,14 +554,7 @@ namespace my::cli
     }
     else
     {
-      assert(algo == s_bounded);
-      ignored({ o_inc }, clresult);
-
-      if (!is<model_t::Pebbling>(model))
-        throw std::invalid_argument(
-            "Bounded model checking is supported for Pebbling only.");
-
-      algorithm = algo::t_Bounded();
+      assert(false);
     }
 
     // z3pdr is automatically set
