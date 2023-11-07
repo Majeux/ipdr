@@ -127,8 +127,23 @@ namespace parse
 
       auto [old_t, new_t] = target(G, operands.back());
       operands.pop_back();
+
       std::transform(operands.begin(), operands.end(), operands.begin(),
-          [this](const std::string& s) { return operand(s); });
+          [&](const std::string& name) -> std::string
+          {
+            auto it = vars.find(name);
+            if (it == vars.end())
+            {
+              // if output wire uses constant starting value that is used as
+              // input
+              std::string var_init = node(name, 0);
+              vars.emplace(name, 0);
+              ins.insert(name);
+              G.add_input(var_init);
+              return var_init;
+            }
+            return node(it);
+          });
 
       if (old_t != "")
         operands.push_back(old_t);
@@ -149,13 +164,6 @@ namespace parse
       var->second++;
       G.add_node(node(var));
       return node(var);
-    }
-
-    std::string operand(const std::string& name)
-    {
-      auto it = vars.find(name);
-      assert(it != vars.end());
-      return node(it);
     }
 
     std::pair<std::string, std::string> target(

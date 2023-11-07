@@ -1,4 +1,5 @@
 #include <TextTable.h>
+#include <climits>
 #include <numeric>
 #include <optional>
 #include <z3++.h>
@@ -212,6 +213,16 @@ namespace pdr::pebbling
     return pebble_constraint;
   }
 
+  const expr PebblingModel::get_constraint_current() const 
+  {
+    return constraint[0];
+  }
+
+  unsigned PebblingModel::state_size() const 
+  {
+    return n_nodes();
+  }
+
   const std::string PebblingModel::constraint_str() const
   {
     if (pebble_constraint)
@@ -223,4 +234,8 @@ namespace pdr::pebbling
     return "no constraint";
   }
 
+  unsigned PebblingModel::constraint_num() const
+  {
+    return pebble_constraint.value_or(UINT_MAX);
+  }
 } // namespace pdr::pebbling

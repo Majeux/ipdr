@@ -28,9 +28,10 @@ do
 		folder="--dir=$BENCHMARKS"
 		model="--tfc=$m"
 		its="--iterations=$sample"
+		seeds="--seeds=270798381,131681569,485372466,1282398185,514519091,568261268,1886656190,1364448269,998485344,1045798832"
 		# exp=""
 
-		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its"
+		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its $seeds --simple-relax"
 
 		echo "${bold}$command${normal}"
 		$command

@@ -60,3 +60,9 @@ output/*
 pebbling-pdr*
 
 perf.data*
+med_rls.txt
+new_rls2.text
+peter-out.txt
+unit_test_funcs.txt
+z3stuck.txt
+new_rls3.txt

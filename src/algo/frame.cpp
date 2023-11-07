@@ -15,13 +15,19 @@
 
 namespace pdr
 {
+  using std::vector;
+  using z3::expr;
+  using z3::expr_vector;
+
   Frame::Frame(unsigned i) : level(i) {}
 
-  bool Frame::blocked(const z3::expr_vector& cube)
+  void Frame::clear() { blocked_cubes.clear(); }
+
+  bool Frame::is_subsumed(vector<expr> const& new_cube) const
   {
-    for (const z3::expr_vector& blocked_cube : blocked_cubes)
+    for (vector<expr> const& blocked_cube : blocked_cubes)
     {
-      if (z3ext::subsumes_l(blocked_cube, cube))
+      if (z3ext::subsumes_le(blocked_cube, new_cube))
       {
         return true; // equal or stronger clause found
       }
@@ -29,18 +35,12 @@ namespace pdr
     return false;
   }
 
-  unsigned Frame::remove_subsumed(
-      const z3::expr_vector& cube, bool remove_equal)
+  unsigned Frame::remove_subsumed(const vector<expr>& cube, bool remove_equal)
   {
-    // return 0;
     unsigned before = blocked_cubes.size();
-    // auto new_end = std::remove_if(blocked_cubes.begin(),
-    // blocked_cubes.end(),
-    // 		[&cube](const expr_vector& blocked) { return
-    // z3ext::subsumes(cube, blocked); });
 
-    auto subsumes = [remove_equal](
-                        const z3::expr_vector& l, const z3::expr_vector& r) {
+    auto subsumes = [remove_equal](const vector<expr>& l, const vector<expr>& r)
+    {
       return remove_equal ? z3ext::subsumes_le(l, r) : z3ext::subsumes_l(l, r);
     };
 
@@ -51,7 +51,31 @@ namespace pdr
       else
         it++;
     }
-    // blocked_cubes.erase(new_end, blocked_cubes.end());
+    return before - blocked_cubes.size();
+  }
+
+  unsigned Frame::remove_subsumed_constrained(
+      std::map<unsigned, size_t> const& order,
+      const std::vector<z3::expr>& cube,
+      bool remove_equal)
+  {
+    using z3ext::constrained_cube::subsumes_l;
+    using z3ext::constrained_cube::subsumes_le;
+
+    unsigned before = blocked_cubes.size();
+
+    auto subsumes = [remove_equal, &order](
+                        const vector<expr>& l, const vector<expr>& r) {
+      return remove_equal ? subsumes_le(order, l, r) : subsumes_l(order, l, r);
+    };
+
+    for (auto it = blocked_cubes.begin(); it != blocked_cubes.end();)
+    {
+      if (subsumes(cube, *it))
+        it = blocked_cubes.erase(it);
+      else
+        it++;
+    }
     return before - blocked_cubes.size();
   }
 
@@ -60,7 +84,7 @@ namespace pdr
   // cube is sorted by id()
   // block cube unless it, or a stronger version, is already blocked
   // TODO redundant, make void or make useful
-  bool Frame::block(const z3::expr_vector& cube)
+  bool Frame::block(vector<expr> const& cube)
   {
     return blocked_cubes.insert(cube).second;
   }
@@ -90,22 +114,22 @@ namespace pdr
     return true;
   }
 
-  std::vector<z3::expr_vector> Frame::diff(const Frame& f) const
+  std::vector<vector<expr>> Frame::diff(const Frame& f) const
   {
-    std::vector<z3::expr_vector> out;
+    vector<vector<expr>> out;
     std::set_difference(blocked_cubes.begin(), blocked_cubes.end(),
         f.blocked_cubes.begin(), f.blocked_cubes.end(), std::back_inserter(out),
-        z3ext::expr_vector_less());
+        z3ext::std_expr_vector_less());
     return out;
   }
 
-  const z3ext::CubeSet& Frame::get_blocked() const { return blocked_cubes; }
+  const z3ext::CubeSet& Frame::get() const { return blocked_cubes; }
   bool Frame::empty() const { return blocked_cubes.size() == 0; }
 
   std::string Frame::blocked_str() const
   {
-    std::string str(fmt::format("blocked cubes level {}\n", level));
-    for (const z3::expr_vector& e : blocked_cubes)
+    std::string str(fmt::format("blocked cubes in frame {}\n", level));
+    for (vector<expr> const& e : blocked_cubes)
       str += fmt::format("- {}\n", z3ext::join_ev(e, " & "));
 
     return str;

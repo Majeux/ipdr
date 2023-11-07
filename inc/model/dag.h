@@ -73,7 +73,7 @@ namespace dag
     // write a dot image to the destination (path/filename without extension)
     void show_image(std::string const& destination);
     // write a dot image and text description
-    void show(std::string const& destination, bool to_cout);
+    void show(std::string const& destination, bool to_cout, bool brief);
 
     std::string dot();
 

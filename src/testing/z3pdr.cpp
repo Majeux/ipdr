@@ -7,7 +7,6 @@
 #include "string-ext.h"
 #include "vpdr.h"
 #include "z3-ext.h"
-#include "z3-pebbling-model.h"
 
 #include <algorithm>
 #include <cassert>
@@ -15,6 +14,7 @@
 #include <fmt/ranges.h>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <regex>
 #include <spdlog/stopwatch.h>
 #include <sstream>
@@ -36,7 +36,10 @@ namespace pdr::test
 
   // done in setup, defines relation between state and next state
   // if step(state, state.p) |-> true && state, then state.p
-  z3PDR::z3PDR(Context c, Logger& l, Z3Model& m) : vPDR(c, l), ts(m) {}
+  z3PDR::z3PDR(Context c, Logger& l, IModel& m)
+      : vPDR(c, l, m) 
+  {
+  }
 
   z3::fixedpoint z3PDR::mk_prepare_fixedpoint()
   {
@@ -46,7 +49,7 @@ namespace pdr::test
     p.set("spacer.random_seed", ctx.seed);
     p.set("spacer.push_pob", true); // pushing blocked facts
     // p.set("spacer.trace_file", "spacer-trace.txt");
-    
+
     engine.set(p);
     // z3::set_param("trace", true);
 
@@ -55,64 +58,85 @@ namespace pdr::test
 
   void z3PDR::reset() { last_result = z3::check_result::unknown; }
 
+  std::optional<size_t> z3PDR::constrain()
+  {
+    last_result = z3::check_result::unknown;
+    ctx.type    = Tactic::constrain;
+    MYLOG_DEBUG(logger, "constraining ipdr not supported for spacer");
+    return {};
+  }
+
+  void z3PDR::relax()
+  {
+    last_result = z3::check_result::unknown;
+    ctx.type    = Tactic::relax;
+    MYLOG_DEBUG(logger, "relaxing ipdr not supported for spacer");
+  }
+
   PdrResult z3PDR::run()
   {
     using std::cout;
     using std::endl;
 
+    log_start();
+    timer.reset();
+
     z3::fixedpoint engine = mk_prepare_fixedpoint();
+    ts.load_initial(engine);
+    ts.load_transition(engine);
+    expr target = ts.create_fp_target();
+    // MYLOG_INFO(logger, "Initial State:\n{}", ts.fp_I->expr.to_string());
+    // MYLOG_INFO(logger, "Transition System:\n{}", T.expr.to_string());
+    // MYLOG_INFO(logger, "Target:\n{}", target.to_string());
+    z3::func_decl target_decl = ts.state;
 
-    ts.add_initial(engine);
-    ts.add_transitions(engine);
-
-    auto pts                  = dynamic_cast<Z3PebblingModel&>(ts);
-    expr target               = ts.get_target();
-    z3::func_decl target_decl = target.decl();
-
-    MYLOG_INFO(logger, "Transition System:\n{}", pts.to_string());
-
-    MYLOG_INFO(logger, "Target:\n{}", target.to_string());
     MYLOG_DEBUG(logger, "Fixedpoint engine:\n{}", engine.to_string());
 
-    
     spdlog::stopwatch timer;
-    last_result = ts.reach_target(engine);
+    last_result = engine.query(target);
     double time = timer.elapsed().count();
 
-    cover_string = "fixedpoint delta-covers:\n";
-    {
-      int n_levels = engine.get_num_levels(target_decl);
-      assert(n_levels > 0);
-      for (int i{ -1 }; i < n_levels; i++)
-      {
-        cover_string += fmt::format("-- level {}\n", i);
-        cover_string += fmt::format(
-            "{}\n", engine.get_cover_delta(i, target_decl).to_string());
-        cover_string += "\n";
-      }
-    }
-    MYLOG_DEBUG(logger, cover_string);
+    // cover_string = "fixedpoint delta-covers:\n";
+    // {
+    //   int n_levels = engine.get_num_levels(target_decl);
+    //   assert(n_levels > 0);
+    //   for (int i{ -1 }; i < n_levels; i++)
+    //   {
+    //     cover_string += fmt::format("-- level {}\n", i);
+    //     cover_string += fmt::format(
+    //         "{}\n", engine.get_cover_delta(i, target_decl).to_string());
+    //     cover_string += "\n";
+    //   }
+    // }
+    // MYLOG_DEBUG(logger, cover_string);
 
     vector<std::string> trace;
     unsigned n_levels;
+    optional<PdrResult> rv;
     switch (last_result)
     {
       case z3::check_result::sat:
         trace = get_trace(engine);
         MYLOG_DEBUG(logger, "SAT fixedpoint");
         MYLOG_DEBUG(logger, "Trace: {}", trace);
-        return PdrResult::found_trace(get_trace_states(engine))
-            .with_duration(time);
+        rv = PdrResult::found_trace(ts.fp_trace_states(engine))
+                 .with_duration(time);
+        break;
       case z3::check_result::unsat:
-        n_levels = engine.get_num_levels(target_decl);
+        // n_levels = engine.get_num_levels(target_decl);
         MYLOG_DEBUG(logger, "UNSAT fixedpoint");
         MYLOG_DEBUG(logger, "Invariant found after {} levels", n_levels);
-        return PdrResult::found_invariant(n_levels).with_duration(time);
-      default: break;
+        rv = PdrResult::found_invariant(n_levels).with_duration(time);
+        break;
+      default:
+        MYLOG_WARN(logger, "Undefined fixedpoint result");
+        rv = PdrResult::empty_true();
+        break;
     }
-
-    MYLOG_WARN(logger, "Undefined fixedpoint result");
-    return PdrResult::empty_true();
+    double final_time = timer.elapsed().count();
+    log_pdr_finish(rv.value(), final_time);
+    rv->time = final_time;
+    return rv.value();
   }
 
   void z3PDR::show_solver(std::ostream& out) const
@@ -127,13 +151,14 @@ namespace pdr::test
 
     z3::symbol raw(
         ctx(), Z3_fixedpoint_get_rule_names_along_trace(ctx(), engine));
+    MYLOG_TRACE(logger, "TRACE: {}", raw.str());
     vector<std::string> trace = str::ext::split(raw.str(), ';');
     trace.erase(std::remove_if(trace.begin(), trace.end(),
                     [](string_view a) { return a == "->"; }),
         trace.end());
 
     std::reverse(trace.begin(), trace.end());
-    assert(trace.at(0) == "I");
+    // assert(trace.at(0) == "I");
 
     return trace;
   }
@@ -142,7 +167,7 @@ namespace pdr::test
   {
     std::vector<z3::expr> rv;
     // answer {
-    //  arg(0): 
+    //  arg(0):
     //  arg(1):
     //  arg(2): destination
     // }

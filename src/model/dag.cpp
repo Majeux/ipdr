@@ -95,8 +95,8 @@ namespace dag
 
   string Graph::summary() const
   {
-    return fmt::format("Graph {{ In: {}, Out {}, Nodes {} }}", input.size(),
-        output.size(), nodes.size());
+    return fmt::format("Graph {{ In: {}, Out {}, Nodes {}, Edges {} }}",
+        input.size(), output.size(), nodes.size(), edges.size());
   }
 
   std::string Graph::DAG_string() const
@@ -118,15 +118,19 @@ namespace dag
     image->render(destination);
   }
 
-  void Graph::show(string const& destination, bool to_cout)
+  void Graph::show(string const& destination, bool to_cout, bool brief)
   {
     show_image(destination);
     std::ofstream out = my::io::trunc_file(destination + ".txt");
     if (to_cout)
     {
-      std::cout << summary() << endl << endl << DAG_string() << endl;
+      std::cout << summary() << endl;
+      if (!brief)
+        std::cout << endl << DAG_string() << endl;
     }
-    out << summary() << endl << endl << DAG_string() << endl;
+    out << summary() << endl;
+      if (!brief)
+        out << endl << DAG_string() << endl;
   }
 
   string Graph::dot()

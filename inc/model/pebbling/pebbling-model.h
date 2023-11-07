@@ -41,12 +41,19 @@ namespace pdr::pebbling
     unsigned get_f_pebbles() const;
     // return the current maximum number of pebbles
     std::optional<unsigned> get_pebble_constraint() const;
+
+    const z3::expr get_constraint_current() const override;
+    unsigned state_size() const override;
     // return string representation of the constraint
     const std::string constraint_str() const override;
+    // number representative of the constraint. a larger number is a looser
+    // constraint
+    unsigned constraint_num() const override;
 
    private:
     // z3::expr_vector initial;
     // z3::expr_vector transition; // vector of clauses (cnf)
+    // z3::expr_vector constraint; // vector of clauses (cnf)
 
     // number of marked literals in property
     unsigned final_pebbles;

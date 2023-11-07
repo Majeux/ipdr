@@ -3,12 +3,15 @@
 
 #include "string-ext.h"
 #include <algorithm>
+#include <cstring>
 #include <fmt/core.h>
 #include <optional>
+#include <ostream>
 #include <random>
 #include <set>
 #include <sstream>
 #include <type_traits>
+#include <variant>
 #include <vector>
 #include <z3++.h>
 
@@ -18,20 +21,131 @@ namespace z3ext
   //
   struct LitStr
   {
-    std::string atom;
-    bool sign;
+    std::string name;
+    std::variant<bool, int> value;
     // extract the string representation and sign from a literal expressions
-    LitStr(std::string_view a, bool s);
+    LitStr(std::string_view a, std::variant<bool, int> v);
     LitStr(z3::expr const& l);
     // LitStr(LitStr const&) = default;
-    z3::expr to_expr(z3::context& ctx);
+    z3::expr to_expr(z3::context& ctx) const;
+    bool sign() const;
+    bool sign_or_nonzero() const;
+    std::optional<int> int_value() const;
+    std::string value_str() const;
+    std::string marking() const;
     std::string to_string() const;
+    LitStr next() const;
+
+    friend std::ostream& operator<<(std::ostream& out, LitStr const& l);
   };
 
+  inline std::ostream& operator<<(std::ostream& out, LitStr const& l)
+  {
+    out << l.to_string();
+    return out;
+  }
+
+  // handling cubes of the form: < c1, c2, ..., c3, constraint_lit >
+  namespace constrained_cube
+  {
+    namespace
+    {
+      int constexpr length(const char* str)
+      {
+        return *str ? 1 + length(str + 1) : 0;
+      }
+    } // namespace
+
+    // compile time definitions
+    static constexpr const char* tag_chars   = "__c__";
+    constexpr static const size_t tag_length = length(tag_chars);
+    // used definitions
+    inline static const std::string tag(tag_chars); // usage: __c{}__
+    // all except last two characters are prefix
+    inline static const std::string prefix = tag.substr(0, tag.length() - 2);
+    // last two are suffix
+    inline static const std::string suffix = tag.substr(tag.length() - 2, 2);
+
+    class ReservedLiteral : public std::exception
+    {
+     private:
+      std::string message;
+
+      void explain(std::string_view msg)
+      {
+        message = fmt::format(
+            "ReservedLiteral: {} contains the prefix \"__\", which is reserved "
+            "for implementation variables (such as activation literals)",
+            msg);
+      }
+
+     public:
+      ReservedLiteral(z3::expr const& lit) : message()
+      {
+        explain(lit.to_string());
+      }
+      ReservedLiteral(std::string_view name) : message() { explain(name); }
+
+      const char* what() const noexcept override { return message.c_str(); }
+    };
+
+    // constant names with the prefix "__" are reserved for internal variables
+    bool is_reserved_lit(std::string_view name);
+    bool is_reserved_lit(z3::expr const& e);
+    void validate_lit_name(std::string_view name);
+
+    std::string constraint_str(size_t size);
+    std::optional<size_t> constraint_size(std::string_view str);
+    std::optional<size_t> constraint_size(z3::expr const& e);
+    // true if a is stronger than be
+    // @pre: a and b in form < c1, c2, ..., cn, constraint >
+    bool stronger_constraint(z3::expr const& a, z3::expr const& b);
+
+    // copy construction.
+    // @pre: lits in form < c1, c2, ..., cn, constraint >.
+    // @post: rv in form < c1, c2, ..., cn, constraint >.
+    std::vector<z3::expr> mk_constrained_cube(
+        std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& lits,
+        size_t size);
+    // move construction.
+    // @pre: lits in form < c1, c2, ..., cn, constraint >.
+    // @post: rv in form < c1, c2, ..., cn, constraint >.
+    std::vector<z3::expr> mk_constrained_cube(
+        std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr>&& lits,
+        size_t size);
+
+    // true if a is stronger than b.
+    // @pre: a and b are potentially constrained literals
+    bool subsumes_l(std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& a,
+        std::vector<z3::expr> const& b);
+    bool subsumes_le(std::map<unsigned, size_t> const& order,
+        std::vector<z3::expr> const& a,
+        std::vector<z3::expr> const& b);
+
+    // compares constrained cubes
+    // cubes in form < c1, c2, ..., cn, constraint >
+    struct cexpr_less
+    {
+      bool operator()(z3::expr const& a, z3::expr const& b) const;
+    };
+
+    // vectors can be sorted as normal by id
+
+  }; // namespace constrained_cube
+
+  z3::expr z3_true(z3::context& ctx);
+  z3::expr z3_false(z3::context& ctx);
   z3::expr minus(z3::expr const& e);
   bool is_lit(z3::expr const& e);
-  // get the variable of a literal
-  // throws if e is not a literal
+  bool is_cube(z3::expr const& e);
+  bool is_clause(z3::expr const& e);
+  bool are_clauses(z3::expr_vector const& ev);
+  bool is_card(z3::expr const& e);
+  // get the variable of a literal.
+  // @pre: e is a literal
   z3::expr strip_not(z3::expr const& e);
 
   // allocates new vector
@@ -61,9 +175,13 @@ namespace z3ext
   // returns true if l < r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_l(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool subsumes_l(
+      const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
   // returns true if l <= r
   // assumes l and r are in sorted order (as sort())
   bool subsumes_le(const z3::expr_vector& l, const z3::expr_vector& r);
+  bool subsumes_le(
+      const std::vector<z3::expr>& l, const std::vector<z3::expr>& r);
 
   bool eq(const z3::expr_vector& l, const z3::expr_vector& r);
   bool quick_implies(const z3::expr_vector& l, const z3::expr_vector& r);
@@ -94,11 +212,22 @@ namespace z3ext
     bool operator()(const z3::expr_vector& l, const z3::expr_vector& r) const;
   };
 
+  // vector<expr> comparator
+  struct std_expr_vector_less
+  {
+    bool operator()(
+        const std::vector<z3::expr>& l, const std::vector<z3::expr>& r) const;
+  };
+
   // internal cube order by pdr
   //
+  // the default less-than comparison used to order cubes
   inline expr_less cube_orderer;
+  // for extra-constrained cubes (relaxing)
+  // inline constrained_cube::cexpr_less cube_orderer;
   void order_lits(std::vector<z3::expr>& cube);
   void order_lits(z3::expr_vector& cube);
+  std::vector<z3::expr> order_lits_std(z3::expr_vector const& cube);
   bool lits_ordered(std::vector<z3::expr> const& cube);
 
   // TEMPLATE FUNCTIONS
@@ -137,7 +266,8 @@ namespace z3ext
 
   // return a string representation of any vector containing z3::expr
   template <typename ExprVector>
-  inline std::string join_ev(ExprVector const& c, bool align = false,
+  inline std::string join_ev(ExprVector const& c,
+      bool align                  = false,
       const std::string delimiter = ", ")
   {
     // only join containers that can stream into stringstream
@@ -218,43 +348,17 @@ namespace z3ext
     return rv;
   }
 
-  // pass a subset of literals 'ev' to the 'transform: z3::expr -> z3::expr'
-  // function
-  template <typename UnaryPredicate, typename Transform>
-  z3::expr_vector filter_transform(
-      z3::expr_vector const& ev, UnaryPredicate filter, Transform T)
-  {
-    static_assert(
-        std::is_same<
-            typename std::invoke_result<Transform, z3::expr const&>::type,
-            z3::expr>::value,
-        "transform function must be of form T: z3::expr const& -> z3::expr");
-
-    if (ev.size() == 0)
-      return ev;
-
-    std::vector<z3::expr> rv;
-    rv.reserve(ev.size());
-    for (const z3::expr& e : ev)
-    {
-      if (filter(e))
-        rv.push_back(T(e));
-    }
-
-    order_lits(rv);
-
-    return convert(rv);
-  }
-
-  using CubeSet = std::set<z3::expr_vector, expr_vector_less>;
+  // using CubeSet = std::set<ConstrainedCube, ccube_less>;
+  using CubeSet = std::set<std::vector<z3::expr>, std_expr_vector_less>;
 
   namespace solver
   {
     struct Witness
     {
-      z3::expr_vector curr;
-      z3::expr_vector next;
+      std::vector<z3::expr> curr;
+      std::vector<z3::expr> next;
 
+      Witness(std::vector<z3::expr> const& c, std::vector<z3::expr> const& n);
       Witness(z3::expr_vector const& c, z3::expr_vector const& n);
     };
     // retrieve the current model in the solver as a cube
@@ -313,33 +417,43 @@ namespace z3ext
   namespace tseytin
   {
     // convert e to cnf using z3's simplify and tseitin conversion tactics
-    z3::expr_vector to_cnf_vec(z3::expr const& e);
+    z3::expr_vector to_cnf_vec(z3::expr e);
     z3::expr to_cnf(z3::expr const& e);
 
     // add a tseytin encoded AND statement to "cnf"
     // c = a & b <=> (!a | !b | c) & (a | !c) & (b | !c)
-    z3::expr add_and(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_and(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded OR statement to "cnf"
     // c = a | b <=> (a | b | !c) & (!a | c) & (!b | c)
-    z3::expr add_or(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_or(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded IMPLIES statement to "cnf"
     // a => b <=> !a | b
-    z3::expr add_implies(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_implies(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded XOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | !c) & (a | b | !c) & (a | !b | c) & (!a | b | c)
-    z3::expr add_xor(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_xor(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
 
     // add a tseytin encoded XNOR statement to "cnf"
     // c = a ^ b <=> (!a | !b | c) & (a | b | c) & (a | !b | !c) & (!a | b | !c)
-    z3::expr add_xnor(z3::expr_vector& cnf, std::string const& name,
-        z3::expr const& a, z3::expr const& b);
+    z3::expr add_xnor(z3::expr_vector& cnf,
+        std::string const& name,
+        z3::expr const& a,
+        z3::expr const& b);
   } // namespace tseytin
 } // namespace z3ext
 #endif // Z3_EXT

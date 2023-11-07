@@ -6,10 +6,11 @@
 #include <climits>
 #include <fmt/color.h>
 #include <z3++.h>
+
 namespace mysat::primed
 {
 
-  enum lit_type
+  enum class lit_type
   {
     base,
     primed
@@ -46,9 +47,10 @@ namespace mysat::primed
 
     z3::context& get_ctx() const { return ctx; }
 
-    virtual operator Tcontainer const&() const   = 0;
-    virtual Tcontainer const& operator()() const = 0;
-    virtual Tcontainer const& p() const          = 0;
+    virtual operator Tcontainer const&() const      = 0;
+    virtual Tcontainer const& operator()() const    = 0;
+    virtual Tcontainer const& p() const             = 0;
+    virtual Tcontainer const& get(lit_type t) const = 0;
 
    protected:
     z3::context& ctx;
@@ -69,13 +71,20 @@ namespace mysat::primed
     Lit(z3::context& c, std::string const& name);
 
     operator z3::expr const&() const override;
+    // return the unprimed representation of the literal
     z3::expr const& operator()() const override;
+    // return the primed representation of the literal
     z3::expr const& p() const override;
+    z3::expr const& get(lit_type t) const override;
+
+    // SMT expression stating that Lit is the same in the current state as the
+    // next
     z3::expr unchanged() const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
-    bool extract_value(z3::expr_vector const& cube, lit_type t = base) const;
+    bool extract_value(
+        z3::expr_vector const& cube, lit_type t = lit_type::base) const;
 
   }; // class Lit
 
@@ -92,20 +101,36 @@ namespace mysat::primed
         std::vector<std::string> const& nextnames);
 
     operator z3::expr_vector const&() const override;
+    // return all unprimed versions of the literals in VarVec
     z3::expr_vector const& operator()() const override;
+    // return all primed versions of the literals in VarVec
     z3::expr_vector const& p() const override;
+    z3::expr_vector const& get(lit_type t) const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
+    // return the unprimed representation of the ith variable in VarVec
     z3::expr operator()(size_t i) const;
+    // return the primed representation of the ith variable in VarVec
     z3::expr p(size_t i) const;
+    // return the unprimed representation of "e" if "e" is a primed variable in
+    // VarVec. if "e" is a reserved literal, "e" is returned. else this function
+    // throws
     z3::expr operator()(z3::expr const& e) const;
+    // return the primed representation of "e" if "e" is an unprimed variable in
+    // VarVec. if "e" is a reserved literal, "e" is returned. else this function
+    // throws
     z3::expr p(z3::expr const& e) const;
     // convert expressions to and form current and next
     z3::expr_vector operator()(z3::expr_vector const& ev) const;
     z3::expr_vector p(z3::expr_vector const& ev) const;
+    z3::expr_vector p(std::vector<z3::expr> const& ev) const;
 
+    // returns true if "e" is an unprimed variable from VarVec or if it a
+    // reserved literal
     bool lit_is_current(z3::expr const& e) const;
+    // returns true if "e" is a primed variable from VarVec or if it a reserved
+    // literal
     bool lit_is_p(z3::expr const& e) const;
 
    private:
@@ -128,6 +153,8 @@ namespace mysat::primed
     operator z3::expr_vector const&() const override;
     z3::expr_vector const& operator()() const override;
     z3::expr_vector const& p() const override;
+    z3::expr_vector const& get(lit_type t) const override;
+    std::vector<z3::expr> p_vec() const;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
@@ -148,13 +175,20 @@ namespace mysat::primed
   {
    public:
     using numrep_t                   = unsigned;
+    // maximum number of bits any BitVec can be
     static constexpr size_t MAX_BITS = std::numeric_limits<numrep_t>::digits;
 
+    // number of bits
     const size_t size;
 
     // name = base name for the vector, each bit is "name[0], name[1], ..."
     // max = the maximum (unsigned) integer value the vector should describe
+    BitVec(z3::context& c);
     BitVec(z3::context& c, std::string const& n, size_t Nbits);
+
+    // give this bitvector carry bits to allow for the incremented() function
+    // to perform a +1 addition on it
+    BitVec& incrementable();
 
     // construct a bitvector capable of holding the number in max_val
     static BitVec holding(
@@ -164,11 +198,14 @@ namespace mysat::primed
     operator z3::expr_vector const&() const override;
     z3::expr_vector const& operator()() const override;
     z3::expr_vector const& p() const override;
+    z3::expr_vector const& get(lit_type t) const override;
     std::vector<std::string> names() const override;
     std::vector<std::string> names_p() const override;
 
     // all bits equal in current and next
     z3::expr unchanged() const override;
+    // value of next = value of current + 1
+    z3::expr incremented() const;
 
     // access individual literals
     z3::expr operator()(size_t i) const;
@@ -182,39 +219,68 @@ namespace mysat::primed
 
     // extract uint representation from relevant literals in a cube
     numrep_t extract_value(
-        z3::expr_vector const& cube, const lit_type t = base) const;
+        z3::expr_vector const& cube, const lit_type t = lit_type::base) const;
 
     // equality operator to expression conversions
     // * CNF
     z3::expr equals(numrep_t n) const;
     z3::expr p_equals(numrep_t n) const;
+    // Bitvec v BitVec comparison of current states
+    z3::expr equals(z3::expr_vector const& other) const;
+    z3::expr p_equals(z3::expr_vector const& other) const;
+
+    z3::expr nequals(z3::expr_vector const& other) const;
+    z3::expr p_nequals(z3::expr_vector const& other) const;
 
     //  N-bit less comparison
     //  returns a formula in cnf
-    template <typename Tnum> z3::expr less(Tnum const& n) const
+    template <typename Tnum>
+    z3::expr less(Tnum const& n, lit_type t = lit_type::base) const
     {
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,
           "Number must either be respresented by an unsigned or a cube");
-      // less_4b assigns default values if size is too smalle
-      size_t nbits = size + (4 - size % 4);
-      return rec_less(n, nbits - 1, nbits);
+      // less_4b assigns default values if size is too small
+      size_t nbits;
+      if (size % 4 == 0)
+        nbits = size;
+      else
+        nbits = size + 4 - (size % 4);
+      return rec_less(n, nbits - 1, nbits, t);
+    }
+    template <typename Tnum> z3::expr p_less(Tnum const& n) const
+    {
+      return less(n, lit_type::primed);
     }
 
    private:
-    z3::expr_vector unint_to_lits(numrep_t n, bool primed) const;
+    z3::expr_vector carry_out;
+
+    z3::expr_vector unint_to_lits(
+        numrep_t n, lit_type t = lit_type::base) const;
 
     // compare bits 4 bits of of "bv" with 4 bits of "n"
     // 'i' is the most significant bit
-    z3::expr less_4b(numrep_t n, size_t msb) const;
-    z3::expr less_4b(BitVec const& cube, size_t msb) const;
+    z3::expr less_4b(numrep_t n, size_t msb, lit_type t = lit_type::base) const;
+    z3::expr less_4b(
+        BitVec const& cube, size_t msb, lit_type t = lit_type::base) const;
 
     // compares the 'nbits' most significant bits, starting from 'msb' down
-    z3::expr eq(numrep_t n, size_t msb, size_t nbits) const;
-    z3::expr eq(BitVec const& n, size_t msb, size_t nbits) const;
+    z3::expr eq(numrep_t n,
+        size_t msb,
+        size_t nbits,
+        lit_type t = lit_type::base) const;
+    z3::expr eq(BitVec const& n,
+        size_t msb,
+        size_t nbits,
+        lit_type t = lit_type::base) const;
+
     // compares the 'Nbits' most significant bits, starting from 'msb' down
     template <typename Tnum>
-    z3::expr rec_less(Tnum const& n, size_t msb, size_t nbits) const
+    z3::expr rec_less(Tnum const& n,
+        size_t msb,
+        size_t nbits,
+        lit_type t = lit_type::base) const
     {
       static_assert(std::is_same<Tnum, numrep_t>::value ||
                         std::is_same<Tnum, BitVec>::value,
@@ -222,7 +288,7 @@ namespace mysat::primed
 
       assert(nbits % 4 == 0);
       if (nbits == 4)
-        return less_4b(n, msb);
+        return less_4b(n, msb, t);
       else if ((nbits & (nbits - 1)) != 0)          // is not a power of 2
         nbits += std::pow(2, std::log2(nbits) + 1); // next power of 2
 
@@ -232,16 +298,19 @@ namespace mysat::primed
       assert(msb >= nbits / 2);
 
       // terminate early
-      z3::expr significant_less = rec_less(n, msb, nbits / 2);
+      z3::expr significant_less = rec_less(n, msb, nbits / 2, t);
       // compare rest
-      z3::expr significant_eq   = eq(n, msb, nbits / 2);
-      z3::expr remainder_less   = rec_less(n, nbits / 2 - 1, nbits / 2);
+      z3::expr significant_eq   = eq(n, msb, nbits / 2, t);
+      z3::expr remainder_less   = rec_less(n, nbits / 2 - 1, nbits / 2, t);
 
       return significant_less || (significant_eq && remainder_less);
     }
     // z3::expr rec_less(const BitVec& x, size_t msb, size_t nbits) const;
   };
 
+  void bv_comp_test(size_t max_value);
+  void bv_val_test(size_t max_value);
+  void bv_inc_test(size_t max_value);
 } // namespace mysat::primed
 
 #endif // MY_EXPR_H

@@ -1,12 +1,15 @@
 #include "experiments.h"
 #include "cli-parse.h"
+#include "math.h"
 #include "pebbling-result.h"
 #include "result.h"
+#include "stats.h"
 #include "tactic.h"
 #include "types-ext.h"
 
+#include <cassert>
+#include <fmt/core.h>
 #include <fmt/format.h>
-#include <numeric> // std::accumulate
 #include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/latex_exporter.hpp>
@@ -17,26 +20,11 @@
 namespace pdr::experiments
 {
   using namespace my::cli;
+  using namespace my::math;
+  using fmt::format;
   using std::vector;
 
-  namespace math
-  {
-    std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
-
-    double std_dev(const vector<double>& v)
-    {
-      double mean = std::accumulate(v.cbegin(), v.cend(), 0.0) / v.size();
-      return std_dev(v, mean);
-    }
-
-    double std_dev(const vector<double>& v, double mean)
-    {
-      double total_variance = std::accumulate(v.begin(), v.end(), 0.0,
-          [mean](double a, double t) { return a + (t - mean) * (t - mean); });
-
-      return std::sqrt(total_variance / v.size());
-    }
-  } // namespace math
+  std::string time_str(double x) { return fmt::format("{:.3f} s", x); };
 
   namespace tablef
   {
@@ -62,33 +50,125 @@ namespace pdr::experiments
 
   // RUN PUBLIC MEMBERS
   //
-  Run::Run(std::string const& m, std::string const& t,
+  Run::Run(std::string const& m,
+      std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : results(std::move(r)), model(m), tactic(t)
   {
-    double time_sum{ 0.0 };
-    vector<double> times;
+    double time_sum{ 0.0 }, inc_time_sum{ 0.0 };
+    vector<double> times, inc_times;
     for (auto const& r : results)
     {
-      time_sum += r->get_total_time();
-      times.push_back(r->get_total_time());
+      {
+        double dt = r->get_total_time();
+        time_sum += dt;
+        times.push_back(dt);
+      }
+      if (auto dt_inc = r->get_inc_time())
+      {
+        inc_time_sum += *dt_inc;
+        inc_times.push_back(*dt_inc);
+      }
     }
 
     assert(times.size() == results.size());
     avg_time     = time_sum / times.size();
-    std_dev_time = math::std_dev(times, avg_time);
+    std_dev_time = std_dev(times, avg_time);
+
+    if (!inc_times.empty())
+    {
+      assert(inc_times.size() == results.size());
+      avg_inc_time     = inc_time_sum / inc_times.size();
+      std_dev_inc_time = std_dev(inc_times, avg_inc_time.value());
+    }
   }
 
   tabulate::Table::Row_t Run::tactic_row() const { return { "", tactic }; }
 
   tabulate::Table::Row_t Run::avg_time_row() const
   {
-    return { "avg time", math::time_str(avg_time) };
+    return { "avg time", time_str(avg_time) };
   }
 
   tabulate::Table::Row_t Run::std_time_row() const
   {
-    return { "std dev time", math::time_str(std_dev_time) };
+    return { "std dev time", time_str(std_dev_time) };
+  }
+
+  tabulate::Table::Row_t Run::avg_inc_time_row() const
+  {
+    return { "avg incremental time",
+      avg_inc_time ? time_str(*avg_inc_time) : "-" };
+  }
+
+  tabulate::Table::Row_t Run::std_inc_time_row() const
+  {
+    return { "std dev incremental time",
+      std_dev_inc_time ? time_str(*std_dev_inc_time) : "-" };
+  }
+
+  tabulate::Table Run::make_table() const
+  {
+    tabulate::Table t;
+    t.add_row(tactic_row());
+    t.add_row(avg_time_row());
+    t.add_row(std_time_row());
+    if (avg_inc_time)
+    {
+      assert(std_dev_inc_time);
+      t.add_row(avg_inc_time_row()); // control should have no inc_time
+      t.add_row(std_inc_time_row());
+    }
+    else
+    {
+      t.add_row({});
+      t.add_row({});
+    }
+
+    return t;
+  }
+
+  tabulate::Table Run::make_combined_table(const Run& control) const
+  {
+    using namespace my::math;
+
+    std::string percentage_fmt{ "{:.2f} \\\%" };
+    auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
+
+    tabulate::Table t;
+    // append control and improvement column:
+    // tactic | control | improvement (%)
+    {
+      auto r = tactic_row();
+      r.push_back("control");
+      r.push_back("improvement");
+      t.add_row(r);
+    }
+    {
+      auto r = avg_time_row();
+      r.push_back(time_str(control.avg_time));
+      double speedup = percentage_dec(control.avg_time, avg_time);
+      r.push_back(perc_str(speedup));
+      t.add_row(r);
+    }
+    {
+      auto r = std_time_row();
+      r.push_back(time_str(control.std_dev_time));
+      t.add_row(r);
+    }
+    if (avg_inc_time)
+    {
+      assert(std_dev_inc_time);
+      t.add_row(avg_inc_time_row()); // control should have no inc_time
+      t.add_row(std_inc_time_row());
+    }
+    else
+    {
+      t.add_row({});
+      t.add_row({});
+    }
+
+    return t;
   }
 
   std::string Run::str(output_format form) const
@@ -173,7 +253,10 @@ namespace pdr::experiments
     control_table.format() = sample_table.format();
 
     srand(time(0));
-    std::generate(seeds.begin(), seeds.end(), rand);
+    if (args.experiment->seeds)
+      seeds = args.experiment->seeds.value();
+    else
+      std::generate(seeds.begin(), seeds.end(), rand);
   }
 
   void Experiment::run()
@@ -181,10 +264,15 @@ namespace pdr::experiments
     using fmt::format;
     using std::endl;
 
+    std::string model_name  = model_t::get_name(args.model);
+    std::string tactic_name = pdr::tactic::to_string(tactic);
+
+    log.graph.reset(model_name, tactic_name);
     reset_tables();
 
     std::ofstream latex = args.folders.file_in_run("tex");
     std::ofstream raw   = args.folders.file_in_run("md");
+    std::ofstream graph = args.folders.file_in_analysis("tex");
     tabulate::MarkdownExporter exporter;
 
     if (args.control_run)
@@ -197,7 +285,8 @@ namespace pdr::experiments
       // write raw run data as markdown
       raw << format("# {}. {} samples. {} tactic.", model, N_reps,
                  tactic::to_string(tactic))
-          << endl;
+          << endl
+          << format("seeds used: {}", fmt::join(seeds, ", ")) << endl;
 
       raw << "## Control run." << endl;
       control_aggregate->dump(exporter, raw);
@@ -206,10 +295,14 @@ namespace pdr::experiments
     {
       std::cout << type + " run." << endl;
 
+      log.graph.reset(model_name, tactic_name);
       std::shared_ptr<Run> aggregate = do_reps(false);
       latex << aggregate->str(output_format::latex);
 
+      Graphs run_graph = log.graph;
+
       std::cout << "control run." << endl;
+      log.graph.reset(model_name, tactic_name);
       std::shared_ptr<Run> control_aggregate = do_reps(true);
       assert(control_aggregate != nullptr);
       latex << aggregate->str_compared(
@@ -218,13 +311,20 @@ namespace pdr::experiments
       // write raw run data as markdown
       raw << format("# {}. {} samples. {} tactic.", model, N_reps,
                  tactic::to_string(tactic))
-          << endl;
+          << endl
+          << format("seeds used: {}", fmt::join(seeds, ", ")) << endl;
 
       raw << "## Experiment run." << endl;
       aggregate->dump(exporter, raw);
 
       raw << "## Control run." << endl;
       control_aggregate->dump(exporter, raw);
+
+      graph << Graphs::combine(run_graph, log.graph) << endl;
+      // graph << log.graph.get_cti() << endl
+      //           << log.graph.get_obligation() << endl
+      //           << log.graph.get_sat() << endl
+      //           << log.graph.get_relax() << endl;
     }
   }
 } // namespace pdr::experiments

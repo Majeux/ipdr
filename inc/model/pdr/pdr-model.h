@@ -7,6 +7,7 @@
 #include <z3++.h>
 
 #include "expr.h"
+#include "result.h"
 
 namespace pdr
 {
@@ -26,45 +27,49 @@ namespace pdr
       constrained,
       relaxed
     };
+
     Diff_t diff{ Diff_t::none };
 
     IModel(z3::context& c, const std::vector<std::string>& varnames);
     virtual ~IModel() {}
 
+    // cnf representation of transition system
+    //
     const z3::expr_vector& get_initial() const;
     const z3::expr_vector& get_transition() const;
     const z3::expr_vector& get_constraint() const;
+    virtual const z3::expr get_constraint_current() const = 0;
+
+    // load horn-clause representation into a z3::fixedpoint engine.
+    // uses cnf representations by default, can be overriden to specialize
+    //
+    virtual void load_initial(z3::fixedpoint& engine);
+    virtual void load_transition(z3::fixedpoint& engine);
+    virtual z3::expr create_fp_target();
+    // return a "predicate" target for engine.get_num_levels() and engine.
+    virtual z3::func_decl& fp_query_ref();
+    virtual PdrResult::Trace::TraceVec fp_trace_states(z3::fixedpoint& engine);
+
+    // the number of literals that encode a state of the system
+    virtual unsigned state_size() const              = 0;
+    // brief string to describe the meaning of the present constraint
     virtual const std::string constraint_str() const = 0;
+    // number representative of the constraint. a larger number is a looser
+    // constraint
+    virtual unsigned constraint_num() const          = 0;
     // return the number of pebbles in the final state
     void show(std::ostream& out) const;
 
+    z3::func_decl state; // B^N |-> B
    protected:
     z3::expr_vector initial;
     z3::expr_vector transition; // vector of clauses (cnf)
     z3::expr_vector constraint; // vector of clauses (cnf)
-  };
 
-  // an interface for a model to be verified using z3's fixedpoint engine
-  class Z3Model
-  {
-   public:
-    z3::context& ctx;
-    std::string name;
+    // fixedpoint engine interface
+    //
+    z3::sort_vector state_sorts;
 
-    mysat::primed::VarVec vars;
-
-    Z3Model(z3::context& c, const std::vector<std::string>& varnames);
-    virtual ~Z3Model();
-
-    virtual void add_initial(z3::fixedpoint& engine)              = 0;
-    virtual void add_transitions(z3::fixedpoint& engine)          = 0;
-    virtual z3::expr get_target() const                           = 0;
-    virtual z3::check_result reach_target(z3::fixedpoint& engine) = 0;
-
-    void show(std::ostream& out) const;
-    virtual std::string to_string() const = 0;
-
-   protected:
     struct Rule
     {
       z3::expr expr;
@@ -72,13 +77,20 @@ namespace pdr
 
       Rule(z3::context& ctx) : expr(ctx), name(ctx.str_symbol("empty str")) {}
       Rule(z3::expr const& e, z3::symbol const& n) : expr(e), name(n) {}
+      Rule(z3::expr const& e, std::string const& n)
+          : expr(e), name(e.ctx().str_symbol(n.c_str()))
+      {
+      }
     };
+    std::optional<Rule> fp_I;
+    std::vector<Rule> fp_T;
 
     // create a rule for the fixedpoint engine
     Rule mk_rule(z3::expr const& e, std::string const& n);
     Rule mk_rule(
         z3::expr const& head, z3::expr const& body, std::string const& n);
-
+    Rule mk_rule_aux(
+        z3::expr const& head, z3::expr const& body, std::string const& n);
     // quantify over all variables in vars
     z3::expr forall_vars(z3::expr const& e) const;
   };

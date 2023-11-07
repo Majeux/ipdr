@@ -13,6 +13,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace pdr
@@ -49,10 +50,12 @@ namespace pdr
     friend std::ostream& operator<<(std::ostream& out, Statistic const& stat);
   };
 
-  struct TimedStatistic : private Statistic
+  struct TimedStatistic : public Statistic
   {
     double total_time = 0.0;
     std::vector<double> times;
+    // unsigned total_count = 0; (from Statistic)
+    // std::vector<unsigned> count; (from Statistic)
 
     void clear() override;
     void add(size_t i, double dt);
@@ -78,8 +81,11 @@ namespace pdr
     Statistic subsumed_cubes;
 
     double relax_copied_cubes_perc;
+    std::vector<size_t> pre_relax_F;
+    std::vector<size_t> post_relax_F;
 
-    double elapsed = -1.0;
+    double elapsed     = 0.0;
+    double inc_elapsed = 0.0;
     std::vector<std::string> solver_dumps;
 
     // Statistics takes ownership of its file stream
@@ -94,6 +100,7 @@ namespace pdr
     void update_peter(unsigned p, unsigned N);
     void clear();
     std::string str() const;
+    std::string graph_data() const;
     void write();
     friend std::ostream& operator<<(std::ostream& out, Statistics const& s);
 
@@ -108,7 +115,99 @@ namespace pdr
     std::map<std::string, unsigned> model_info;
 
     static inline const std::string PROC_STR = "processes";
-    static inline const std::string N_STR    = "max_processes";
+    static inline const std::string SWITCH_STR    = "bound on switches";
+  };
+
+  // aggregated data over a certain number of experiments
+  struct GraphData
+  {
+    std::vector<unsigned> counts;
+    std::vector<double> times;
+    std::vector<std::string> level_graphs;
+
+    void append(Statistic const& s);
+    void append(Statistic const& s, double time);
+    void append(TimedStatistic const& s);
+  };
+
+  // snapshots of F pre- and post-relaxing for each experiment
+  // and the copy rate between pre- and post-relaxing
+  struct FrelaxData
+  {
+    std::vector<std::vector<size_t>> pre;  // repetition -> level -> n_cubes
+    std::vector<std::vector<size_t>> post; // repetition -> level -> n_cubes
+    std::vector<double> copyrate;          // percentage of copied levels
+
+    // store relevant data from Satistics
+    // return the number of frames in this data
+    size_t append(Statistics const& stats);
+  };
+
+  class Graphs
+  {
+   public:
+    void reset(std::string_view name, std::string_view inc_type);
+    void add_datapoint(size_t label, Statistics const& stats);
+    void add_inc(size_t label, double it);
+    std::string get() const;
+    std::string get_inc() const;
+    std::string get_cti() const;
+    std::string get_obligation() const;
+    std::string get_sat() const;
+    std::string get_relax() const;
+    std::string get_individual() const;
+    // get relaxed percentage + frame breakdown
+    //
+    static std::string combine(Graphs const& a, Graphs const& b);
+
+   private:
+    std::string ts_name;
+    std::map<unsigned, GraphData> cti_data; // parsed Statistics data
+    std::map<unsigned, GraphData> obl_data;
+    std::map<unsigned, GraphData> sat_data;
+    std::map<unsigned, FrelaxData> relax_data;
+    std::map<unsigned, std::vector<double>> inc_times;
+    size_t no_frames{ 0 };
+
+    std::string get(
+        std::string_view name, std::map<unsigned, GraphData> const& data) const;
+    std::string get_combined(std::string_view name,
+        std::map<unsigned, GraphData> const& data, std::string_view bar2,
+        std::string_view line2) const;
+    std::string get(std::string_view name,
+        std::map<unsigned, FrelaxData> const& data) const;
+    std::string get(std::string_view name,
+        std::map<unsigned, std::vector<double>> const& data) const;
+    std::string get_combined(std::string_view name,
+        std::map<unsigned, std::vector<double>> const& data,
+        std::map<unsigned, std::vector<double>> const& data2) const;
+
+    std::string get_bargraph(std::string_view name,
+        std::map<unsigned, GraphData> const& data,
+        std::string_view colour = "blue") const;
+    std::string get_linegraph(std::string_view name,
+        std::map<unsigned, GraphData> const& data,
+        std::string_view colour = "blue") const;
+
+    static std::string barplot(
+        std::string_view name, std::string_view colour = "blue");
+    static std::string lineplot(
+        std::string_view name, std::string_view colour = "blue");
+    std::string relaxplot(std::string_view name) const;
+
+    std::string relaxcontent(
+        std::string_view filename, std::string_view data) const;
+    std::string frames_data_line(
+        size_t label, std::vector<std::vector<size_t>> const& data) const;
+
+    std::vector<std::string> shared_options() const;
+    std::vector<std::string> shared_options(std::string_view yname) const;
+    std::vector<std::string> bar_options() const;
+    std::vector<std::string> bar_options(std::string_view yname) const;
+    std::vector<std::string> thinbar_options() const;
+    std::vector<std::string> thinbar_options(std::string_view yname) const;
+    std::vector<std::string> line_options() const;
+    std::vector<std::string> line_options(std::string_view yname) const;
   };
 } // namespace pdr
 #endif // STATS_H

@@ -1,8 +1,6 @@
 #include "result.h"
 #include "expr.h"
 #include "obligation.h"
-#include "pdr-model.h"
-#include "pebbling-model.h"
 #include "z3-ext.h"
 
 #include <TextTable.h>
@@ -22,6 +20,7 @@
 namespace pdr
 {
   using std::get;
+  using std::optional;
   using std::shared_ptr;
   using std::string;
   using std::vector;
@@ -78,13 +77,13 @@ namespace pdr
   Trace::Trace(unsigned l) : length{ l }, n_marked{ 0 } {}
   Trace::Trace(shared_ptr<const PdrState> s)
       : states(make_trace_marking(s)),
-        length(states.size()),
+        length(states.size()), // discludes I (not a transition step)
         n_marked(greatest_marking(states))
   {
   }
   Trace::Trace(TraceVec const& trace_states)
       : states(trace_states),
-        length(trace_states.size()),
+        length(trace_states.size()), // discludes I (not a transition step)
         n_marked(greatest_marking(trace_states))
   {
   }
@@ -122,7 +121,6 @@ namespace pdr
     return *this;
   }
 
-#warning TODO int level to size_t
   PdrResult PdrResult::found_invariant(int level) { return PdrResult(level); }
 
   PdrResult PdrResult::empty_true() { return PdrResult(-1); }
@@ -181,11 +179,6 @@ namespace pdr
   // IpdrResult
   // Public members
   //
-
-  IpdrResult::IpdrResult(IModel const& m)
-      : IpdrResult(m.vars.names(), m.vars.names_p())
-  {
-  }
   IpdrResult::IpdrResult(vector<string> const& v, vector<string> const& vp)
       : vars(v), vars_p(vp)
   {
@@ -196,6 +189,13 @@ namespace pdr
   void IpdrResult::reset() { pdr_summaries.resize(0); }
 
   double IpdrResult::get_total_time() const { return total_time; }
+
+  optional<double> IpdrResult::get_inc_time() const
+  {
+    if (inc_times.empty())
+      return {};
+    return std::accumulate(inc_times.cbegin(), inc_times.cend(), 0.0);
+  }
 
   vector<double> IpdrResult::g_times() const
   {
@@ -210,16 +210,24 @@ namespace pdr
     tabulate::Table t;
     t.add_row(summary_header());
 
-    for (auto const& row : pdr_summaries)
+    for (auto row : pdr_summaries)
+    {
+      if (row.size() == t.row(0).size() - 1)
+        row.push_back(""); // append no inc_time
+      else
+      {
+        assert(row.size() == t.row(0).size());
+      }
       t.add_row(row);
+    }
 
     tabulate::Table::Row_t total;
     {
       total.resize(pdr_summaries.at(0).size()); // match no. columns
 
       vector<double> times = g_times();
-      assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
-      total.back() = fmt::format("{}", total_time);
+      // assert(total_time == std::accumulate(times.begin(), times.end(), 0.0));
+      total.back()         = fmt::format("{}", total_time);
       t.add_row(total);
     }
 
@@ -257,6 +265,13 @@ namespace pdr
     return *this;
   }
 
+  void IpdrResult::append_inc_time(double time)
+  {
+    total_time += time;
+    inc_times.push_back(time);
+    pdr_summaries.back().push_back(std::to_string(time)); // extra column
+  }
+
   const tabulate::Table::Row_t IpdrResult::process_result(PdrResult const& r)
   {
     original.push_back(r);
@@ -283,6 +298,7 @@ namespace pdr
   {
     tabulate::Table::Row_t rv;
     rv.assign(PdrResult::fields.cbegin(), PdrResult::fields.cend());
+    rv.push_back("incremental time");
     return rv;
   }
 
@@ -291,21 +307,20 @@ namespace pdr
   namespace result
   {
     std::string trace_table(PdrResult const& res,
-        std::vector<std::string> const& vars,
-        std::vector<std::string> const& vars_p)
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p)
     {
       using fmt::format;
       using std::to_string;
       using tabulate::Table;
 
       if (res.has_invariant())
-        return "Invariant, no trace.";
+        return "Invariant, no trace.\n";
 
       // process trace
       std::stringstream ss;
-
-      size_t longest =
-          std::max_element(vars.begin(), vars.end(), str_size_cmp)->size();
+      std::sort(vars.begin(), vars.end());
+      std::sort(vars_p.begin(), vars_p.end());
 
       Table t;
       // Write top row
@@ -318,9 +333,9 @@ namespace pdr
       }
 
       auto make_row =
-          [longest](string i, TraceState const& s, const vector<string>& names)
+          [](string i, TraceState const& s, const vector<string>& names)
       {
-        vector<string> r = state::marking(s, names, longest);
+        vector<string> r = state::marking(s, names);
         r.insert(r.begin(), string(i));
         Table::Row_t rv;
         rv.assign(r.begin(), r.end());
@@ -364,13 +379,12 @@ namespace pdr
     size_t n_marked(PdrResult::Trace::TraceState const& s)
     {
       return std::accumulate(s.cbegin(), s.cend(), size_t{ 0 },
-          [](size_t a, LitStr const& l) { return a + l.sign; });
+          [](size_t a, LitStr const& l) { return a + l.sign_or_nonzero(); });
     }
 
     // return strings that mark whether every state in header a positive or
     // negative literal
-    vector<string> marking(
-        TraceState const& state, vector<string> header, unsigned width)
+    vector<string> marking(TraceState const& state, vector<string> header)
     {
       assert(std::is_sorted(header.begin(), header.end()));
 
@@ -378,12 +392,12 @@ namespace pdr
       for (z3ext::LitStr const& lit : state)
       {
         auto it = std::lower_bound(header.begin(), header.end(), lit,
-            [](std::string_view h, LitStr const& l) { return h < l.atom; });
+            [](std::string_view h, LitStr const& l) { return h < l.name; });
 
-        if (it != header.end() && *it == lit.atom) // it points to s
+        if (it != header.end() && *it == lit.name) // it points to s
         {
-          string fill_X           = fmt::format("{:X^{}}", "", width);
-          rv[it - header.begin()] = lit.sign ? fill_X : "";
+          size_t index = it - header.begin();
+          rv[index]    = lit.marking();
         }
       }
 

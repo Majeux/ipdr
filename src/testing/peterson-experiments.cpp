@@ -2,6 +2,7 @@
 #include "cli-parse.h"
 #include "experiments.h"
 #include "io.h"
+#include "math.h"
 #include "pdr-context.h"
 #include "pdr.h"
 #include "peterson-result.h"
@@ -12,7 +13,6 @@
 #include <cassert>
 #include <fmt/format.h>
 #include <memory>
-#include <numeric> // std::accumulate
 #include <ostream> //std::ofstream
 #include <sstream>
 #include <stdexcept>
@@ -65,13 +65,14 @@ namespace pdr::peterson::experiments
       pdr::Context ctx(z3_ctx, args);
       ctx.seed = seeds[i];
 
-      PetersonModel ts(z3_ctx, ts_descr.start, ts_descr.max);
+      PetersonModel ts =
+          PetersonModel::constrained_switches(z3_ctx, ts_descr.processes, 0);
 
       IPDR opt(args, ctx, log, ts);
       {
-        IpdrPetersonResult result = is_control
-                                      ? opt.control_run(tactic, ts_descr.start)
-                                      : opt.run(tactic, ts_descr.start);
+        IpdrPetersonResult result =
+            is_control ? opt.control_run(tactic, ts_descr.switch_bound.value())
+                       : opt.run(tactic, ts_descr.switch_bound.value());
 
         if (!result.all_holds())
           cout << "! counter found" << endl;
@@ -92,7 +93,8 @@ namespace pdr::peterson::experiments
   // Run members
   //
   // aggregate multiple experiments and format
-  PeterRun::PeterRun(std::string const& m, std::string const& t,
+  PeterRun::PeterRun(std::string const& m,
+      std::string const& t,
       std::vector<std::unique_ptr<IpdrResult>>&& r)
       : Run(m, t, std::move(r)), correct(true)
   {
@@ -120,54 +122,20 @@ namespace pdr::peterson::experiments
 
   tabulate::Table PeterRun::make_table() const
   {
-    tabulate::Table t;
-    {
-      using fmt::to_string;
-
-      t.add_row(tactic_row());
-      t.add_row(avg_time_row());
-      t.add_row(std_time_row());
-
-      t.add_row(correct_row());
-    }
-
-    assert(t.shape().first == 4); // n_rows == 4
+    tabulate::Table t = Run::make_table();
+    t.add_row(correct_row());
 
     return t;
   }
 
   tabulate::Table PeterRun::make_combined_table(const Run& control) const
   {
-    using namespace expsuper::math;
-    using fmt::to_string;
-
-    std::string percentage_fmt{ "{:.2f} \\\%" };
-    auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
-
-    tabulate::Table t;
+    tabulate::Table t = Run::make_combined_table(control);
     try
     {
       auto const& peter_control = dynamic_cast<PeterRun const&>(control);
       // append control and improvement column:
       // tactic | control | improvement (%)
-      {
-        auto r = tactic_row();
-        r.push_back("control");
-        r.push_back("improvement");
-        t.add_row(r);
-      }
-      {
-        auto r = avg_time_row();
-        r.push_back(time_str(peter_control.avg_time));
-        double speedup = percentage_dec(peter_control.avg_time, avg_time);
-        r.push_back(perc_str(speedup));
-        t.add_row(r);
-      }
-      {
-        auto r = std_time_row();
-        r.push_back(time_str(peter_control.std_dev_time));
-        t.add_row(r);
-      }
       {
         auto r = correct_row();
         r.push_back(peter_control.correct ? "yes" : "no");
@@ -178,8 +146,6 @@ namespace pdr::peterson::experiments
     {
       throw std::invalid_argument("combined_listing expects a PeterRun const&");
     }
-
-    assert(t.shape().first == 4); // n_rows == 4
 
     return t;
   }

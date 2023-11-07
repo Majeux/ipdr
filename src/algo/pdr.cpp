@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fstream>
@@ -25,7 +26,6 @@
 
 namespace pdr
 {
-  using fmt::format;
   using std::make_shared;
   using std::optional;
   using std::shared_ptr;
@@ -33,11 +33,23 @@ namespace pdr
   using z3::expr_vector;
 
   PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
-      : vPDR(c, l), ts(m), frames(ctx, m, logger)
+      : vPDR(c, l, m), frames(ctx, m, logger)
   {
   }
 
   void PDR::reset() { frames.reset(); }
+
+  std::optional<size_t> PDR::constrain() 
+  {
+    ctx.type = Tactic::constrain;
+    return frames.reuse();
+  }
+
+  void PDR::relax() 
+  {
+    ctx.type = Tactic::relax;
+    return frames.copy_to_Fk();
+  }
 
   void PDR::print_model(z3::model const& m)
   {
@@ -49,8 +61,8 @@ namespace pdr
 
   PdrResult PDR::run()
   {
-    timer.reset();
     log_start();
+    timer.reset();
 
     if (frames.frontier() == 0)
     {
@@ -82,22 +94,14 @@ namespace pdr
   PdrResult PDR::finish(PdrResult&& rv)
   {
     double final_time = timer.elapsed().count();
-    MYLOG_INFO(logger, format("Total elapsed time {}", final_time));
-    if (rv)
-    {
-      MYLOG_INFO(logger, "Invariant found");
-    }
-    else
-    {
-      MYLOG_INFO(logger, "Terminated with trace");
-    }
-
+    log_pdr_finish(rv, final_time);
     rv.time = final_time;
 
     IF_STATS({
       logger.stats.elapsed = final_time;
       logger.stats.write(ts.constraint_str());
       logger.stats.write();
+      logger.graph.add_datapoint(ts.constraint_num(), logger.stats);
       logger.stats.clear();
       store_frame_strings();
       logger.indent = 0;
@@ -118,14 +122,14 @@ namespace pdr
     if (frames.init_solver.check(ts.n_property))
     {
       MYLOG_INFO(logger, "I =/> P");
-      return PdrResult::found_trace(ts.get_initial());
+      return PdrResult::found_trace(z3ext::convert(ts.get_initial()));
     }
 
     if (frames.SAT(0, ts.n_property.p()))
     { // there is a transitions from I to !P
       MYLOG_INFO(logger, "I & T =/> P'");
       expr_vector bad_cube = frames.get_solver(0).witness_current();
-      return PdrResult::found_trace(bad_cube);
+      return PdrResult::found_trace(z3ext::convert(bad_cube));
     }
 
     frames.extend();
@@ -144,9 +148,9 @@ namespace pdr
 
     for (size_t k = frames.frontier(); true; k++, frames.extend())
     {
-      log_iteration();
+      log_iteration(frames.frontier());
       while (optional<Witness> witness =
-                 frames.get_trans_source(k, ts.n_property.p(), true))
+                 frames.get_trans_source(k, ts.n_property.p_vec(), true))
       {
         // cti is an F_i state that leads to a violation
         log_cti(witness->curr, k);
@@ -155,7 +159,7 @@ namespace pdr
         PdrResult res = block(std::move(witness->curr), k - 1);
         if (not res)
         {
-          res.append_final(witness->next);
+          res.append_final(z3ext::convert(witness->next));
           return res;
         }
 
@@ -168,14 +172,13 @@ namespace pdr
       optional<size_t> invariant_level = frames.propagate();
       double time                      = sub_timer.elapsed().count();
       log_propagation(k, time);
-      frames.log_solver(true);
 
       if (invariant_level)
         return PdrResult::found_invariant(*invariant_level);
     }
   }
 
-  PdrResult PDR::block(expr_vector&& cti, unsigned n)
+  PdrResult PDR::block(std::vector<z3::expr>&& cti, unsigned n)
   {
     unsigned k = frames.frontier();
     logger.indented("eliminate predecessors");
@@ -183,12 +186,11 @@ namespace pdr
 
     obligations.clear();
 
-    unsigned period = 0;
     if (n <= k)
       obligations.emplace(n, std::move(cti), 0);
 
     // forall (n, state) in obligations: !state->cube is inductive
-    // relative to F[i-1]
+    // relative to F[n-1]
     while (obligations.size() > 0)
     {
       sub_timer.reset();
@@ -199,8 +201,25 @@ namespace pdr
       assert(n <= k);
       log_top_obligation(obligations.size(), n, state->cube);
 
+      // skip obligations for which a stronger cube is already blocked in some
+      // frame i
+      if (ctx.skip_blocked)
+      {
+        if (optional<size_t> i = frames.already_blocked(state->cube, n + 1))
+        {
+          MYLOG_DEBUG(logger, "obligation already blocked at level {}", *i);
+          MYLOG_DEBUG(logger, "skipped");
+          obligations.erase(obligations.begin());
+          continue;
+        }
+        else
+        {
+          MYLOG_DEBUG(logger, "obligation not yet blocked, continue");
+        }
+      }
+
       // !state -> state
-      if (optional<expr_vector> pred_cube =
+      if (optional<std::vector<z3::expr>> pred_cube =
               frames.counter_to_inductiveness(state->cube, n))
       {
         shared_ptr<PdrState> pred = make_shared<PdrState>(*pred_cube, state);
@@ -216,7 +235,7 @@ namespace pdr
       }
       else //! s is now inductive to at least F_n
       {
-        log_finish(state->cube);
+        log_finish_state(state->cube);
 
         auto [m, core] = highest_inductive_frame(state->cube, n + 1);
         // n <= m <= level
@@ -226,8 +245,8 @@ namespace pdr
           return PdrResult::found_trace(state);
 
         // !s is inductive to F_m
-        expr_vector smaller_state = generalize(core.value(), m);
-        frames.remove_state(smaller_state, m + 1);
+        generalize(core.value(), m);
+        frames.remove_state(core.value(), m + 1);
         obligations.erase(obligations.begin());
 
         if (static_cast<unsigned>(m + 1) <= k)
@@ -247,6 +266,7 @@ namespace pdr
     logger.indent--;
     return PdrResult::empty_true();
   }
+
   void PDR::store_frame_strings()
   {
     using std::endl;
@@ -258,7 +278,8 @@ namespace pdr
        << frames.blocked_str() << endl
        << SEP2 << endl
        << "Solvers" << endl
-       << frames.solver_str(true) << endl;
+       << frames.solver_str(false) << endl;
+       // << frames.solver_str(true) << endl;
 
     logger.stats.solver_dumps.push_back(ss.str());
   }

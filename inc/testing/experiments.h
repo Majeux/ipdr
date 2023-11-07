@@ -6,6 +6,7 @@
 #include "pdr-model.h"
 #include "result.h"
 
+#include <optional>
 #include <tabulate/exporter.hpp>
 #include <tabulate/format.hpp>
 #include <tabulate/table.hpp>
@@ -19,29 +20,7 @@ namespace pdr::experiments
     markdown
   };
 
-  namespace math
-  {
-    std::string time_str(double x);
-
-    template <typename T> double percentage_dec(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (double)(a - b) / a * 100;
-    }
-
-    template <typename T> double percentage_inc(T old_v, T new_v)
-    {
-      double a = old_v;
-      double b = new_v;
-      return (b - a) / a * 100;
-    }
-
-    // compute standard deviation
-    double std_dev(const std::vector<double>& v);
-    // compute standard deviation when the mean average is known
-    double std_dev(const std::vector<double>& v, double mean);
-  } // namespace math
+  std::string time_str(double x);
 
   namespace tablef
   {
@@ -61,6 +40,8 @@ namespace pdr::experiments
     std::string tactic;
     double avg_time;
     double std_dev_time;
+    std::optional<double> avg_inc_time;
+    std::optional<double> std_dev_inc_time;
 
     Run(std::string const& m, std::string const& t,
         std::vector<std::unique_ptr<IpdrResult>>&& r);
@@ -76,10 +57,12 @@ namespace pdr::experiments
     Row_t tactic_row() const;
     Row_t avg_time_row() const;
     Row_t std_time_row() const;
+    Row_t avg_inc_time_row() const;
+    Row_t std_inc_time_row() const;
     // latex export, called by str and str_compared to show results
-    virtual tabulate::Table make_table() const                          = 0;
+    virtual tabulate::Table make_table() const;
     // must pass a Run of same subtype
-    virtual tabulate::Table make_combined_table(const Run& other) const = 0;
+    virtual tabulate::Table make_combined_table(const Run& other) const;
   };
 
   class Experiment

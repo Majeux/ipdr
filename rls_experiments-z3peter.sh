@@ -5,9 +5,10 @@ bold=$(tput bold)
 normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
-MODE="pebbling ipdr experiment"
+MODE="peterson ipdr experiment"
 INC="--inc=relax"
 Z3=""
+SEEDS=("1808670676,1176564781,1129441264" "1335121771,1215859340,747159508" "1877470485,624915981,1640495885")
 
 if [ $# -eq 0 ]
 then
@@ -19,23 +20,27 @@ sample=$1
 echo "searching in: $BENCHMARKS/"
 
 models=()
-while read -r m
+i=0
+while read -r line
 do
-	if [ -f "$BENCHMARKS/$m.tfc" ]
+	if [ ${line:0:1} != "#" ]
 	then
-		echo -e "${bold}============\n============\n"
-		echo -e "Running experiment for $filename\n"
-		folder="--dir=$BENCHMARKS"
-		model="--tfc=$m"
-		its="--iterations=$sample"
-		# exp=""
+		words=($line)
+		P=${words[0]}
+		switches=${words[1]}
 
-		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its"
+		echo -e "${bold}============\n============\n"
+		echo -e "Running experiment for $P procs and $switches switches\n"
+		bound="--max_switches=$switches"
+		model="--procs=$P"
+		its="--iterations=$sample"
+		seed=${SEEDS[$i]}
+
+		command="$EXEC $MODE $INC --silent --z3pdr $model $bound $its --seeds=$seed"
 
 		echo "${bold}$command${normal}"
 		$command
 		echo -e "done\n"
-	else
-		echo "$m is not a valid .tfc file"
+		i=$((i+1))
 	fi
 done

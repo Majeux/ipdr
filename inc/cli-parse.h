@@ -63,8 +63,8 @@ namespace my::cli
 
     struct Peterson
     {
-      unsigned start;
-      unsigned max;
+      unsigned processes;
+      std::optional<unsigned> switch_bound;
     };
 
     using Model_var = std::variant<Pebbling, Peterson>;
@@ -133,7 +133,12 @@ namespace my::cli
 
     std::optional<Experiment> experiment;
     std::variant<bool, unsigned> r_seed;
+    std::optional<bool> skip_blocked;
     std::optional<unsigned> mic_retries;
+    std::optional<double> subsumed_cutoff;
+    std::optional<unsigned> ctg_max_depth;
+    std::optional<unsigned> ctg_max_counters;
+    bool simple_relax{ true }; // else do constrained copy
     bool tseytin;  // encode pebbling::Model transition using tseyting enconding
     bool onlyshow; // only read in and produce the model image and description
     bool control_run;
@@ -188,6 +193,7 @@ namespace my::cli
 
     inline static const std::string s_pebbles = "pebbles";
     inline static const std::string s_mprocs  = "max_procs";
+    inline static const std::string s_mswitch = "max_switches";
     inline static const std::string s_procs   = "procs";
 
     inline static const std::string s_dir   = "dir";
@@ -204,7 +210,12 @@ namespace my::cli
     inline static const std::string s_whisper = "whisper";
     inline static const std::string s_silent  = "silent";
 
-    inline static const std::string s_mic = "mic-attempts";
+    inline static const std::string s_copy_constrain = "copy-constrain";
+    inline static const std::string s_skip_blocked = "skip-blocked";
+    inline static const std::string s_mic          = "mic-attempts";
+    inline static const std::string s_subsumed     = "cut-subsumed";
+    inline static const std::string s_ctgdepth     = "ctg-depth";
+    inline static const std::string s_ctgnum       = "max-ctgs";
   };
 } // namespace my::cli
 #endif // CLI_H

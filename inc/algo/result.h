@@ -2,8 +2,6 @@
 #define PDR_RESULT_H
 
 #include "obligation.h"
-#include "pdr-model.h"
-#include "pebbling-model.h"
 #include "tactic.h"
 #include "z3-ext.h"
 
@@ -27,11 +25,11 @@ namespace pdr
     using ResultRow = std::array<std::string, 3>;
 
     inline const static ResultRow fields = { "invariant index", "trace length",
-      "total time" };
+      "time" };
 
     struct Invariant
     {
-      int level; // the F_i that gives the inductive invariant
+      int level{ -1 }; // the F_i that gives the inductive invariant
 
       Invariant(int l);
       Invariant(std::optional<unsigned> c, int l);
@@ -99,7 +97,6 @@ namespace pdr
   class IpdrResult
   {
    public:
-    IpdrResult(const IModel& m);
     IpdrResult(
         std::vector<std::string> const& v, std::vector<std::string> const& vp);
     virtual ~IpdrResult();
@@ -109,8 +106,11 @@ namespace pdr
     // add a result to the aggregate
     // adds the row form process_result(r) to the pdr_summaries
     IpdrResult& add(const PdrResult& r);
+    // add the time spend during reconstraining and incremental propagation
+    void append_inc_time(double time);
 
-    // output the pdr_summaries in a formatted table and append the total time
+    // output the summaries of each pdr run in a formatted table and
+    // append the total time.
     // build using rows from process_row()
     tabulate::Table summary_table() const;
     // table with total header and single row
@@ -118,6 +118,7 @@ namespace pdr
     tabulate::Table total_table() const;
 
     double get_total_time() const;
+    std::optional<double> get_inc_time() const; // included in total
     std::vector<double> g_times() const;
 
     // show a small string that described the end result of the run
@@ -139,6 +140,8 @@ namespace pdr
     std::vector<tabulate::Table::Row_t> pdr_summaries;
     // string representation of traces from each PdrResult
     std::vector<std::string> traces;
+    // the time spend preparing the next incremental run and propagating clauses
+    std::vector<double> inc_times;
 
     // field names for table headers
     virtual const tabulate::Table::Row_t summary_header() const;
@@ -156,16 +159,16 @@ namespace pdr
   namespace result
   {
     std::string trace_table(PdrResult const& res,
-        std::vector<std::string> const& vars,
-        std::vector<std::string> const& vars_p);
+        std::vector<std::string> vars,
+        std::vector<std::string> vars_p);
   }
 
   namespace state
   {
     size_t n_marked(PdrResult::Trace::TraceState const& s);
 
-    std::vector<std::string> marking(PdrResult::Trace::TraceState const& s,
-        std::vector<std::string> header, unsigned width);
+    std::vector<std::string> marking(
+        PdrResult::Trace::TraceState const& s, std::vector<std::string> header);
   } // namespace state
 
 } // namespace pdr

@@ -21,7 +21,6 @@
 #include <variant>
 #include <vector>
 
-#warning display settings for: delta, seed, mic_retries
 namespace my::cli
 {
   using namespace pdr::tactic;
@@ -104,8 +103,12 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format(
-            "peterson algorithm. {} processes out of {} max.", m.start, m.max);
+        if (m.switch_bound)
+          return format("peterson algorithm. {} processes. context switches "
+                        "bounded by {}.",
+              m.processes, *m.switch_bound);
+        else
+          return format("peterson algorithm. {} processes.", m.processes);
       }
     };
     string describe(Model_var const& m)
@@ -123,7 +126,7 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format("peter_{}_{}", m.start, m.max);
+        return format("{}procs", m.processes);
       }
     };
     string src_name(Model_var const& m)
@@ -164,7 +167,10 @@ namespace my::cli
 
       string operator()(Peterson const& m) const
       {
-        return format("peter_{}_{}", m.start, m.max);
+        if (m.switch_bound)
+          return format("peter_{}switches", *m.switch_bound);
+        else
+          return format("peter", m.processes);
       }
     };
 
@@ -255,37 +261,21 @@ namespace my::cli
     parse_verbosity(clresult);
     parse_context(clresult);
 
-    // if (!onlyshow)
-    //   parse_mode(clresult);
-    // }
-    // catch (std::exception const& e)
-    // {
-    //   std::cerr << e.what() << std::endl
-    //             << "Error parsing command line arguments" << std::endl
-    //             << std::endl
-    //             << clopt.help() << std::endl;
-    //   throw;
-    // }
+    if (clresult.count(s_copy_constrain))
+      simple_relax = false;
+    else
+      simple_relax = true;
 
     folders.run_type_dir = base_out() / (experiment ? "experiments" : "runs") /
                            algo::get_name(algorithm);
 
     if (z3pdr)
-      folders.model_type_dir = folders.run_type_dir / "z3pdr";
+      folders.model_type_dir =
+          folders.run_type_dir / "z3pdr" / model_t::get_name(model);
     else
       folders.model_type_dir = folders.run_type_dir / model_t::get_name(model);
 
-    folders.model_dir = folders.model_type_dir;
-    {
-      if (auto peb = variant::get_cref<model_t::Pebbling>(model))
-        folders.model_dir /= graph_src::get_name(peb->get().src);
-      else
-      {
-        auto peter = variant::get_cref<model_t::Peterson>(model);
-        folders.model_dir /=
-            format("peter_{}_{}", peter->get().start, peter->get().start);
-      }
-    }
+    folders.model_dir = folders.model_type_dir / model_t::src_name(model);
 
     folders.file_base = model_t::src_name(model);
     {
@@ -403,7 +393,16 @@ namespace my::cli
       (s_show, "Only write the given model to its output file, does not run the algorithm.",
         value<bool>(onlyshow)->default_value("false"))
 
-      (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. Unlimited by default.",
+      (s_copy_constrain, "Copy cubes with previous constraint attached.")
+      (s_skip_blocked, "Skip cubes for which a stronger cube is already blocked. (Default = true)",
+       value<bool>(), "(Bool)")
+      (s_mic, "Limit on the number of times N that pdr retries dropping a literal in MIC. (Default = UINT_MAX)",
+       value<unsigned>(), "(uint:N)")
+      (s_subsumed, "Once this fraction of clauses in the sat-solver are subsumed by subclauses, refresh the solver and discard them. (Default = 0.5)",
+       value<unsigned>(), "(uint:N)")
+      (s_ctgdepth, "Limit on the depth of CTGdown recursion. (Default = 1)",
+       value<unsigned>(), "(uint:N)")
+      (s_ctgnum, "Limit on the number of ctgs (counters-to-generalization) handled by CTGdown. (Default = 3)",
        value<unsigned>(), "(uint:N)");
 
     clopt.add_options("output-level")
@@ -419,7 +418,9 @@ namespace my::cli
        value<unsigned>(), "(uint)");
 
     clopt.add_options(s_peter)
-      (s_mprocs, "REQUIRED. The maximum number of processes for the Peterson Protocol transition system",
+      // (s_mprocs, "REQUIRED. The maximum number of processes for the Peterson Protocol transition system.",
+      //  value<unsigned>(), "(uint)")
+      (s_mswitch, "The maximum number of context switches allowed for the Peterson Protocol transition system. For IPDR: the highest bound to check, starting at 0.",
        value<unsigned>(), "(uint)")
       (s_procs, "REQUIRED. Number of processes for a single peterson pdr run, or the starting value for ipdr.",
        value<unsigned>(), "(uint)");
@@ -503,13 +504,13 @@ namespace my::cli
     if (problem == s_peter)
     {
       ignored({ s_pebbles }, clresult);
-      require_one_of({ s_mprocs }, clresult);
+      require_one_of({ s_mswitch }, clresult);
       require_one_of({ s_procs }, clresult);
 
       model_t::Peterson peter;
 
-      peter.max   = clresult[s_mprocs].as<unsigned>();
-      peter.start = clresult[s_procs].as<unsigned>();
+      peter.switch_bound = clresult[s_mswitch].as<unsigned>();
+      peter.processes    = clresult[s_procs].as<unsigned>();
 
       model = peter;
     }
@@ -517,6 +518,7 @@ namespace my::cli
     {
       assert(problem == s_pebbling);
       ignored({ s_mprocs, s_procs }, clresult);
+      ignored({ s_mswitch, s_procs }, clresult);
 
       model_t::Pebbling pebbling;
       pebbling.src = parse_graph_src(clresult);
@@ -533,9 +535,6 @@ namespace my::cli
     assert(clresult[o_alg].count());
     string algo = clresult[o_alg].as<string>();
     is_one_of(algo, algo_group);
-
-    if (clresult[s_mic].count())
-      mic_retries = clresult[s_mic].as<unsigned>();
 
     if (algo == s_pdr)
     {
@@ -598,7 +597,8 @@ namespace my::cli
     if (mode == s_run)
     {
       ignored({ s_its, s_seeds }, clresult);
-      if (is<algo::t_PDR>(algorithm) && !experiment)
+      if (is<algo::t_PDR>(algorithm) && is<model_t::Pebbling>(model) &&
+          !experiment && clresult.count(s_pebbles) == 0)
         throw std::invalid_argument(format(
             "pebbling pdr run requires a starting number of pebbles: `{}`",
             s_pebbles));
@@ -642,8 +642,20 @@ namespace my::cli
     else if (clresult.count(s_seed))
       r_seed = clresult[s_seed].as<unsigned>();
 
+    if (clresult.count(s_skip_blocked))
+      skip_blocked = clresult[s_skip_blocked].as<bool>();
+
     if (clresult.count(s_mic))
       mic_retries = clresult[s_mic].as<unsigned>();
+
+    if (clresult.count(s_subsumed))
+      subsumed_cutoff = clresult[s_subsumed].as<unsigned>();
+
+    if (clresult.count(s_ctgdepth))
+      ctg_max_depth = clresult[s_ctgdepth].as<unsigned>();
+
+    if (clresult.count(s_ctgnum))
+      ctg_max_counters = clresult[s_ctgnum].as<unsigned>();
 
     // s_tseytin and s_show are set automatically
   }

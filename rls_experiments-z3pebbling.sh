@@ -6,8 +6,7 @@ normal=$(tput sgr0)
 EXEC="./pebbling-pdr"
 BENCHMARKS="./benchmark/rls/tfc"
 MODE="pebbling ipdr experiment"
-INC="--inc=relax"
-Z3=""
+INC="--inc=binary_search"
 
 if [ $# -eq 0 ]
 then
@@ -28,9 +27,10 @@ do
 		folder="--dir=$BENCHMARKS"
 		model="--tfc=$m"
 		its="--iterations=$sample"
+		seeds="--seeds=1962830626,1034687201,209198572,104875891,399683891,903448323,1277237697,844529350,249979600,554136435"
 		# exp=""
 
-		command="$EXEC $MODE $INC --silent $Z3 $folder $model $its"
+		command="$EXEC $MODE $INC --silent $folder $model --z3pdr -c $its $seeds"
 
 		echo "${bold}$command${normal}"
 		$command
