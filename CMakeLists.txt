@@ -4,7 +4,7 @@ option(DEBUG "turn off O3 and turn on assertions" OFF)
 
 include(ExternalProject)
 cmake_minimum_required(VERSION 3.8)
-project("pebbling-pdr")
+project("ipdr-engine")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,7 +27,7 @@ file(GLOB AUX_SOURCES "src/auxiliary/*.cpp")
 file(GLOB TEST_SOURCES "src/testing/*.cpp")
 
 add_executable(
-  pebbling-pdr
+  ipdr-engine
   ${SOURCES}
   ${MODEL_SOURCES}
   ${PDR_MODEL_SOURCES}
@@ -44,9 +44,9 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     message(STATUS "! compiling without -O3")
     set(OPT "")
   else()
-    target_compile_definitions(pebbling-pdr PRIVATE)
+    target_compile_definitions(ipdr-engine PRIVATE)
     message(STATUS "! compiling with -O3")
-    target_compile_definitions(pebbling-pdr PRIVATE NDEBUG)
+    target_compile_definitions(ipdr-engine PRIVATE NDEBUG)
     message(STATUS "! compiling with NDEBUG")
     set(OPT "-O3")
   endif(DEBUG)
@@ -56,23 +56,23 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if(DO_LOG)
-  target_compile_definitions(pebbling-pdr PRIVATE LOG)
-  target_compile_definitions(pebbling-pdr PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
+  target_compile_definitions(ipdr-engine PRIVATE LOG)
+  target_compile_definitions(ipdr-engine PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   message(STATUS "! logging turned on")
 else()
   message(STATUS "! logging turned off")
 endif(DO_LOG)
 
 if(DO_STATS)
-  target_compile_definitions(pebbling-pdr PRIVATE STATS)
-  target_compile_definitions(pebbling-pdr PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
+  target_compile_definitions(ipdr-engine PRIVATE STATS)
+  target_compile_definitions(ipdr-engine PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   message(STATUS "! logging turned on")
 else()
   message(STATUS "! logging turned off")
 endif(DO_STATS)
 
 target_include_directories(
-  pebbling-pdr
+  ipdr-engine
   PRIVATE inc
           inc/auxiliary
           inc/algo
@@ -83,7 +83,7 @@ target_include_directories(
           inc/model/pebbling
           inc/model/peterson)
 target_include_directories(
-  pebbling-pdr SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include
+  ipdr-engine SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include
                               inc/ext/mockturtle/include)
 
 add_library(fmt INTERFACE) # override mockturtle's local version with current
@@ -92,15 +92,15 @@ add_subdirectory(inc/ext/mockturtle/include)
 add_subdirectory(inc/ext/mockturtle/lib)
 
 # vcpkg libraries
-target_link_libraries(pebbling-pdr PRIVATE cxxopts::cxxopts)
-target_link_libraries(pebbling-pdr INTERFACE fmt)
-target_link_libraries(pebbling-pdr PRIVATE ghcFilesystem::ghc_filesystem)
-target_link_libraries(pebbling-pdr PRIVATE mockturtle)
-target_link_libraries(pebbling-pdr PRIVATE spdlog::spdlog
+target_link_libraries(ipdr-engine PRIVATE cxxopts::cxxopts)
+target_link_libraries(ipdr-engine INTERFACE fmt)
+target_link_libraries(ipdr-engine PRIVATE ghcFilesystem::ghc_filesystem)
+target_link_libraries(ipdr-engine PRIVATE mockturtle)
+target_link_libraries(ipdr-engine PRIVATE spdlog::spdlog
                                            spdlog::spdlog_header_only)
-target_link_libraries(pebbling-pdr PRIVATE z3::libz3)
+target_link_libraries(ipdr-engine PRIVATE z3::libz3)
 
 # manual
-target_link_libraries(pebbling-pdr PRIVATE gvc)
-target_link_libraries(pebbling-pdr PRIVATE cgraph)
-target_link_libraries(pebbling-pdr PRIVATE cdt)
+target_link_libraries(ipdr-engine PRIVATE gvc)
+target_link_libraries(ipdr-engine PRIVATE cgraph)
+target_link_libraries(ipdr-engine PRIVATE cdt)
