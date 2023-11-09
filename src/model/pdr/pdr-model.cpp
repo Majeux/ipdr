@@ -2,7 +2,6 @@
 #include "cli-parse.h"
 #include "result.h"
 
-#include <TextTable.h>
 #include <numeric>
 #include <optional>
 #include <tabulate/table.hpp>

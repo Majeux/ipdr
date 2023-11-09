@@ -9,7 +9,6 @@
 #include <array>
 #include <cxxopts.hpp>
 #include <fmt/core.h>
-// #include <filesystem>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -38,14 +37,7 @@ namespace my::cli
       fs::path file;
     };
 
-    struct Hop
-    {
-      unsigned bits;
-      unsigned mod;
-      Hop(unsigned b, unsigned m) : bits(b), mod(m) {}
-    };
-
-    using Graph_var = std::variant<benchFile, tfcFile, Hop>;
+    using Graph_var = std::variant<benchFile, tfcFile>;
 
     std::string get_name(Graph_var const& g);
     dag::Graph make_graph(Graph_var const& g);
@@ -158,9 +150,9 @@ namespace my::cli
     graph_src::Graph_var parse_graph_src(ParseResult const& clresult);
 
     // cli names
-    inline static const std::string o_alg     = "algo";
-    inline static const std::string s_pdr     = "pdr";
-    inline static const std::string s_ipdr    = "ipdr";
+    inline static const std::string o_alg  = "algo";
+    inline static const std::string s_pdr  = "pdr";
+    inline static const std::string s_ipdr = "ipdr";
     inline static const std::vector<std::string> algo_group{ s_pdr, s_ipdr };
 
     inline static const std::string o_problem  = "problem";
@@ -193,7 +185,6 @@ namespace my::cli
     inline static const std::string s_dir   = "dir";
     inline static const std::string s_bench = "bench";
     inline static const std::string s_tfc   = "tfc";
-    inline static const std::string s_hop   = "hop";
 
     inline static const std::string s_rand    = "rand";
     inline static const std::string s_seed    = "seed";
@@ -205,11 +196,11 @@ namespace my::cli
     inline static const std::string s_silent  = "silent";
 
     inline static const std::string s_copy_constrain = "copy-constrain";
-    inline static const std::string s_skip_blocked = "skip-blocked";
-    inline static const std::string s_mic          = "mic-attempts";
-    inline static const std::string s_subsumed     = "cut-subsumed";
-    inline static const std::string s_ctgdepth     = "ctg-depth";
-    inline static const std::string s_ctgnum       = "max-ctgs";
+    inline static const std::string s_skip_blocked   = "skip-blocked";
+    inline static const std::string s_mic            = "mic-attempts";
+    inline static const std::string s_subsumed       = "cut-subsumed";
+    inline static const std::string s_ctgdepth       = "ctg-depth";
+    inline static const std::string s_ctgnum         = "max-ctgs";
   };
 } // namespace my::cli
 #endif // CLI_H

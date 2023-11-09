@@ -2,11 +2,8 @@
 #include "dag.h"
 #include "experiments.h"
 #include "expr.h"
-#include "h-operator.h"
 #include "io.h"
 #include "logger.h"
-#include "mockturtle/networks/klut.hpp"
-#include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-context.h"
 #include "pdr.h"
@@ -94,11 +91,10 @@ int main(int argc, char* argv[])
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
   // show used paths
-  TextTable output_files;
+  tabulate::Table output_files;
   for (auto kv : paths)
   {
-    auto row = { kv.first, kv.second.string() };
-    output_files.addRow(row);
+    output_files.add_row({ kv.first, kv.second.string() });
   }
   os << output_files << std::endl;
 }

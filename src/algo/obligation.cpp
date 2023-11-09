@@ -32,44 +32,6 @@ namespace pdr
   {
   }
 
-  unsigned PdrState::show(TextTable& table) const
-  {
-    vector<std::tuple<unsigned, string, unsigned>> steps;
-
-    auto count_pebbled = [](const vector<expr>& vec)
-    {
-      unsigned count = 0;
-      for (const expr& e : vec)
-        if (!e.is_not())
-          count++;
-
-      return count;
-    };
-
-    unsigned i = 1;
-    steps.emplace_back(i, z3ext::join_ev(cube), count_pebbled(cube));
-
-    shared_ptr<PdrState> current = prev;
-    while (current)
-    {
-      i++;
-      steps.emplace_back(
-          i, z3ext::join_ev(current->cube), count_pebbled(current->cube));
-      current = current->prev;
-    }
-    unsigned i_padding = i / 10 + 1;
-
-    string line_form = "{:>{}} |\t [ {} ] No. pebbled = {}";
-    for (const auto& [num, vec, count] : steps)
-    {
-      vector<string> step_row = { std::to_string(num), vec,
-        std::to_string(count) };
-      table.addRow(step_row);
-    }
-
-    return i_padding;
-  }
-
   // OBLIGATION MEMBERS
   //
   Obligation::Obligation(unsigned k, vector<expr>&& cube, unsigned d)

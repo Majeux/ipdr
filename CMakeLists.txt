@@ -57,7 +57,8 @@ endif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 
 if(DO_LOG)
   target_compile_definitions(ipdr-engine PRIVATE LOG)
-  target_compile_definitions(ipdr-engine PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
+  target_compile_definitions(ipdr-engine
+                             PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   message(STATUS "! logging turned on")
 else()
   message(STATUS "! logging turned off")
@@ -65,7 +66,8 @@ endif(DO_LOG)
 
 if(DO_STATS)
   target_compile_definitions(ipdr-engine PRIVATE STATS)
-  target_compile_definitions(ipdr-engine PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
+  target_compile_definitions(ipdr-engine
+                             PRIVATE Z3_ENABLE_TRACING_FOR_NON_DEBUG)
   message(STATUS "! logging turned on")
 else()
   message(STATUS "! logging turned off")
@@ -82,22 +84,16 @@ target_include_directories(
           inc/model/pdr
           inc/model/pebbling
           inc/model/peterson)
-target_include_directories(
-  ipdr-engine SYSTEM PRIVATE inc/ext/text-table inc/ext/tabulate/include
-                              inc/ext/mockturtle/include)
 
-add_library(fmt INTERFACE) # override mockturtle's local version with current
-target_link_libraries(fmt INTERFACE fmt::fmt)
-add_subdirectory(inc/ext/mockturtle/include)
-add_subdirectory(inc/ext/mockturtle/lib)
+# external project
+target_include_directories(ipdr-engine SYSTEM PRIVATE inc/ext/tabulate/include)
 
 # vcpkg libraries
 target_link_libraries(ipdr-engine PRIVATE cxxopts::cxxopts)
 target_link_libraries(ipdr-engine INTERFACE fmt)
 target_link_libraries(ipdr-engine PRIVATE ghcFilesystem::ghc_filesystem)
-target_link_libraries(ipdr-engine PRIVATE mockturtle)
 target_link_libraries(ipdr-engine PRIVATE spdlog::spdlog
-                                           spdlog::spdlog_header_only)
+                                          spdlog::spdlog_header_only)
 target_link_libraries(ipdr-engine PRIVATE z3::libz3)
 
 # manual

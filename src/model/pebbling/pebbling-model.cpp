@@ -1,4 +1,3 @@
-#include <TextTable.h>
 #include <climits>
 #include <numeric>
 #include <optional>

@@ -3,7 +3,6 @@
 #include "obligation.h"
 #include "z3-ext.h"
 
-#include <TextTable.h>
 #include <algorithm>
 #include <array>
 #include <cassert>

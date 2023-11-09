@@ -1,7 +1,7 @@
 #include "cli-parse.h"
-#include "h-operator.h"
 #include "io.h"
 #include "logger.h"
+#include "parse_bench.h"
 #include "parse_tfc.h"
 #include "tactic.h"
 #include "types-ext.h"
@@ -12,9 +12,6 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 #include <initializer_list>
-#include <lorina/bench.hpp>
-#include <mockturtle/io/bench_reader.hpp>
-#include <mockturtle/networks/klut.hpp>
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
@@ -40,43 +37,26 @@ namespace my::cli
       string operator()(benchFile const& a) const { return a.name; }
 
       string operator()(tfcFile const& a) const { return a.name; }
-
-      string operator()(Hop const& a) const
-      {
-        return format("Hop{}_{}", a.bits, a.mod);
-      }
     };
 
     string get_name(Graph_var const& g)
     {
       return std::visit(src_name_visitor{}, g);
     }
-    //
+
     // GRAPH
+    //
     struct src_graph_visitor
     {
       dag::Graph operator()(benchFile const& a) const
       {
-
-        mockturtle::klut_network klut;
-        auto const result =
-            lorina::read_bench(a.file.string(), mockturtle::bench_reader(klut));
-        if (result != lorina::return_code::success)
-          throw std::invalid_argument(
-              a.file.string() + " is not a valid .bench file");
-
-        return dag::from_dot(klut, a.name);
+        return parse::parse_bench(a.file.string(), a.name);
       }
 
       dag::Graph operator()(tfcFile const& a) const
       {
         parse::TFCParser parser;
         return parser.parse_file(a.file.string(), a.name);
-      }
-
-      dag::Graph operator()(Hop const& a) const
-      {
-        return dag::hoperator(a.bits, a.mod);
       }
     };
 
@@ -370,8 +350,6 @@ namespace my::cli
         value<string>(), "(string:FILE)")
       (s_tfc, "File in in .tfc format.",
         value<string>(), "(string:FILE)")
-      (s_hop, "Construct h-operator model from provided bitwidth (BITS) and modulus (MOD).",
-        value< vector<unsigned> >(), "(uint:BITS,uint:MOD)")
 
       // context options
       (sh('r', s_rand), "Use a randomized seed for the SAT solver with time(0)")
@@ -660,22 +638,11 @@ namespace my::cli
   graph_src::Graph_var ArgumentList::parse_graph_src(
       cxxopts::ParseResult const& clresult)
   {
-    require_one_of({ s_bench, s_tfc, s_hop }, clresult);
+    require_one_of({ s_bench, s_tfc }, clresult);
 
     graph_src::Graph_var rv;
 
-    if (clresult.count(s_hop))
-    {
-      const std::vector<unsigned> hop_list =
-          clresult["hop"].as<std::vector<unsigned>>();
-
-      if (hop_list.size() != 2)
-        throw std::invalid_argument(format(
-            "{} requires two positive integers: bitwidth,modulus", s_hop));
-
-      rv = graph_src::Hop{ hop_list[0], hop_list[1] };
-    }
-    else if (clresult.count(s_tfc))
+    if (clresult.count(s_tfc))
     {
       string name = clresult[s_tfc].as<string>();
       name        = strip_extension(name, "tfc");
