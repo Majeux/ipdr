@@ -130,19 +130,6 @@ namespace pdr
     void append(TimedStatistic const& s);
   };
 
-  // snapshots of F pre- and post-relaxing for each experiment
-  // and the copy rate between pre- and post-relaxing
-  struct FrelaxData
-  {
-    std::vector<std::vector<size_t>> pre;  // repetition -> level -> n_cubes
-    std::vector<std::vector<size_t>> post; // repetition -> level -> n_cubes
-    std::vector<double> copyrate;          // percentage of copied levels
-
-    // store relevant data from Satistics
-    // return the number of frames in this data
-    size_t append(Statistics const& stats);
-  };
-
   class Graphs
   {
    public:
@@ -154,7 +141,6 @@ namespace pdr
     std::string get_cti() const;
     std::string get_obligation() const;
     std::string get_sat() const;
-    std::string get_relax() const;
     std::string get_individual() const;
     // get relaxed percentage + frame breakdown
     //
@@ -165,7 +151,6 @@ namespace pdr
     std::map<unsigned, GraphData> cti_data; // parsed Statistics data
     std::map<unsigned, GraphData> obl_data;
     std::map<unsigned, GraphData> sat_data;
-    std::map<unsigned, FrelaxData> relax_data;
     std::map<unsigned, std::vector<double>> inc_times;
     size_t no_frames{ 0 };
 
@@ -174,8 +159,6 @@ namespace pdr
     std::string get_combined(std::string_view name,
         std::map<unsigned, GraphData> const& data, std::string_view bar2,
         std::string_view line2) const;
-    std::string get(std::string_view name,
-        std::map<unsigned, FrelaxData> const& data) const;
     std::string get(std::string_view name,
         std::map<unsigned, std::vector<double>> const& data) const;
     std::string get_combined(std::string_view name,
@@ -193,10 +176,7 @@ namespace pdr
         std::string_view name, std::string_view colour = "blue");
     static std::string lineplot(
         std::string_view name, std::string_view colour = "blue");
-    std::string relaxplot(std::string_view name) const;
 
-    std::string relaxcontent(
-        std::string_view filename, std::string_view data) const;
     std::string frames_data_line(
         size_t label, std::vector<std::vector<size_t>> const& data) const;
 

@@ -271,21 +271,6 @@ namespace pdr
     level_graphs.push_back(count_graph + time_graph);
   }
 
-  // FrelaxData MEMBERS
-  //
-  size_t FrelaxData::append(const Statistics& stats)
-  {
-    assert(pre.size() == post.size() && pre.size() == copyrate.size());
-
-    pre.push_back(stats.pre_relax_F);
-    post.push_back(stats.post_relax_F);
-    copyrate.push_back(stats.relax_copied_cubes_perc);
-
-    assert(stats.pre_relax_F.size() == stats.post_relax_F.size());
-
-    return stats.pre_relax_F.size();
-  }
-
   // Graphs MEMBERS
   //
   void Graphs::reset(string_view name, string_view inc_type)
@@ -294,7 +279,6 @@ namespace pdr
     cti_data.clear();
     obl_data.clear();
     cti_data.clear();
-    relax_data.clear();
     inc_times.clear();
     no_frames = 0;
   }
@@ -313,10 +297,6 @@ namespace pdr
       GraphData& sat_entry = sat_data.try_emplace(label).first->second;
       sat_entry.append(stats.solver_calls);
     }
-    {
-      FrelaxData& relax_entry = relax_data.try_emplace(label).first->second;
-      no_frames               = std::max(no_frames, relax_entry.append(stats));
-    }
   }
 
   void Graphs::add_inc(size_t label, double it)
@@ -332,8 +312,7 @@ namespace pdr
     ss << get_inc() << endl
        << get_cti() << endl
        << get_obligation() << endl
-       << get_sat() << endl
-       << get_relax() << endl;
+       << get_sat() << endl;
 
     return ss.str();
   }
@@ -356,11 +335,6 @@ namespace pdr
   string Graphs::get_sat() const
   {
     return "\% SAT-call graph\n" + get("SAT", sat_data);
-  }
-
-  string Graphs::get_relax() const
-  {
-    return "\% Frames after relaxing\n" + get("relax-frames", relax_data);
   }
 
   string Graphs::combine(const Graphs& a, const Graphs& b)
@@ -386,9 +360,7 @@ namespace pdr
        << a.get_combined("sat", a.sat_data,
               b.get_bargraph("naive sat-count", b.sat_data, "red"),
               b.get_linegraph("naive sat-time", b.sat_data, "red"))
-       << endl
-       << endl
-       << a.get_relax() << endl;
+       << endl;
 
     return ss.str();
   }
@@ -471,43 +443,6 @@ namespace pdr
     }
 
   } // namespace
-
-  string Graphs::get(
-      string_view name, std::map<unsigned, FrelaxData> const& data) const
-  {
-    string predata, postdata, ratedata;
-    string prename   = format("{}-pre", name);
-    string prefname  = format("{} {}-pre", ts_name, name);
-    string postname  = format("{}-post", name);
-    string postfname = format("{} {}-post", ts_name, name);
-    string ratename  = format("{}-perc", name);
-    string ratefname = format("{} {}-perc", ts_name, name);
-
-    for (auto& [i, d] : data)
-    {
-      predata += frames_data_line(i, d.pre);
-      postdata += frames_data_line(i, d.post);
-      ratedata += pgf_line(i, d.copyrate);
-    }
-
-    return tikzpicture(
-               axis({ shared_options("Frames per Constraint"),
-                        thinbar_options("No. cubes") },
-                   prename,
-                   relaxcontent(prefname, predata) + relaxplot(prefname)) +
-               axis({ shared_options(), line_options("Copyrate (\\%)") },
-                   ratename,
-                   filecontents(ratefname, ratedata) + lineplot(ratefname))) +
-           tikzpicture(
-               axis({ shared_options("Frames per Constraint"),
-                        thinbar_options("No. cubes") },
-                   postname,
-                   relaxcontent(postfname, postdata) + relaxplot(postfname)) +
-               axis({ shared_options(), line_options("Copyrate (\\%)") },
-                   ratename,
-                   filecontents(ratefname, ratedata) + lineplot(ratefname)) +
-               caption(ts_name));
-  }
 
   string Graphs::get(
       string_view name, std::map<unsigned, GraphData> const& data) const
@@ -714,35 +649,6 @@ namespace pdr
         "    table[x=x,y expr=\\thisrow{{y}}-\\thisrow{{err}}] {{{}.dat}};\n"
         "\\addplot [fill={}!20] fill between[of=upper and lower{}];",
         colour, name, name, name, colour, filling);
-  }
-
-  string Graphs::relaxplot(string_view name) const
-  {
-    std::stringstream ss;
-
-    for (size_t i{ 1 }; i < no_frames; i++)
-    {
-      ss << format("\\addplot [draw=black, fill=black]\n"
-                   "    table [x=x, y=f{}, y error=f{}err] {{{}.dat}};",
-                i, i, name)
-         << endl;
-    }
-
-    return ss.str();
-  }
-
-  string Graphs::relaxcontent(string_view filename, string_view data) const
-  {
-    std::stringstream ss;
-    ss << format("\\begin{{filecontents}}{{{}.dat}}", filename) << endl
-       << "    x";
-
-    for (size_t i{ 1 }; i < no_frames; i++)
-      ss << format(" f{} f{}err", i, i);
-
-    ss << endl << data << "\\end{filecontents}" << endl;
-
-    return ss.str();
   }
 
   // data:repetition -> level -> n_cubes
