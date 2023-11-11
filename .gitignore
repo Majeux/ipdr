@@ -49,12 +49,13 @@ build
 z3.log
 spacer-trace.txt
 
-# exeecutable
+# executable
 ipdr-engine
 
 # benchmarks (inputs)
 benchmark/rls
 benchmark/rls-benchmarks
 !benchmark/rls/_rls-benchmarks.txt
+
 # outputs
-output/*
+output
