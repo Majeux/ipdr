@@ -1,6 +1,7 @@
 #ifndef PEBBLING_RESULT_H
 #define PEBBLING_RESULT_H
 
+#include "cli-parse.h"
 #include "expr.h"
 #include "pebbling-model.h"
 #include "result.h"
@@ -33,16 +34,8 @@ namespace pdr::pebbling
     };
 
     // construct PebblingResult
-    IpdrPebblingResult(const PebblingModel& m, Tactic t);
-    IpdrPebblingResult(std::vector<std::string> const& curr,
-        std::vector<std::string> const& next,
-        unsigned pebbles_final,
-        Tactic t);
     IpdrPebblingResult(
-        mysat::primed::VarVec const& vars, unsigned pebbles_final, Tactic t);
-    // convert from general IpdrResult to PebblingResult
-    IpdrPebblingResult(const IpdrResult& r, const PebblingModel& m, Tactic t);
-    IpdrPebblingResult(const IpdrResult& r, unsigned pebbles_final, Tactic t);
+        my::cli::ArgumentList const& args, PebblingModel const& m, Tactic t);
 
     IpdrPebblingResult& add(
         const PdrResult& r, std::optional<unsigned> constraint);

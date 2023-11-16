@@ -19,11 +19,9 @@ namespace pdr::pebbling
 
   IPDR::IPDR(
       my::cli::ArgumentList const& args, Context c, Logger& l, PebblingModel& m)
-      : vIPDR(mk_pdr(args, c, l, m)),
+      : vIPDR(mk_pdr(args, c, l, m), args),
         ts(m),
-        starting_pebbles(),
-        control_setting(args.control_run),
-        simple_relax(args.simple_relax)
+        starting_pebbles()
   {
     auto const& peb =
         my::variant::get_cref<my::cli::model_t::Pebbling>(args.model)->get();
@@ -46,9 +44,9 @@ namespace pdr::pebbling
   {
     switch (tactic)
     {
-      case Tactic::constrain: return constrain(control_setting);
-      case Tactic::relax: return relax(control_setting);
-      case Tactic::binary_search: return binary(control_setting);
+      case Tactic::constrain: return constrain(args.control_run);
+      case Tactic::relax: return relax(args.control_run);
+      case Tactic::binary_search: return binary(args.control_run);
       default: break;
     }
     throw std::invalid_argument("No ipdr tactic has been selected.");
@@ -58,7 +56,8 @@ namespace pdr::pebbling
   {
     alg->logger.and_whisper("! IPDR run: increment max pebbles.");
 
-    IpdrPebblingResult total(ts, Tactic::relax);
+    IpdrPebblingResult total(args, ts, Tactic::relax);
+
     // need at least this many pebbles
     unsigned N = starting_pebbles.value_or(ts.get_f_pebbles());
 
@@ -77,7 +76,7 @@ namespace pdr::pebbling
           basic_reset(N);
         else
         {
-          if (simple_relax)
+          if (args.simple_relax)
             relax_reset(N);
           else
             relax_reset_constrained(N);
@@ -102,7 +101,7 @@ namespace pdr::pebbling
   {
     alg->logger.and_whisper("! IPDR run: decrement max pebbles.");
 
-    IpdrPebblingResult total(ts, Tactic::constrain);
+    IpdrPebblingResult total(args, ts, Tactic::constrain);
     // we can use at most this many pebbles
     unsigned N = starting_pebbles.value_or(ts.n_nodes());
 
@@ -174,7 +173,7 @@ namespace pdr::pebbling
   {
     alg->logger.and_whisper("! IPDR run: binary search exploring max pebbles.");
 
-    IpdrPebblingResult total(ts, Tactic::binary_search);
+    IpdrPebblingResult total(args, ts, Tactic::binary_search);
     // we can use at most this many pebbles
     unsigned top    = starting_pebbles.value_or(ts.n_nodes());
     // and at least this many pebbles
@@ -218,7 +217,7 @@ namespace pdr::pebbling
             early_inv = constrain_reset(m);
           else if (m > m_prev)
           {
-            if (simple_relax)
+            if (args.simple_relax)
               relax_reset(m);
             else
               relax_reset_constrained(m);

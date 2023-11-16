@@ -1,4 +1,5 @@
 #include "pebbling-result.h"
+#include "cli-parse.h"
 #include "expr.h"
 #include "obligation.h"
 #include "pebbling-model.h"
@@ -15,7 +16,6 @@
 
 namespace pdr::pebbling
 {
-  using mysat::primed::VarVec;
   using std::optional;
   using std::string;
   using std::vector;
@@ -23,51 +23,16 @@ namespace pdr::pebbling
   // PebblingResult members
   //
   // Constructors
-  IpdrPebblingResult::IpdrPebblingResult(PebblingModel const& m, Tactic t)
-      : IpdrResult(m.vars.names(), m.vars.names_p()),
+  IpdrPebblingResult::IpdrPebblingResult(
+      my::cli::ArgumentList const& args, PebblingModel const& m, Tactic t)
+      : IpdrResult(args,
+            m.vars.names(), m.vars.names_p()),
         pebbles_final(m.get_f_pebbles()),
         tactic(t),
         total{ total_time, {}, {} }
   {
     assert(t == Tactic::constrain || t == Tactic::relax ||
            t == Tactic::binary_search);
-  }
-  IpdrPebblingResult::IpdrPebblingResult(std::vector<std::string> const& curr,
-      std::vector<std::string> const& next,
-      unsigned pebbles_final,
-      Tactic t)
-      : IpdrResult(curr, next),
-        pebbles_final(pebbles_final),
-        tactic(t),
-        total{ total_time, {}, {} }
-  {
-  }
-  IpdrPebblingResult::IpdrPebblingResult(
-      VarVec const& vars, unsigned pebbles_final, Tactic t)
-      : IpdrPebblingResult(vars.names(), vars.names_p(), pebbles_final, t)
-  {
-  }
-  // IpdrResult conversion constructors
-  IpdrPebblingResult::IpdrPebblingResult(
-      IpdrResult const& r, PebblingModel const& m, Tactic t)
-      : IpdrResult(r),
-        pebbles_final(m.get_f_pebbles()),
-        tactic(t),
-        total{ total_time, {}, {} }
-  {
-    pdr_summaries.resize(0);
-    for (const PdrResult& r : original)
-    {
-      pdr_summaries.push_back(IpdrResult::process_result(r));
-    }
-  }
-  IpdrPebblingResult::IpdrPebblingResult(
-      IpdrResult const& r, unsigned pebbles_final, Tactic t)
-      : IpdrResult(r),
-        pebbles_final(pebbles_final),
-        tactic(t),
-        total{ total_time, {}, {} }
-  {
   }
 
   IpdrPebblingResult& IpdrPebblingResult::add(

@@ -26,8 +26,9 @@ namespace pdr::peterson
   using std::string;
   using std::vector;
 
-  IpdrPetersonResult::IpdrPetersonResult(const PetersonModel& m, Tactic t)
-      : IpdrResult(m.vars.names(), m.vars.names_p()),
+  IpdrPetersonResult::IpdrPetersonResult(
+      my::cli::ArgumentList const& args, const PetersonModel& m, Tactic t)
+      : IpdrResult(args, m.vars.names(), m.vars.names_p()),
         model(m),
         processes(m.n_processes()),
         tactic(t)

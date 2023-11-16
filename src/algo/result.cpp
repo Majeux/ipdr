@@ -178,8 +178,10 @@ namespace pdr
   // IpdrResult
   // Public members
   //
-  IpdrResult::IpdrResult(vector<string> const& v, vector<string> const& vp)
-      : vars(v), vars_p(vp)
+  IpdrResult::IpdrResult(my::cli::ArgumentList const& args,
+      vector<string> const& v,
+      vector<string> const& vp)
+      : vars(v), vars_p(args.z3pdr ? v : vp) // z3 does not use explicit _p vars
   {
   }
 

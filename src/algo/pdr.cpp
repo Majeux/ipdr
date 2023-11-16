@@ -31,7 +31,7 @@ namespace pdr
   using std::string;
   using z3::expr_vector;
 
-  PDR::PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m)
+  PDR::PDR(Context c, Logger& l, IModel& m)
       : vPDR(c, l, m), frames(ctx, m, logger)
   {
   }

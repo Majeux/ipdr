@@ -50,10 +50,10 @@ namespace pdr
     // inherited from vPDR
     // Context ctx
     // Logger& logger
-    // 
+    //
     // vPDR(Context c, Logger& l)
 
-    PDR(my::cli::ArgumentList const& args, Context c, Logger& l, IModel& m);
+    PDR(Context c, Logger& l, IModel& m);
 
     PdrResult run() override;
     // reset pdr's internal state. discards any recorded information or state
@@ -115,7 +115,10 @@ namespace pdr
   class vIPDR
   {
    public:
-    vIPDR(std::shared_ptr<vPDR>&& a) : alg(std::move(a)) {}
+    vIPDR(std::shared_ptr<vPDR>&& a, my::cli::ArgumentList const& al)
+        : alg(std::move(a)), args(al)
+    {
+    }
     virtual ~vIPDR() {}
 
     vPDR const& internal_alg() const { return *alg; }
@@ -128,6 +131,7 @@ namespace pdr
 
    protected: // usable by pdr and ipdr implementations
     std::shared_ptr<vPDR> alg;
+    my::cli::ArgumentList const& args;
   };
 
   inline std::shared_ptr<vPDR> mk_pdr(
@@ -136,7 +140,7 @@ namespace pdr
     if (args.z3pdr)
       return std::make_shared<test::z3PDR>(c, l, m);
     else
-      return std::make_shared<PDR>(args, c, l, m);
+      return std::make_shared<PDR>(c, l, m);
   }
 
   namespace pebbling
@@ -144,7 +148,7 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args,
+      IPDR(my::cli::ArgumentList const& a,
           Context c,
           Logger& l,
           PebblingModel& m);
@@ -161,8 +165,6 @@ namespace pdr
      private:
       PebblingModel& ts; // same instance as the IModel in alg
       std::optional<unsigned> starting_pebbles;
-      bool control_setting;
-      bool simple_relax;
 
       void basic_reset(unsigned pebbles);
       void relax_reset(unsigned pebbles);
@@ -176,7 +178,7 @@ namespace pdr
     class IPDR : public vIPDR
     {
      public:
-      IPDR(my::cli::ArgumentList const& args,
+      IPDR(my::cli::ArgumentList const& a,
           Context c,
           Logger& l,
           PetersonModel& m);
@@ -192,7 +194,6 @@ namespace pdr
      private:
       // PDR alg; from vIPDR
       PetersonModel& ts; // same instance as the IModel in alg
-      bool control_setting;
 
       void basic_reset(unsigned switches);
       void relax_reset(unsigned switches);

@@ -162,7 +162,7 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
             if (args.z3pdr)
               return test::z3PDR(context, log, m);
             else
-              return PDR(args, context, log, m);
+              return PDR(context, log, m);
           },
       },
       model);
@@ -182,21 +182,24 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   std::cout << T << endl << endl;
   args.folders.trace_file << T << endl << endl;
 
-  std::string trace = std::visit(visitor{ [&](pebbling::PebblingModel const& m)
-                                     {
-                                       return pebbling::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p(), m);
-                                     },
-                                     [&](peterson::PetersonModel const& m)
-                                     {
-                                       return peterson::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p(), m);
-                                     },
-                                     [&](IModel const& m) {
-                                       return pdr::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p());
-                                     } },
-      model);
+  // z3PDR uses no _p variables, so when building a trace use regular names
+  std::string trace =
+      std::visit(visitor{ [&](pebbling::PebblingModel const& m)
+                     {
+                       return pebbling::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p(), m);
+                     },
+                     [&](peterson::PetersonModel const& m)
+                     {
+                       return peterson::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p(), m);
+                     },
+                     [&](IModel const& m)
+                     {
+                       return pdr::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p());
+                     } },
+          model);
   std::cout << trace;
   args.folders.trace_file << trace;
 

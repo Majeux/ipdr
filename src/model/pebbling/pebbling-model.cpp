@@ -197,7 +197,6 @@ namespace pdr::pebbling
 
     if (new_p)
     {
-#warning TODO: only need current OR next constraint??
       constraint.push_back(z3::atmost(vars, *new_p));
       constraint.push_back(z3::atmost(vars.p(), *new_p));
     }

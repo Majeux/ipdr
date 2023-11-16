@@ -1,6 +1,7 @@
 #ifndef PETER_RESULT_H
 #define PETER_RESULT_H
 
+#include "cli-parse.h"
 #include "peterson.h"
 #include "result.h"
 
@@ -18,7 +19,8 @@ namespace pdr::peterson
       "runtime", "proven for p=", "maximum p"
     };
 
-    IpdrPetersonResult(const PetersonModel& m, Tactic t);
+    IpdrPetersonResult(
+        my::cli::ArgumentList const& args, const PetersonModel& m, Tactic t);
 
     IpdrPetersonResult& add(const PdrResult& r, unsigned n_switches);
 
