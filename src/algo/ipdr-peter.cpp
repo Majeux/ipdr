@@ -10,7 +10,8 @@ namespace pdr::peterson
 {
   IPDR::IPDR(
       my::cli::ArgumentList const& args, Context c, Logger& l, PetersonModel& m)
-      : vIPDR(mk_pdr(args, c, l, m)), ts(m), control_setting(args.control_run)
+      : vIPDR(mk_pdr(args, c, l, m), args),
+        ts(m)
   {
     auto ipdr = my::variant::get_cref<my::cli::algo::t_IPDR>(args.algorithm);
     assert(ipdr->get().type == Tactic::relax);
@@ -38,7 +39,7 @@ namespace pdr::peterson
       case Tactic::constrain:
         throw std::invalid_argument("Constrain not implemented.");
         break;
-      case Tactic::relax: return relax(max_bound, control_setting);
+      case Tactic::relax: return relax(max_bound, args.control_run);
       default: break;
     }
     throw std::invalid_argument(
@@ -53,7 +54,7 @@ namespace pdr::peterson
     unsigned bound = 0;
     basic_reset(bound);
 
-    IpdrPetersonResult total(ts, Tactic::relax);
+    IpdrPetersonResult total(args, ts, Tactic::relax);
 
     pdr::PdrResult invariant = alg->run();
     total.add(invariant, bound);

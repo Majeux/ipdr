@@ -1,7 +1,6 @@
 #ifndef PDR_OBL_H
 #define PDR_OBL_H
 
-#include "TextTable.h"
 #include "z3-ext.h"
 
 #include <fmt/format.h>
@@ -23,8 +22,6 @@ namespace pdr
     // move constructors
     PdrState(std::vector<z3::expr>&& e);
     PdrState(std::vector<z3::expr>&& e, std::shared_ptr<PdrState> s);
-
-    unsigned show(TextTable& table) const;
 
     unsigned no_marked() const;
   };

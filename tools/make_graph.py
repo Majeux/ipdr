@@ -9,8 +9,8 @@ import pprint
 import string
 from typing import KeysView, List, Mapping
 
-PEBBLING_TYPES = {"pebbling", "z3pdr", "bmc"}
-TYPES = {"pebbling", "z3pdr", "bmc", "peter"}
+PEBBLING_TYPES = {"pebbling", "z3pdr"}
+TYPES = {"pebbling", "z3pdr", "peter"}
 IPDRS = {"constrain", "relax", "binary_search"}
 tools_folder = os.path.dirname(os.path.realpath(__file__))
 with open(tools_folder + "/model_order.txt", 'r') as model_file:

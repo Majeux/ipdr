@@ -1,6 +1,7 @@
 #ifndef PDR_RESULT_H
 #define PDR_RESULT_H
 
+#include "cli-parse.h"
 #include "obligation.h"
 #include "tactic.h"
 #include "z3-ext.h"
@@ -97,7 +98,7 @@ namespace pdr
   class IpdrResult
   {
    public:
-    IpdrResult(
+    IpdrResult(my::cli::ArgumentList const& args, 
         std::vector<std::string> const& v, std::vector<std::string> const& vp);
     virtual ~IpdrResult();
 

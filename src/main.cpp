@@ -1,13 +1,9 @@
-﻿#include "bounded.h"
-#include "cli-parse.h"
+﻿#include "cli-parse.h"
 #include "dag.h"
 #include "experiments.h"
 #include "expr.h"
-#include "h-operator.h"
 #include "io.h"
 #include "logger.h"
-#include "mockturtle/networks/klut.hpp"
-#include "parse_bench.h"
 #include "parse_tfc.h"
 #include "pdr-context.h"
 #include "pdr.h"
@@ -55,7 +51,6 @@ ModelVariant construct_model(
     ArgumentList& args, pdr::Context& context, pdr::Logger& log);
 void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log);
 void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log);
-void handle_bounded(ArgumentList& args, pdr::Context context, pdr::Logger& log);
 void handle_experiment(ArgumentList& args, pdr::Logger& log);
 //
 // aux
@@ -88,8 +83,6 @@ int main(int argc, char* argv[])
     handle_pdr(args, std::move(context), logger);
   else if (std::holds_alternative<algo::t_IPDR>(args.algorithm))
     handle_ipdr(args, std::move(context), logger);
-  else if (std::holds_alternative<algo::t_Bounded>(args.algorithm))
-    handle_bounded(args, std::move(context), logger);
 
   std::cout << "goodbye :)" << std::endl;
   return 0;
@@ -98,11 +91,10 @@ int main(int argc, char* argv[])
 void show_files(std::ostream& os, std::map<std::string, fs::path> paths)
 {
   // show used paths
-  TextTable output_files;
+  tabulate::Table output_files;
   for (auto kv : paths)
   {
-    auto row = { kv.first, kv.second.string() };
-    output_files.addRow(row);
+    output_files.add_row({ kv.first, kv.second.string() });
   }
   os << output_files << std::endl;
 }
@@ -170,7 +162,7 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
             if (args.z3pdr)
               return test::z3PDR(context, log, m);
             else
-              return PDR(args, context, log, m);
+              return PDR(context, log, m);
           },
       },
       model);
@@ -190,21 +182,24 @@ void handle_pdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
   std::cout << T << endl << endl;
   args.folders.trace_file << T << endl << endl;
 
-  std::string trace = std::visit(visitor{ [&](pebbling::PebblingModel const& m)
-                                     {
-                                       return pebbling::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p(), m);
-                                     },
-                                     [&](peterson::PetersonModel const& m)
-                                     {
-                                       return peterson::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p(), m);
-                                     },
-                                     [&](IModel const& m) {
-                                       return pdr::result::trace_table(res,
-                                           m.vars.names(), m.vars.names_p());
-                                     } },
-      model);
+  // z3PDR uses no _p variables, so when building a trace use regular names
+  std::string trace =
+      std::visit(visitor{ [&](pebbling::PebblingModel const& m)
+                     {
+                       return pebbling::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p(), m);
+                     },
+                     [&](peterson::PetersonModel const& m)
+                     {
+                       return peterson::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p(), m);
+                     },
+                     [&](IModel const& m)
+                     {
+                       return pdr::result::trace_table(res, m.vars.names(),
+                           args.z3pdr ? m.vars.names() : m.vars.names_p());
+                     } },
+          model);
   std::cout << trace;
   args.folders.trace_file << trace;
 
@@ -280,31 +275,6 @@ void handle_ipdr(ArgumentList& args, pdr::Context context, pdr::Logger& log)
       algorithm);
 }
 
-void handle_bounded(ArgumentList& args, pdr::Context context, pdr::Logger& log)
-{
-  using namespace bounded;
-  using namespace my::variant;
-  using std::endl;
-
-  if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
-  {
-    dag::Graph G = model_t::make_graph(pebbling->get().src);
-    G.show(args.folders.model_dir / "dag", true, args.onlyshow);
-    log.stats.is_pebbling(G);
-
-    BoundedPebbling algorithm(G, args);
-    pdr::pebbling::IpdrPebblingResult result = algorithm.run();
-
-    args.folders.trace_file << result.end_result() << endl
-                            << result.summary_table() << endl
-                            << std::string(20, '=') << endl
-                            << result.all_traces() << endl;
-  }
-  else
-    throw std::invalid_argument(
-        "Bounded Model Checking expects a graph for Reversible Pebbling.");
-}
-
 void handle_experiment(ArgumentList& args, pdr::Logger& log)
 {
   using namespace pdr;
@@ -318,12 +288,6 @@ void handle_experiment(ArgumentList& args, pdr::Logger& log)
   {
     if (auto pebbling = get_cref<model_t::Pebbling>(args.model))
     {
-      if (auto algo = get_cref<algo::t_Bounded>(args.algorithm))
-      {
-        auto rv = make_unique<PebblingExperiment>(args, log);
-        rv->use_bmc();
-        return rv;
-      }
       return make_unique<PebblingExperiment>(args, log);
     }
     else

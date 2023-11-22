@@ -1,4 +1,0 @@
-# procs max-switches
-2 10
-3 4
-# 4 3

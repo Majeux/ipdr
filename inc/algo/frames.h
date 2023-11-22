@@ -130,7 +130,6 @@ namespace pdr
     Context ctx;
     IModel& model;
     Logger& log;
-    const bool LOG_SAT_CALLS = false;
 
     std::vector<Frame> frames;
     // default frontier = |frames| - 2 (second-to-last frame)

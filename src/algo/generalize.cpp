@@ -147,8 +147,6 @@ namespace pdr
             cube.size(), new_cube.size(), join_ev(new_cube));
         // current literal was dropped, i now points to the next literal
         cube = std::move(new_cube);
-#warning try difference between tracking attempts per clause or no. times in a row
-        // attempts = 0;
       }
       else
       {

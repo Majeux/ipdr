@@ -128,8 +128,7 @@ namespace pdr
     {
       if (SAT(0, z3ext::convert(cube)))
       {
-#warning todo/future work regeneralize cti from this cube (must be possible or counter)
-        // TODO regeneralize cti from this cube (must be possible or counter)
+        // Idea: regeneralize original cti from this cube
         // else it will be reconsidered next iteration
       }
       else

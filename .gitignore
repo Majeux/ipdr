@@ -49,20 +49,13 @@ build
 z3.log
 spacer-trace.txt
 
-#benchmarks
+# executable
+ipdr-engine
+
+# benchmarks (inputs)
 benchmark/rls
 benchmark/rls-benchmarks
 !benchmark/rls/_rls-benchmarks.txt
 
-output/*
-!output/compare_run.sh
-!output/compare_all_runs.sh
-pebbling-pdr*
-
-perf.data*
-med_rls.txt
-new_rls2.text
-peter-out.txt
-unit_test_funcs.txt
-z3stuck.txt
-new_rls3.txt
+# outputs
+output
