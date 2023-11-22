@@ -31,11 +31,6 @@ namespace pdr
 
   namespace // helper
   {
-    bool str_size_cmp(string_view a, string_view b)
-    {
-      return a.size() < b.size();
-    };
-
     // convert a linked list of PdrStates
     TraceVec make_trace_marking(shared_ptr<const PdrState> s)
     {
@@ -361,7 +356,6 @@ namespace pdr
               index_str = to_string(i);
           }
 
-#warning z3pdr result uses only vars, vars_p gives `?` in final result
           Table::Row_t row_marking =
               make_row(index_str, s, (i < N - 1 ? vars : vars_p));
           t.add_row(row_marking);

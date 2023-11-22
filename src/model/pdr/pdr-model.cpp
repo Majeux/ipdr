@@ -54,21 +54,6 @@ namespace pdr
       return mk_and(rv);
     }
 
-    expr cube_to_state(expr_vector const& cube, z3::func_decl const& state)
-    {
-      expr z3_true  = cube.ctx().bool_val(true);
-      expr z3_false = cube.ctx().bool_val(false);
-
-      expr_vector args(cube.ctx());
-      for (expr const& e : cube)
-      {
-        if (!z3ext::is_lit(e))
-          throw std::runtime_error("Need a cube to turn into assignment.");
-        args.push_back(e.is_not() ? z3_false : z3_true);
-      }
-      return state(args);
-    }
-
     // gather all expressions in e, except those in basic
     void aux_var_rec(expr const& e,
         std::set<expr, z3ext::expr_less>& visited,

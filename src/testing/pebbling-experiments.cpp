@@ -147,22 +147,6 @@ namespace pdr::pebbling::experiments
     return { "min strat length", fmt::to_string(min_strat->length) };
   }
 
-  namespace
-  {
-    size_t n_rows(tabulate::Table& t)
-    {
-      size_t rows{ 0 };
-      auto it = t.begin();
-      while (it != t.end())
-      {
-        rows++;
-        ++it;
-      }
-
-      return rows;
-    }
-  } // namespace
-
   tabulate::Table PebblingRun::make_table() const
   {
     tabulate::Table t = Run::make_table();
@@ -198,7 +182,6 @@ namespace pdr::pebbling::experiments
 
     auto perc_str = [](double x) { return format("{:.2f} \\\%", x); };
 
-#warning !! takes the minimal trace, should take minimal trace of latest run (with smallest pebbles)
     tabulate::Table t = Run::make_combined_table(control);
     try
     {
