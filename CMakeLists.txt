@@ -91,7 +91,6 @@ target_include_directories(ipdr-engine SYSTEM PRIVATE inc/ext/tabulate/include)
 # vcpkg libraries
 target_link_libraries(ipdr-engine PRIVATE cxxopts::cxxopts)
 target_link_libraries(ipdr-engine INTERFACE fmt)
-target_link_libraries(ipdr-engine PRIVATE ghcFilesystem::ghc_filesystem)
 target_link_libraries(ipdr-engine PRIVATE spdlog::spdlog
                                           spdlog::spdlog_header_only)
 target_link_libraries(ipdr-engine PRIVATE z3::libz3)

@@ -1,3 +1,0 @@
-- ignore INPUT (not in dag) | possibly add edges but not vertices
-- add OUTPUT to O and V
-- "<int> = <op>(a, b, ...)": add <int> to V, add (a,<int>); (b,<int>); ... to E

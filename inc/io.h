@@ -1,16 +1,14 @@
 #ifndef IO_H
 #define IO_H
 
-#include <ghc/filesystem.hpp>
-// #include <filesystem>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <string_view>
 
 namespace my::io
 {
-  // namespace fs = std::filesystem;
-  namespace fs = ghc::filesystem;
+  namespace fs = std::filesystem;
 
   const fs::path BENCH_FOLDER = fs::current_path();
 

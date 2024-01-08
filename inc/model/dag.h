@@ -6,7 +6,6 @@
 
 #include <cassert>
 #include <fmt/format.h>
-#include <ghc/filesystem.hpp>
 #include <graphviz/gvc.h>
 #include <map>
 #include <memory>

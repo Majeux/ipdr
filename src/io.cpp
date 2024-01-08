@@ -2,9 +2,8 @@
 #include "cli-parse.h"
 #include "tactic.h"
 
-// #include <filesystem>
+#include <filesystem>
 #include <fmt/core.h>
-#include <ghc/filesystem.hpp>
 #include <string>
 #include <string_view>
 #include <tabulate/table.hpp>
