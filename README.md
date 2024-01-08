@@ -45,7 +45,7 @@ Select whether to perform a single run ,or perform multiple and aggregate the re
 
 - Use the `OPTIONS` to further configure the input transition system and algorithm. See `./ipdr-engine -h`.
 
-## Sample Problems
+## Implemented Sample Problems
 IPDR has been implemented to solve two different problems.
 
 ###  [Reversible Pebbling Game for Quantum Memory Management](https://arxiv.org/abs/1904.02121)
@@ -58,11 +58,15 @@ An instance of Peterson's Algorithm is verified while allowing only a limited nu
 
 The input instance is defined by the `--procs` and `--max_switches` parameters, giving upon execution.
 
+## Output
+Result files are written into the `output` folder. Runs are sorted into folders and subfolders based on first the selected mode, then algorithm, then problem and then input.
+
 ## Examples
 Using Constraining IPDR to find a pebbling strategy for the input `4b15g_1.tfc` listed in the `benchmark/rls-benchmarks.txt` :
 ```
 ./ipdr-engine pebbling ipdr run --inc=constrain --dir=./benchmark/rls/tfc --tfc=4b15g_1
 ```
+The results are written to ... TODO
 
 Using Relaxing IPDR to verify Peterson's Algorithm for 3 processes, bounded to 2 context switches (interleavings):
 ```
