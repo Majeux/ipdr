@@ -35,16 +35,19 @@ node_modules
 *.out
 *.app
 
-#visual studio
+# visual studio
 .vs
 
-#cmake
+# vim
+session.vim
+
+# cmake
 out
 CMakeSettings.json
 build
 .cache
 
-#z3
+# z3
 .z3-trace
 z3.log
 spacer-trace.txt
