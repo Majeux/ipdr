@@ -9,7 +9,7 @@ Each iteration of IPDR, PDR is run on an instance of a given problem and informa
 - C++17
 - [Vcpkg](https://github.com/microsoft/vcpkg)
 	- Installed as per the GitHub page in some folder `VCPKGROOT = ~/.../vcpkg`
-	- `vcpkg install cxxopts fmt spdlog z3`
+   	- Inside VCPKGROOT, run `vcpkg install cxxopts fmt spdlog z3`
 - [Graphviz](https://graphviz.org/)
 	- Can be installed via `sudo apt install graphviz`
 
@@ -41,11 +41,11 @@ Select which example problem to run ipdr for. Finding a strategy for the Reversi
 Select whether to perform our implementation of PDR on one instance of the problem or IPDR to evaluate multiple instances.
 
 - `MODE = run | experiment`
-Select whether to perform a single run ,or perform multiple and aggregate the results.
+Select whether to perform a single run ,or perform multiple and aggregate the results. In an experiment a control run is also performed (which simply executes PDR multiple times) to compare against.
 
 - Use the `OPTIONS` to further configure the input transition system and algorithm. See `./ipdr-engine -h`.
 
-## Sample Problems
+## Implemented Sample Problems
 IPDR has been implemented to solve two different problems.
 
 ###  [Reversible Pebbling Game for Quantum Memory Management](https://arxiv.org/abs/1904.02121)
@@ -58,13 +58,20 @@ An instance of Peterson's Algorithm is verified while allowing only a limited nu
 
 The input instance is defined by the `--procs` and `--max_switches` parameters, giving upon execution.
 
+## Output
+Result files are written into the `output` folder. Runs are sorted into folders and subfolders based on first the selected mode, then algorithm, then problem and then input.
+
+Within 
+
 ## Examples
 Using Constraining IPDR to find a pebbling strategy for the input `4b15g_1.tfc` listed in the `benchmark/rls-benchmarks.txt` :
 ```
 ./ipdr-engine pebbling ipdr run --inc=constrain --dir=./benchmark/rls/tfc --tfc=4b15g_1
 ```
+The results are written to `./output/runs/ipdr/pebbling/4b15g_1/4b15g_1-pebbling-ipdr_constrain`.
 
-Using Relaxing IPDR to verify Peterson's Algorithm for 3 processes, bounded to 2 context switches (interleavings):
+Using Relaxing IPDR to verify Peterson's Algorithm for 2 processes, bounded to 2 context switches (interleavings):
 ```
-./ipdr-engine peterson ipdr run --inc=relax --procs=3 --max_switches=2
+./ipdr-engine peterson ipdr run --inc=relax --procs=2 --max_switches=2
 ```
+The results are written to `./output/runs/ipdr/peter/2procs/2procs-peter_2switches-ipdr_relax`.
