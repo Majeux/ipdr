@@ -19,8 +19,6 @@
 #include <vector>
 #include <z3++.h>
 
-#include <dbg.h>
-
 namespace pdr
 {
   using std::optional;
