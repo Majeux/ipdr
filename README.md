@@ -8,15 +8,25 @@ Each iteration of IPDR, PDR is run on an instance of a given problem and informa
 - [CMake](https://cmake.org/) v3.8 or higher
 - C++17
 - [Vcpkg](https://github.com/microsoft/vcpkg)
-	- Installed as per the GitHub page in some folder `VCPKGROOT = ~/.../vcpkg`
-   	- Inside VCPKGROOT, run `vcpkg install cxxopts fmt spdlog z3`
-- [Graphviz](https://graphviz.org/)
-	- Can be installed via `sudo apt install graphviz`
+	- Installed as per the GitHub page in some folder `[VCPKGROOT] = ~/.../vcpkg`
+   	- Inside [VCPKGROOT], run `./vcpkg install cxxopts fmt spdlog z3`
+- Graphviz
+	- Can be installed via `sudo apt install graphviz-dev`
 
 ## Compilation
-Vcpkg integrates with CMake via its toolchain file. To compile, run:
+After cloning this repository, initialize its submodules:
 ```
-cmake -DCMAKE_TOOLCHAIN_FILE=VCPKGROOT/scripts/buildsystems/vcpkg.cmake [OPTIONS]
+git submodule init
+git submodule update
+```
+Create a build directory and enter it:
+```
+mkdir build
+cd build
+```
+Vcpkg integrates with CMake via its toolchain file. To compile, run the following in the `build` directory:
+```
+cmake -DCMAKE_TOOLCHAIN_FILE=[VCPKGROOT]/scripts/buildsystems/vcpkg.cmake [OPTIONS] ..
 make
 ```
 
@@ -25,6 +35,8 @@ make
 - `-DDO_STATS=on` turns on the collection of statistics gathered during a run. A `.stats` file in the output's `analysis` folder.
 - `-DDEBUG=on` turns off `-O3` optimization and and enables debug assertions.
 
+
+After these steps you will find the `ipdr-engine` executable in the project root.
 
 ## Running
 
