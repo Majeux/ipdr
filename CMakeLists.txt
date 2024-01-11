@@ -12,7 +12,6 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../)
 
 find_package(cxxopts CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
-find_package(ghc_filesystem CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(Z3 CONFIG REQUIRED)
 
